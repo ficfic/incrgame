@@ -7,6 +7,14 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Self-description = escalating agency (4 stages)** — Reflection
+  prestige → graph proposes its own goals → graph self-operates (incl. sell-vs-
+  keep) → graph models the player/game (fourth-wall climax). The game's unique
+  hook and the ominous spine's payoff. Rejected: metamodeling-only layer (too
+  complex now), prestige-multiplier-only (drops the hook).
+- 2026-07-25 — **Include the fourth-wall beat as the climax** — a node for the
+  player/company/game appears near the end; theoretically honest (a universal KG
+  would represent its authors). Rejected: keep-it-in-world.
 - 2026-07-25 — **Tone: satirical startup surface + ominous awe spine** — gold-
   rush tech comedy early, curdling into Paperclips-style dread as the graph
   self-describes. Satire is a wrapper over exact theory: joke-names always show

@@ -15,8 +15,9 @@ without being re-briefed. Move finished items to **Done** with a date.
       domain), endless horizon + prestige, sell-early/rent-late arc.
 - [x] Tone locked: satirical startup surface + ominous awe spine; satire wraps
       exact theory.
-- [ ] Flesh out remaining open questions (balance curves, self-description play,
-      sell-vs-keep pacing, sell→rent unlock, domain sizing, Field Notes format).
+- [x] Self-description designed: 4-stage escalating agency + fourth-wall climax.
+- [ ] Flesh out remaining open questions (balance curves, sell-vs-keep pacing,
+      sell→rent unlock, domain sizing, Field Notes format, how stages 2-4 gate).
 - [ ] Design the "Field Notes" codex format (in-game explainer + learn-more
       links to real specs).
 - [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on

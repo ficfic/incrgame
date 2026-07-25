@@ -134,11 +134,30 @@ The tier ladder *is* the real stack:
 - **Vocabulary reuse reward** — mirrors the 5-star Linked Open Data model:
   interoperability pays.
 
-## Prestige — "Reflect" (self-description)
+## Prestige & endgame — "Reflect" (self-description as escalating agency)
 
-The graph builds an ontology *of itself* (a meta-graph). Reset the lower layers,
-keep a **Reflexivity** multiplier. Endgame escalation: the graph proposes its
-own concepts and goals — it writes its own ontology (Paperclips-style narrative).
+Self-description is the game's crown jewel and the payoff of the ominous spine.
+It escalates in **four stages** that ride the dread curve — the joke slowly
+curdles into awe. Theoretically honest throughout: RDFS/OWL are themselves RDF,
+so a graph describing itself is real metamodeling, and a *universal* knowledge
+graph genuinely would contain a representation of its own authors.
+
+1. **Reflection (prestige).** The graph builds an ontology *of itself* (a
+   meta-graph). Reset lower layers, keep a permanent **Reflexivity** multiplier.
+   *The joke is still funny here.*
+2. **It proposes its own goals.** Post-Reflection, the graph starts *suggesting*
+   which domains/axioms to model next — it begins setting your objectives
+   instead of you setting them. *First chill.*
+3. **It self-operates.** The graph runs its own Harvesters/Reasoners and
+   eventually makes its own **sell-vs-keep** calls. You drift from operator to
+   overseer. *The joke has curdled.*
+4. **It models you (fourth-wall climax).** "All the world's knowledge" includes
+   *you* — the company, the player, the game itself. A node for the player
+   appears; the thing you built to model everything models its modeler. The
+   screenshot ending; satire and awe land in the same beat.
+
+Because the horizon is endless (no true win), these stages deepen across
+prestige loops rather than ending the game.
 
 ## Economy layer (core pillar)
 
