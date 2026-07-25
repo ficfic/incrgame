@@ -9,8 +9,10 @@ without being re-briefed. Move finished items to **Done** with a date.
       `docs/GAME_DESIGN.md`). Core engine locked: inference = compounding.
 - [x] Educational angle set: "faithful but playable"; GLOSSARY.md is the
       accuracy source of truth; mechanics teach real theory.
+- [x] Economy layer designed: core pillar, sell/exhaust, AI build-vs-buy fork,
+      provenance/licensing ethics. Central tension = "sell vs keep".
 - [ ] Flesh out the design's open questions (balance curves, how self-
-      description plays, theme/tone).
+      description plays, theme/tone, how "sell vs keep" paces across the game).
 - [ ] Design the "Field Notes" codex format (in-game explainer + learn-more
       links to real specs).
 - [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on

@@ -36,6 +36,21 @@ glossary deliberately and log it in `DECISIONS.md`).
 | **Metamodeling / self-description** | RDFS/OWL vocabularies are themselves RDF; graphs can describe their own structure. | The "Reflect" prestige. | [RDF Schema 1.1](https://www.w3.org/TR/rdf-schema/) |
 | **Upper ontology** | Domain-independent foundational ontology (BFO, DOLCE, SUMO). | Endgame meta-structure. | [BFO](https://basic-formal-ontology.org/) |
 
+## AI economy terms
+
+These ground the money/AI layer in the real AI industry.
+
+| Real term | Correct definition | In-game as | Source |
+|---|---|---|---|
+| **RAG** (Retrieval-Augmented Generation) | Technique where an LLM retrieves external knowledge (often a graph/DB) to ground its output. | Why buyers want your graph. | [AWS: What is RAG](https://aws.amazon.com/what-is/retrieval-augmented-generation/) |
+| **Grounding** | Constraining/verifying LLM output against a trusted knowledge source to reduce error. | Reasoner validating LLM-extracted triples. | [Hogan et al., *Knowledge Graphs*](https://arxiv.org/abs/2003.02320) |
+| **Hallucination** | An LLM producing fluent but false/unsupported statements. | Why owned-AI triples are noisy and need grounding. | [Ji et al., *Survey of Hallucination*](https://arxiv.org/abs/2202.03629) |
+| **Training-data market** | The real economy of buying/licensing datasets to train/ground AI models. | The buyers you sell to. | [Hogan et al., *Knowledge Graphs*](https://arxiv.org/abs/2003.02320) |
+| **Provenance / PROV-O** | Formal record of where data came from and how it was produced. | Premium-price + lawsuit-avoidance mechanic. | [PROV-O](https://www.w3.org/TR/prov-o/) |
+| **Fine-tuning** | Further-training a model on specific data to specialize it. | An upgrade for an owned model. | [OpenAI: fine-tuning](https://platform.openai.com/docs/guides/fine-tuning) |
+| **Inference cost / tokens** | The per-use compute cost of running a model (often billed per token). | Subscription (opex) drain. | [AWS: What is RAG](https://aws.amazon.com/what-is/retrieval-augmented-generation/) |
+| **Build vs buy (capex/opex)** | Self-host a model (upfront capex + compute) vs pay an API per use (ongoing opex). | The AI strategic fork. | [Azure DT ontologies](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-ontologies) |
+
 ## For players who want to go deeper
 
 - **W3C RDF 1.1 Primer** — the gentle official intro.

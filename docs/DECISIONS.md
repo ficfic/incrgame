@@ -7,6 +7,20 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Economy is a core pillar, not a second act** — money and
+  knowledge intertwined from the start. Richer, more to balance early; accepted.
+- 2026-07-25 — **Selling knowledge is exhaustive (sell/exhaust, not license)** —
+  selling consumes the knowledge sold, creating the central "sell vs keep"
+  tension. Rejected: license-and-retain (steadier but less tension).
+- 2026-07-25 — **Include the AI build-vs-buy fork** — subscriptions (opex) vs
+  owned model (capex + compute). Owned LLM extracts noisy triples the reasoner
+  must ground (real KG+LLM loop).
+- 2026-07-25 — **Include the provenance/licensing ethics mechanic** — high-
+  provenance sells for more; unlicensed shortcuts risk a lawsuit hazard.
+  Topical, faithful (PROV-O), and funny.
+- 2026-07-25 — **Central tension = "sell vs keep"** — every triple can be cashed
+  out now or hoarded to compound quality + feed your own AI. This is the game's
+  heartbeat; pricing stays tied to knowledge quality so Capital isn't a side-grind.
 - 2026-07-25 — **Educational rigor stance: "faithful but playable"** — mechanics
   are genuinely accurate; simplifications are labeled in-game; deep theory is
   optional (a codex). Rejected: hardcore-accurate (too textbook-y),

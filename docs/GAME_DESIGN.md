@@ -80,6 +80,54 @@ The graph builds an ontology *of itself* (a meta-graph). Reset the lower layers,
 keep a **Reflexivity** multiplier. Endgame escalation: the graph proposes its
 own concepts and goals — it writes its own ontology (Paperclips-style narrative).
 
+## Economy layer (core pillar)
+
+Money and knowledge are intertwined from the start — not a second act.
+
+**Second currency: Capital.** Earned by **selling** knowledge to AI buyers.
+Selling is **exhaustive** — it consumes the knowledge you sell. That creates the
+game's central tension:
+
+> **Sell vs keep.** Cash out knowledge for capital now, or hoard it to raise
+> quality, unlock ontologies, and feed your own AI (which makes future knowledge
+> cheaper). The whole game is this tug-of-war.
+
+### Buyers pay for quality (the economy rewards the theory)
+
+Price is gated by the mechanics you already have — money loops *back into* the
+knowledge system, it isn't a parallel grind:
+
+- **Consistent** graphs (no ex-falso blowups) → premium.
+- **Provenance-tracked** data (PROV-O) → premium; buyers care where data came from.
+- **Well-typed & deduplicated** (Curators / `owl:sameAs`) → higher grade.
+
+### Spend Capital on
+
+Compute (GPUs), better Harvesters/Extractors, bootstrap datasets, and **AIs**.
+
+### AI: build vs buy (a real strategic fork)
+
+- **Subscriptions (buy)** — pay per use; instant; a constant drain (opex).
+- **Own model (build)** — big upfront cost + compute/GPUs; compounding, cheaper
+  long-run (capex).
+
+**Authentic feedback loop:** an LLM you rent/own auto-extracts *cheap but noisy*
+triples — but it **hallucinates**, so your Reasoner/Curators must **ground** and
+validate them against the graph before they count. This is how real KG+LLM
+systems work, as a mechanic.
+
+### Provenance / licensing (ethics — topical & faithful)
+
+High-provenance data sells for more. Cheap shortcuts (unlicensed bulk datasets,
+ungrounded LLM output) earn fast capital but risk a **lawsuit hazard** — a
+penalty event. Provenance is tracked via PROV-O (already in the glossary). It's
+satirical, it's the actual current AI-data debate, and it's accurate.
+
+### Balance caution
+
+Keep pricing tied to knowledge quality so Capital never becomes a disconnected
+side-grind. The sell-vs-keep decision must stay meaningful at every stage.
+
 ## Visual reward
 
 - Each prestige unlocks a bigger, prettier graph "bloom."
