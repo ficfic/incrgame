@@ -65,8 +65,10 @@ paper, the paper wins (`CLAUDE.md`, theory-faithfulness rule).
 
 **The goal: restore all the world's knowledge as one graph.** The target is not
 fictional either — it's the real ambition behind Cyc, Wikidata, and Google's
-Knowledge Graph, and in this game it has a **real denominator**: 107,519
-concepts. Coverage % is an honest fraction, not a progress bar.
+Knowledge Graph, and in this game it has a **real denominator**: the **4,096
+concepts** the game actually ships (curated from Open English WordNet's 107,519
+— see `docs/VISION.md` on why the lab bench is small on purpose). Coverage % is
+an honest fraction, not a progress bar.
 
 **Master progress: "world coverage %."** Approached **domain by domain**
 (General → Biology → … ; full order TBD, see domain table); each domain is a
@@ -359,14 +361,16 @@ real-world data would wreck balance and mobile performance.
 
 ## Domains (branching tech-tree, mechanically distinct)
 
-> **Post-pivot note (2026-07-25).** The shipped dataset already carries **45 real
-> semantic domains** — WordNet's lexicographer files (`noun.animal`,
-> `noun.cognition`, `verb.weather`, …). Every concept knows which one it belongs
-> to, and the recovery card shows it. That is a domain system we get for free and
-> should exploit *before* building the tech-tree below. Open question for design:
-> do the 45 WordNet domains become the early-game map, with the ontologies in the
-> table below as later, separately-licensed expansions? Licences for those are
-> already checked in `docs/ATTRIBUTION.md`.
+> **Post-pivot note (2026-07-25, corrected).** The shipped dataset carries **26
+> real semantic domains** — WordNet's *noun* lexicographer files (`noun.animal`,
+> `noun.cognition`, …). WordNet defines 45 in total, but the curated build takes
+> nouns only, so 26 is what a player can actually encounter. Every concept knows
+> which one it belongs to, and the recovery card shows it. That is a domain
+> system we get for free and should exploit *before* building the tech-tree
+> below. Open question for design: do the 26 WordNet domains become the
+> early-game map, with the ontologies in the table below as later,
+> separately-licensed expansions? Licences for those are already checked in
+> `docs/ATTRIBUTION.md`.
 
 You restore knowledge **domain by domain** toward world coverage. After a starter
 domain, domains open as a **branching tech-tree** (choose your path — replayable,

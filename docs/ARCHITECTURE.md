@@ -90,7 +90,7 @@ The CONTENT layer now has two kinds of data, and the distinction matters:
 
 | | Hand-authored content | Generated ontology data |
 |---|---|---|
-| **What** | resources, generators, costs, gates | 107,519 concepts: names, domains, is-a parents, definitions |
+| **What** | resources, generators, costs, gates | 4,096 concepts (curated from OEWN's 107,519): names, domains, is-a parents, definitions |
 | **Where** | `src/content/*.ts` | `public/ontology/*.json` (committed build output) |
 | **From** | design decisions | `scripts/build-ontology.mjs` ← Open English WordNet, pinned |
 | **Edited by** | humans | **nobody** — regenerate, never hand-patch |

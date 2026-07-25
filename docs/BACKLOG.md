@@ -166,8 +166,9 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
 - [ ] `aiAgent` declares `produces: 'triples'` but nothing reads it; if it ever
       enters the roster it costs 12,000 Datums and produces nothing. The
       `produces` field is decorative and actively misleading.
-- [ ] DECISIONS.md says "newest at the top" and the last two sessions appended
-      at the bottom. Fix the file or the convention.
+- [x] DECISIONS.md ordering settled 2026-07-25 — the convention was corrected to
+      match the file (chronological, append at the END) rather than reordering
+      500 lines of history.
 - [ ] Pin the SELECTION rules in a test (checksum of the label sequence): the
       frozen-order contract names only `SRC_REF`, but the curation proved the
       selection rules renumber the world just as thoroughly.
@@ -263,3 +264,16 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       (`.claude/hooks/guardrails.sh`: destructive-git block + secret scan).
 - [x] 2026-07-25 — Research: incremental-game frameworks, starter repos, big-num
       libraries, and Claude Code best practices for a solo/mobile/public setup.
+
+## Housekeeping closed 2026-07-25
+
+- [x] **`docs/HANDOVER.md` rewritten.** It documented save v5, 63 tests, a
+      `ReviewPanel.svelte` that no longer exists and a Datums economy that was
+      deleted — the-graph called it the most expensive defect in the repo,
+      because a fresh session reads it first and is misled by all of it. Now
+      verified against the code at v10 / 73 tests, and it states the
+      unreachable-goal claim is NOT yet true and why.
+- [x] **Stale dataset numbers fixed**: `GAME_DESIGN.md` and `ARCHITECTURE.md`
+      claimed 107,519 concepts (we ship 4,096) and 45 domains (we ship 26 — the
+      curated build takes nouns only, and WordNet's 45 count includes verbs and
+      adjectives a player can never encounter here).
