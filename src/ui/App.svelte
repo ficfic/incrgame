@@ -98,22 +98,24 @@
   function act(it: SceneItem): void {
     switch (it.kind) {
       case 'frontier':
-        if (!it.enabled) { say('Not enough Datums or attention'); return; }
-        dispatch({ type: 'claimNode', id: it.payload as number });
-        return;
+        return; // a discovery in flight is already working; nothing to tap
       case 'survey':
-        if (!it.enabled) { say('Not enough Datums'); return; }
-        dispatch({ type: 'survey' });
+        if (!it.enabled) { say('No free attention'); return; }
+        dispatch({ type: 'discover' });
+        return;
+      case 'setSupervision':
+        if (!it.enabled) return;
+        dispatch({ type: 'setSupervision', slots: it.payload as number });
         return;
       case 'machine':
-        if (!it.enabled) { say('Not affordable yet'); return; }
+        if (!it.enabled) { say('Not enough verified knowledge'); return; }
         dispatch({ type: 'buyGenerator', id: it.payload as never });
         return;
       case 'absorb':
         dispatch({ type: 'absorb' });
         return;
       case 'review':
-        if (!it.enabled) { say('Needs attention'); return; }
+        if (!it.enabled) { say('No free attention'); return; }
         sheet = 'review';
         return;
       case 'vignette':
@@ -129,7 +131,7 @@
         return;
       }
       case 'commit':
-        if (!it.enabled) { say('Needs attention'); return; }
+        if (!it.enabled) { say('No free attention'); return; }
         dispatch({ type: 'reviewBatch', keep: [...verdicts] });
         sheet = null;
         return;

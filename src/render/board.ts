@@ -14,8 +14,8 @@
 //      at least MIN_TOUCH; the drawn shape may be smaller than the target.
 import type { GameState, ReviewItem, Vignette } from '../core/types';
 import {
-  ATTENTION_CAP, CLAIM_ATTENTION, REVIEW_ATTENTION, claimCost, coverage,
-  displayedFidelity, generatorCost, ratePerSecond, recovered, surveyCost, verified,
+  agentCost, attentionCap, attentionFree, coverage, displayedFidelity, recovered,
+  supervisedPerSecond, unsupervised, unsupervisedPerSecond, verified,
 } from '../core/engine';
 import { D, format, formatWhole, gte } from '../core/numbers';
 import { GENERATORS, M1_ROSTER } from '../content/generators';
@@ -31,7 +31,7 @@ const SUBSTRATE_DOTS = 90;
 export type ItemKind =
   | 'frontier' | 'anchor' | 'machine' | 'stat' | 'survey' | 'review'
   | 'vignette' | 'retrain' | 'absorb' | 'reviewVerdict' | 'commit'
-  | 'choice' | 'sheetClose' | 'save';
+  | 'choice' | 'sheetClose' | 'save' | 'setSupervision';
 
 export interface SceneItem {
   id: string;
@@ -132,11 +132,15 @@ export function layout(input: BoardInput): SceneItem[] {
 
   // ---- stats, across the top. These are nodes too; tapping does nothing yet
   const statY = 42;
-  const rate = ratePerSecond(state, 'data');
+  const clean = D(supervisedPerSecond(state)).toNumber();
+  const dirty = D(unsupervisedPerSecond(state)).toNumber();
+  const flow = clean + dirty > 0
+    ? `statements  +${(clean + dirty).toFixed(1)}/s · ${Math.round((clean / (clean + dirty)) * 100)}% checked`
+    : 'statements';
   push({
-    id: 'stat-datums', kind: 'stat', x: w / 2, y: statY, r: 0, draw: 0,
-    label: formatWhole(state.resources.data),
-    sub: rate === '0' ? 'Datums' : `Datums  +${format(rate)}/s`,
+    id: 'stat-statements', kind: 'stat', x: w / 2, y: statY, r: 0, draw: 0,
+    label: formatWhole(state.resources.triples),
+    sub: flow,
     enabled: false, tone: 'core',
   });
 
@@ -155,11 +159,12 @@ export function layout(input: BoardInput): SceneItem[] {
     value: formatWhole(verified(state)),
     enabled: false, tone: trust > 0.66 ? 'good' : trust > 0.33 ? 'warn' : 'bad',
   });
+  const free = attentionFree(state);
   push({
     id: 'stat-attention', kind: 'stat', x: w * 0.80, y: statY + 44, r: 0, draw: 0,
-    label: `${Math.floor(state.attention)}`,
-    sub: `of ${ATTENTION_CAP} attention`,
-    enabled: false, tone: state.attention >= 1 ? 'good' : 'muted',
+    label: `${free}`,
+    sub: `free of ${attentionCap(state)}`,
+    enabled: false, tone: free > 0 ? 'good' : 'warn',
   });
 
   // ---- the knowledge graph itself: anchors are nodes, frontier are targets
@@ -174,33 +179,34 @@ export function layout(input: BoardInput): SceneItem[] {
     });
   }
 
-  const canClaim = gte(state.resources.data, claimCost(state)) && state.attention >= CLAIM_ATTENTION;
-  for (const id of state.forged.frontier) {
-    const p = frontierPos(id, w, h);
+  // Discoveries in flight: a slot of your attention is booked onto each one,
+  // and it lands by itself. Not tappable — it is already working.
+  for (const b of state.bookings) {
+    if (b.kind !== 'discover' || b.node === undefined) continue;
+    const p = frontierPos(b.node, w, h);
+    const left = Math.max(0, (b.until - state.lastTick) / 1000);
     push({
-      id: `f${id}`, kind: 'frontier', x: p.x, y: p.y, r: MIN_TOUCH, draw: 7,
-      label: input.labelForNode(id) ?? '…',
-      sub: `${format(claimCost(state))} · ${CLAIM_ATTENTION} att`,
-      enabled: canClaim, tone: canClaim ? 'good' : 'muted',
-      payload: id,
+      id: `f${b.node}`, kind: 'frontier', x: p.x, y: p.y, r: 0, draw: 7,
+      label: input.labelForNode(b.node) ?? '…',
+      sub: `${left.toFixed(0)}s`,
+      enabled: true, tone: 'good', payload: b.node,
     });
   }
 
   // ---- action nodes, ringing the core where the thumb lands
   const actionY = ACTION_Y(h);
   const actions: SceneItem[] = [];
-  const sCost = surveyCost(state);
-  const canSurvey = gte(state.resources.data, sCost) && state.forged.frontier.length < 8;
+  const canDiscover = attentionFree(state) >= 1 && state.bookings.length < 8;
   actions.push({
-    id: 'survey', kind: 'survey', x: 0, y: actionY, r: 34, draw: 27,
-    label: 'Survey', sub: `${format(sCost)} Datums`,
-    enabled: canSurvey, tone: canSurvey ? 'good' : 'muted',
+    id: 'discover', kind: 'survey', x: 0, y: actionY, r: 34, draw: 27,
+    label: 'Discover', sub: canDiscover ? '1 slot · 18s' : 'no free slot',
+    enabled: canDiscover, tone: canDiscover ? 'good' : 'muted',
   });
   if (state.review.length > 0) {
-    const ok = state.attention >= REVIEW_ATTENTION;
+    const ok = attentionFree(state) >= 1;
     actions.push({
       id: 'review', kind: 'review', x: 0, y: actionY, r: 34, draw: 27,
-      label: 'Review', sub: `${state.review.length} · ${REVIEW_ATTENTION} att`,
+      label: 'Review', sub: ok ? '1 slot · 25s' : 'no free slot',
       enabled: ok, tone: ok ? 'warn' : 'muted',
     });
   }
@@ -230,16 +236,40 @@ export function layout(input: BoardInput): SceneItem[] {
   const machY = MACHINE_Y(h);
   const machines: SceneItem[] = M1_ROSTER.map((id) => {
     const g = GENERATORS[id];
-    const cost = generatorCost(state, id);
-    const ok = gte(state.resources[g.costResource], cost);
+    const cost = agentCost(state, id);
+    const ok = gte(verified(state), cost);
     return {
       id: `m-${id}`, kind: 'machine' as const, x: 0, y: machY, r: 32, draw: 24,
-      label: g.label, sub: format(cost), value: `×${state.generators[id]}`,
+      label: g.label, sub: `${format(cost)} verified`, value: `×${state.generators[id]}`,
       enabled: ok, tone: ok ? 'good' : 'muted', payload: id,
     };
   });
   spread(machines, w, machY);
   machines.forEach(push);
+
+  // The supervision dial: how many of your agents anybody is actually watching.
+  // Everything above the line runs unwatched, fast and dirty.
+  if (state.generators.extractor > 0) {
+    const loose = unsupervised(state);
+    const dialY = machY - 62;
+    push({
+      id: 'sup-down', kind: 'setSupervision', x: w / 2 - 78, y: dialY, r: 28, draw: 20,
+      label: '−', enabled: state.supervised > 0, tone: state.supervised > 0 ? 'idle' : 'muted',
+      payload: state.supervised - 1,
+    });
+    push({
+      id: 'sup-up', kind: 'setSupervision', x: w / 2 + 78, y: dialY, r: 28, draw: 20,
+      label: '+', enabled: attentionFree(state) >= 1 && loose > 0,
+      tone: attentionFree(state) >= 1 && loose > 0 ? 'good' : 'muted',
+      payload: state.supervised + 1,
+    });
+    push({
+      id: 'sup-read', kind: 'stat', x: w / 2, y: dialY - 4, r: 0, draw: 0,
+      label: `${state.supervised} / ${state.generators.extractor}`,
+      sub: loose > 0 ? `${loose} unwatched` : 'all watched',
+      enabled: false, tone: loose > 0 ? 'bad' : 'good',
+    });
+  }
 
   // ---- save controls, bottom edge
   push({
@@ -288,10 +318,10 @@ function layoutReviewSheet(input: BoardInput): SceneItem[] {
       enabled: false, tone: keep ? 'idle' : 'muted', payload: i,
     });
   });
-  const ok = state.attention >= REVIEW_ATTENTION;
+  const ok = attentionFree(state) >= 1;
   items.push({
     id: 'commit', kind: 'commit', x: w / 2, y: h - 96, r: 40, draw: 34,
-    label: 'Commit', sub: `${REVIEW_ATTENTION} attention`, enabled: ok,
+    label: 'Commit', sub: '1 slot · 25s', enabled: ok,
     tone: ok ? 'good' : 'muted',
   });
   items.push({

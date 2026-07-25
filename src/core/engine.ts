@@ -22,7 +22,7 @@ import { CONCEPT_BUDGET } from '../content/ontologyMeta';
 import { VIGNETTES } from '../content/vignettes';
 import { nextRand } from './rng';
 
-export const CURRENT_SAVE_VERSION = 8;
+export const CURRENT_SAVE_VERSION = 9;
 
 // Frontier Mining knobs (Chad's term sheet; tune by playing)
 const START_DATA = '15';        // enough to wire the first ~2 entities
@@ -51,11 +51,19 @@ const DRIFT_SCALE_SCALE = 0.55;
  *  with one legible budget: you can spend your attention on connecting or on
  *  checking, never on both at once. It refills whether you play or not, so
  *  ignoring it entirely is a valid way to play the game. */
-export const ATTENTION_CAP = 12;
-const ATTENTION_REGEN_S = 20; // one point per 20s
-const ATTENTION_START = 4;
-export const CLAIM_ATTENTION = 1;
-export const REVIEW_ATTENTION = 2;
+// Capacity, not a wallet. It is never spent — it is ALLOCATED, and it comes
+// back. Base capacity is small; it grows from knowledge you have actually
+// verified, so it is earned by playing rather than bought from a menu.
+const ATTENTION_BASE = 4;
+const ATTENTION_PER_DECADE = 4.5;
+export const DISCOVER_MS = 18_000;
+export const REVIEW_BOOK_MS = 25_000;
+
+/** Building an agent COSTS VERIFIED STATEMENTS — you distil the next one out of
+ *  the graph you already trust. Which is, exactly, the setup of the paper this
+ *  game is about. A graph you have let rot cannot produce new agents. */
+const AGENT_BASE_COST = 40;
+const AGENT_COST_RATIO = 1.30;
 
 /** Surveying is no longer free. It costs Datums, and it costs MORE while the
  *  frontier is already full of things you haven't dealt with — so the biggest
@@ -125,8 +133,29 @@ export function surveyCost(state: GameState): string {
     .ceil().toString();
 }
 
-export function attentionRegenPerSecond(): number {
-  return 1 / ATTENTION_REGEN_S;
+/** Total slots. Grows with lifetime verified knowledge: the more of the world
+ *  you have actually checked, the more of it you can hold in your head. */
+export function attentionCap(state: GameState): number {
+  const v = D(state.lifetimeVerified).toNumber();
+  return ATTENTION_BASE + Math.floor(ATTENTION_PER_DECADE * Math.log10(1 + Math.max(0, v)));
+}
+
+/** Slots not reserved for supervision and not currently booked on work. */
+export function attentionFree(state: GameState): number {
+  return Math.max(0, attentionCap(state) - state.supervised - state.bookings.length);
+}
+
+/** Agents you are running that nobody is watching. Their output is the entire
+ *  source of rot in the game — you chose to have them. */
+export function unsupervised(state: GameState): number {
+  return Math.max(0, state.generators.extractor - state.supervised);
+}
+
+/** Cost of the next agent, in VERIFIED statements. */
+export function agentCost(state: GameState, id: GeneratorId): string {
+  return D(AGENT_BASE_COST)
+    .mul(Decimal.pow(AGENT_COST_RATIO, state.generators[id]))
+    .ceil().toString();
 }
 
 /** The one number that only ever goes up. Bounded, log-scaled, and fed solely
@@ -173,8 +202,10 @@ export function initialState(seed = 1): GameState {
     handClaimed: 0,
     reviewReadyAt: 0,
     falselyVerified: '0',
-    attention: ATTENTION_START,
+    attention: 0,
     surveyed: 0,
+    supervised: 0,
+    bookings: [],
     review: [],
   };
 }
@@ -270,6 +301,22 @@ export function ratePerSecond(state: GameState, res: ResourceId): string {
 export function extractionPerSecond(state: GameState): string {
   const g = GENERATORS.extractor;
   return D(g.baseRate).mul(state.generators.extractor).mul(mod(state, 'extraction')).toString();
+}
+
+/** Statements per second arriving ALREADY CHECKED, because a human slot is
+ *  pointed at the agent making them. Supervised agents run slower — watching
+ *  costs throughput, which is the whole trade. */
+const SUPERVISED_RATE_PENALTY = 0.55;
+export function supervisedPerSecond(state: GameState): string {
+  const watched = Math.min(state.supervised, state.generators.extractor);
+  return D(GENERATORS.extractor.baseRate)
+    .mul(watched).mul(SUPERVISED_RATE_PENALTY).mul(mod(state, 'extraction')).toString();
+}
+
+/** Statements per second arriving unchecked, from agents nobody is watching. */
+export function unsupervisedPerSecond(state: GameState): string {
+  return D(GENERATORS.extractor.baseRate)
+    .mul(unsupervised(state)).mul(mod(state, 'extraction')).toString();
 }
 
 /** Statements per second checked automatically — the HITL buyout. Orchestrators
@@ -403,14 +450,21 @@ export function apply(state: GameState, action: Action): GameState {
       let unverified = D(state.provenance.unverified);
       let drifted = D(state.provenance.drifted);
       let lifetimeGenerated = D(state.lifetimeGenerated);
-      const minted = D(extractionPerSecond(state)).mul(dt);
+      // Supervised output lands already checked; unsupervised output lands raw.
+      // The split is not a tuning knob — it is exactly where the player pointed
+      // their attention.
+      const clean = D(supervisedPerSecond(state)).mul(dt);
+      const raw = D(unsupervisedPerSecond(state)).mul(dt);
+      const minted = clean.add(raw);
       if (minted.gt(0)) {
         resources = touched ? resources : { ...resources };
         resources.triples = add(resources.triples, minted.toString());
-        unverified = unverified.add(minted);
+        unverified = unverified.add(raw);
         lifetimeGenerated = lifetimeGenerated.add(minted);
         touched = true;
       }
+      let lifetimeVerified = D(state.lifetimeVerified);
+      if (clean.gt(0)) lifetimeVerified = lifetimeVerified.add(clean);
       const rot = unverified.mul(driftPerSecond(state) * dt);
       if (rot.gt(0)) {
         unverified = unverified.sub(rot);
@@ -434,9 +488,40 @@ export function apply(state: GameState, action: Action): GameState {
         touched = true;
       }
 
-      const attention = Math.min(ATTENTION_CAP, state.attention + dt / ATTENTION_REGEN_S);
-      if (attention !== state.attention) touched = true;
       const lastTick = action.now ?? state.lastTick + dt * 1000;
+
+      // Bookings finish and hand their slot back. A discovery lands a concept
+      // you placed yourself, so it lands VERIFIED.
+      let bookings = state.bookings;
+      let anchors = forged.anchors;
+      let links = forged.links;
+      let foldedNodes = forged.foldedNodes;
+      const done = bookings.filter((b) => b.until <= lastTick);
+      if (done.length > 0) {
+        bookings = bookings.filter((b) => b.until > lastTick);
+        for (const b of done) {
+          if (b.kind !== 'discover' || b.node === undefined) continue;
+          const anchor = anchors[mixId(b.node) % anchors.length] ?? 0;
+          anchors = [...anchors, b.node];
+          links = [...links, [anchor, b.node] as [number, number]];
+          while (anchors.length > ANCHOR_CAP) {
+            const folded = anchors.splice(1, 1)[0]!;
+            links = links.filter(([x, y]) => x !== folded && y !== folded);
+            // credit the fold, or every concept past the cap is destroyed and
+            // coverage stops dead at ANCHOR_CAP
+            foldedNodes = add(foldedNodes, 1);
+          }
+          while (links.length > LINK_CAP) links.shift();
+          resources = touched ? resources : { ...resources };
+          resources.triples = add(resources.triples, 1);
+          lifetimeVerified = lifetimeVerified.add(1);
+        }
+        forged = {
+          ...forged, anchors, links, foldedNodes,
+          frontier: bookings.map((b) => b.node ?? -1).filter((n) => n >= 0),
+        };
+        touched = true;
+      }
       if (!touched && lastTick === state.lastTick && state.review.length > 0) return state;
       const next: GameState = {
         ...state,
@@ -444,8 +529,9 @@ export function apply(state: GameState, action: Action): GameState {
         forged,
         provenance: { unverified: unverified.toString(), drifted: drifted.toString() },
         lifetimeGenerated: lifetimeGenerated.toString(),
+        lifetimeVerified: lifetimeVerified.toString(),
+        bookings,
         graph: deriveGraph(forged, resources.triples),
-        attention,
         lastTick,
       };
       // Mint the next batch only when the desk is empty — the array identity
@@ -453,68 +539,42 @@ export function apply(state: GameState, action: Action): GameState {
       return next.review.length === 0 ? { ...next, review: mintReview(next) } : next;
     }
 
-    case 'survey': {
-      if (state.forged.frontier.length >= FRONTIER_CAP) return state;
-      const cost = surveyCost(state);
-      if (!gte(state.resources.data, cost)) return state;
-      const forged = {
-        ...state.forged,
-        nextId: state.forged.nextId + 1,
-        frontier: [...state.forged.frontier, state.forged.nextId],
-      };
+    case 'survey':
+      return state; // v8 verb, retired by the attention economy
+
+    case 'discover': {
+      // Book a slot onto a discovery. It ties that slot up for a while and then
+      // lands a concept you placed yourself — the only statements in the game
+      // that were never machine-generated.
+      if (attentionFree(state) < 1) return state;
+      if (state.bookings.length >= FRONTIER_CAP) return state;
+      const node = state.forged.nextId;
+      const bookings = [...state.bookings, { kind: 'discover' as const, until: state.lastTick + DISCOVER_MS, node }];
       return {
         ...state,
-        resources: { ...state.resources, data: sub(state.resources.data, cost) },
-        surveyed: state.surveyed + 1,
-        forged,
+        bookings,
+        forged: {
+          ...state.forged,
+          nextId: node + 1,
+          frontier: [...state.forged.frontier, node],
+        },
       };
     }
 
-    case 'claimNode': {
-      // Wiring a concept in BY HAND mints a verified statement — the one kind
-      // of knowledge in this game that was never machine-generated.
-      if (!state.forged.frontier.includes(action.id)) return state;
-      const cost = claimCost(state);
-      if (!gte(state.resources.data, cost)) return state;
-      // ...and your own attention, which is the scarcer of the two
-      if (state.attention < CLAIM_ATTENTION) return state;
-      const anchorPool = state.forged.anchors;
-      const anchor = anchorPool[mixId(action.id) % anchorPool.length] ?? 0;
-
-      let anchors = [...anchorPool, action.id];
-      let links: Array<[number, number]> = [...state.forged.links, [anchor, action.id]];
-      let foldedNodes = state.forged.foldedNodes;
-      // Beyond the caps the oldest hand-work folds into aggregate mass. Node 0
-      // is `entity`, the root the whole premise rests on — it NEVER folds.
-      while (anchors.length > ANCHOR_CAP) {
-        const folded = anchors.splice(1, 1)[0]!;
-        links = links.filter(([a, b]) => a !== folded && b !== folded);
-        foldedNodes = add(foldedNodes, 1);
-      }
-      while (links.length > LINK_CAP) links.shift();
-
-      const resources = {
-        ...state.resources,
-        data: sub(state.resources.data, cost),
-        triples: add(state.resources.triples, 1),
-      };
-      const forged = {
-        ...state.forged,
-        anchors,
-        links,
-        foldedNodes,
-        frontier: state.forged.frontier.filter((f) => f !== action.id),
-      };
-      return {
-        ...state,
-        resources,
-        forged,
-        handClaimed: state.handClaimed + 1,
-        attention: state.attention - CLAIM_ATTENTION,
-        lifetimeVerified: add(state.lifetimeVerified, 1), // you checked it by placing it
-        graph: deriveGraph(forged, resources.triples),
-      };
+    case 'setSupervision': {
+      // You may reserve fewer slots than you have agents. Everything unwatched
+      // runs fast and dirty. That is the trap, and it is deliberate.
+      const max = Math.min(attentionCap(state) - state.bookings.length, state.generators.extractor);
+      const slots = Math.max(0, Math.min(Math.floor(action.slots), Math.max(0, max)));
+      if (slots === state.supervised) return state;
+      return { ...state, supervised: slots };
     }
+
+    case 'claimNode':
+      // Retired. A concept is no longer bought with a currency — it is
+      // DISCOVERED by booking a slot of attention onto it (see 'discover').
+      // Kept inert so the action surface and old saves never shift shape.
+      return state;
 
     case 'reviewBatch': {
       // HITL. Four outcomes, and two of them are mistakes:
@@ -524,7 +584,7 @@ export function apply(state: GameState, action: Action): GameState {
       //   reject a true one        → you threw away real knowledge
       const queue = state.review; // the batch the player actually saw
       if (queue.length === 0) return state;
-      if (state.attention < REVIEW_ATTENTION) return state;
+      if (attentionFree(state) < 1) return state;
       const weight = D(reviewWeight(state)); // one inspected item stands for this many
       let unverified = D(state.provenance.unverified);
       let drifted = D(state.provenance.drifted);
@@ -565,8 +625,8 @@ export function apply(state: GameState, action: Action): GameState {
         lifetimeVerified: add(state.lifetimeVerified, newlyVerified.toString()),
         falselyVerified: add(state.falselyVerified, falselyVerified.toString()),
         rngState: advanceRng(state.rngState, queue.length * 3),
-        reviewReadyAt: state.lastTick + REVIEW_COOLDOWN_MS,
-        attention: state.attention - REVIEW_ATTENTION,
+        reviewReadyAt: state.lastTick,
+        bookings: [...state.bookings, { kind: 'review' as const, until: state.lastTick + REVIEW_BOOK_MS }],
         review: [], // consumed; tick mints the next one after the cooldown
         graph: deriveGraph(state.forged, resources.triples),
       };
@@ -654,14 +714,17 @@ export function apply(state: GameState, action: Action): GameState {
     case 'buyGenerator': {
       const g = GENERATORS[action.id];
       if (!g) return state;
-      const cost = generatorCost(state, action.id);
-      const balance = state.resources[g.costResource];
-      if (!gte(balance, cost)) return state; // can't afford — reject, no partial buy
-      // spending Datums never touches the web: knowledge isn't spent, fuel is
+      // An agent is DISTILLED FROM VERIFIED KNOWLEDGE — you spend the part of
+      // the graph you actually trust to build the thing that makes more of it.
+      // A graph you have let rot cannot produce another agent.
+      const cost = agentCost(state, action.id);
+      if (!gte(verified(state), cost)) return state;
+      const resources = { ...state.resources, triples: sub(state.resources.triples, cost) };
       return {
         ...state,
-        resources: { ...state.resources, [g.costResource]: sub(balance, cost) },
+        resources,
         generators: { ...state.generators, [action.id]: state.generators[action.id] + 1 },
+        graph: deriveGraph(state.forged, resources.triples),
       };
     }
 

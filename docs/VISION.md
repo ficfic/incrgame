@@ -70,6 +70,25 @@ scope, however good it is.
 9. **Narrative, as branching choose-your-own-adventure vignettes.**
 10. **Lots of graphs, connecting and moving** — because it's good to look at.
 
+## The economy: one resource, allocated
+
+**There is no currency.** Two things exist:
+
+- **Statements** accumulate, split by provenance — verified, unchecked, drifted.
+- **Attention** is capacity you *allocate*: free, booked onto work, or reserved
+  to supervise an agent. It is never spent, and it always comes back.
+
+Supervised agents produce slowly and clean. Unsupervised agents produce fast and
+raw — and raw is what rots. You may run more agents than you can watch, and that
+is the trap: **the failure is something you do to yourself.**
+
+Agents are distilled from verified statements, so a graph you let rot cannot
+build another agent.
+
+Capacity grows logarithmically with verified knowledge. Agents grow linearly.
+Therefore supervised share → 0 for every strategy — **the plateau is structural,
+not tuned.** That is the property three balance passes failed to buy.
+
 ## The three decisions that shape everything
 
 Owner calls. Changing one of these changes the game.
@@ -83,6 +102,13 @@ is not the real data. It's what your machines generated: unverified, and it rots
 faster. Each generation starts richer and more wrong. Coverage climbs while
 fidelity falls.
 
+> ### ⚠️ STATUS (updated 2026-07-25, after the attention rework)
+> The RECESSION is now real and structural: measured over 8h, an 80%-supervising
+> player decays 100% → 67% fidelity, balanced → 22%, unsupervised → 2%. Coverage
+> itself is still completable in a careful first run (~2-4h); the collapse story
+> lives in fidelity and across generations, not in the coverage bar. Earlier
+> note, kept for the record:
+>
 > ### ⚠️ STATUS: NOT YET TRUE IN CODE (2026-07-25)
 > Measured over a simulated 12-hour run: an attentive generation-1 player
 > reaches **100% coverage in about four hours**, and an idle one reaches 97.5%

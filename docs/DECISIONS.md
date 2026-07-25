@@ -471,3 +471,39 @@ session knows *why* things are the way they are. Format:
   or not you are playing — which is what keeps human-in-the-loop optional rather
   than an attention tax. It also replaces the review cooldown with one legible
   budget: connect or check, not both.
+
+## The attention economy (2026-07-25, owner redesign)
+
+- 2026-07-25 — **Datums are DELETED.** They were the cookie: a generic idle
+  currency inherited through three pivots that meant nothing in knowledge
+  management. Every price in the game was denominated in a thing the subject
+  matter does not have. The `data` resource stays in the save (shape never
+  shrinks) and is simply unused.
+- 2026-07-25 — **Attention is CAPACITY YOU ALLOCATE, not a pool you spend**
+  (owner design). Three states per slot: free, *booked* onto a piece of work for
+  a while, or *reserved* to supervise an agent. Bookings hand the slot back when
+  the work lands. Capacity grows from lifetime verified knowledge — earned by
+  playing, never bought from a menu (owner was explicitly wary of a training
+  tree, and was right).
+- 2026-07-25 — **Supervision is what keeps output clean.** A supervised agent
+  produces slowly and verified; an unsupervised one produces fast and raw, and
+  raw is what drifts. Drift stopped being a rule the engine imposes and became a
+  consequence of the player's own allocation.
+- 2026-07-25 — **You MAY run more agents than you can watch** (owner chips).
+  Everything above the line runs unsupervised. The player's own greed is the
+  failure mechanism rather than a wall the game puts up.
+- 2026-07-25 — **Agents are distilled from VERIFIED statements** (owner chips) —
+  you spend the part of the graph you actually trust to build the thing that
+  makes more of it. Literally the setup of the paper this game is about, and it
+  means a graph you have let rot cannot produce another agent.
+- 2026-07-25 — **THE PLATEAU IS NOW STRUCTURAL.** Capacity grows
+  logarithmically with verified knowledge; agents grow linearly. Supervised
+  share → 0 for every strategy, so fidelity falls, so recovery stalls. Measured
+  over 8h: a player supervising 80% holds 100% fidelity for two hours and is at
+  67% by hour eight; balanced decays to 22%; watching nothing collapses to 2%.
+  **No tuned constant is holding this up** — three balance passes had been
+  fighting the absence of exactly this.
+- 2026-07-25 — **Harvester and Orchestrator leave the board.** The Harvester
+  made Datums. The Orchestrator bought automated review — and supervision *is*
+  automated review, so it was the same idea charged for twice. Both remain in
+  GENERATORS for save shape.

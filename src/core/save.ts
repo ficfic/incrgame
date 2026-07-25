@@ -95,6 +95,12 @@ export const MIGRATIONS: Migration[] = [
   // connecting costs ATTENTION. Existing saves arrive with a full attention
   // budget so nobody is mid-run and suddenly unable to act.
   (s) => ({ ...s, attention: 12, surveyed: 0 }),
+  // v8 → v9 — the attention ECONOMY. Datums are gone: agents are distilled from
+  // verified knowledge, and attention is capacity you allocate rather than a
+  // pool you spend. Existing saves keep every statement and every concept; they
+  // simply arrive with nothing supervised and nothing booked, which is the
+  // honest starting position for a graph nobody was watching.
+  (s) => ({ ...s, supervised: 0, bookings: [] }),
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

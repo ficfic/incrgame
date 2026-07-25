@@ -65,6 +65,13 @@ export interface ReviewItem {
   corrupt: boolean;
 }
 
+/** One slot, tied up on a piece of work until it finishes. */
+export interface Booking {
+  kind: 'discover' | 'review';
+  until: number;   // epoch ms; compared against lastTick
+  node?: number;   // for 'discover': the id the concept will land on
+}
+
 export interface GameState {
   saveVersion: number;                      // the ONE version authority; starts at 1
   lastTick: number;                         // epoch ms of last processed tick
@@ -103,13 +110,21 @@ export interface GameState {
    *  the DISPLAYED fidelity, but subtracted from the fidelity that actually
    *  gates recovery. The number goes up; the graph doesn't. */
   falselyVerified: Dec;
-  /** The scarce human input, 0..ATTENTION_CAP. Regenerates on its own whether
-   *  or not you are playing, so spending it is a choice and never a tax: this is
-   *  what keeps human-in-the-loop optional (VISION). Connecting a concept by
-   *  hand costs it; so does committing a review. */
+  /** DEAD FIELD, kept because saves are never broken by removal. Attention is
+   *  no longer a pool you spend — it is capacity you ALLOCATE. See `supervised`
+   *  and `bookings`. */
   attention: number;
-  /** Surveys performed this run — prices the next one. */
+  /** Surveys performed this run. Retained for save compatibility. */
   surveyed: number;
+  /** Slots standing-reserved to supervise extractors. A supervised extractor's
+   *  output arrives VERIFIED; an unsupervised one's arrives unverified and
+   *  rots. You may reserve fewer slots than you have extractors — that is the
+   *  trap, and it is yours to walk into. */
+  supervised: number;
+  /** Temporary bookings. Each ties up one slot until `until` (epoch ms, on the
+   *  same clock as `lastTick`), then completes and gives the slot back. This is
+   *  what "booking your attention onto a discovery" means mechanically. */
+  bookings: Booking[];
   /** The batch currently ON the desk, FROZEN INTO STATE when it is minted.
    *
    *  It must not be re-derived per render. Derived, it re-computed at 10 Hz:
@@ -122,7 +137,9 @@ export interface GameState {
 
 export type Action =
   | { type: 'tick'; dt: number; now?: number }     // dt in SECONDS; `now` (epoch ms) advances lastTick
-  | { type: 'survey' }                             // reveal an entity at the frontier (free; capped)
+  | { type: 'survey' }                             // DEPRECATED (v8 verb); inert no-op
+  | { type: 'discover' }                           // book a slot onto a new discovery
+  | { type: 'setSupervision'; slots: number }      // reserve/release supervision slots
   | { type: 'claimNode'; id: number }              // pay Datums, wire a frontier entity in: +1 triples
   | { type: 'manualConnect' }                      // DEPRECATED (pre-v4 verb); inert no-op
   | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource

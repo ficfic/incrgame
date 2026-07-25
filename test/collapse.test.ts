@@ -22,10 +22,10 @@ describe('provenance', () => {
     expect(fidelity(s)).toBe(1);
   });
 
-  it('counts a hand-claimed concept as VERIFIED — you placed it yourself', () => {
-    let s = initialState();
-    s = apply(s, { type: 'survey' });
-    s = apply(s, { type: 'claimNode', id: 1 });
+  it('counts a DISCOVERED concept as VERIFIED — you placed it yourself', () => {
+    let s: GameState = { ...initialState(), lastTick: 1_000 };
+    s = apply(s, { type: 'discover' });
+    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + 18_001 });
     expect(s.resources.triples).toBe('1');
     expect(s.provenance.unverified).toBe('0');
     expect(fidelity(s)).toBe(1);
@@ -60,9 +60,9 @@ describe('drift', () => {
   });
 
   it('cannot rot what was verified by hand', () => {
-    let s = initialState();
-    s = apply(s, { type: 'survey' });
-    s = apply(s, { type: 'claimNode', id: 1 });
+    let s: GameState = { ...initialState(), lastTick: 1_000 };
+    s = apply(s, { type: 'discover' });
+    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + 18_001 });
     for (let i = 0; i < 500; i++) s = tick(s, 1);
     expect(s.provenance.drifted).toBe('0');
     expect(fidelity(s)).toBe(1);
@@ -202,8 +202,9 @@ describe('review (human in the loop)', () => {
     const s = dirty();
     const after = apply(s, { type: 'reviewBatch', keep: [true, true, true] });
     expect(after.review).toEqual([]);
-    expect(after.reviewReadyAt).toBeGreaterThan(after.lastTick);
-    expect(reviewQueue(tick(after, 0.1))).toEqual([]); // still on cooldown
+    // committing BOOKS a slot rather than starting a timer — the cost of
+    // reviewing is that your attention is busy for a while
+    expect(after.bookings.some((b) => b.kind === 'review')).toBe(true);
   });
 
   it('makes certifying a lie cost something the player cannot see', () => {

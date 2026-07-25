@@ -70,7 +70,11 @@ export const GENERATORS: Record<GeneratorId, Generator> = {
   },
 };
 
-/** Which generators the UI offers in the vertical slice. Each one is a distinct
- *  position on the speed-versus-truth dial, which is why all four ship: fuel,
- *  speed, trust, and the thing that converts trust back into the world. */
-export const M1_ROSTER: GeneratorId[] = ['harvester', 'extractor', 'orchestrator', 'reasoner'];
+/** Two agents, because the attention economy retired the other two.
+ *
+ *  The Harvester made Datums, and Datums no longer exist. The Orchestrator
+ *  bought review automatically — and supervision replaced it: pointing a slot
+ *  at an agent IS the automated review, so a separate machine for it was the
+ *  same idea charged for twice. Both stay in GENERATORS (save shape never
+ *  shrinks) and both are simply off the board. */
+export const M1_ROSTER: GeneratorId[] = ['extractor', 'reasoner'];

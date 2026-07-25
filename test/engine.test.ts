@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { apply, claimCost, generatorCost, initialState, ratePerSecond, surveyCost, CLAIM_ATTENTION, tick } from '../src/core/engine';
+import {
+  agentCost, apply, attentionCap, attentionFree, DISCOVER_MS, fidelity, initialState,
+  supervisedPerSecond, tick, unsupervised, unsupervisedPerSecond, verified,
+} from '../src/core/engine';
 import { ANCHOR_CAP, FRONTIER_CAP } from '../src/core/graph';
 import { D, format, formatWhole } from '../src/core/numbers';
 import { nextRand } from '../src/core/rng';
@@ -17,155 +20,108 @@ const surveyAndClaim = (s: GameState): GameState => {
   return apply(s, { type: 'claimNode', id });
 };
 
-describe('survey', () => {
-  it('reveals frontier entities up to the cap, then idles', () => {
-    let s = { ...initialState(), resources: { ...initialState().resources, data: '1e9' } };
-    for (let i = 0; i < FRONTIER_CAP + 3; i++) s = apply(s, { type: 'survey' });
-    expect(s.forged.frontier.length).toBe(FRONTIER_CAP);
-    expect(s.forged.nextId).toBe(1 + FRONTIER_CAP); // ids minted only for real reveals
+describe('discovery — booking attention onto work', () => {
+  it('ties up a slot, then lands a VERIFIED concept by itself', () => {
+    let s = { ...initialState(), lastTick: 1_000 };
+    const capBefore = attentionFree(s);
+    s = apply(s, { type: 'discover' });
+    expect(s.bookings).toHaveLength(1);
+    expect(attentionFree(s)).toBe(capBefore - 1); // the slot is busy, not spent
+    expect(s.graph.nodes).toBe(1); // nothing has landed yet
+
+    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
+    expect(s.bookings).toHaveLength(0);          // slot handed back
+    expect(attentionFree(s)).toBeGreaterThanOrEqual(capBefore);
+    expect(s.graph.nodes).toBe(2);               // the concept arrived
+    expect(s.provenance.unverified).toBe('0');   // you placed it: it is verified
+    expect(fidelity(s)).toBe(1);
   });
 
-  it('costs ATTENTION as well as Datums, and refuses without it', () => {
-    const tired = { ...initialState(), attention: 0 };
-    const surveyed = apply(tired, { type: 'survey' });
-    const id = surveyed.forged.frontier[0]!;
-    expect(apply(surveyed, { type: 'claimNode', id })).toBe(surveyed);
+  it('is refused when every slot is already committed', () => {
+    let s = { ...initialState(), lastTick: 1_000 };
+    for (let i = 0; i < attentionCap(s); i++) s = apply(s, { type: 'discover' });
+    expect(attentionFree(s)).toBe(0);
+    expect(apply(s, { type: 'discover' })).toBe(s);
   });
 
-  it('COSTS Datums, and costs more with a frontier you have not cleared', () => {
-    // Free and unlimited, Survey was the biggest button on screen and
-    // economically inert. Now it asks a question: look for more, or finish
-    // what you already found?
-    const s = { ...initialState(), resources: { ...initialState().resources, data: '1e9' } };
-    const first = surveyCost(s);
-    const after = apply(s, { type: 'survey' });
-    expect(Number(after.resources.data)).toBe(Number(s.resources.data) - Number(first));
-    expect(Number(surveyCost(after))).toBeGreaterThan(Number(first));
-    expect(after.surveyed).toBe(1);
-    expect(after.graph).toEqual(s.graph);
-  });
-
-  it('is refused outright when the Datums are not there', () => {
-    const broke = { ...initialState(), resources: { ...initialState().resources, data: '0' } };
-    expect(apply(broke, { type: 'survey' })).toBe(broke);
+  it('grows capacity from knowledge you actually verified, not from a shop', () => {
+    const green = initialState();
+    const grown = { ...green, lifetimeVerified: '10000' };
+    expect(attentionCap(grown)).toBeGreaterThan(attentionCap(green));
   });
 });
 
-describe('claimNode', () => {
-  it('wires a frontier entity in: pays Datums, mints a Triple, links it', () => {
-    // done by hand, unfunded, so the arithmetic is the real arithmetic
-    let s = initialState(); // 15 Datums, 4 attention
-    const survey = Number(surveyCost(s));
-    s = apply(s, { type: 'survey' });
-    const id = s.forged.frontier[0]!;
-    s = apply(s, { type: 'claimNode', id });
-    expect(Number(s.resources.data)).toBe(15 - survey - 5); // survey, then the claim
-    expect(s.attention).toBe(4 - CLAIM_ATTENTION);
-    expect(s.resources.triples).toBe('1');
-    expect(s.forged.anchors).toEqual([0, 1]);
-    expect(s.forged.links).toEqual([[0, 1]]);
-    expect(s.forged.frontier).toEqual([]);
-    expect(s.graph).toEqual({ nodes: 2, edges: 1 });
+describe('supervision — the trap', () => {
+  const withAgents = (n: number): GameState =>
+    ({ ...initialState(), generators: { ...initialState().generators, extractor: n }, lifetimeVerified: '10000' });
+
+  it('lets you run more agents than you can watch', () => {
+    const s = apply(withAgents(6), { type: 'setSupervision', slots: 2 });
+    expect(s.supervised).toBe(2);
+    expect(unsupervised(s)).toBe(4); // deliberately allowed
   });
 
-  it('rejects ids not on the frontier and unaffordable claims', () => {
+  it('makes supervised output arrive CLEAN and unsupervised output arrive RAW', () => {
+    let s = apply(withAgents(4), { type: 'setSupervision', slots: 4 });
+    s = tick(s, 10);
+    expect(Number(s.provenance.unverified)).toBeLessThan(1e-9); // everything was watched
+    expect(Number(verified(s))).toBeGreaterThan(0);
+
+    let loose = apply(withAgents(4), { type: 'setSupervision', slots: 0 });
+    loose = tick(loose, 10);
+    expect(Number(loose.provenance.unverified)).toBeGreaterThan(0);
+    expect(verified(loose)).toBe('0');
+  });
+
+  it('trades throughput for trust — watching is slower', () => {
+    const watched = apply(withAgents(4), { type: 'setSupervision', slots: 4 });
+    const loose = apply(withAgents(4), { type: 'setSupervision', slots: 0 });
+    expect(Number(supervisedPerSecond(watched)))
+      .toBeLessThan(Number(unsupervisedPerSecond(loose)));
+  });
+
+  it('cannot reserve slots it does not have', () => {
+    const s = apply(withAgents(99), { type: 'setSupervision', slots: 999 });
+    expect(s.supervised).toBeLessThanOrEqual(attentionCap(s));
+  });
+});
+
+describe('agents are distilled from verified knowledge', () => {
+  const clean = (n: string): GameState => ({
+    ...initialState(),
+    resources: { ...initialState().resources, triples: n },
+  });
+
+  it('costs VERIFIED statements, and spends them', () => {
+    const s = clean('500');
+    const cost = Number(agentCost(s, 'extractor'));
+    const after = apply(s, { type: 'buyGenerator', id: 'extractor' });
+    expect(after.generators.extractor).toBe(1);
+    expect(Number(after.resources.triples)).toBe(500 - cost);
+  });
+
+  it('a graph you let rot cannot build another agent', () => {
+    // same number of statements, but none of them trustworthy
+    const rotted: GameState = {
+      ...clean('500'),
+      provenance: { unverified: '0', drifted: '500' },
+    };
+    expect(apply(rotted, { type: 'buyGenerator', id: 'extractor' })).toBe(rotted);
+  });
+
+  it('never spends Datums, because there are none', () => {
+    const s = clean('500');
+    const after = apply(s, { type: 'buyGenerator', id: 'extractor' });
+    expect(after.resources.data).toBe(s.resources.data);
+  });
+});
+
+describe('agent prices climb', () => {
+  it('follows ceil(12 × 1.16^n) in verified statements', () => {
     let s = initialState();
-    expect(apply(s, { type: 'claimNode', id: 99 })).toBe(s);
-    // fund exactly two claims, then leave it short for a third
-    s = { ...s, resources: { ...s.resources, data: '60' }, attention: 12 };
-    s = surveyAndClaim(s);
-    s = surveyAndClaim(s);
-    const broke = { ...s, resources: { ...s.resources, data: '0' } };
-    const stuck = apply(apply(broke, { type: 'survey' }), { type: 'claimNode', id: broke.forged.nextId });
-    expect(stuck.resources.triples).toBe('2'); // can afford neither survey nor claim
-  });
-
-  it('cost climbs the gentle 1.08 lane: ceil(5 × 1.08^handClaimed)', () => {
-    let s = initialState();
-    expect(claimCost(s)).toBe('5');
-    s = surveyAndClaim(s);
-    expect(claimCost(s)).toBe('6'); // ceil(5.4)
-    s = { ...s, handClaimed: 10 };
-    expect(claimCost(s)).toBe('11'); // ceil(10.79)
-  });
-
-  it('is priced by HAND claims only — machines cannot inflate the manual lane', () => {
-    // Keyed to the global statement count, two minutes of Extractor output
-    // priced the next hand claim in the millions, and one prestige put it past
-    // 10^400. The one action that mints trust from nothing was being deleted
-    // by the machines it exists to balance.
-    const s = initialState();
-    const withMachineOutput = { ...s, resources: { ...s.resources, triples: '500000' } };
-    expect(claimCost(withMachineOutput)).toBe(claimCost(s));
-  });
-
-  it('is deterministic (no RNG consumed)', () => {
-    const s = apply(initialState(42), { type: 'survey' });
-    const a = apply(s, { type: 'claimNode', id: 1 });
-    const b = apply(s, { type: 'claimNode', id: 1 });
-    expect(a).toEqual(b);
-    expect(a.rngState).toBe(s.rngState);
-  });
-
-  it('folds the oldest anchors into aggregate mass beyond the cap', () => {
-    let s = { ...initialState(), resources: { ...initialState().resources, data: '1e30' } };
-    for (let i = 0; i < ANCHOR_CAP + 10; i++) {
-      s = { ...s, resources: { ...s.resources, data: '1e30' } }; // survey price climbs; not the point here
-      s = surveyAndClaim(s);
-    }
-    expect(s.forged.anchors.length).toBe(ANCHOR_CAP);
-    expect(D(s.forged.foldedNodes).toNumber()).toBe(11); // 1 + 250 owned, 240 addressable
-    expect(s.graph.nodes).toBe(ANCHOR_CAP + 11); // nothing lost, only folded
-    expect(s.graph.edges).toBe(ANCHOR_CAP + 10); // = triples balance
-  });
-});
-
-describe('the drip (edges ARE the income)', () => {
-  it('each statement yields 0.15 Datums/s', () => {
-    let s = { ...initialState(), resources: { ...initialState().resources, data: '400' } };
-    expect(ratePerSecond(s, 'data')).toBe('0'); // no edges, no drip
-    s = surveyAndClaim(s);
-    s = surveyAndClaim(s);
-    expect(D(ratePerSecond(s, 'data')).toNumber()).toBeCloseTo(0.3, 12);
-    s = { ...s, generators: { ...s.generators, harvester: 3 } };
-    // 0.3 drip + 3 Harvesters at 0.35 each
-    expect(D(ratePerSecond(s, 'data')).toNumber()).toBeCloseTo(0.3 + 1.05, 12);
-  });
-
-  it('tick accrues the drip; graph counters stay balance-derived', () => {
-    let s = surveyAndClaim(initialState()); // 1 edge → 0.15/s
-    const before = D(s.resources.data).toNumber();
-    for (let i = 0; i < 100; i++) s = tick(s, 0.1); // 10s
-    expect(D(s.resources.data).toNumber() - before).toBeCloseTo(1.5, 9);
-    expect(s.graph).toEqual({ nodes: 2, edges: 1 });
-  });
-
-  it('is deterministic: 100 × 0.1s == one 10s step', () => {
-    const base = surveyAndClaim(initialState());
-    let fixed = base;
-    for (let i = 0; i < 100; i++) fixed = tick(fixed, 0.1);
-    const big = tick(base, 10);
-    expect(D(fixed.resources.data).toNumber()).toBeCloseTo(D(big.resources.data).toNumber(), 9);
-  });
-});
-
-describe('buyGenerator', () => {
-  it('spends Datums without touching the web (knowledge is not fuel)', () => {
-    let s = surveyAndClaim(initialState());
-    s = { ...s, resources: { ...s.resources, data: '20' } };
-    const graphBefore = s.graph;
-    s = apply(s, { type: 'buyGenerator', id: 'harvester' });
-    expect(s.generators.harvester).toBe(1);
-    expect(s.resources.data).toBe('5');
-    expect(s.graph).toEqual(graphBefore);
-  });
-
-  it('rejects when unaffordable and follows ceil(15 × 1.15^n)', () => {
-    let s = { ...initialState(), resources: { ...initialState().resources, data: '0' } };
-    expect(apply(s, { type: 'buyGenerator', id: 'harvester' })).toBe(s);
-    expect(generatorCost(s, 'harvester')).toBe('15');
-    s = { ...s, generators: { ...s.generators, harvester: 1 } };
-    expect(generatorCost(s, 'harvester')).toBe('18'); // ceil(17.25)
+    expect(agentCost(s, 'extractor')).toBe('12');
+    s = { ...s, generators: { ...s.generators, extractor: 1 } };
+    expect(agentCost(s, 'extractor')).toBe('14'); // ceil(13.92)
   });
 });
 
