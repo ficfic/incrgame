@@ -13,7 +13,7 @@
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   let pulseKey = $state(0);
 
-  const dataRate = $derived(ratePerSecond($game, 'data'));
+  const mainRate = $derived(ratePerSecond($game, 'triples'));
 
   // The whole UI's accent drifts with graph size — the world ages with you.
   const hue = $derived(stageHue($game.graph.nodes));
@@ -107,10 +107,10 @@
   {/if}
 
   <section class="counter" aria-live="polite">
-    <div class="amount">{formatWhole($game.resources.data)}</div>
+    <div class="amount">{formatWhole($game.resources.triples)}</div>
     <div class="sub">
-      {RESOURCE_LABELS.data}
-      {#if dataRate !== '0'}<span class="rate">+{format(dataRate)}/s</span>{/if}
+      {RESOURCE_LABELS.triples}
+      {#if mainRate !== '0'}<span class="rate">+{format(mainRate)}/s</span>{/if}
     </div>
   </section>
 
@@ -126,7 +126,7 @@
   <div class="connect-wrap">
     <button class="connect" onclick={connect}>
       Connect
-      <small>+1 {RESOURCE_LABELS.data} · grows the graph</small>
+      <small>+1 Triple · grows the graph</small>
     </button>
     {#each floats as f (f.id)}
       <span class="float" style="left: calc(50% + {f.x}px)">+1</span>

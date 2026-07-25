@@ -1,34 +1,42 @@
 import { describe, expect, it } from 'vitest';
 import { apply, generatorCost, initialState, ratePerSecond, tick } from '../src/core/engine';
+import { projectGraph } from '../src/core/graph';
 import { D, format, formatWhole } from '../src/core/numbers';
 import { nextRand } from '../src/core/rng';
 
+describe('graph projection (one substance: edges = triples, entities emerge)', () => {
+  it('opening band: every triple names a new entity (the magic)', () => {
+    expect(projectGraph('0')).toEqual({ nodes: 1, edges: 0 });
+    expect(projectGraph('1')).toEqual({ nodes: 2, edges: 1 });
+    expect(projectGraph('8')).toEqual({ nodes: 9, edges: 8 });
+  });
+
+  it('emergence decays: edges pull ahead as the world densifies', () => {
+    expect(projectGraph('30')).toEqual({ nodes: 20, edges: 30 });   // 9 + 22/2
+    expect(projectGraph('100')).toEqual({ nodes: 43, edges: 100 }); // 20 + 70/3
+    expect(projectGraph('104')).toEqual({ nodes: 44, edges: 104 }); // then every 4th
+    const big = projectGraph('1e30');
+    expect(big.edges).toBeLessThanOrEqual(9e15); // counters stay number-safe
+    expect(big.nodes).toBeLessThan(big.edges);
+  });
+
+  it('is monotone and exact — spending shrinks it deterministically', () => {
+    const before = projectGraph('20');
+    const after = projectGraph('5'); // bought a 15-triple machine
+    expect(after.nodes).toBeLessThan(before.nodes);
+    expect(after.edges).toBe(5);
+  });
+});
+
 describe('manualConnect', () => {
-  it('adds 1 data and grows the graph', () => {
+  it('asserts a triple and the graph follows the projection', () => {
     let s = initialState();
     s = apply(s, { type: 'manualConnect' });
-    expect(s.resources.data).toBe('1');
-    expect(s.graph.nodes).toBe(2);
-    expect(s.graph.edges).toBe(1); // too small for cross-links yet
+    expect(s.resources.triples).toBe('1');
+    expect(s.graph).toEqual({ nodes: 2, edges: 1 });
     s = apply(s, { type: 'manualConnect' });
-    expect(s.resources.data).toBe('2');
-    expect(s.graph.nodes).toBe(3);
-    expect(s.graph.edges).toBe(2);
-  });
-
-  it('threads the RNG seed and is deterministic', () => {
-    const s = initialState(42);
-    const a = apply(s, { type: 'manualConnect' });
-    const b = apply(s, { type: 'manualConnect' });
-    expect(a).toEqual(b); // same seed → same outcome
-    expect(a.rngState).not.toBe(s.rngState); // the sequence moved
-  });
-
-  it('cross-links tangle the graph: edges outgrow the spanning tree', () => {
-    let s = initialState(7);
-    for (let i = 0; i < 120; i++) s = apply(s, { type: 'manualConnect' });
-    expect(s.graph.nodes).toBe(121);
-    expect(s.graph.edges).toBeGreaterThan(s.graph.nodes - 1); // not a plain chain
+    expect(s.resources.triples).toBe('2');
+    expect(s.graph).toEqual({ nodes: 3, edges: 2 });
   });
 
   it('does not mutate the previous state (purity)', () => {
@@ -38,6 +46,11 @@ describe('manualConnect', () => {
     apply(s0, { type: 'tick', dt: 0.1 });
     expect(JSON.stringify(s0)).toBe(frozen);
   });
+
+  it('draws no RNG (deterministic without a seed until M3)', () => {
+    const s = initialState(42);
+    expect(apply(s, { type: 'manualConnect' }).rngState).toBe(s.rngState);
+  });
 });
 
 describe('buyGenerator', () => {
@@ -46,12 +59,15 @@ describe('buyGenerator', () => {
     expect(apply(s, { type: 'buyGenerator', id: 'harvester' })).toBe(s);
   });
 
-  it('deducts cost and increments count', () => {
+  it('deducts triples and the web visibly trims', () => {
     let s = initialState();
-    s = { ...s, resources: { ...s.resources, data: '15' } };
+    for (let i = 0; i < 20; i++) s = apply(s, { type: 'manualConnect' });
+    const nodesBefore = s.graph.nodes;
     s = apply(s, { type: 'buyGenerator', id: 'harvester' });
     expect(s.generators.harvester).toBe(1);
-    expect(s.resources.data).toBe('0');
+    expect(s.resources.triples).toBe('5'); // 20 - 15
+    expect(s.graph).toEqual(projectGraph('5'));
+    expect(s.graph.nodes).toBeLessThan(nodesBefore); // fuel and structure are one
   });
 
   it('follows ceil(15 × 1.15^n) — whole-unit prices', () => {
@@ -65,14 +81,17 @@ describe('buyGenerator', () => {
 });
 
 describe('tick', () => {
-  it('accrues rate × dt (units agree: rate/sec, dt in seconds)', () => {
+  it('accrues rate × dt and the graph tracks production', () => {
     let s = initialState();
-    s = { ...s, generators: { ...s.generators, harvester: 3 } }; // 0.3 data/s
+    s = { ...s, generators: { ...s.generators, harvester: 3 } }; // 0.3 triples/s
     s = tick(s, 0.1);
-    expect(D(s.resources.data).toNumber()).toBeCloseTo(0.03, 12);
+    expect(D(s.resources.triples).toNumber()).toBeCloseTo(0.03, 12);
+    for (let i = 0; i < 99; i++) s = tick(s, 0.1);
+    expect(D(s.resources.triples).toNumber()).toBeCloseTo(3, 9);
+    expect(s.graph).toEqual(projectGraph(s.resources.triples));
   });
 
-  it('is deterministic: 100 × 0.1s == one 10s step for linear production', () => {
+  it('is deterministic: 100 × 0.1s == one 10s step, graph included', () => {
     const base = {
       ...initialState(),
       generators: { ...initialState().generators, harvester: 2 },
@@ -80,7 +99,8 @@ describe('tick', () => {
     let fixed = base;
     for (let i = 0; i < 100; i++) fixed = tick(fixed, 0.1);
     const big = tick(base, 10);
-    expect(D(fixed.resources.data).toNumber()).toBeCloseTo(D(big.resources.data).toNumber(), 9);
+    expect(D(fixed.resources.triples).toNumber()).toBeCloseTo(D(big.resources.triples).toNumber(), 9);
+    expect(fixed.graph).toEqual(big.graph);
   });
 
   it('advances lastTick from action.now when provided', () => {
@@ -94,36 +114,19 @@ describe('tick', () => {
     expect(apply(s, { type: 'tick', dt: -5 })).toBe(s);
     expect(apply(s, { type: 'tick', dt: NaN })).toBe(s);
   });
-
-  it('grows the graph ambiently while producing (deterministic)', () => {
-    let s = initialState(99);
-    s = { ...s, generators: { ...s.generators, harvester: 1 } };
-    for (let i = 0; i < 2000; i++) s = tick(s, 0.1);
-    expect(s.graph.nodes).toBeGreaterThan(1); // structure forms on its own
-    // 0.3% per tick ⇒ ~6 expected over 2000 ticks; assert a sane band, not luck
-    expect(s.graph.nodes).toBeLessThan(40);
-  });
-
-  it('does not touch graph or RNG when nothing produces', () => {
-    const s = initialState(5);
-    const after = apply(s, { type: 'tick', dt: 0.1, now: 1000 });
-    expect(after.graph).toEqual(s.graph);
-    expect(after.rngState).toBe(s.rngState);
-  });
 });
 
 describe('rates', () => {
   it('sums per-resource, not a single K', () => {
     let s = initialState();
     s = { ...s, generators: { ...s.generators, harvester: 10, extractor: 2 } };
-    expect(D(ratePerSecond(s, 'data')).toNumber()).toBeCloseTo(1.0, 12);
-    expect(D(ratePerSecond(s, 'triples')).toNumber()).toBeCloseTo(2.0, 12);
+    expect(D(ratePerSecond(s, 'triples')).toNumber()).toBeCloseTo(1.0 + 2.0, 12);
     expect(ratePerSecond(s, 'capital')).toBe('0');
   });
 });
 
 describe('rng', () => {
-  it('is pure and deterministic', () => {
+  it('is pure and deterministic (ready for M3)', () => {
     const [v1, s1] = nextRand(42);
     const [v2, s2] = nextRand(42);
     expect(v1).toBe(v2);

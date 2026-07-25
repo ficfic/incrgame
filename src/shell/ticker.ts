@@ -47,8 +47,8 @@ export function observeTransition(prev: GameState, next: GameState): void {
   }
 }
 
-export function sayAwayReturn(gainedData: string | undefined): void {
-  if (gainedData) {
-    say('away-return', `while away: +${formatWhole(gainedData)} ${RESOURCE_LABELS.data}`);
+export function sayAwayReturn(gained: string | undefined): void {
+  if (gained) {
+    say('away-return', `while away: +${formatWhole(gained)} ${RESOURCE_LABELS.triples}`);
   }
 }

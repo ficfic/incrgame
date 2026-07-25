@@ -35,8 +35,11 @@ interface GameState {
   flags: Record<string, boolean>;          // narrative/unlock/event flags
   coverage: Record<DomainId, number>;      // 0..1 per domain (persists across prestige)
   reflection: number;                      // prestige multiplier level (persists)
-  graph: { nodes: number; edges: number }; // grows per connect (M1) / extraction (M3);
-                                           // `edges` feeds the M3 inference multiplier
+  graph: { nodes: number; edges: number }; // PROJECTION of `triples` (see core/graph.ts):
+                                           // edges = floor(triples), nodes emerge in decaying
+                                           // bands. A cache, never independent state; bounded
+                                           // JS numbers (picture, not balance — M3 multiplier
+                                           // reads resources.triples, NOT these counters)
 }
 ```
 
@@ -68,7 +71,7 @@ and spend on generators/compute.
 type Action =
   | { type: 'tick';  dt: number; now?: number }   // dt in SECONDS; optional `now` (epoch ms)
                                                    //   advances lastTick purely (no Date.now in core)
-  | { type: 'manualConnect' }                      // M1: +1 `data` per action
+  | { type: 'manualConnect' }                      // asserts a triple: +1 `triples` (one-substance, v2)
   | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource
   | { type: 'refine'; from: ResourceId }           // from ∈ TIER_LADDER (not 'capital'); one tier up
   | { type: 'sell'; id: ResourceId; amount: Dec }  // consumes `id`, yields `capital`
@@ -78,10 +81,9 @@ type Action =
 ```
 
 `apply` is pure. Actions that draw randomness MUST thread the new seed back into
-returned state (see RNG). Since M1.5, `manualConnect` and producing `tick`s draw
-seeded RNG for graph texture (cross-links, ambient growth) — still deterministic
-via the threaded seed; `buyGenerator` remains RNG-free. (Amended from "no RNG
-until M3" — see DECISIONS 2026-07-25.)
+returned state (see RNG). As of the one-substance rework (v2) no action consumes
+RNG — the graph is an exact projection — so everything is deterministic without
+a seed until M3's CYOA/agent mechanics arrive. The seed infrastructure stays.
 
 ## Tick model
 
@@ -151,9 +153,12 @@ interface FieldNote {
 }
 ```
 
-M1 Harvester = `{ id:'harvester', label:'Ingestion Pipeline™', baseCost:'15',
-costRatio:1.15, costResource:'data', baseRate:'0.1', produces:'data' }`. Content
-lives in `src/content/` as typed TS (the source of record for M1).
+One-substance era (v2): Harvester = `{ id:'harvester', label:'Ingestion
+Pipeline™', baseCost:'15', costRatio:1.15, costResource:'triples',
+baseRate:'0.1', produces:'triples' }` — buying trims the web, the machine
+regrows it faster. At M3 the chain deepens: harvesters gather raw `data`
+("Datums") and Extractors refine Datums→Triples. Content lives in
+`src/content/` as typed TS (the source of record for M1).
 `docs/graph/game.ttl` is a **design artifact**, not yet the runtime pipeline (it
 lacks `baseRate`/`costRatio`/`costResource`).
 

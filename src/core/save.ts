@@ -2,8 +2,10 @@
 // base64(JSON({version, state})) — the SAME blob goes to IndexedDB and to the
 // clipboard export (the escape hatch). NEVER break an existing save: loading an
 // older version runs forward migrations, never a hard reset.
-import type { GameState } from './types';
+import type { Dec, GameState } from './types';
 import { CURRENT_SAVE_VERSION, initialState } from './engine';
+import { add } from './numbers';
+import { projectGraph } from './graph';
 
 interface Envelope {
   version: number; // mirrors state.saveVersion; state is authoritative
@@ -14,7 +16,16 @@ interface Envelope {
 // state.saveVersion < CURRENT_SAVE_VERSION. Add steps; never edit shipped ones.
 type Migration = (s: Record<string, unknown>) => Record<string, unknown>;
 export const MIGRATIONS: Migration[] = [
-  // v1 is the first shipped version — the ladder starts empty.
+  // v1 → v2 — the one-substance fork (DECISIONS 2026-07-25): the early game
+  // runs on Triples; v1 `data` balances convert 1:1 into `triples` (progress
+  // preserved, never reset) and the graph becomes a projection of triples.
+  (s) => {
+    const resources = { ...(s.resources as Record<string, Dec> | undefined) };
+    const data = resources.data ?? '0';
+    resources.triples = add(resources.triples ?? '0', data);
+    resources.data = '0';
+    return { ...s, resources, graph: projectGraph(resources.triples) };
+  },
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

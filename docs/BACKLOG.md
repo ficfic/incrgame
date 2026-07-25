@@ -64,6 +64,9 @@ without being re-briefed. Move finished items to **Done** with a date.
 - [x] **Polish round** (2026-07-25, owner-picked over M3-first): Datums rename,
       event ticker (mechanical lines; owner writes flavor — `docs/TICKER_LINES.md`),
       +1 float on Connect, graph pulse on buy.
+- [x] **M1.6 one-substance rework** (2026-07-25, owner fork): headline = Triples,
+      graph = exact projection, buying trims the web, save v2 migration
+      (data→triples). RNG retired until M3.
 - [ ] **Owner: write the first ticker-line batch** (`docs/TICKER_LINES.md`).
 - [ ] **▶ NEXT after owner's polish verdict: M3, re-scoped per agents** — (1) graph rebind: edges←triples,
       nodes←entity emergence; data = fuel only (deletes the ambient bridge);

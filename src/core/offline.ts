@@ -5,6 +5,7 @@ import type { GameState, ResourceId } from './types';
 import { TIER_LADDER } from './types';
 import { add, mul, gt } from './numbers';
 import { ratePerSecond } from './engine';
+import { projectGraph } from './graph';
 
 export const OFFLINE_CAP_MS = 8 * 3600 * 1000; // 8h, tunable
 
@@ -30,5 +31,11 @@ export function applyOfflineProgress(state: GameState, now: number): OfflineResu
       gains[res] = gain;
     }
   }
-  return { state: { ...state, resources, lastTick: now }, elapsedMs, gains };
+  return {
+    // the graph is a projection of triples, so offline growth is exact & free —
+    // you return to a visibly bigger web, not just bigger numbers
+    state: { ...state, resources, lastTick: now, graph: projectGraph(resources.triples) },
+    elapsedMs,
+    gains,
+  };
 }

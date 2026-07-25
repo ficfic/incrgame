@@ -7,6 +7,20 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **ONE SUBSTANCE (owner fork, save v2).** Owner asked "why do we
+  even have a data counter" — answer: we shouldn't, yet. Early game runs on
+  **Triples only**: Connect asserts a triple (+1 edge), the headline counter IS
+  the graph, machines cost Triples so **buying visibly trims the web** (Cookie
+  Clicker precedent: you spend the cookies you bake). `graph` is now an **exact
+  projection** of `resources.triples` (`core/graph.ts`): edges = floor(triples),
+  entities emerge in decaying bands (every 1st triple → every 2nd → 3rd → 4th) —
+  novelty decays like real KG growth, and the 1-tap-=-1-node opening magic is
+  preserved. Consequences: RNG retired again until M3 (crosslink/ambient bridges
+  deleted — The Graph's objections dissolved by construction); offline now grows
+  the web exactly and for free; **first real migration shipped** (v1→v2: `data`
+  balances convert 1:1 into `triples`, never reset). "Datums" returns at M3 as
+  the raw feedstock (Harvester→Datums, Extractor→Datums-to-Triples). M3
+  inference multiplier reads `resources.triples` (Dec), never graph counters.
 - 2026-07-25 — **Owner decisions via chips (post-M1.5):** tier-1 resource is
   named **"Datums"** (label only; `ResourceId 'data'` unchanged — ids are
   save-stable). **Polish-the-first-5-minutes round before M3** (owner override
