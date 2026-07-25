@@ -263,23 +263,74 @@
     }
   }
 
-  // Measure the CANVAS, never window.innerWidth. innerWidth reports the layout
-  // viewport, which pinch-zoom leaves behind — the board ended up drawn at a
-  // third scale in the corner. A ResizeObserver on the element itself is
-  // correct under zoom, rotation, split view and browser chrome alike.
+  // THE VIEWPORT, and why this is the third attempt.
+  //
+  // iOS has ignored `user-scalable=no` since iOS 10 — it is an accessibility
+  // decision and it is not coming back. So pinch-zoom ALWAYS works, and it moves
+  // the VISUAL viewport while leaving the LAYOUT viewport alone. A
+  // `position: fixed` canvas is laid out against the layout viewport, so under
+  // zoom the player sees a magnified crop of a board that has no idea anything
+  // happened — the owner's screenshot: a huge graph, no HUD, no buttons.
+  //
+  // `ResizeObserver` did not catch it because the element genuinely did not
+  // change size. Neither did `innerWidth`. The only thing that knows is
+  // `visualViewport`, so that is what drives the board now: the canvas is sized
+  // to exactly the region the player can actually see and translated onto it,
+  // at any zoom level. Zooming becomes a magnifier that still shows the whole
+  // game instead of a crop that hides it.
+  //
+  // And `touch-action` is `manipulation`, NOT `none`. `none` swallowed the pinch
+  // — so once you were zoomed in you could not zoom out, could not scroll the
+  // browser chrome back, could not leave. Trapping the player inside the page is
+  // far worse than an occasional stray gesture. `manipulation` still kills
+  // double-tap-to-zoom, which is what caused most of the accidental zooms.
+  function fitToVisibleViewport(): void {
+    if (!canvas) return;
+    const vv = window.visualViewport;
+    if (vv && vv.width > 0 && vv.height > 0) {
+      // AUTHORITATIVE. Do not second-guess it: a small reading here is not a bad
+      // measurement, it is the player zoomed in, and "correcting" it back up to
+      // innerWidth is precisely the crop bug — the board lays out for 390 while
+      // only 156 of it is visible. (My first attempt at this fix had exactly
+      // that guard, and the zoom test caught it.)
+      canvas.style.width = `${vv.width}px`;
+      canvas.style.height = `${vv.height}px`;
+      canvas.style.transform = `translate(${vv.offsetLeft}px, ${vv.offsetTop}px)`;
+      vw = vv.width;
+      vh = vv.height;
+      return;
+    }
+    // No visualViewport (old browsers). Here a zero or absurd reading really is
+    // a bad measurement, and a bad one latches forever because nothing re-fires.
+    let w = canvas.clientWidth || window.innerWidth;
+    let h = canvas.clientHeight || window.innerHeight;
+    if (!(w > 0)) w = Math.max(document.documentElement.clientWidth, 320);
+    if (!(h > 0)) h = Math.max(document.documentElement.clientHeight, 480);
+    vw = w;
+    vh = h;
+  }
+
   onMount(() => {
     void startGame();
     void loadManifest();
     if (!canvas) return;
-    const ro = new ResizeObserver(() => {
-      if (!canvas) return;
-      vw = Math.max(1, canvas.clientWidth);
-      vh = Math.max(1, canvas.clientHeight);
-    });
+    const ro = new ResizeObserver(fitToVisibleViewport);
     ro.observe(canvas);
-    vw = Math.max(1, canvas.clientWidth);
-    vh = Math.max(1, canvas.clientHeight);
-    return () => ro.disconnect();
+    const vv = window.visualViewport;
+    // `scroll` matters as much as `resize`: panning while zoomed changes which
+    // region is visible without changing its size.
+    vv?.addEventListener('resize', fitToVisibleViewport);
+    vv?.addEventListener('scroll', fitToVisibleViewport);
+    window.addEventListener('orientationchange', fitToVisibleViewport);
+    document.addEventListener('visibilitychange', fitToVisibleViewport);
+    fitToVisibleViewport();
+    return () => {
+      ro.disconnect();
+      vv?.removeEventListener('resize', fitToVisibleViewport);
+      vv?.removeEventListener('scroll', fitToVisibleViewport);
+      window.removeEventListener('orientationchange', fitToVisibleViewport);
+      document.removeEventListener('visibilitychange', fitToVisibleViewport);
+    };
   });
 
   // Surface an away report once, as a toast, then get out of the way.
@@ -319,11 +370,17 @@
   canvas {
     display: block;
     position: fixed;
-    inset: 0;
+    left: 0;
+    top: 0;
     width: 100%;
     height: 100%;
-    /* none, not manipulation: the browser must not claim pinch or double-tap */
-    touch-action: none;
+    transform-origin: 0 0;
+    /* manipulation, NEVER none. `none` swallowed the pinch, so a player who
+       zoomed in — by accident, or because iOS ignores user-scalable=no — could
+       not zoom back out, could not scroll the browser chrome back, and could
+       not leave the page. `manipulation` still suppresses double-tap-to-zoom
+       (the usual cause) while leaving the escape route open. */
+    touch-action: manipulation;
     background: #080b11;
   }
   .toast {

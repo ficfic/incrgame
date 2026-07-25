@@ -89,14 +89,24 @@ function jitter(i: number, salt: number): number {
  *  off each node. Derived from a fixed fraction of the viewport instead, the
  *  frontier ran off the right edge and the provenance ring left the screen
  *  entirely on a 390pt phone. */
-export const STATS_H = 118;
-export const ACTION_Y = (h: number): number => h - 168;
-export const MACHINE_Y = (h: number): number => h - 76;
+// PROPORTIONAL, not fixed. These were hard pixel values tuned for a ~844pt
+// phone, so on a short viewport — a zoomed-in visual viewport, a split view, a
+// landscape phone — the stats band and the action row ate the entire screen and
+// the graph had nowhere to live. Capped at the old values so a normal phone is
+// unchanged, and floored so they never collapse to nothing.
+export const STATS_H = 118; // nominal; use statsH(h)
+/** One factor for everything sized in "phone pixels". A 844pt phone is 1.0; a
+ *  short viewport shrinks the furniture instead of letting it overlap. Floored
+ *  so tap targets never drop below a finger. */
+export const uiScale = (h: number): number => Math.max(0.6, Math.min(1, h / 844));
+export const statsH = (h: number): number => Math.max(56, Math.min(118, h * 0.16));
+export const ACTION_Y = (h: number): number => h - Math.max(76, Math.min(168, h * 0.2));
+export const MACHINE_Y = (h: number): number => h - Math.max(38, Math.min(76, h * 0.09));
 
 export interface Band { cx: number; cy: number; core: number; outer: number; ring: number }
 
 export function band(w: number, h: number): Band {
-  const top = STATS_H;
+  const top = statsH(h);
   const bottom = ACTION_Y(h) - 52;
   const cy = (top + bottom) / 2;
   const halfH = Math.max(60, (bottom - top) / 2);
@@ -150,7 +160,8 @@ export function layout(input: BoardInput): SceneItem[] {
   const trust = displayedFidelity(state);
 
   // ---- stats, across the top. These are nodes too; tapping does nothing yet
-  const statY = 42;
+  const sh = statsH(h);
+  const statY = sh * 0.30;
   const clean = D(supervisedPerSecond(state)).toNumber();
   const dirty = D(unsupervisedPerSecond(state)).toNumber();
   const flow = clean + dirty > 0
@@ -165,14 +176,14 @@ export function layout(input: BoardInput): SceneItem[] {
 
   const cov = coverage(state);
   push({
-    id: 'stat-coverage', kind: 'stat', x: w * 0.20, y: statY + 44, r: 0, draw: 0,
+    id: 'stat-coverage', kind: 'stat', x: w * 0.20, y: statY + sh * 0.52, r: 0, draw: 0,
     label: `${recovered(state)}`,
     sub: `of ${CONCEPT_BUDGET}`,
     value: `${(cov * 100).toFixed(cov < 0.01 ? 2 : 1)}%`,
     enabled: false, tone: 'good',
   });
   push({
-    id: 'stat-fidelity', kind: 'stat', x: w * 0.5, y: statY + 44, r: 0, draw: 0,
+    id: 'stat-fidelity', kind: 'stat', x: w * 0.5, y: statY + sh * 0.52, r: 0, draw: 0,
     label: `${(trust * 100).toFixed(0)}%`,
     sub: 'fidelity',
     value: formatWhole(verified(state)),
@@ -180,7 +191,7 @@ export function layout(input: BoardInput): SceneItem[] {
   });
   const free = attentionFree(state);
   push({
-    id: 'stat-attention', kind: 'stat', x: w * 0.80, y: statY + 44, r: 0, draw: 0,
+    id: 'stat-attention', kind: 'stat', x: w * 0.80, y: statY + sh * 0.52, r: 0, draw: 0,
     label: `${free}`,
     sub: `free of ${attentionCap(state)}`,
     enabled: false, tone: free > 0 ? 'good' : 'warn',
@@ -244,6 +255,7 @@ export function layout(input: BoardInput): SceneItem[] {
 
   // ---- action nodes, ringing the core where the thumb lands
   const actionY = ACTION_Y(h);
+  const u = uiScale(h);
   const actions: SceneItem[] = [];
   // Every gate the ENGINE applies has to appear here too. It refuses before the
   // clock starts and past the last concept; without those two the button
@@ -255,7 +267,7 @@ export function layout(input: BoardInput): SceneItem[] {
   const canDiscover = attentionFree(state) >= 1
     && state.bookings.length < FRONTIER_CAP && started && !worldDone;
   actions.push({
-    id: 'discover', kind: 'survey', x: 0, y: actionY, r: 34, draw: 27,
+    id: 'discover', kind: 'survey', x: 0, y: actionY, r: 34, draw: 27 * u,
     label: 'Discover',
     sub: worldDone ? 'world recovered' : canDiscover ? '1 slot · 18s' : 'no free slot',
     enabled: canDiscover, tone: canDiscover ? 'good' : 'muted',
@@ -263,7 +275,7 @@ export function layout(input: BoardInput): SceneItem[] {
   const filling = state.bookings.filter((b) => b.kind === 'connect').length;
   if (filling > 0) {
     actions.push({
-      id: 'filling', kind: 'stat', x: 0, y: actionY, r: 0, draw: 27,
+      id: 'filling', kind: 'stat', x: 0, y: actionY, r: 0, draw: 27 * u,
       label: `${filling}`,
       sub: filling === 1 ? 'line filling' : 'lines filling',
       progress: Math.max(...state.bookings.filter((b) => b.kind === 'connect')
@@ -275,7 +287,7 @@ export function layout(input: BoardInput): SceneItem[] {
   if (reviewBooking) {
     const started = reviewBooking.until - REVIEW_BOOK_MS;
     actions.push({
-      id: 'reviewing', kind: 'stat', x: 0, y: actionY, r: 0, draw: 27,
+      id: 'reviewing', kind: 'stat', x: 0, y: actionY, r: 0, draw: 27 * u,
       label: 'Reviewing',
       sub: `${Math.max(0, Math.ceil((reviewBooking.until - state.lastTick) / 1000))}s`,
       progress: Math.max(0, Math.min(1, (state.lastTick - started) / REVIEW_BOOK_MS)),
@@ -285,7 +297,7 @@ export function layout(input: BoardInput): SceneItem[] {
   if (state.review.length > 0) {
     const ok = attentionFree(state) >= 1;
     actions.push({
-      id: 'review', kind: 'review', x: 0, y: actionY, r: 34, draw: 27,
+      id: 'review', kind: 'review', x: 0, y: actionY, r: 34, draw: 27 * u,
       label: 'Review', sub: ok ? '1 slot · 25s' : 'no free slot',
       enabled: ok, tone: ok ? 'warn' : 'muted',
     });
@@ -293,20 +305,20 @@ export function layout(input: BoardInput): SceneItem[] {
   const banked = D(state.pending).add(D(state.pendingClean));
   if (banked.gt(0)) {
     actions.push({
-      id: 'absorb', kind: 'absorb', x: 0, y: actionY, r: 34, draw: 27,
+      id: 'absorb', kind: 'absorb', x: 0, y: actionY, r: 34, draw: 27 * u,
       label: 'Absorb', sub: formatWhole(banked.toString()),
       enabled: true, tone: 'warn',
     });
   }
   if (input.vignette) {
     actions.push({
-      id: 'vignette', kind: 'vignette', x: 0, y: actionY, r: 34, draw: 27,
+      id: 'vignette', kind: 'vignette', x: 0, y: actionY, r: 34, draw: 27 * u,
       label: 'Decide', sub: 'pending', enabled: true, tone: 'core',
     });
   }
   if (recovered(state) >= REFLECT_MIN_CONCEPTS) {
     actions.push({
-      id: 'retrain', kind: 'retrain', x: 0, y: actionY, r: 34, draw: 27,
+      id: 'retrain', kind: 'retrain', x: 0, y: actionY, r: 34, draw: 27 * u,
       label: 'Retrain', sub: `gen ${state.reflection + 2}`, enabled: true, tone: 'bad',
     });
   }
@@ -320,7 +332,7 @@ export function layout(input: BoardInput): SceneItem[] {
     const cost = agentCost(state, id);
     const ok = gte(verified(state), cost);
     return {
-      id: `m-${id}`, kind: 'machine' as const, x: 0, y: machY, r: 32, draw: 24,
+      id: `m-${id}`, kind: 'machine' as const, x: 0, y: machY, r: 32, draw: 24 * u,
       label: g.label, sub: `${format(cost)} verified`, value: `×${state.generators[id]}`,
       enabled: ok, tone: ok ? 'good' : 'muted', payload: id,
     };

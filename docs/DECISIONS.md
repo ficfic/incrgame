@@ -776,3 +776,43 @@ live-edge coverage work.
   source.** Our 4,096 are 90% attributes/communications/states/persons and 9.7%
   concrete, and part/substance/use relations attach to concrete things. Do not
   build the ConceptNet pipeline expecting it to fix this; re-slice first.
+
+- 2026-07-25 — **ZOOM, third attempt — and the first two were the bug.** Owner
+  screenshot: a huge graph, no HUD, no buttons, and *"i can't navigate away…
+  i can't do anything."*
+  Root cause, and it is two separate mistakes compounding:
+  1. **iOS has ignored `user-scalable=no` since iOS 10** — it is an
+     accessibility decision. So pinch always worked, and it moves the VISUAL
+     viewport while leaving the LAYOUT viewport alone. A `position: fixed`
+     canvas is laid out against the LAYOUT viewport, so the player saw a
+     magnified crop of a board that had no idea anything had happened.
+     `ResizeObserver` never fired because the element genuinely did not change
+     size — which is why the previous "fix" (measure the canvas, not
+     `innerWidth`) did nothing.
+  2. **`touch-action: none` swallowed the pinch.** So you could get zoomed in
+     and could not get out, could not scroll the chrome back, could not leave
+     the page. **Trapping the player inside the page is far worse than a stray
+     gesture.** Now `manipulation`, which still kills double-tap-to-zoom (the
+     usual cause of the accidental zoom) but leaves the escape route open.
+  Fix: the board is driven by **`visualViewport`** — sized to exactly the region
+  the player can see and translated onto it, listening to both `resize` AND
+  `scroll` (panning while zoomed changes which region is visible without
+  changing its size). Zoom becomes a magnifier that still shows a complete
+  board. `maximum-scale`/`user-scalable` are gone from the viewport meta: they
+  bought nothing on iOS and removed the way out everywhere else.
+  **A guard I added while fixing this WAS the bug again, and the test caught
+  it:** "a measurement under 200px is never real, fall back to innerWidth" — but
+  a small visualViewport is not a bad measurement, it is the player zoomed in,
+  and correcting it back up re-created the crop exactly. `visualViewport` is
+  authoritative; the sanity fallback only applies when there is no such API.
+  Also: layout constants are proportional now (`statsH`, `ACTION_Y`,
+  `MACHINE_Y`, `uiScale`) instead of pixel values tuned for an 844pt phone, so a
+  short viewport — zoomed, split-view, landscape — shrinks the furniture instead
+  of letting it eat the graph. And the canvas backing store multiplies by the
+  pinch scale so a zoomed board renders native rather than upscaled.
+  Verified with a headless pinch (`Emulation.setPageScaleFactor` 2.5): visual
+  viewport 156x338, canvas box follows to 156x338, backing 468x1013, and the
+  whole board — stats, graph, Discover, machines — renders complete. Before the
+  fix the canvas stayed 390x844 and the rest was off-screen.
+  KNOWN COSMETIC: at extreme zoom the action row's caption still overlaps the
+  machine row, because pill label text is not yet scaled by `uiScale`.

@@ -2,15 +2,13 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- maximum-scale/user-scalable are load-bearing, not laziness: the board is a
-         full-screen canvas sized from the layout viewport, and browser pinch-zoom
-         moves the VISUAL viewport out from under it — on iOS the whole board
-         collapsed into the top-left corner at a third scale. Pinch belongs to the
-         game, not the browser. -->
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
-    />
+    <!-- Zoom is ALLOWED. `maximum-scale=1, user-scalable=no` used to be here and
+         it was a mistake twice over: iOS has ignored it since iOS 10 (it is an
+         accessibility decision), so it bought nothing there — and everywhere it
+         IS honoured it removes the player's way out of a bad zoom state. The
+         board now sizes itself from `visualViewport`, so zooming is harmless:
+         it magnifies a board that still lays out complete. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Semantic Drift</title>
     <!-- iOS ignores manifest icons for the home screen; this link is load-bearing (SPEC.md) -->
     <link rel="apple-touch-icon" href="/incrgame/icon-180.png" />

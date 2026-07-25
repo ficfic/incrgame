@@ -2,7 +2,7 @@
 // what you tap is provably what you saw (see board.ts).
 import type { GameState } from '../core/types';
 import type { BoardInput, SceneItem } from './board';
-import { anchorPos, band, frontierPos, stageHue } from './board';
+import { anchorPos, band, frontierPos, stageHue, statsH, uiScale } from './board';
 import { drawLabels, placeLabels, type LabelRequest } from './labels';
 import { CONNECT_MS, displayedFidelity } from '../core/engine';
 import { D } from '../core/numbers';
@@ -63,7 +63,11 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxLine
 export function paint(canvas: HTMLCanvasElement, input: BoardInput, items: SceneItem[]): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // Multiply by the pinch scale so a zoomed board is still rendered at native
+  // resolution instead of being upscaled into mush. Capped, or a hard zoom on a
+  // 3x phone asks for a backing store nine times the pixels.
+  const zoom = window.visualViewport?.scale ?? 1;
+  const dpr = Math.min((window.devicePixelRatio || 1) * Math.max(1, zoom), 3);
   const { w, h, state, timeMs } = input;
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
     canvas.width = Math.round(w * dpr);
@@ -93,7 +97,7 @@ export function paint(canvas: HTMLCanvasElement, input: BoardInput, items: Scene
     switch (it.kind) {
       case 'anchor': paintAnchor(ctx, it, hue, t, input, reqs); break;
       case 'frontier': paintFrontier(ctx, it, hue, t, input, reqs); break;
-      case 'stat': paintStat(ctx, it, hue); break;
+      case 'stat': paintStat(ctx, it, hue, h); break;
       case 'dotted': paintDotted(ctx, it, hue, reqs); break;
       case 'machine': paintPill(ctx, it, hue, 'machine'); break;
       case 'save': paintGlyph(ctx, it, hue); break;
@@ -101,7 +105,8 @@ export function paint(canvas: HTMLCanvasElement, input: BoardInput, items: Scene
     }
   }
   const b = band(w, h);
-  drawLabels(ctx, placeLabels(ctx, reqs, w, h, { top: 96, bottom: b.cy + b.outer + 40 }));
+  drawLabels(ctx, placeLabels(ctx, reqs, w, h,
+    { top: statsH(h) * 0.85, bottom: b.cy + b.outer + 40 }));
 
   paintRipples(ctx, input, hue);
 }
@@ -413,7 +418,7 @@ function paintDotted(
   });
 }
 
-function paintStat(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number): void {
+function paintStat(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, h: number): void {
   if (it.progress !== undefined) {
     const c = tone(it.tone, hue);
     paintRadial(ctx, it.x, it.y, it.draw, it.progress, c);
@@ -433,13 +438,14 @@ function paintStat(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number): v
   // existing when Datums did — so the one number the whole screen is about was
   // rendering at 17px in dim grey like a footnote.
   const big = it.id === 'stat-statements';
-  ctx.font = big ? `700 34px ${FONT}` : `700 17px ${FONT}`;
+  const u = uiScale(h);
+  ctx.font = big ? `700 ${(34 * u).toFixed(1)}px ${FONT}` : `700 ${(17 * u).toFixed(1)}px ${FONT}`;
   ctx.fillStyle = big ? INK : tone(it.tone, hue);
   ctx.fillText(it.label, it.x, it.y);
   if (it.sub) {
-    ctx.font = `10px ${FONT}`;
+    ctx.font = `${(10 * u).toFixed(1)}px ${FONT}`;
     ctx.fillStyle = DIM;
-    ctx.fillText(it.sub, it.x, it.y + (big ? 18 : 15));
+    ctx.fillText(it.sub, it.x, it.y + (big ? 18 : 15) * u);
   }
 }
 
