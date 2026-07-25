@@ -5,7 +5,7 @@ import type { Action, GameState } from '../core/types';
 import { apply, initialState } from '../core/engine';
 import { deserialize, serialize } from '../core/save';
 import { applyOfflineProgress, type OfflineResult } from '../core/offline';
-import { loadBlob, saveBlob, requestPersistence } from './storage';
+import { loadBlob, saveBlob, deleteBlob, requestPersistence } from './storage';
 import { observeTransition, sayAwayReturn } from './ticker';
 
 const TICK_MS = 100; // fixed logical step: 10 Hz (SPEC "Tick model")
@@ -47,6 +47,15 @@ async function persist(): Promise<void> {
 
 export function exportSave(): string {
   return serialize(get(store));
+}
+
+/** Flush the project: wipe the save and start over. The UI gates this behind
+ *  an explicit second tap — this is the ONE sanctioned way progress dies. */
+export async function flushProject(): Promise<void> {
+  store.set(initialState((Date.now() % 0x7fffffff) | 1));
+  awayReport.set(null);
+  await deleteBlob();
+  await persist(); // write the fresh state so a reload can't resurrect the old run
 }
 
 /** Replaces the running state. Throws on a bad blob — current save untouched. */

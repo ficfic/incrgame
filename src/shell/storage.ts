@@ -42,6 +42,20 @@ export async function saveBlob(blob: string): Promise<void> {
   }
 }
 
+export async function deleteBlob(): Promise<void> {
+  const db = await openDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete(KEY);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
 /** Ask the OS not to evict our storage. Best-effort; iOS may say no. */
 export async function requestPersistence(): Promise<boolean> {
   try {

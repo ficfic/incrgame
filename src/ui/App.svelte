@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { game, awayReport, dispatch, exportSave, importSave, startGame } from '../shell/game';
+  import { game, awayReport, dispatch, exportSave, flushProject, importSave, startGame } from '../shell/game';
   import { ticker } from '../shell/ticker';
   import { generatorCost, ratePerSecond } from '../core/engine';
   import { format, formatWhole, gte } from '../core/numbers';
@@ -71,6 +71,23 @@
     } catch {
       say('That is not a valid save — nothing changed');
     }
+  }
+
+  // Flush is the one sanctioned way progress dies — it takes TWO taps.
+  let flushArmed = $state(false);
+  let flushTimer: ReturnType<typeof setTimeout> | undefined;
+
+  async function onFlush() {
+    if (!flushArmed) {
+      flushArmed = true;
+      clearTimeout(flushTimer);
+      flushTimer = setTimeout(() => (flushArmed = false), 4000);
+      return;
+    }
+    clearTimeout(flushTimer);
+    flushArmed = false;
+    await flushProject();
+    say('Project flushed');
   }
 
   function fmtDuration(ms: number): string {
@@ -166,6 +183,9 @@
   <footer>
     <button class="ghost" onclick={onExport}>Export save</button>
     <button class="ghost" onclick={onImport}>Import save</button>
+    <button class="ghost danger" class:armed={flushArmed} onclick={onFlush}>
+      {flushArmed ? 'Tap again to wipe' : 'Flush project'}
+    </button>
   </footer>
 
   {#if toast}<div class="toast">{toast}</div>{/if}
@@ -300,6 +320,12 @@
     padding: 8px 14px;
     font-size: 0.85rem;
     cursor: pointer;
+  }
+  .ghost.danger { border-color: #4a2230; color: #a37f8b; }
+  .ghost.danger.armed {
+    border-color: #b04a5a;
+    color: #ffdfe4;
+    background: #3a1620;
   }
   .toast {
     position: fixed;

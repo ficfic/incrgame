@@ -21,12 +21,14 @@
     prevGraph = { nodes, edges };
   });
 
-  // A tap that crossed no threshold still gets an answer: a hub ripple.
+  // A tap that crossed no threshold still gets an answer: it TOUCHES the web,
+  // and consecutive taps illuminate a different connection every time.
   // (Runs after the diff effect above, so real births are never downgraded.)
+  let touchSeq = 0;
   $effect(() => {
     if (prevPulseKey !== undefined && pulseKey !== prevPulseKey) {
       const now = performance.now();
-      if (!fx || now - fx.startMs > 50) fx = { kind: 'ripple', startMs: now };
+      if (!fx || now - fx.startMs > 50) fx = { kind: 'touch', startMs: now, seq: touchSeq++ };
     }
     prevPulseKey = pulseKey;
   });

@@ -7,6 +7,13 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Flush button + wandering touch FX (owner playtest #3).**
+  "Flush project" in the footer wipes the save and restarts — the ONE
+  sanctioned death of progress, gated behind a two-tap arm/confirm (4s window)
+  to honor the never-break-a-save rule. Threshold-less taps no longer ripple
+  the hub: each tap illuminates a DIFFERENT connection (seq walks the drawable
+  edges; falls back to walking nodes while relations are rare) — owner asked
+  for a different highlight per connect.
 - 2026-07-25 — **Projection retune + FX fix (owner playtest #2, save v3).**
   Owner: same node flickered on threshold-less taps, and the graph grew too
   fast — "much more datums to create a node and even more to create an edge."

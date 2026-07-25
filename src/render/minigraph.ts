@@ -51,12 +51,15 @@ function layout(count: number, w: number, h: number, spin: number): P[] {
 }
 
 /** What just happened — each kind gets its OWN celebration, so a tap that
- *  doesn't birth a node never flickers the same node again. */
-export type FxKind = 'node' | 'edge' | 'ripple';
+ *  doesn't birth a node never flickers the same node again.
+ *  'touch' = a threshold-less tap; `seq` walks the web so every tap
+ *  illuminates a DIFFERENT connection (owner request). */
+export type FxKind = 'node' | 'edge' | 'touch';
 
 export interface Fx {
   kind: FxKind;
   startMs: number;
+  seq?: number; // for 'touch': which connection to light up
 }
 
 export const FX_DURATION_MS = 550;
@@ -144,43 +147,75 @@ export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, opts: Dr
     ctx.lineWidth = 1;
   }
 
-  // edge celebration: the youngest edge flashes bright when a relation forms
-  if (fx?.kind === 'edge' && fxK > 0 && shown > 1) {
-    let a: P | undefined, b: P | undefined;
-    if (graph.edges <= shown - 1 && graph.edges >= 1) {
-      const i = graph.edges; // youngest tree edge links node i to its ancestor
+  // drawable edge k ∈ [0, treeEdges + chords): tree links first, then chords
+  const edgeEndpoints = (k: number): [P, P] | null => {
+    if (k < treeEdges) {
+      const i = k + 1;
       const parent = i === 1 ? 0 : Math.abs(Math.floor(jitter(i, 3) * 2 * i)) % i;
-      a = pts[parent] ?? pts[0];
-      b = pts[i];
-    } else if (chords > 0) {
-      const c = chords - 1; // youngest chord
-      a = pts[Math.abs(Math.floor(jitter(c, 5) * 2 * shown)) % shown];
-      b = pts[Math.abs(Math.floor(jitter(c, 6) * 2 * shown)) % shown];
+      const a = pts[parent] ?? pts[0]!;
+      const b = pts[i];
+      return b && a !== b ? [a, b] : null;
     }
-    if (a && b && a !== b) {
-      ctx.strokeStyle = `hsl(${hue} 90% 70% / ${0.9 * fxK})`;
-      ctx.lineWidth = 1 + 2.5 * fxK;
+    const c = k - treeEdges;
+    if (c >= chords) return null;
+    const a = pts[Math.abs(Math.floor(jitter(c, 5) * 2 * shown)) % shown];
+    const b = pts[Math.abs(Math.floor(jitter(c, 6) * 2 * shown)) % shown];
+    return a && b && a !== b ? [a, b] : null;
+  };
+
+  const flashEdge = (k: number, strength: number) => {
+    const ends = edgeEndpoints(k);
+    if (!ends) return;
+    ctx.strokeStyle = `hsl(${hue} 90% 70% / ${strength * fxK})`;
+    ctx.lineWidth = 1 + 2.5 * fxK;
+    ctx.beginPath();
+    ctx.moveTo(ends[0].x, ends[0].y);
+    ctx.lineTo(ends[1].x, ends[1].y);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    // glow the endpoints so the touched relation reads at a glance
+    for (const p of ends) {
       ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.stroke();
-      ctx.lineWidth = 1;
+      ctx.arc(p.x, p.y, 3.5 + 2 * fxK, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${hue} 85% 68% / ${0.55 * strength * fxK})`;
+      ctx.fill();
     }
+  };
+
+  const drawableEdges = treeEdges + chords;
+
+  // edge birth: the youngest edge flashes bright when a relation forms
+  if (fx?.kind === 'edge' && fxK > 0 && shown > 1 && drawableEdges > 0) {
+    flashEdge(drawableEdges - 1, 0.95);
   }
+
+  // touch: every threshold-less tap illuminates a DIFFERENT connection,
+  // walking the web tap by tap (falls through to nodes while edges are rare)
+  const touchSeq = fx?.kind === 'touch' && fxK > 0 ? fx.seq ?? 0 : null;
+  if (touchSeq !== null && drawableEdges > 0) {
+    flashEdge(touchSeq % drawableEdges, 0.7);
+  }
+
+  // while relations are still rare, a touch lights a different NODE per tap
+  const touchedNode = touchSeq !== null && drawableEdges === 0 && shown > 1
+    ? 1 + (touchSeq % (shown - 1))
+    : -1;
 
   for (let i = 0; i < shown; i++) {
     const p = pts[i]!;
     const isHub = i === 0;
     const isNewest = i === shown - 1 && shown > 1;
+    const isTouched = i === touchedNode;
     // ambient twinkle: each node breathes on its own phase — never a still frame
     const tw = 0.78 + 0.22 * Math.sin(t * (0.6 + Math.abs(jitter(i, 7))) + i * 1.7);
     const r = isHub
       ? 7 + 2 * Math.max(0, Math.log10(Math.max(overflow, 1)))
       : (2.6 + 1.6 * Math.abs(jitter(i, 4))) * sizeScale;
+    const lift = isNewest && pulse > 0 ? pulse * 3.5 : isTouched ? fxK * 2.5 : 0;
     ctx.globalAlpha = isHub ? 1 : tw;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, isNewest && pulse > 0 ? r + pulse * 3.5 : r, 0, Math.PI * 2);
-    ctx.fillStyle = isHub || (isNewest && pulse > 0) ? node : nodeDim;
+    ctx.arc(p.x, p.y, r + lift, 0, Math.PI * 2);
+    ctx.fillStyle = isHub || (isNewest && pulse > 0) || isTouched ? node : nodeDim;
     ctx.fill();
     if (isHub) {
       ctx.beginPath();
@@ -190,16 +225,4 @@ export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, opts: Dr
     }
   }
   ctx.globalAlpha = 1;
-
-  // ripple: a threshold-advancing tap answers from the hub — quiet, causal,
-  // and never mistakable for a new node
-  if (fx?.kind === 'ripple' && fxK > 0) {
-    const hub = pts[0]!;
-    ctx.strokeStyle = `hsl(${hue} 80% 65% / ${0.5 * fxK})`;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(hub.x, hub.y, 10 + (1 - fxK) * 34, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.lineWidth = 1;
-  }
 }
