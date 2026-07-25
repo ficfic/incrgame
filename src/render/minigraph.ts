@@ -40,6 +40,20 @@ export function stageHue(nodes: number): number {
   return (168 + drift) % 360;
 }
 
+/** Character-level decay of a REAL label — a glitch effect on licensed text,
+ *  never invented text. Deterministic per id so a node's decay is stable
+ *  frame to frame instead of strobing. */
+function glitch(text: string, id: number): string {
+  const GLYPHS = '▒▓░#§¤∎⌁≠∅';
+  // ~30% of characters decay: enough to read as damaged, still recognisable as
+  // the word you lost. Fully unreadable would just look like a font bug.
+  return [...text].map((ch, i) =>
+    ch !== ' ' && Math.abs(jitter(id * 31 + i, 41)) < 0.15
+      ? GLYPHS[Math.floor(Math.abs(jitter(id * 17 + i, 53)) * 2 * GLYPHS.length) % GLYPHS.length]!
+      : ch,
+  ).join('');
+}
+
 /** Deterministic pseudo-hash (render-only; NOT game RNG). */
 function jitter(i: number, salt: number): number {
   let t = (i * 374761393 + salt * 668265263) | 0;
@@ -83,6 +97,24 @@ export interface DrawOptions {
   /** Node id → concept name. Undefined while its data is still loading; the
    *  picture must read the same either way, so labels are decoration only. */
   labelFor?: (id: number) => string | undefined;
+  /** 0..1 share of the graph that can be trusted. Drives how much of the
+   *  picture visibly rots — see `isRotted`. */
+  fidelity?: number;
+}
+
+/** Is THIS node drawn as rotted?
+ *
+ *  Provenance is tracked in aggregate (counts), not per node, because the
+ *  simulation runs in numbers — one record per statement would never render on
+ *  a phone (CLAUDE.md performance budget). So the canvas shows a
+ *  *representative* share: a stable, deterministic slice of nodes sized to
+ *  (1 − fidelity). Same rule the substrate dots already follow — the picture
+ *  is honest about the whole, not about any single node.
+ *
+ *  Node 0 is `entity`, hand-placed and verified; it never rots. */
+function isRotted(id: number, fidelity: number): boolean {
+  if (id === 0 || fidelity >= 1) return false;
+  return Math.abs(jitter(id, 23)) * 2 > fidelity;
 }
 
 /** Labels are drawn unscaled so they stay legible at any zoom, and clipped so a
@@ -112,6 +144,8 @@ export function drawGraph(canvas: HTMLCanvasElement, scene: GraphScene, opts: Dr
     canvas.height = h * dpr;
   }
   const { view, timeMs, fx, labelFor } = opts;
+  const trust = opts.fidelity ?? 1;
+  const ROT = '#b0566b'; // the one colour that does NOT drift with the palette
   const { graph, forged } = scene;
   const t = timeMs / 1000;
   const spin = t * 0.02;
@@ -209,12 +243,16 @@ export function drawGraph(canvas: HTMLCanvasElement, scene: GraphScene, opts: Dr
     const isHub = id === 0;
     const isNewest = id === newestAnchor && !isHub;
     const pulse = fx?.kind === 'node' && fxK > 0 && isNewest ? Math.sin(fxK * Math.PI) : 0;
-    const tw = 0.8 + 0.2 * Math.sin(t * (0.6 + Math.abs(jitter(id, 7))) + id * 1.7);
+    const rotted = isRotted(id, trust);
+    // rotted nodes twitch instead of breathing — the motion itself reads wrong
+    const tw = rotted
+      ? 0.45 + 0.35 * Math.abs(Math.sin(t * 5.1 + id * 3.3))
+      : 0.8 + 0.2 * Math.sin(t * (0.6 + Math.abs(jitter(id, 7))) + id * 1.7);
     const r = isHub ? 7 : 3.4;
     ctx.globalAlpha = isHub ? 1 : tw;
     ctx.beginPath();
     ctx.arc(p.x, p.y, r + pulse * 3.5 + (id === touchedAnchor ? fxK * 2.5 : 0), 0, Math.PI * 2);
-    ctx.fillStyle = isHub || isNewest || id === touchedAnchor ? bright : dim;
+    ctx.fillStyle = rotted ? ROT : (isHub || isNewest || id === touchedAnchor ? bright : dim);
     ctx.fill();
     if (isHub) {
       ctx.beginPath();
@@ -234,8 +272,12 @@ export function drawGraph(canvas: HTMLCanvasElement, scene: GraphScene, opts: Dr
       if (!showAll && !isHub && id !== newestAnchor) continue;
       const name = labelFor(id);
       if (!name) continue;
-      drawLabel(ctx, anchorPos(id, w, h, spin), name, view.zoom,
-        isHub ? `hsl(${hue} 90% 82% / 0.95)` : `hsl(${hue} 45% 66% / 0.75)`,
+      const rotted = isRotted(id, trust);
+      // A rotted node's NAME decays too. This is the same glitch applied to the
+      // Recovered card: real licensed text being degraded, never text invented.
+      drawLabel(ctx, anchorPos(id, w, h, spin),
+        rotted ? glitch(name, id) : name, view.zoom,
+        rotted ? `${ROT}dd` : isHub ? `hsl(${hue} 90% 82% / 0.95)` : `hsl(${hue} 45% 66% / 0.75)`,
         isHub ? -14 : -10);
     }
   }

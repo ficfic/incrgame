@@ -48,10 +48,20 @@ export interface Provenance {
   drifted: Dec;
 }
 
-/** One item awaiting human review. `corrupt` is the truth of it; the player
- *  only ever sees the concept and its (possibly drifted) definition. */
+/** One item awaiting human review.
+ *
+ *  A corrupt item is NOT a garbled string — it is a real concept shown with
+ *  *another real concept's definition*. That is what a hallucinated statement
+ *  actually looks like, and it means spotting rot requires reading the gloss
+ *  rather than looking for damage. Both strings stay verbatim licensed text;
+ *  only the PAIRING is generated, which is structure, not prose.
+ *
+ *  `corrupt` is the truth of it. The player is never shown that flag. */
 export interface ReviewItem {
-  conceptIndex: number; // resolved to a real concept by the shell, never by core
+  conceptIndex: number;      // resolved to a real concept by the shell, never by core
+  /** Whose definition is displayed. Equals `conceptIndex` when the statement is
+   *  sound; a different concept's index when it is not. */
+  glossIndex: number;
   corrupt: boolean;
 }
 
@@ -77,6 +87,30 @@ export interface GameState {
   pending: Dec;                             // work banked while away, not yet absorbed
   modifiers: Record<string, number>;         // multiplicative, set by vignette choices
   vignette: { active: string | null; seen: string[] };
+  // ---- the ratchet: the only things that survive a retrain ----
+  /** Statements a HUMAN checked, across all generations. Never resets. Drives
+   *  the one permanent multiplier in the game — which is thematically exact:
+   *  what survives model collapse is precisely the material someone verified. */
+  lifetimeVerified: Dec;
+  /** Statements placed by hand this run. Prices the manual lane, so machine
+   *  output can never inflate the cost of a hand claim. */
+  handClaimed: number;
+  /** Earliest `lastTick` at which the review desk will offer a new batch.
+   *  Acceptance sampling has a sample RATE; without one, review is unbounded
+   *  and the automated buyout becomes decorative. */
+  reviewReadyAt: number;
+  /** Statements you certified that were actually wrong. Counted as verified for
+   *  the DISPLAYED fidelity, but subtracted from the fidelity that actually
+   *  gates recovery. The number goes up; the graph doesn't. */
+  falselyVerified: Dec;
+  /** The batch currently ON the desk, FROZEN INTO STATE when it is minted.
+   *
+   *  It must not be re-derived per render. Derived, it re-computed at 10 Hz:
+   *  `corrupt` flipped under the player's eyes, `conceptIndex` walked as the
+   *  graph grew, the panel wiped their verdicts every 100 ms, and the reducer
+   *  then judged a fourth draw nobody had seen. The desk looked finished and
+   *  was not connected to anything. A batch is a decision the game makes ONCE. */
+  review: ReviewItem[];
 }
 
 export type Action =

@@ -1,3 +1,17 @@
+> # ⚠️ STALE — this document describes a different game (flagged 2026-07-25)
+>
+> It predates the speed-versus-truth loop. Flatly contradicted by the code:
+> the six-tier ladder and sell/rent are unbuilt (`sell`/`refine` are inert);
+> generator costs and rates are all different; Reasoners recover concepts
+> rather than minting triples; Orchestrators are the review lane, not a late
+> automation tier; the `inferenceMult` "core dopamine loop" **does not exist**;
+> `reflectionLevel` is unread and `lifetimeCapital` is permanently `'0'`.
+>
+> Kept for the M4 sell/rent design only. **The live numbers are the constants at
+> the top of `src/core/engine.ts`**, and the shipped economy is documented in
+> `docs/VISION.md` + BACKLOG's balance-pass item. Rewrite this around the
+> drift equilibrium before trusting a single number in it.
+
 # Economy model (first pass — borrowed numbers)
 
 **Principle we're borrowing:** in idle games, **costs grow exponentially while

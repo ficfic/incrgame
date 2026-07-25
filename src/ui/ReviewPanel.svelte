@@ -4,7 +4,7 @@
   // throws away real knowledge. That is the entire skill of the mechanic, and
   // it is OPTIONAL — Orchestrators do this for you, worse, forever.
   import type { ReviewItem } from '../core/types';
-  import { conceptAt, corrupt, ontologyRevision, warm } from '../shell/ontology';
+  import { conceptAt, ontologyRevision, warm } from '../shell/ontology';
 
   let {
     items,
@@ -18,23 +18,30 @@
 
   // A fresh queue resets the toggles. Default is KEEP: doing nothing accepts
   // everything, which is exactly what happens if you never open this panel.
+  // Key the reset on the batch's IDENTITY, not on the prop object. The queue is
+  // frozen into state, so this fires once per batch instead of ten times a
+  // second — which is what was silently erasing every verdict the player tapped.
+  let armedFor = $state('');
   $effect(() => {
-    keep = items.map(() => true);
-    warm(items.map((i) => i.conceptIndex));
+    const id = items.map((i) => `${i.conceptIndex}:${i.glossIndex}`).join('|');
+    if (id !== armedFor) {
+      armedFor = id;
+      keep = items.map(() => true);
+      warm(items.flatMap((i) => [i.conceptIndex, i.glossIndex]));
+    }
   });
 
   const resolved = $derived.by(() => {
     void $ontologyRevision;
     return items.map((item) => {
       const c = conceptAt(item.conceptIndex);
-      if (!c) return null;
-      // A drifted statement shows the definition you HAD, decaying — the real
-      // licensed text, glitched. Nothing here is written; it is degraded.
-      return {
-        label: item.corrupt ? corrupt(c.label, item.conceptIndex * 7 + 1, 0.25) : c.label,
-        gloss: item.corrupt ? corrupt(c.gloss, item.conceptIndex * 13 + 5, 0.32) : c.gloss,
-        category: c.category,
-      };
+      const g = conceptAt(item.glossIndex);
+      if (!c || !g) return null;
+      // A drifted statement is a real concept wearing SOMEONE ELSE'S real
+      // definition — which is what a hallucinated statement actually looks
+      // like. Both strings are verbatim licensed text; only the pairing is
+      // generated, so the no-generated-prose rule holds. You have to READ it.
+      return { label: c.label, gloss: g.gloss, category: c.category };
     });
   });
 </script>
@@ -44,6 +51,7 @@
     <span class="tag">Review queue</span>
     <span class="hint">optional · Orchestrators do this automatically</span>
   </header>
+  <p class="brief">Does each definition match its concept?</p>
 
   {#each items as item, i (i)}
     {@const c = resolved[i]}
@@ -93,6 +101,7 @@
     color: hsl(var(--hue, 168) 60% 60%);
   }
   .hint { font-size: 0.64rem; color: #46586a; }
+  .brief { margin: 0; font-size: 0.72rem; color: #6b8195; }
   .item {
     display: flex;
     gap: 10px;

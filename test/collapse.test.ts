@@ -4,7 +4,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   apply, coverage, driftPerSecond, fidelity, initialState, recovered,
-  recoveryPerSecond, REFLECT_MIN_CONCEPTS, reviewQueue, reviewWeight, tick, verified,
+  displayedFidelity, recoveryPerSecond, REFLECT_MIN_CONCEPTS, reviewQueue, reviewWeight,
+  tick, verified,
 } from '../src/core/engine';
 import { applyOfflineProgress } from '../src/core/offline';
 import { CONCEPT_BUDGET } from '../src/content/ontologyMeta';
@@ -72,7 +73,7 @@ describe('drift', () => {
     for (let i = 0; i < 30; i++) s = tick(s, 1);
     const early = fidelity(s);
     for (let i = 0; i < 300; i++) s = tick(s, 1);
-    expect(fidelity(s)).toBeLessThanOrEqual(early);
+    expect(fidelity(s)).toBeLessThanOrEqual(early + 1e-12);
   });
 });
 
@@ -86,18 +87,27 @@ describe('the plateau — the reason the goal is unreachable', () => {
       provenance: { unverified: '0', drifted: '90' },
     };
     expect(fidelity(dirty)).toBeCloseTo(0.1, 5);
-    // 10% fidelity buys 1% of the rate, not 10%
-    expect(recoveryPerSecond(dirty)).toBeCloseTo(fast * 0.01, 5);
+    // 10% fidelity buys ~1% of the rate, not 10% (f², times the remaining term)
+    expect(recoveryPerSecond(dirty)).toBeLessThan(fast * 0.02);
+    expect(recoveryPerSecond(dirty)).toBeGreaterThan(0);
   });
 
-  it('slows asymptotically as coverage rises — 100% is never reached', () => {
-    const base: GameState = { ...initialState(), generators: { ...initialState().generators, reasoner: 10 } };
-    const rateAt = (nodes: number): number =>
-      recoveryPerSecond({ ...base, graph: { nodes, edges: 0 } });
-    expect(rateAt(CONCEPT_BUDGET * 0.5)).toBeLessThan(rateAt(0));
-    expect(rateAt(CONCEPT_BUDGET * 0.99)).toBeLessThan(rateAt(CONCEPT_BUDGET * 0.5));
-    expect(rateAt(CONCEPT_BUDGET * 0.99)).toBeGreaterThan(0); // approached, not blocked
-    expect(rateAt(CONCEPT_BUDGET)).toBe(0);
+  it('caps coverage at FIDELITY — you recover as much as you can be trusted about', () => {
+    // The design claim in VISION is that the stated goal is unreachable BY
+    // CONSTRUCTION. `1 - coverage` alone was merely exponential and completed
+    // the dataset in about seven hours, so the claim was false. The ceiling is
+    // now fidelity itself, which is also the game's whole argument.
+    const gens = { ...initialState().generators, reasoner: 10 };
+    const at = (nodes: number, unver: string, drift: string): number => recoveryPerSecond({
+      ...initialState(), generators: gens, graph: { nodes, edges: 0 },
+      resources: { ...initialState().resources, triples: '100' },
+      provenance: { unverified: unver, drifted: drift },
+    });
+    // at 60% fidelity, recovery dies as coverage approaches 60% — not 100%
+    expect(at(CONCEPT_BUDGET * 0.3, '0', '40')).toBeGreaterThan(0);
+    expect(at(CONCEPT_BUDGET * 0.61, '0', '40')).toBe(0);
+    // raise fidelity and the ceiling rises with it
+    expect(at(CONCEPT_BUDGET * 0.61, '0', '10')).toBeGreaterThan(0);
   });
 
   it('stops recovery dead at zero fidelity', () => {
@@ -123,21 +133,31 @@ describe('the plateau — the reason the goal is unreachable', () => {
 });
 
 describe('review (human in the loop)', () => {
-  const dirty = (): GameState => ({
+  /** A rotting graph with a batch actually ON the desk. The batch is minted by
+   *  `tick` and frozen into state — never re-derived per render — so a test
+   *  must tick to get one, exactly like the game does. */
+  const dirty = (): GameState => tick({
     ...initialState(),
     resources: { ...initialState().resources, triples: '100' },
     provenance: { unverified: '60', drifted: '40' },
     graph: { nodes: 30, edges: 100 },
-  });
+  }, 0.1);
 
   it('offers a queue only when there is something to check', () => {
-    expect(reviewQueue(initialState())).toEqual([]);
+    expect(reviewQueue(tick(initialState(), 0.1))).toEqual([]);
     expect(reviewQueue(dirty()).length).toBeGreaterThan(0);
   });
 
-  it('is a pure function of the save — it cannot be re-rolled by reloading', () => {
-    const s = dirty();
-    expect(reviewQueue(s)).toEqual(reviewQueue(s));
+  it('HOLDS STILL while the player reads it', () => {
+    // The batch must be a decision the game made ONCE. Re-derived per render it
+    // recomputed at 10 Hz: `corrupt` flipped mid-read, concepts walked as the
+    // graph grew, and the panel wiped the player's verdicts every 100 ms. The
+    // desk looked finished and was not connected to anything.
+    let s = dirty();
+    const first = reviewQueue(s);
+    expect(first.length).toBeGreaterThan(0);
+    for (let i = 0; i < 200; i++) s = tick(s, 1); // two hundred ticks of churn
+    expect(reviewQueue(s)).toBe(first); // same ARRAY, not merely equal
   });
 
   it('rejecting a corrupt statement REMOVES it from the graph', () => {
@@ -158,7 +178,7 @@ describe('review (human in the loop)', () => {
     if (trueCount === 0) return;
     const after = apply(s, { type: 'reviewBatch', keep: queue.map(() => true) });
     expect(Number(after.provenance.unverified))
-      .toBe(Number(s.provenance.unverified) - trueCount * reviewWeight(s));
+      .toBe(Number(s.provenance.unverified) - trueCount * Number(reviewWeight(s)));
     expect(fidelity(after)).toBeGreaterThan(fidelity(s));
   });
 
@@ -171,14 +191,30 @@ describe('review (human in the loop)', () => {
       resources: { ...small.resources, triples: '100000' },
       provenance: { unverified: '60000', drifted: '40000' },
     };
-    expect(reviewWeight(big)).toBeGreaterThan(reviewWeight(small));
-    expect(reviewWeight(initialState())).toBe(1); // never zero
+    expect(Number(reviewWeight(big))).toBeGreaterThan(Number(reviewWeight(small)));
+    expect(reviewWeight(initialState())).toBe('1'); // never zero
   });
 
-  it('advances the queue so the next batch differs', () => {
+  it('clears the desk on commit and rate-limits the next batch', () => {
+    // Unbounded, hand review beat the automated buyout by orders of magnitude
+    // and "optional" stopped being true — 30 seconds of tapping reset fidelity
+    // from any state.
     const s = dirty();
     const after = apply(s, { type: 'reviewBatch', keep: [true, true, true] });
-    expect(after.rngState).not.toBe(s.rngState);
+    expect(after.review).toEqual([]);
+    expect(after.reviewReadyAt).toBeGreaterThan(after.lastTick);
+    expect(reviewQueue(tick(after, 0.1))).toEqual([]); // still on cooldown
+  });
+
+  it('makes certifying a lie cost something the player cannot see', () => {
+    const s = dirty();
+    const q = reviewQueue(s);
+    const corruptIdx = q.findIndex((x) => x.corrupt);
+    if (corruptIdx < 0) return;
+    const after = apply(s, { type: 'reviewBatch', keep: q.map(() => true) });
+    expect(Number(after.falselyVerified)).toBeGreaterThan(0);
+    // the number on screen goes UP while the number that matters does not
+    expect(displayedFidelity(after)).toBeGreaterThan(fidelity(after));
   });
 
   it('is never mandatory: Orchestrators verify without any tap', () => {
@@ -209,12 +245,19 @@ describe('offline — you never come back to damage', () => {
     expect(fidelity(r.state)).toBe(fidelity(s));
   });
 
-  it('absorbing banked work adds it as unverified, in front of you', () => {
-    const s: GameState = { ...initialState(), pending: '120' };
+  it('absorbs banked work in SLICES, so returning is never a fidelity cliff', () => {
+    // Fidelity is a ratio. Tipping an 8h bank into a small graph in one tap
+    // multiplied the denominator ~100x and cost four orders of magnitude of
+    // recovery — "you never come back to damage" held only in the letter.
+    const s: GameState = { ...initialState(), pending: '10000' };
     const after = apply(s, { type: 'absorb' });
-    expect(after.pending).toBe('0');
-    expect(after.resources.triples).toBe('120');
-    expect(after.provenance.unverified).toBe('120');
+    expect(Number(after.pending)).toBeGreaterThan(0);           // some still banked
+    expect(Number(after.pending)).toBeLessThan(10000);          // some absorbed
+    expect(after.resources.triples).toBe(after.provenance.unverified); // arrives unchecked
+    // and it does drain fully with repeated taps
+    let t = after;
+    for (let i = 0; i < 200 && Number(t.pending) > 0; i++) t = apply(t, { type: 'absorb' });
+    expect(t.pending).toBe('0');
   });
 });
 

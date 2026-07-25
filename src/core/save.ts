@@ -4,7 +4,7 @@
 // older version runs forward migrations, never a hard reset.
 import type { Dec, GameState } from './types';
 import { CURRENT_SAVE_VERSION, initialState } from './engine';
-import { add } from './numbers';
+import { add, gt, sub } from './numbers';
 import { deriveGraph, projectGraph } from './graph';
 
 interface Envelope {
@@ -69,6 +69,28 @@ export const MIGRATIONS: Migration[] = [
     modifiers: {},
     vignette: { active: null, seen: [] },
   }),
+  // v5 → v6 — the ratchet. Existing statements were all marked verified by the
+  // v4→v5 step (the owner placed them by hand), so `lifetimeVerified` is
+  // seeded from them: the credit is real and must not be lost. `handClaimed`
+  // is seeded from the anchors actually standing, so the manual lane resumes at
+  // the price it had rather than restarting at 5 Datums.
+  (s) => {
+    const resources = (s.resources ?? {}) as Record<string, Dec>;
+    const forged = (s.forged ?? {}) as { anchors?: number[] };
+    const prov = (s.provenance ?? {}) as Record<string, Dec>;
+    const total = resources.triples ?? '0';
+    const verified = sub(sub(total, prov.unverified ?? '0'), prov.drifted ?? '0');
+    return {
+      ...s,
+      lifetimeVerified: gt(verified, '0') ? verified : '0',
+      handClaimed: Math.max(0, (forged.anchors?.length ?? 1) - 1),
+      reviewReadyAt: 0,
+    };
+  },
+  // v6 → v7 — the review desk became state instead of a per-render derivation,
+  // and a wrongly-certified statement now costs something. Both fields start
+  // empty: nobody has been shown a batch, and nobody has certified a lie yet.
+  (s) => ({ ...s, falselyVerified: '0', review: [] }),
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

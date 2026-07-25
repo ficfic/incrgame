@@ -89,6 +89,20 @@ describe('ontology data', () => {
     expect(bad).toEqual([]);
   });
 
+  it('ships no slur the source failed to mark', () => {
+    // DELIBERATELY NOT the pipeline's own regex. The predicate a filter uses
+    // cannot be the evidence that the filter worked — the gloss filter above
+    // passed vacuously while `Abo` sat at recovery index 996 with a gloss that
+    // reads perfectly neutrally, on a public site, as a reward card.
+    const labels = new Set(allChunks().flatMap((c) => c.l));
+    const mustNotShip = [
+      'Abo', 'gypsy', 'Gypsy',
+      'master race', 'Black race', 'White race', 'Mongolian race', 'Amerindian race',
+      'Negroid race', 'Mongoloid race', 'Australoid race', 'Caucasian race',
+    ];
+    expect(mustNotShip.filter((w) => labels.has(w))).toEqual([]);
+  });
+
   it('keeps arrays aligned, labelled and defined', () => {
     for (const c of allChunks()) {
       const n = c.l.length;

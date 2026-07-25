@@ -83,6 +83,15 @@ is not the real data. It's what your machines generated: unverified, and it rots
 faster. Each generation starts richer and more wrong. Coverage climbs while
 fidelity falls.
 
+> ### ⚠️ STATUS: NOT YET TRUE IN CODE (2026-07-25)
+> Measured over a simulated 12-hour run: an attentive generation-1 player
+> reaches **100% coverage in about four hours**, and an idle one reaches 97.5%
+> in eight. The recession across generations *is* real — fidelity now caps at
+> ~96% in generation 2 and ~91% in generation 3 as synthetic ancestry rises —
+> but coverage itself completes. **"Unreachable by construction" is the design
+> intent, not the shipped behaviour.** Balance pass is the top item in BACKLOG.
+> Do not repeat this claim as fact until a simulation says otherwise.
+
 That is the structure of the model-collapse result
 ([Shumailov et al., *Nature*, 2024](https://www.nature.com/articles/s41586-024-07566-y)),
 made literal. It also means **the reveal is mechanically true from the first run,

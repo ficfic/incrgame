@@ -3,7 +3,7 @@
   import { game, awayReport, dispatch, exportSave, flushProject, importSave, startGame } from '../shell/game';
   import { ticker } from '../shell/ticker';
   import {
-    claimCost, coverage, driftPerSecond, fidelity, generatorCost, pendingVignette,
+    claimCost, coverage, displayedFidelity, driftPerSecond, generatorCost, pendingVignette,
     ratePerSecond, recovered, REFLECT_MIN_CONCEPTS, reviewQueue, verified,
   } from '../core/engine';
   import { format, formatWhole, gte } from '../core/numbers';
@@ -58,13 +58,28 @@
     void $ontologyRevision; // re-resolve when a chunk arrives
     return recoveredId === null ? null : conceptForNode(recoveredId);
   });
+
+  // THE IDLE LOOP MUST SHOW YOU SOMETHING. Reasoners recover concepts in
+  // aggregate, so without this the machines — the actual point of the game —
+  // deliver nothing readable per hour, and the curated dataset is invisible to
+  // anyone who isn't hand-claiming. Each time the count crosses an integer, the
+  // card shows the concept that just came back.
+  let lastSeenCount = -1;
+  $effect(() => {
+    const n = recoveredCount;
+    if (lastSeenCount < 0) { lastSeenCount = n; return; }
+    if (n > lastSeenCount) {
+      lastSeenCount = n;
+      recoveredId = n - 1; // concept index = position in recovery order
+    }
+  });
   const credit = $derived.by(() => {
     void $ontologyRevision;
     return ontologyCredit();
   });
 
   // ---- the speed-versus-truth readouts ----
-  const trust = $derived(fidelity($game));
+  const trust = $derived(displayedFidelity($game)); // NOT the engine's true fidelity
   const verifiedCount = $derived(verified($game));
   const cover = $derived(coverage($game));
   const recoveredCount = $derived(recovered($game));

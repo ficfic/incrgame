@@ -48,13 +48,23 @@ describe('claimNode', () => {
     expect(stuck.resources.triples).toBe('2'); // third claim (cost 6 > 4) rejected
   });
 
-  it('cost climbs the gentle 1.08 lane: ceil(5 × 1.08^edges)', () => {
+  it('cost climbs the gentle 1.08 lane: ceil(5 × 1.08^handClaimed)', () => {
     let s = initialState();
     expect(claimCost(s)).toBe('5');
     s = surveyAndClaim(s);
     expect(claimCost(s)).toBe('6'); // ceil(5.4)
-    s = { ...s, resources: { ...s.resources, triples: '10' } };
+    s = { ...s, handClaimed: 10 };
     expect(claimCost(s)).toBe('11'); // ceil(10.79)
+  });
+
+  it('is priced by HAND claims only — machines cannot inflate the manual lane', () => {
+    // Keyed to the global statement count, two minutes of Extractor output
+    // priced the next hand claim in the millions, and one prestige put it past
+    // 10^400. The one action that mints trust from nothing was being deleted
+    // by the machines it exists to balance.
+    const s = initialState();
+    const withMachineOutput = { ...s, resources: { ...s.resources, triples: '500000' } };
+    expect(claimCost(withMachineOutput)).toBe(claimCost(s));
   });
 
   it('is deterministic (no RNG consumed)', () => {
@@ -83,7 +93,8 @@ describe('the drip (edges ARE the income)', () => {
     s = surveyAndClaim(s);
     expect(D(ratePerSecond(s, 'data')).toNumber()).toBeCloseTo(0.3, 12);
     s = { ...s, generators: { ...s.generators, harvester: 3 } };
-    expect(D(ratePerSecond(s, 'data')).toNumber()).toBeCloseTo(0.6, 12); // drip + machines
+    // 0.3 drip + 3 Harvesters at 0.35 each
+    expect(D(ratePerSecond(s, 'data')).toNumber()).toBeCloseTo(0.3 + 1.05, 12);
   });
 
   it('tick accrues the drip; graph counters stay balance-derived', () => {

@@ -32,9 +32,12 @@ You cannot lose. You **plateau** — push generation up and fidelity falls until
 recovery stops. Then you retrain, which is this game's prestige.
 
 **And what you inherit is your own machine output**, unverified, rotting faster
-than last time. Each generation starts richer and more wrong. Coverage climbs
-while fidelity falls. 100% is unreachable by construction and gets further away
-every run — which is the design, not a balance accident.
+than last time. Each generation starts richer and more wrong: fidelity caps
+around 96% in generation 2 and 91% in generation 3, and keeps falling.
+
+*(Honest status: coverage itself is still completable — an attentive first run
+finishes in about four hours. The receding-goal design intent is real in the
+fidelity ceiling but not yet in the coverage ceiling. See `docs/VISION.md`.)*
 
 ## The concepts are real
 
@@ -60,9 +63,10 @@ in `public/ontology/LICENSE.txt`.
 
 Not by explaining it — by making you do it. **Information extraction** floods
 your graph. **Validation** is the only thing that keeps it usable. Manual review
-is **acceptance sampling**: you inspect three items and the verdict applies to
-the batch they were drawn from, which is how quality control actually works at
-scale. **Subsumption reasoning** turns trusted statements back into recovered
+is **sampling-based inspection**: you inspect three items and the verdict applies
+to the batch they were drawn from. That principle is what acceptance sampling is
+built on — though the scheme here is not a real sampling plan, and
+`docs/SIMPLIFICATIONS.md` (S11) says exactly how it differs. **Subsumption reasoning** turns trusted statements back into recovered
 concepts. And **model collapse** — training on recursively generated data,
 [Shumailov et al., *Nature*, 2024](https://www.nature.com/articles/s41586-024-07566-y) —
 is the prestige mechanic.

@@ -53,6 +53,28 @@ const SEED_LABEL = 'entity'; // WordNet's unique beginner: root of the noun hier
  *  sound" survives, the slur sense does not. */
 const OFFENSIVE = /\b(ethnic slur|racial slur|slur|disparaging|derogatory|pejorative|offensive term|term of disparagement)\b/i;
 
+/** Backstop, matched on the WORD FORM.
+ *
+ *  The gloss filter above is nearly inert — it rejected 2 synsets out of ~4,500
+ *  traversed — because upstream carries no machine-readable pejorative marker
+ *  and a slur's gloss can read perfectly neutrally. `Abo` shipped at recovery
+ *  index 996 with the gloss "a dark-skinned member of a race of people living
+ *  in Australia when Europeans arrived", as a collectible reward card, on a
+ *  public site. The filter that let it through cannot also be the evidence that
+ *  filtering works — see the non-circular assertion in test/ontology.test.ts.
+ *
+ *  Two groups, both deliberate and both reversible by editing this list:
+ *   1. slurs whose gloss the source does not mark;
+ *   2. the 19th-century racial-taxonomy cluster. These are real WordNet entries
+ *      with descriptive glosses and quoting them is not a licence problem — but
+ *      this game frames concepts as ground truth being RECOVERED, and handing a
+ *      player "master race" as a reward reads as endorsement. */
+const DENY_LABELS = new Set([
+  'Abo', 'gypsy', 'Gypsy',
+  'Amerindian race', 'Black race', 'Mongolian race', 'White race', 'Caucasian race',
+  'Negroid race', 'Mongoloid race', 'Australoid race', 'master race',
+]);
+
 const log = (...a) => console.log('[ontology]', ...a);
 
 // ---- 1. fetch the pinned source ------------------------------------------
@@ -144,7 +166,7 @@ function recoveryOrder(synsets) {
     const name = s.members[0];
     let accept = true;
     if (!name) { rejected.unnamed++; accept = false; }
-    else if (OFFENSIVE.test(s.def)) { rejected.offensive++; accept = false; }
+    else if (OFFENSIVE.test(s.def) || DENY_LABELS.has(name)) { rejected.offensive++; accept = false; }
     else if (takenLabels.has(name)) { rejected.duplicate++; accept = false; }
 
     let nextCarrier = carrier;

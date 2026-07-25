@@ -102,6 +102,29 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
 
 ## ▶ Next — in order
 
+- [ ] **★ BALANCE PASS — the headline design claim is still not true.** Measured
+      over 12h sims after the agent round: gen-1 attentive completes 4096/4096 in
+      ~4h; gen-1 idle reaches 97.5% in 8h (a healthy 1.1x gap — that part is
+      fixed). Fidelity ceilings DO fall by generation (100% / 96% / 91%), so the
+      recession is real in trust but not in coverage. VISION's "unreachable by
+      construction" is therefore intent, not behaviour. Chad has the numbers and
+      the suggested curves.
+- [ ] **Vignette #1 fires at ~3 min when `buy-review` (auto-review x1.6) is
+      literally x1.6 of zero** — no Orchestrators are affordable yet. Either
+      bundle a free Orchestrator into that choice or move the trigger later.
+- [ ] Review desk shows a concept + gloss under the word "statement" — but a
+      statement is a triple, not a dictionary entry (prof-veritas Part 6). The
+      real parent is already shipped and loaded; rendering `dog is-a canine`
+      would fix the mis-teaching AND make the graph the real taxonomy.
+- [ ] `aiAgent` declares `produces: 'triples'` but nothing reads it; if it ever
+      enters the roster it costs 12,000 Datums and produces nothing. The
+      `produces` field is decorative and actively misleading.
+- [ ] DECISIONS.md says "newest at the top" and the last two sessions appended
+      at the bottom. Fix the file or the convention.
+- [ ] Pin the SELECTION rules in a test (checksum of the label sequence): the
+      frozen-order contract names only `SRC_REF`, but the curation proved the
+      selection rules renumber the world just as thoroughly.
+
 - [ ] **★ OWNER PROSE — the game has almost no words, on purpose.** Owner-written
       per the guardrail: (1) the **first vignette** in `src/content/vignettes.ts`
       (title, body, three choice labels — the mechanical effects already render);
