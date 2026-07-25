@@ -55,9 +55,12 @@ without being re-briefed. Move finished items to **Done** with a date.
 - [x] **M0 + M1 + M2 built** (2026-07-25, branch `claude/project-review-build-shub7f`):
       engine + tests (21 green), Svelte HUD, canvas mini-graph, PWA, deploy
       workflow, versioned save in IndexedDB, export/import, offline progress.
-- [ ] **▶ NEXT: owner verifies on-device** — merge/deploy, install on iOS
-      (Safari if Edge won't), confirm standalone + save survives. Then **M3**
-      (Extractor → Triples, Reasoner + bounded inference multiplier, PixiJS bloom).
+- [x] **Deployed to production** (2026-07-25): merged into the pinned branch,
+      Pages run green — **live at <https://ficfic.github.io/incrgame/>**.
+- [ ] **▶ NEXT: owner verifies on-device** — open the URL on the phone, install
+      to home screen (Safari if Edge won't), confirm standalone + save survives.
+      Then **M3** (Extractor → Triples, Reasoner + bounded inference multiplier,
+      PixiJS bloom).
 - [ ] Shake down the review agents on the new code (the-graph on `src/core/`,
       chad-liquidity on the M1 feel, the-redditor on genre feel).
 - [ ] (Later) ESLint boundary rule enforcing core-purity (no DOM in `core/`).
