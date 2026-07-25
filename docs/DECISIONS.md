@@ -7,6 +7,15 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Four in-character independent review agents** built in
+  `.claude/agents/`: prof-veritas (theory accuracy), chad-liquidity (design +
+  economy balance), the-graph (consistency + code), the-auditor (security/
+  compliance). Each runs in fresh context = independent. Bound rule: in-character
+  voice on top, **accurate verdict underneath** — a funny reviewer that lies is
+  worthless.
+- 2026-07-25 — **House voice: full wacky, honesty underneath** — operate in the
+  game's satirical-ominous register, but status reports/verdicts/bad news stay
+  plainly honest. Persona is a hat, never a mask.
 - 2026-07-25 — **Play solo; colleagues/people CUT** — managing people = tycoon
   genre (wrong game). Workforce is AI agents instead. Reverses the earlier
   "deferred"; now a deliberate cut.

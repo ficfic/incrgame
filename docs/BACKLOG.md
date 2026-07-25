@@ -22,6 +22,10 @@ without being re-briefed. Move finished items to **Done** with a date.
 - [x] Taxonomies tier, CYOA forking events, emergent motivation, abstraction
       stance locked.
 - [x] Economy math model drafted (`docs/ECONOMY_MODEL.md`) with borrowed numbers.
+- [x] Four in-character review agents built (prof-veritas, chad-liquidity,
+      the-graph, the-auditor); house voice set to full-wacky-honesty-underneath.
+- [ ] Shake down the review agents on real work once code exists (they've been
+      hired but not yet battle-tested).
 - [ ] Design the CYOA event format/schema (situation, choices, gates, flags, forks).
 - [ ] Prototype the manual-phase connect-nodes minigame (decide keep/cut).
 - [ ] Flesh out remaining open questions (sell-vs-keep pacing, sell→rent unlock,
