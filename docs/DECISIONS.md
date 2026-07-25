@@ -447,3 +447,27 @@ session knows *why* things are the way they are. Format:
   requires its notice to travel with all copies of the database. The in-game
   credit now names both Princeton and the OEWN team and links the licence and
   the notice, per CC BY 4.0 §3(a)(1).
+- 2026-07-25 — **The entire game is the graph — there is no HTML UI** (owner
+  call). Every counter, button and label is a node laid out by
+  `src/render/board.ts` and painted by `src/render/paint.ts` on one full-screen
+  canvas. `App.svelte` is now only the loop and pointer dispatch. Deleted:
+  `GraphPanel.svelte`, `ReviewPanel.svelte`, `VignettePanel.svelte`,
+  `minigraph.ts`. The one deliberate exception is the CC BY attribution line,
+  which stays a real DOM `<a>` because a painted circle is not a link.
+- 2026-07-25 — **Layout and hit-testing share one item list.** `layout()`
+  returns the items; `paint()` draws those same items; `hit()` tests them. What
+  you tap is provably what you saw. This is a direct response to the review-desk
+  bug, where the thing being judged had drifted from the thing on screen.
+- 2026-07-25 — **The board's geometry is a CLAMPED band, not a fraction of the
+  viewport.** Fractions put the provenance ring off both screen edges and clipped
+  frontier labels on a 390pt phone. `band()` computes an explicit region between
+  the stats and the action row and clamps every ring to fit inside it, labels
+  included.
+- 2026-07-25 — **Survey costs Datums; connecting costs ATTENTION** (owner call:
+  both verbs must cost, and cost different things). Survey scales ×1.8 per node
+  already sitting unclaimed on the frontier, so the biggest button on screen
+  stops being an infinite free tap and starts asking "look for more, or finish
+  what you found?". Attention is capped at 12 and refills at 1 per 20s whether
+  or not you are playing — which is what keeps human-in-the-loop optional rather
+  than an attention tax. It also replaces the review cooldown with one legible
+  budget: connect or check, not both.

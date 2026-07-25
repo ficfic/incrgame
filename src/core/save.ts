@@ -91,6 +91,10 @@ export const MIGRATIONS: Migration[] = [
   // and a wrongly-certified statement now costs something. Both fields start
   // empty: nobody has been shown a batch, and nobody has certified a lie yet.
   (s) => ({ ...s, falselyVerified: '0', review: [] }),
+  // v7 → v8 — both hand verbs now cost something: Survey costs Datums,
+  // connecting costs ATTENTION. Existing saves arrive with a full attention
+  // budget so nobody is mid-run and suddenly unable to act.
+  (s) => ({ ...s, attention: 12, surveyed: 0 }),
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

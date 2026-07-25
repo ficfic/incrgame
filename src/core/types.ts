@@ -103,6 +103,13 @@ export interface GameState {
    *  the DISPLAYED fidelity, but subtracted from the fidelity that actually
    *  gates recovery. The number goes up; the graph doesn't. */
   falselyVerified: Dec;
+  /** The scarce human input, 0..ATTENTION_CAP. Regenerates on its own whether
+   *  or not you are playing, so spending it is a choice and never a tax: this is
+   *  what keeps human-in-the-loop optional (VISION). Connecting a concept by
+   *  hand costs it; so does committing a review. */
+  attention: number;
+  /** Surveys performed this run — prices the next one. */
+  surveyed: number;
   /** The batch currently ON the desk, FROZEN INTO STATE when it is minted.
    *
    *  It must not be re-derived per render. Derived, it re-computed at 10 Hz:

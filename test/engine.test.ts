@@ -1,37 +1,66 @@
 import { describe, expect, it } from 'vitest';
-import { apply, claimCost, generatorCost, initialState, ratePerSecond, tick } from '../src/core/engine';
+import { apply, claimCost, generatorCost, initialState, ratePerSecond, surveyCost, CLAIM_ATTENTION, tick } from '../src/core/engine';
 import { ANCHOR_CAP, FRONTIER_CAP } from '../src/core/graph';
 import { D, format, formatWhole } from '../src/core/numbers';
 import { nextRand } from '../src/core/rng';
 import type { GameState } from '../src/core/types';
 
+/** Both hand verbs now cost something — Datums to survey, attention to
+ *  connect — so a test that wants a claim has to fund both. */
+const rich = (s: GameState): GameState => ({ ...s, attention: 12 });
+
+/** Structural helper: tops up both costs first, because these tests are about
+ *  the SHAPE of the graph, not about whether you could afford it. */
 const surveyAndClaim = (s: GameState): GameState => {
-  s = apply(s, { type: 'survey' });
+  s = apply(rich(s), { type: 'survey' });
   const id = s.forged.frontier[s.forged.frontier.length - 1]!;
   return apply(s, { type: 'claimNode', id });
 };
 
 describe('survey', () => {
   it('reveals frontier entities up to the cap, then idles', () => {
-    let s = initialState();
+    let s = { ...initialState(), resources: { ...initialState().resources, data: '1e9' } };
     for (let i = 0; i < FRONTIER_CAP + 3; i++) s = apply(s, { type: 'survey' });
     expect(s.forged.frontier.length).toBe(FRONTIER_CAP);
     expect(s.forged.nextId).toBe(1 + FRONTIER_CAP); // ids minted only for real reveals
   });
 
-  it('is free and touches nothing else', () => {
-    const s = initialState();
+  it('costs ATTENTION as well as Datums, and refuses without it', () => {
+    const tired = { ...initialState(), attention: 0 };
+    const surveyed = apply(tired, { type: 'survey' });
+    const id = surveyed.forged.frontier[0]!;
+    expect(apply(surveyed, { type: 'claimNode', id })).toBe(surveyed);
+  });
+
+  it('COSTS Datums, and costs more with a frontier you have not cleared', () => {
+    // Free and unlimited, Survey was the biggest button on screen and
+    // economically inert. Now it asks a question: look for more, or finish
+    // what you already found?
+    const s = { ...initialState(), resources: { ...initialState().resources, data: '1e9' } };
+    const first = surveyCost(s);
     const after = apply(s, { type: 'survey' });
-    expect(after.resources).toEqual(s.resources);
+    expect(Number(after.resources.data)).toBe(Number(s.resources.data) - Number(first));
+    expect(Number(surveyCost(after))).toBeGreaterThan(Number(first));
+    expect(after.surveyed).toBe(1);
     expect(after.graph).toEqual(s.graph);
+  });
+
+  it('is refused outright when the Datums are not there', () => {
+    const broke = { ...initialState(), resources: { ...initialState().resources, data: '0' } };
+    expect(apply(broke, { type: 'survey' })).toBe(broke);
   });
 });
 
 describe('claimNode', () => {
   it('wires a frontier entity in: pays Datums, mints a Triple, links it', () => {
-    let s = initialState(); // starts with 15 Datums
-    s = surveyAndClaim(s);
-    expect(s.resources.data).toBe('10'); // 15 - 5
+    // done by hand, unfunded, so the arithmetic is the real arithmetic
+    let s = initialState(); // 15 Datums, 4 attention
+    const survey = Number(surveyCost(s));
+    s = apply(s, { type: 'survey' });
+    const id = s.forged.frontier[0]!;
+    s = apply(s, { type: 'claimNode', id });
+    expect(Number(s.resources.data)).toBe(15 - survey - 5); // survey, then the claim
+    expect(s.attention).toBe(4 - CLAIM_ATTENTION);
     expect(s.resources.triples).toBe('1');
     expect(s.forged.anchors).toEqual([0, 1]);
     expect(s.forged.links).toEqual([[0, 1]]);
@@ -42,10 +71,13 @@ describe('claimNode', () => {
   it('rejects ids not on the frontier and unaffordable claims', () => {
     let s = initialState();
     expect(apply(s, { type: 'claimNode', id: 99 })).toBe(s);
-    s = surveyAndClaim(s); // data 10
-    s = surveyAndClaim(s); // cost 6 → data 4
-    const stuck = apply(apply(s, { type: 'survey' }), { type: 'claimNode', id: s.forged.nextId });
-    expect(stuck.resources.triples).toBe('2'); // third claim (cost 6 > 4) rejected
+    // fund exactly two claims, then leave it short for a third
+    s = { ...s, resources: { ...s.resources, data: '60' }, attention: 12 };
+    s = surveyAndClaim(s);
+    s = surveyAndClaim(s);
+    const broke = { ...s, resources: { ...s.resources, data: '0' } };
+    const stuck = apply(apply(broke, { type: 'survey' }), { type: 'claimNode', id: broke.forged.nextId });
+    expect(stuck.resources.triples).toBe('2'); // can afford neither survey nor claim
   });
 
   it('cost climbs the gentle 1.08 lane: ceil(5 × 1.08^handClaimed)', () => {
@@ -76,8 +108,11 @@ describe('claimNode', () => {
   });
 
   it('folds the oldest anchors into aggregate mass beyond the cap', () => {
-    let s = { ...initialState(), resources: { ...initialState().resources, data: '1e12' } };
-    for (let i = 0; i < ANCHOR_CAP + 10; i++) s = surveyAndClaim(s);
+    let s = { ...initialState(), resources: { ...initialState().resources, data: '1e30' } };
+    for (let i = 0; i < ANCHOR_CAP + 10; i++) {
+      s = { ...s, resources: { ...s.resources, data: '1e30' } }; // survey price climbs; not the point here
+      s = surveyAndClaim(s);
+    }
     expect(s.forged.anchors.length).toBe(ANCHOR_CAP);
     expect(D(s.forged.foldedNodes).toNumber()).toBe(11); // 1 + 250 owned, 240 addressable
     expect(s.graph.nodes).toBe(ANCHOR_CAP + 11); // nothing lost, only folded
@@ -87,7 +122,7 @@ describe('claimNode', () => {
 
 describe('the drip (edges ARE the income)', () => {
   it('each statement yields 0.15 Datums/s', () => {
-    let s = initialState();
+    let s = { ...initialState(), resources: { ...initialState().resources, data: '400' } };
     expect(ratePerSecond(s, 'data')).toBe('0'); // no edges, no drip
     s = surveyAndClaim(s);
     s = surveyAndClaim(s);
@@ -99,8 +134,9 @@ describe('the drip (edges ARE the income)', () => {
 
   it('tick accrues the drip; graph counters stay balance-derived', () => {
     let s = surveyAndClaim(initialState()); // 1 edge → 0.15/s
+    const before = D(s.resources.data).toNumber();
     for (let i = 0; i < 100; i++) s = tick(s, 0.1); // 10s
-    expect(D(s.resources.data).toNumber()).toBeCloseTo(10 + 1.5, 9);
+    expect(D(s.resources.data).toNumber() - before).toBeCloseTo(1.5, 9);
     expect(s.graph).toEqual({ nodes: 2, edges: 1 });
   });
 

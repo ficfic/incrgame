@@ -28,6 +28,25 @@ Extractors mint statements fast → all UNVERIFIED → they DRIFT into nonsense
 - **HITL is never mandatory.** Manual review is acceptance sampling (one item
   stands for ~2% of the pool); Orchestrators do it for you, worse, forever.
 
+## 2b. The UI is a canvas. All of it.
+
+There is no HTML interface. `src/render/board.ts` lays the whole game out as
+tappable nodes; `src/render/paint.ts` draws them; `App.svelte` is a render loop
+and a pointer handler and nothing else. Stats, machines, Survey, Review,
+Retrain, the save menu — all nodes.
+
+- `layout()` / `paint()` / `hit()` consume the SAME item list, deliberately.
+- `band(w, h)` is the geometry: an explicit clamped region, never a fraction of
+  the viewport. Change it there, not in the painter.
+- Sheets (review, vignette, save) are drawn ON the board and take the whole
+  screen, so a stray tap can't reach the graph behind an open decision.
+- Only the CC BY attribution stays in the DOM — it has to be a real link.
+
+**Both hand verbs cost.** Survey spends Datums and gets steeply more expensive
+per unclaimed frontier node; connecting spends **attention** (cap 12, +1/20s,
+regenerates while you're away). Attention is the one budget shared by connecting
+and reviewing.
+
 ## 3. State of the code
 
 - **Save v5.** Migration chain v1→v5 tested. v4→v5 marks every existing

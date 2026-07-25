@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apply, initialState, CURRENT_SAVE_VERSION } from '../src/core/engine';
+import { apply, initialState, ratePerSecond, CURRENT_SAVE_VERSION } from '../src/core/engine';
 import { projectGraph } from '../src/core/graph';
 import { deserialize, serialize } from '../src/core/save';
 import { applyOfflineProgress, OFFLINE_CAP_MS } from '../src/core/offline';
@@ -80,12 +80,14 @@ describe('save round-trip', () => {
 
 describe('offline progress', () => {
   it('the drip accrues offline, exactly (ms → seconds)', () => {
-    const s = { ...claimed(), lastTick: 1_000_000 }; // 0.3/s from 2 edges
+    const s = { ...claimed(), lastTick: 1_000_000 };
+    // whatever the drip is worth right now, a minute of it is exactly 60x
+    const perSecond = D(ratePerSecond(s, 'data')).toNumber();
     const { state, elapsedMs, gains } = applyOfflineProgress(s, 1_000_000 + 60_000);
     expect(elapsedMs).toBe(60_000);
-    expect(D(gains.data ?? '0').toNumber()).toBeCloseTo(18, 9);
+    expect(D(gains.data ?? '0').toNumber()).toBeCloseTo(perSecond * 60, 9);
     expect(D(state.resources.data).toNumber()).toBeCloseTo(
-      D(s.resources.data).toNumber() + 18, 9);
+      D(s.resources.data).toNumber() + perSecond * 60, 9);
     expect(state.graph).toEqual(s.graph); // web itself waits for machines (M3)
   });
 

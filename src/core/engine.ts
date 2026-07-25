@@ -22,7 +22,7 @@ import { CONCEPT_BUDGET } from '../content/ontologyMeta';
 import { VIGNETTES } from '../content/vignettes';
 import { nextRand } from './rng';
 
-export const CURRENT_SAVE_VERSION = 7;
+export const CURRENT_SAVE_VERSION = 8;
 
 // Frontier Mining knobs (Chad's term sheet; tune by playing)
 const START_DATA = '15';        // enough to wire the first ~2 entities
@@ -43,6 +43,27 @@ const YIELD_DRIFTED = '0.02';
 const DRIFT_BASE = 0.0035;
 const DRIFT_SYNTHETIC_SCALE = 3;
 const DRIFT_SCALE_SCALE = 0.55;
+
+/** Attention: the human bottleneck, as a resource.
+ *
+ *  Both hand verbs cost it, and it refills by itself. That makes each one a
+ *  real decision instead of a free tap, and it replaces the review cooldown
+ *  with one legible budget: you can spend your attention on connecting or on
+ *  checking, never on both at once. It refills whether you play or not, so
+ *  ignoring it entirely is a valid way to play the game. */
+export const ATTENTION_CAP = 12;
+const ATTENTION_REGEN_S = 20; // one point per 20s
+const ATTENTION_START = 4;
+export const CLAIM_ATTENTION = 1;
+export const REVIEW_ATTENTION = 2;
+
+/** Surveying is no longer free. It costs Datums, and it costs MORE while the
+ *  frontier is already full of things you haven't dealt with — so the biggest
+ *  button on screen stops being an infinite free tap and starts being a
+ *  question: do I look for more, or finish what I already found? */
+const SURVEY_BASE = 3;
+const SURVEY_FRONTIER_RATIO = 1.8;
+const SURVEY_PROGRESS_RATIO = 1.04;
 
 export const REVIEW_BATCH = 3;
 /** Manual review is ACCEPTANCE SAMPLING: you inspect a few items and the
@@ -95,6 +116,19 @@ export function claimCost(state: GameState): string {
   return D(EDGE_BASE_COST).mul(Decimal.pow(EDGE_COST_RATIO, state.handClaimed)).ceil().toString();
 }
 
+/** Datums to reveal one more candidate. Scales with the frontier you are
+ *  already sitting on, and gently with how far the run has come. */
+export function surveyCost(state: GameState): string {
+  return D(SURVEY_BASE)
+    .mul(Decimal.pow(SURVEY_FRONTIER_RATIO, state.forged.frontier.length))
+    .mul(Decimal.pow(SURVEY_PROGRESS_RATIO, state.handClaimed))
+    .ceil().toString();
+}
+
+export function attentionRegenPerSecond(): number {
+  return 1 / ATTENTION_REGEN_S;
+}
+
 /** The one number that only ever goes up. Bounded, log-scaled, and fed solely
  *  by statements a human checked — so retraining is a decision rather than a
  *  strictly dominated button, and what carries you forward is exactly the
@@ -139,6 +173,8 @@ export function initialState(seed = 1): GameState {
     handClaimed: 0,
     reviewReadyAt: 0,
     falselyVerified: '0',
+    attention: ATTENTION_START,
+    surveyed: 0,
     review: [],
   };
 }
@@ -398,6 +434,8 @@ export function apply(state: GameState, action: Action): GameState {
         touched = true;
       }
 
+      const attention = Math.min(ATTENTION_CAP, state.attention + dt / ATTENTION_REGEN_S);
+      if (attention !== state.attention) touched = true;
       const lastTick = action.now ?? state.lastTick + dt * 1000;
       if (!touched && lastTick === state.lastTick && state.review.length > 0) return state;
       const next: GameState = {
@@ -407,6 +445,7 @@ export function apply(state: GameState, action: Action): GameState {
         provenance: { unverified: unverified.toString(), drifted: drifted.toString() },
         lifetimeGenerated: lifetimeGenerated.toString(),
         graph: deriveGraph(forged, resources.triples),
+        attention,
         lastTick,
       };
       // Mint the next batch only when the desk is empty — the array identity
@@ -416,12 +455,19 @@ export function apply(state: GameState, action: Action): GameState {
 
     case 'survey': {
       if (state.forged.frontier.length >= FRONTIER_CAP) return state;
+      const cost = surveyCost(state);
+      if (!gte(state.resources.data, cost)) return state;
       const forged = {
         ...state.forged,
         nextId: state.forged.nextId + 1,
         frontier: [...state.forged.frontier, state.forged.nextId],
       };
-      return { ...state, forged };
+      return {
+        ...state,
+        resources: { ...state.resources, data: sub(state.resources.data, cost) },
+        surveyed: state.surveyed + 1,
+        forged,
+      };
     }
 
     case 'claimNode': {
@@ -430,6 +476,8 @@ export function apply(state: GameState, action: Action): GameState {
       if (!state.forged.frontier.includes(action.id)) return state;
       const cost = claimCost(state);
       if (!gte(state.resources.data, cost)) return state;
+      // ...and your own attention, which is the scarcer of the two
+      if (state.attention < CLAIM_ATTENTION) return state;
       const anchorPool = state.forged.anchors;
       const anchor = anchorPool[mixId(action.id) % anchorPool.length] ?? 0;
 
@@ -462,6 +510,7 @@ export function apply(state: GameState, action: Action): GameState {
         resources,
         forged,
         handClaimed: state.handClaimed + 1,
+        attention: state.attention - CLAIM_ATTENTION,
         lifetimeVerified: add(state.lifetimeVerified, 1), // you checked it by placing it
         graph: deriveGraph(forged, resources.triples),
       };
@@ -475,6 +524,7 @@ export function apply(state: GameState, action: Action): GameState {
       //   reject a true one        → you threw away real knowledge
       const queue = state.review; // the batch the player actually saw
       if (queue.length === 0) return state;
+      if (state.attention < REVIEW_ATTENTION) return state;
       const weight = D(reviewWeight(state)); // one inspected item stands for this many
       let unverified = D(state.provenance.unverified);
       let drifted = D(state.provenance.drifted);
@@ -516,6 +566,7 @@ export function apply(state: GameState, action: Action): GameState {
         falselyVerified: add(state.falselyVerified, falselyVerified.toString()),
         rngState: advanceRng(state.rngState, queue.length * 3),
         reviewReadyAt: state.lastTick + REVIEW_COOLDOWN_MS,
+        attention: state.attention - REVIEW_ATTENTION,
         review: [], // consumed; tick mints the next one after the cooldown
         graph: deriveGraph(state.forged, resources.triples),
       };
