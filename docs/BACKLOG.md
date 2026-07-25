@@ -25,7 +25,11 @@ without being re-briefed. Move finished items to **Done** with a date.
 - [x] Four in-character review agents built (prof-veritas, chad-liquidity,
       the-graph, the-auditor); house voice set to full-wacky-honesty-underneath.
 - [ ] Shake down the review agents on real work once code exists (they've been
-      hired but not yet battle-tested).
+      hired but not yet battle-tested). Prof. Veritas already audited the docs
+      (MINOR ISSUES → fixed) — the loop works.
+- [ ] Grow `docs/graph/game.ttl` (the game modeled as a knowledge graph) toward
+      being the actual game-content data source; optionally express GLOSSARY as
+      triples too. Keep it to structured content — prose stays prose.
 - [ ] Design the CYOA event format/schema (situation, choices, gates, flags, forks).
 - [ ] Prototype the manual-phase connect-nodes minigame (decide keep/cut).
 - [ ] Flesh out remaining open questions (sell-vs-keep pacing, sell→rent unlock,

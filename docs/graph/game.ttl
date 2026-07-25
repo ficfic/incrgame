@@ -1,0 +1,66 @@
+# game.ttl — the game, modeled as a knowledge graph.
+#
+# Dogfooding: a game about turning knowledge into a graph, whose own structured
+# design IS a graph. This models the *structured* content (resources, generators,
+# domains, mechanics) — the narrative/rationale stays as prose in GAME_DESIGN.md.
+# This file can later become the game's actual content source.
+#
+# Prose is for "why". This is for "what". Keep them in sync deliberately.
+
+@prefix ig:   <https://ficfic.github.io/incrgame/ns#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+
+#### Schema — the ontology of the game itself ####
+
+ig:Resource   a owl:Class ; rdfs:comment "A currency/material you accumulate." .
+ig:Generator  a owl:Class ; rdfs:comment "Produces a Resource over time." .
+ig:Domain     a owl:Class ; rdfs:comment "A field of knowledge you conquer." .
+ig:Mechanic   a owl:Class ; rdfs:comment "A rule or tension of play." .
+ig:Prestige   a owl:Class ; rdfs:comment "A reset layer granting permanent bonuses." .
+ig:Game       a owl:Class .
+
+ig:feedsInto  a owl:ObjectProperty ; rdfs:domain ig:Resource ; rdfs:range ig:Resource ;
+              rdfs:comment "This resource is refined into the next tier." .
+ig:produces   a owl:ObjectProperty ; rdfs:domain ig:Generator ; rdfs:range ig:Resource .
+ig:costs      a owl:DatatypeProperty ; rdfs:domain ig:Generator ; rdfs:range xsd:decimal .
+ig:teaches    a owl:AnnotationProperty ;
+              rdfs:comment "The real concept this element teaches (see GLOSSARY.md)." .
+
+#### Instances — a slice of the actual game ####
+
+ig:Data        a ig:Resource ; rdfs:label "Data" ; ig:feedsInto ig:Triples .
+ig:Triples     a ig:Resource ; rdfs:label "Triples" ; ig:feedsInto ig:Entities ;
+               ig:teaches "RDF triple (subject-predicate-object)" .
+ig:Entities    a ig:Resource ; rdfs:label "Entities" ; ig:feedsInto ig:Taxonomies .
+ig:Taxonomies  a ig:Resource ; rdfs:label "Taxonomies" ; ig:feedsInto ig:Ontologies ;
+               ig:teaches "taxonomy = rdfs:subClassOf hierarchy" .
+ig:Ontologies  a ig:Resource ; rdfs:label "Ontologies" ; ig:feedsInto ig:DigitalTwins .
+ig:DigitalTwins a ig:Resource ; rdfs:label "Digital Twins" ; ig:teaches "DTDL / W3C WoT" .
+
+ig:Harvester   a ig:Generator ; rdfs:label "Ingestion Pipeline™" ;
+               ig:produces ig:Data ; ig:costs 15 .
+ig:Extractor   a ig:Generator ; rdfs:label "Extractor" ;
+               ig:produces ig:Triples ; ig:costs 100 .
+ig:Reasoner    a ig:Generator ; rdfs:label "Inference Engine (Series A)" ;
+               ig:produces ig:Triples ; ig:costs 1100 ;
+               rdfs:comment "Materializes the deductive closure; the *bounded* 'compounding' engine." .
+ig:AIAgent     a ig:Generator ; rdfs:label "AI Agent" ;
+               ig:produces ig:Triples ; ig:costs 12000 ;
+               rdfs:comment "Fast but error-prone; needs human-in-the-loop review." .
+
+ig:SellVsKeep  a ig:Mechanic ; rdfs:label "Sell vs Keep" ;
+               rdfs:comment "Every triple: cash out (exhaustive) or hoard to compound. The soul." .
+ig:Reflection  a ig:Prestige ; rdfs:label "Reflection" ;
+               rdfs:comment "Graph builds an ontology of itself; permanent multiplier. NOT owl:ReflexiveProperty." .
+
+#### The fourth wall ####
+
+ig:incrgame    a ig:Game ; rdfs:label "incrgame" ;
+               rdfs:comment "A game about turning all knowledge into a graph - described here, as a graph." ;
+               ig:isDescribedBy ig:thisGraph .
+ig:isDescribedBy a owl:ObjectProperty .
+ig:thisGraph   a owl:Ontology ;
+               rdfs:comment "This document. The graph models the game; the game models everything; eventually, the graph models you." .

@@ -7,6 +7,13 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Design-as-triples (dogfooding), scoped** — model the game's
+  *structured* content (resources, generators, domains, mechanics, costs) as real
+  RDF/Turtle in `docs/graph/game.ttl`; keep narrative/rationale as prose. Validated
+  (74 triples parse via rdflib). Can become the game's actual content source later.
+  Rejected the literal "all docs as triples" — prose stays readable for the "why",
+  and two sources of truth would drift. Bouncer call: yes to the data subset, no
+  to rewriting prose.
 - 2026-07-25 — **Applied prof-veritas theory-accuracy audit (verdict: MINOR
   ISSUES → fixed).** Corrections: (1) inference reframed as bounded
   materialization/closure, not "super-linear" — labeled per our own rule
