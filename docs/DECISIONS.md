@@ -7,6 +7,17 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Projection retune + FX fix (owner playtest #2, save v3).**
+  Owner: same node flickered on threshold-less taps, and the graph grew too
+  fast — "much more datums to create a node and even more to create an edge."
+  Changes: mined substance is **Datums** again (`data` internally; Triples
+  returns as the refined M3 tier); projection slowed to bands — node per
+  3→10→30→100 datums, edge per 25→12→5 (edges RARER than nodes early — lonely
+  dots seeking relations — then denser late, so the world's texture matures);
+  renderer FX are now typed per event: node birth = pulse, edge birth = bright
+  edge flash, threshold-less tap = hub ripple (no more same-node flicker).
+  Migration v2→v3 consolidates balances back into `data`, 1:1, both hops safe.
+  First edge (~40 datums) is a ticker moment (`edges:1` trigger added).
 - 2026-07-25 — **ONE SUBSTANCE (owner fork, save v2).** Owner asked "why do we
   even have a data counter" — answer: we shouldn't, yet. Early game runs on
   **Triples only**: Connect asserts a triple (+1 edge), the headline counter IS

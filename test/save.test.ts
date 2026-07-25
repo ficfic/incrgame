@@ -8,13 +8,12 @@ import { D } from '../src/core/numbers';
 describe('save round-trip', () => {
   it('serialize → deserialize preserves state exactly', () => {
     let s = initialState(1337);
-    s = apply(s, { type: 'manualConnect' });
-    s = apply(s, { type: 'manualConnect' });
-    s = { ...s, resources: { ...s.resources, triples: '1.5e30' } };
+    for (let i = 0; i < 20; i++) s = apply(s, { type: 'manualConnect' });
     s = apply(s, { type: 'buyGenerator', id: 'harvester' });
+    s = { ...s, resources: { ...s.resources, data: '1.5e30' } };
     const back = deserialize(serialize(s));
     expect(back).toEqual(s);
-    expect(D(back.resources.triples).eq(D(s.resources.triples))).toBe(true);
+    expect(D(back.resources.data).eq(D(s.resources.data))).toBe(true);
   });
 
   it('blob is clipboard-safe base64', () => {
@@ -31,8 +30,7 @@ describe('save round-trip', () => {
     expect(() => deserialize(serialize(s))).toThrow(/future/);
   });
 
-  it('migrates v1 → v2: Datums convert 1:1 into Triples, graph reprojected', () => {
-    // a real v1 save shape: progress lived in `data`, graph was stored counters
+  it('migrates v1 → v3: data → triples → back to data, 1:1, never reset', () => {
     const v1 = {
       ...initialState(),
       saveVersion: 1,
@@ -42,10 +40,22 @@ describe('save round-trip', () => {
     };
     const back = deserialize(serialize(v1));
     expect(back.saveVersion).toBe(CURRENT_SAVE_VERSION);
-    expect(back.resources.triples).toBe('200'); // progress preserved, never reset
-    expect(back.resources.data).toBe('0');
+    expect(back.resources.data).toBe('200'); // survived both hops intact
+    expect(back.resources.triples).toBe('0');
     expect(back.graph).toEqual(projectGraph('200'));
     expect(back.generators.harvester).toBe(3);
+  });
+
+  it('migrates v2 → v3: triples-era balances consolidate into data', () => {
+    const v2 = {
+      ...initialState(),
+      saveVersion: 2,
+      resources: { ...initialState().resources, data: '0', triples: '218' },
+    };
+    const back = deserialize(serialize(v2));
+    expect(back.resources.data).toBe('218');
+    expect(back.resources.triples).toBe('0');
+    expect(back.graph).toEqual(projectGraph('218'));
   });
 
   it('backfills missing fields additively (never a hard reset)', () => {
@@ -53,7 +63,7 @@ describe('save round-trip', () => {
     delete s.graph;
     const blob = serialize(s as unknown as ReturnType<typeof initialState>);
     const back = deserialize(blob);
-    expect(back.graph).toEqual(projectGraph(back.resources.triples));
+    expect(back.graph).toEqual(projectGraph(back.resources.data));
     expect(back.saveVersion).toBe(CURRENT_SAVE_VERSION);
   });
 });
@@ -66,26 +76,26 @@ describe('offline progress', () => {
   });
 
   it('grants rate × elapsed seconds (ms converted, not 1000× overshoot)', () => {
-    const s = withHarvesters(5, 1_000_000); // 0.5 triples/s
+    const s = withHarvesters(5, 1_000_000); // 0.5 datums/s
     const { state, elapsedMs, gains } = applyOfflineProgress(s, 1_000_000 + 60_000);
     expect(elapsedMs).toBe(60_000);
-    expect(D(state.resources.triples).toNumber()).toBeCloseTo(30, 9);
-    expect(D(gains.triples ?? '0').toNumber()).toBeCloseTo(30, 9);
+    expect(D(state.resources.data).toNumber()).toBeCloseTo(30, 9);
+    expect(D(gains.data ?? '0').toNumber()).toBeCloseTo(30, 9);
     expect(state.lastTick).toBe(1_060_000);
   });
 
   it('caps at 8 hours', () => {
-    const s = withHarvesters(1, 1_000_000); // 0.1 triples/s
+    const s = withHarvesters(1, 1_000_000); // 0.1 datums/s
     const dayLater = 1_000_000 + 24 * 3600 * 1000;
     const { state, elapsedMs } = applyOfflineProgress(s, dayLater);
     expect(elapsedMs).toBe(OFFLINE_CAP_MS);
-    expect(D(state.resources.triples).toNumber()).toBeCloseTo(0.1 * 8 * 3600, 6);
+    expect(D(state.resources.data).toNumber()).toBeCloseTo(0.1 * 8 * 3600, 6);
   });
 
   it('the web grows while you are away (projection = exact, no big-dt tick)', () => {
     const s = withHarvesters(5, 1_000_000);
-    const { state } = applyOfflineProgress(s, 1_000_000 + 60_000); // +30 triples
-    expect(state.graph).toEqual(projectGraph(state.resources.triples));
+    const { state } = applyOfflineProgress(s, 1_000_000 + 60_000); // +30 datums
+    expect(state.graph).toEqual(projectGraph(state.resources.data));
     expect(state.graph.nodes).toBeGreaterThan(s.graph.nodes);
   });
 
@@ -93,7 +103,7 @@ describe('offline progress', () => {
     const s = withHarvesters(1, 2_000_000);
     const { state, elapsedMs } = applyOfflineProgress(s, 1_500_000); // clock went back
     expect(elapsedMs).toBe(0);
-    expect(state.resources.triples).toBe('0');
+    expect(state.resources.data).toBe('0');
   });
 
   it('fresh state (lastTick=0) gets no windfall', () => {

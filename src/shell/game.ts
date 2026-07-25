@@ -31,7 +31,7 @@ function resumeFromGap(now: number): void {
     const result = applyOfflineProgress(s, now);
     if (result.elapsedMs >= AWAY_BANNER_MIN_MS) {
       awayReport.set(result);
-      sayAwayReturn(result.gains.triples);
+      sayAwayReturn(result.gains.data);
     }
     return result.state;
   });

@@ -21,6 +21,7 @@ export interface TickerLine {
 const OWNER_LINES: Record<string, string> = {};
 
 const NODE_MILESTONES = [10, 25, 50, 100, 250, 500, 1000, 2500];
+const EDGE_MILESTONES = [1, 10, 50, 250, 1000];
 
 const lines = writable<TickerLine[]>([]);
 export const ticker: Readable<TickerLine[]> = lines;
@@ -45,10 +46,15 @@ export function observeTransition(prev: GameState, next: GameState): void {
       say(`nodes:${m}`, `graph: ${m} nodes`);
     }
   }
+  for (const m of EDGE_MILESTONES) {
+    if (prev.graph.edges < m && next.graph.edges >= m) {
+      say(`edges:${m}`, m === 1 ? 'graph: first edge' : `graph: ${m} edges`);
+    }
+  }
 }
 
 export function sayAwayReturn(gained: string | undefined): void {
   if (gained) {
-    say('away-return', `while away: +${formatWhole(gained)} ${RESOURCE_LABELS.triples}`);
+    say('away-return', `while away: +${formatWhole(gained)} ${RESOURCE_LABELS.data}`);
   }
 }

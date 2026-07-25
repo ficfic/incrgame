@@ -17,14 +17,23 @@ interface Envelope {
 type Migration = (s: Record<string, unknown>) => Record<string, unknown>;
 export const MIGRATIONS: Migration[] = [
   // v1 → v2 — the one-substance fork (DECISIONS 2026-07-25): the early game
-  // runs on Triples; v1 `data` balances convert 1:1 into `triples` (progress
-  // preserved, never reset) and the graph becomes a projection of triples.
+  // ran on Triples; v1 `data` balances converted 1:1 into `triples`.
   (s) => {
     const resources = { ...(s.resources as Record<string, Dec> | undefined) };
     const data = resources.data ?? '0';
     resources.triples = add(resources.triples ?? '0', data);
     resources.data = '0';
-    return { ...s, resources, graph: projectGraph(resources.triples) };
+    return { ...s, resources };
+  },
+  // v2 → v3 — same-day retune (owner: the mined substance is DATUMS; Triples
+  // returns as the refined M3 tier): balances consolidate back into `data`,
+  // graph reprojected with the slow bands. Progress preserved 1:1 both hops.
+  (s) => {
+    const resources = { ...(s.resources as Record<string, Dec> | undefined) };
+    const triples = resources.triples ?? '0';
+    resources.data = add(resources.data ?? '0', triples);
+    resources.triples = '0';
+    return { ...s, resources, graph: projectGraph(resources.data) };
   },
 ];
 

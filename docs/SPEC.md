@@ -35,10 +35,11 @@ interface GameState {
   flags: Record<string, boolean>;          // narrative/unlock/event flags
   coverage: Record<DomainId, number>;      // 0..1 per domain (persists across prestige)
   reflection: number;                      // prestige multiplier level (persists)
-  graph: { nodes: number; edges: number }; // PROJECTION of `triples` (see core/graph.ts):
-                                           // edges = floor(triples), nodes emerge in decaying
-                                           // bands. A cache, never independent state; bounded
-                                           // JS numbers (picture, not balance — M3 multiplier
+  graph: { nodes: number; edges: number }; // PROJECTION of `data` (see core/graph.ts):
+                                           // nodes crystallize every ~3→10→30→100 datums,
+                                           // edges every ~25→12→5 (rarer early, denser late).
+                                           // A cache, never independent state; bounded JS
+                                           // numbers (picture, not balance — M3 multiplier
                                            // reads resources.triples, NOT these counters)
 }
 ```
@@ -71,7 +72,7 @@ and spend on generators/compute.
 type Action =
   | { type: 'tick';  dt: number; now?: number }   // dt in SECONDS; optional `now` (epoch ms)
                                                    //   advances lastTick purely (no Date.now in core)
-  | { type: 'manualConnect' }                      // asserts a triple: +1 `triples` (one-substance, v2)
+  | { type: 'manualConnect' }                      // mines a Datum: +1 `data` (one-substance, v3)
   | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource
   | { type: 'refine'; from: ResourceId }           // from ∈ TIER_LADDER (not 'capital'); one tier up
   | { type: 'sell'; id: ResourceId; amount: Dec }  // consumes `id`, yields `capital`
@@ -153,12 +154,12 @@ interface FieldNote {
 }
 ```
 
-One-substance era (v2): Harvester = `{ id:'harvester', label:'Ingestion
-Pipeline™', baseCost:'15', costRatio:1.15, costResource:'triples',
-baseRate:'0.1', produces:'triples' }` — buying trims the web, the machine
-regrows it faster. At M3 the chain deepens: harvesters gather raw `data`
-("Datums") and Extractors refine Datums→Triples. Content lives in
-`src/content/` as typed TS (the source of record for M1).
+One-substance era (v3): Harvester = `{ id:'harvester', label:'Ingestion
+Pipeline™', baseCost:'15', costRatio:1.15, costResource:'data',
+baseRate:'0.1', produces:'data' }` — buying trims the web, the machine
+regrows it faster. At M3 the chain deepens: Extractors refine Datums→Triples
+(the refined tier returns). Content lives in `src/content/` as typed TS
+(the source of record for M1).
 `docs/graph/game.ttl` is a **design artifact**, not yet the runtime pipeline (it
 lacks `baseRate`/`costRatio`/`costResource`).
 

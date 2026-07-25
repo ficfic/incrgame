@@ -1,17 +1,32 @@
 <script lang="ts">
   import type { GraphStats } from '../core/types';
-  import { drawGraph, type GraphView } from '../render/minigraph';
+  import { drawGraph, type Fx, type GraphView } from '../render/minigraph';
 
   let { graph, pulseKey = 0 }: { graph: GraphStats; pulseKey?: number } = $props();
 
   let canvas: HTMLCanvasElement | undefined = $state();
   let view = $state<GraphView>({ x: 0, y: 0, zoom: 1 });
-  let lastPulseAt = -10_000;
+  let fx: Fx | null = null;
+  let prevGraph: GraphStats | undefined;
   let prevPulseKey: number | undefined;
 
+  // What did this state change actually DO? Node births beat edge births beat
+  // plain taps — each gets its own distinct celebration in the renderer.
+  $effect(() => {
+    const { nodes, edges } = graph;
+    if (prevGraph) {
+      if (nodes > prevGraph.nodes) fx = { kind: 'node', startMs: performance.now() };
+      else if (edges > prevGraph.edges) fx = { kind: 'edge', startMs: performance.now() };
+    }
+    prevGraph = { nodes, edges };
+  });
+
+  // A tap that crossed no threshold still gets an answer: a hub ripple.
+  // (Runs after the diff effect above, so real births are never downgraded.)
   $effect(() => {
     if (prevPulseKey !== undefined && pulseKey !== prevPulseKey) {
-      lastPulseAt = performance.now();
+      const now = performance.now();
+      if (!fx || now - fx.startMs > 50) fx = { kind: 'ripple', startMs: now };
     }
     prevPulseKey = pulseKey;
   });
@@ -22,9 +37,7 @@
     if (!canvas) return;
     let raf = 0;
     const frame = (t: number) => {
-      const sincePulse = t - lastPulseAt;
-      const pulse = sincePulse < 450 ? Math.sin((1 - sincePulse / 450) * Math.PI) : 0;
-      drawGraph(canvas!, graph, { view, timeMs: t, pulse });
+      drawGraph(canvas!, graph, { view, timeMs: t, fx });
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);

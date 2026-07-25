@@ -34,7 +34,7 @@ export function applyOfflineProgress(state: GameState, now: number): OfflineResu
   return {
     // the graph is a projection of triples, so offline growth is exact & free —
     // you return to a visibly bigger web, not just bigger numbers
-    state: { ...state, resources, lastTick: now, graph: projectGraph(resources.triples) },
+    state: { ...state, resources, lastTick: now, graph: projectGraph(resources.data) },
     elapsedMs,
     gains,
   };

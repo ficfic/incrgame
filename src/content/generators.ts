@@ -4,17 +4,17 @@
 import type { Generator, GeneratorId } from '../core/types';
 
 export const GENERATORS: Record<GeneratorId, Generator> = {
-  // One-substance era (M1.6): the pipeline both costs and produces Triples —
+  // One-substance era: the pipeline both costs and produces Datums —
   // buying trims the web, the machine regrows it faster. At M3 the chain
-  // deepens: harvesters gather raw Datums, Extractors refine them to Triples.
+  // deepens: Extractors refine Datums into Triples (the refined tier).
   harvester: {
     id: 'harvester',
     label: 'Ingestion Pipeline™',
     baseCost: '15',
     costRatio: 1.15,
-    costResource: 'triples',
+    costResource: 'data',
     baseRate: '0.1',
-    produces: 'triples',
+    produces: 'data',
   },
   extractor: {
     id: 'extractor',

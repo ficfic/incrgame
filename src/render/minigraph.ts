@@ -50,10 +50,21 @@ function layout(count: number, w: number, h: number, spin: number): P[] {
   return pts;
 }
 
+/** What just happened — each kind gets its OWN celebration, so a tap that
+ *  doesn't birth a node never flickers the same node again. */
+export type FxKind = 'node' | 'edge' | 'ripple';
+
+export interface Fx {
+  kind: FxKind;
+  startMs: number;
+}
+
+export const FX_DURATION_MS = 550;
+
 export interface DrawOptions {
   view: GraphView;
-  timeMs: number; // animation clock (ambient twinkle + rotation)
-  pulse: number;  // 0..1, connect feedback on the newest node
+  timeMs: number;  // animation clock (ambient twinkle + rotation)
+  fx: Fx | null;   // current celebration, if any
 }
 
 export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, opts: DrawOptions): void {
@@ -65,8 +76,13 @@ export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, opts: Dr
     canvas.width = w * dpr;
     canvas.height = h * dpr;
   }
-  const { view, timeMs, pulse } = opts;
+  const { view, timeMs, fx } = opts;
   const t = timeMs / 1000;
+  // 0..1 progress of the current celebration (1 = just fired, fades to 0)
+  const fxK = fx && timeMs - fx.startMs < FX_DURATION_MS
+    ? 1 - (timeMs - fx.startMs) / FX_DURATION_MS
+    : 0;
+  const pulse = fx?.kind === 'node' && fxK > 0 ? Math.sin(fxK * Math.PI) : 0;
   const hue = stageHue(graph.nodes);
   const node = `hsl(${hue} 70% 60%)`;
   const nodeDim = `hsl(${hue} 45% 38%)`;
@@ -128,6 +144,30 @@ export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, opts: Dr
     ctx.lineWidth = 1;
   }
 
+  // edge celebration: the youngest edge flashes bright when a relation forms
+  if (fx?.kind === 'edge' && fxK > 0 && shown > 1) {
+    let a: P | undefined, b: P | undefined;
+    if (graph.edges <= shown - 1 && graph.edges >= 1) {
+      const i = graph.edges; // youngest tree edge links node i to its ancestor
+      const parent = i === 1 ? 0 : Math.abs(Math.floor(jitter(i, 3) * 2 * i)) % i;
+      a = pts[parent] ?? pts[0];
+      b = pts[i];
+    } else if (chords > 0) {
+      const c = chords - 1; // youngest chord
+      a = pts[Math.abs(Math.floor(jitter(c, 5) * 2 * shown)) % shown];
+      b = pts[Math.abs(Math.floor(jitter(c, 6) * 2 * shown)) % shown];
+    }
+    if (a && b && a !== b) {
+      ctx.strokeStyle = `hsl(${hue} 90% 70% / ${0.9 * fxK})`;
+      ctx.lineWidth = 1 + 2.5 * fxK;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+    }
+  }
+
   for (let i = 0; i < shown; i++) {
     const p = pts[i]!;
     const isHub = i === 0;
@@ -139,8 +179,8 @@ export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, opts: Dr
       : (2.6 + 1.6 * Math.abs(jitter(i, 4))) * sizeScale;
     ctx.globalAlpha = isHub ? 1 : tw;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, isNewest ? r + pulse * 3 : r, 0, Math.PI * 2);
-    ctx.fillStyle = isHub || isNewest ? node : nodeDim;
+    ctx.arc(p.x, p.y, isNewest && pulse > 0 ? r + pulse * 3.5 : r, 0, Math.PI * 2);
+    ctx.fillStyle = isHub || (isNewest && pulse > 0) ? node : nodeDim;
     ctx.fill();
     if (isHub) {
       ctx.beginPath();
@@ -150,4 +190,16 @@ export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, opts: Dr
     }
   }
   ctx.globalAlpha = 1;
+
+  // ripple: a threshold-advancing tap answers from the hub — quiet, causal,
+  // and never mistakable for a new node
+  if (fx?.kind === 'ripple' && fxK > 0) {
+    const hub = pts[0]!;
+    ctx.strokeStyle = `hsl(${hue} 80% 65% / ${0.5 * fxK})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(hub.x, hub.y, 10 + (1 - fxK) * 34, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
 }

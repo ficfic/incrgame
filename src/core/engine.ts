@@ -6,7 +6,7 @@ import { add, sub, gte, mul, scaleCost, D } from './numbers';
 import { projectGraph } from './graph';
 import { GENERATORS } from '../content/generators';
 
-export const CURRENT_SAVE_VERSION = 2;
+export const CURRENT_SAVE_VERSION = 3;
 
 export function initialState(seed = 1): GameState {
   return {
@@ -60,21 +60,21 @@ export function apply(state: GameState, action: Action): GameState {
       }
       const lastTick = action.now ?? state.lastTick + dt * 1000;
       if (!touched && lastTick === state.lastTick) return state;
-      // graph = exact projection of triples — production IS graph growth
-      const graph = touched ? projectGraph(resources.triples) : state.graph;
+      // graph = exact projection of datums — production IS graph growth
+      const graph = touched ? projectGraph(resources.data) : state.graph;
       return { ...state, resources, lastTick, graph };
     }
 
     case 'manualConnect': {
-      // You assert a triple: +1 edge, always — and in the early world nearly
-      // every assertion names a new entity (see graph.ts bands), so the
-      // first-30-seconds magic (1 tap = 1 new node) is preserved exactly
-      // where the player is watching node-by-node.
-      const triples = add(state.resources.triples, 1);
+      // You mine a Datum. Enough datums crystallize into entities, more still
+      // into relations (see graph.ts bands) — most taps advance the hidden
+      // threshold (the UI answers with a ripple), and threshold-crossing taps
+      // birth a node or an edge (the UI celebrates those specifically).
+      const data = add(state.resources.data, 1);
       return {
         ...state,
-        resources: { ...state.resources, triples },
-        graph: projectGraph(triples),
+        resources: { ...state.resources, data },
+        graph: projectGraph(data),
       };
     }
 
@@ -88,8 +88,8 @@ export function apply(state: GameState, action: Action): GameState {
       return {
         ...state,
         resources,
-        // spending triples visibly trims the web — fuel and structure are ONE
-        graph: projectGraph(resources.triples),
+        // spending datums visibly trims the web — fuel and structure are ONE
+        graph: projectGraph(resources.data),
         generators: { ...state.generators, [action.id]: state.generators[action.id] + 1 },
       };
     }
