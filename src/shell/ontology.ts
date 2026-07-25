@@ -36,6 +36,8 @@ export function corrupt(text: string, seed: number, strength: number): string {
 
 interface Manifest {
   concepts: number;
+  relations?: number;
+  relationsUrl?: string;
   chunkSize: number;
   chunks: number;
   categories: string[];
@@ -74,10 +76,35 @@ export function loadManifest(): Promise<Manifest | null> {
   manifestPromise ??= fetchJson<Manifest>('index.json').then((m) => {
     manifest = m;
     revision.update((r) => r + 1);
+    if (m?.relationsUrl) void loadRelations(m.relationsUrl);
     return m;
   });
   return manifestPromise;
 }
+
+/** Non-is-a relations, indexed by concept so a lookup is O(1) per node rather
+ *  than a scan of the whole table every frame. One small file, fetched once:
+ *  a relation can join any two concepts, so unlike the concept chunks it cannot
+ *  be split by index range without cutting edges in half. */
+const byNode = new Map<number, Array<{ a: number; b: number; rel: number }>>();
+let relationsLoaded = false;
+
+async function loadRelations(url: string): Promise<void> {
+  const data = await fetchJson<{ e: Array<[number, number, number]> }>(url);
+  if (!data) return; // offline and uncached: is-a lines still work, nothing breaks
+  for (const [a, b, rel] of data.e) {
+    const edge = { a, b, rel };
+    for (const end of [a, b]) {
+      const list = byNode.get(end);
+      if (list) list.push(edge); else byNode.set(end, [edge]);
+    }
+  }
+  relationsLoaded = true;
+  revision.update((r) => r + 1);
+}
+
+/** Test seam: how many relations are loaded. */
+export const relationCount = (): number => (relationsLoaded ? byNode.size : 0);
 
 export function totalConcepts(): number {
   return manifest?.concepts ?? 0;
@@ -204,6 +231,7 @@ export const currentRevision = (): number => get(revision);
 export function potentialEdges(anchors: readonly number[]): Array<{ a: number; b: number; rel: number }> {
   const live = new Set(anchors);
   const out: Array<{ a: number; b: number; rel: number }> = [];
+  const seen = new Set<string>();
   for (const id of anchors) {
     if (id === 0) continue;
     // walk up to the nearest ancestor that is also on the board, so a concept
@@ -212,6 +240,16 @@ export function potentialEdges(anchors: readonly number[]): Array<{ a: number; b
     for (let hops = 0; hops < 8 && cursor !== undefined && cursor >= 0; hops++) {
       if (live.has(cursor)) { out.push({ a: cursor, b: id, rel: 0 }); break; }
       cursor = conceptAt(cursor)?.parent;
+    }
+    // ...plus every OTHER relation the dataset records, whenever both ends are
+    // on the board. These are the lines that are not `is a` — the ones that
+    // make the graph read as a knowledge graph rather than a tree.
+    for (const e of byNode.get(id) ?? []) {
+      if (!live.has(e.a) || !live.has(e.b)) continue;
+      const key = `${e.a}:${e.b}:${e.rel}`;
+      if (seen.has(key)) continue; // the table indexes each edge under both ends
+      seen.add(key);
+      out.push(e);
     }
   }
   return out;

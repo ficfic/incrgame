@@ -15,6 +15,7 @@ interface Manifest {
   source: string; edition: string; commit: string; license: string; licenseUrl: string;
   attribution: string; noticeUrl: string;
   concepts: number; chunkSize: number; chunks: number; categories: string[];
+  relations?: number; relationsUrl?: string;
 }
 interface Chunk { l: string[]; d: number[]; p: number[]; g: string[] }
 
@@ -125,5 +126,61 @@ describe('ontology data', () => {
         expect(parent).toBeGreaterThanOrEqual(0);
       });
     });
+  });
+});
+
+describe('the relation table (non-is-a lines)', () => {
+  const rel = read<{ e: Array<[number, number, number]> }>('rel.json');
+  const manifest = read<Manifest>('index.json');
+  const labels: string[] = [];
+  for (let c = 0; c < manifest.chunks; c++) labels.push(...read<Chunk>(chunkName(c)).l);
+
+  it('ships relations, indexed inside the concept set', () => {
+    expect(rel.e.length).toBeGreaterThan(50);
+    expect(manifest.relations).toBe(rel.e.length);
+    for (const [a, b, r] of rel.e) {
+      expect(a).toBeGreaterThanOrEqual(0);
+      expect(a).toBeLessThan(manifest.concepts);
+      expect(b).toBeGreaterThanOrEqual(0);
+      expect(b).toBeLessThan(manifest.concepts);
+      expect(a).not.toBe(b);
+      expect(r).toBeGreaterThan(0); // 0 is `is a`, which comes from `p`, not here
+    }
+  });
+
+  it('points WHOLE → PART, and is asserted by MEANING rather than by rerunning the filter', () => {
+    // The trap prof-veritas caught: WordNet's key is called `mero_part` and sits
+    // on the HOLONYM, so `organism mero_part cell` means "organism HAS PART
+    // cell". Reading the key name as the source's role draws every part-whole
+    // arrow backwards. A test that just re-applied the pipeline's own mapping
+    // would pass while shipping the error — the same circularity that let the
+    // slur `Abo` ship past a test asserting the filter's own regex.
+    //
+    // So this checks real-world meaning on named pairs instead.
+    const label = (i: number): string => labels[i] ?? '';
+    const find = (from: string, to: string): [number, number, number] | undefined =>
+      rel.e.find(([a, b]) => label(a) === from && label(b) === to);
+
+    // a person is a member OF people, never the other way round
+    expect(find('people', 'person')).toBeDefined();
+    expect(find('person', 'people')).toBeUndefined();
+    // a body part is part OF an organism
+    expect(find('organism', 'body part')).toBeDefined();
+    expect(find('body part', 'organism')).toBeUndefined();
+    // a section is part OF a whole
+    expect(find('whole', 'section')).toBeDefined();
+    expect(find('section', 'whole')).toBeUndefined();
+  });
+
+  it('excludes `exemplifies` — it is a usage register, not a relation', () => {
+    // `cakewalk exemplifies trope` means "cakewalk is used figuratively", and
+    // `international relations exemplifies plural` means "used in the plural".
+    // Shipping either as a graph edge would teach a falsehood about rdf:type.
+    const label = (i: number): string => labels[i] ?? '';
+    const suspects = ['trope', 'plural', 'colloquialism', 'idiom'];
+    for (const [a, b] of rel.e) {
+      expect(suspects).not.toContain(label(b));
+      expect(suspects).not.toContain(label(a));
+    }
   });
 });

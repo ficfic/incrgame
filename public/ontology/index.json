@@ -10,6 +10,8 @@
   "concepts": 4096,
   "chunkSize": 1024,
   "chunks": 4,
+  "relations": 123,
+  "relationsUrl": "rel.json",
   "categories": [
     "noun.Tops",
     "noun.act",

@@ -102,6 +102,34 @@ function fetchSource() {
   return head;
 }
 
+/** WordNet relation key → our REL index (see src/core/types.ts REL_NAMES).
+ *
+ *  DIRECTIONS VERIFIED AGAINST THE SOURCE, not guessed. Every `mero_*` key sits
+ *  on the WHOLE and lists the PART, which is the opposite of what the name
+ *  suggests: `organism mero_part cell` means "organism HAS PART cell". Reading
+ *  these as part-of would have drawn every part-whole arrow backwards and
+ *  taught it as fact, in a game whose whole premise is not teaching falsehoods.
+ *
+ *  DELIBERATELY ABSENT:
+ *   - `exemplifies` — a USAGE REGISTER ("this word is used figuratively / in
+ *     the plural"), not a relation between concepts. `cakewalk exemplifies
+ *     trope` is not "cakewalk is an instance of trope"; shipping it as an edge
+ *     would be a flat falsehood. It belongs on a card as a tag, not on a line.
+ *   - `attribute` — its targets are ADJECTIVE synsets (ids ending `-a`) and we
+ *     ship nouns only, so all 312 of them dangle into concepts that do not
+ *     exist here.
+ *   - `instance_hypernym` — occurs ZERO times in this edition. OEWN split
+ *     proper nouns into a separate resource, so this dataset contains no named
+ *     individuals at all. (Consequence worth knowing: there is no real ABox
+ *     here, and SIMPLIFICATIONS S2 understates that.)
+ */
+const REL_KEYS = {
+  mero_part: 1,       // whole → part      : "has part"
+  mero_member: 2,     // group → member    : "has member"
+  mero_substance: 3,  // whole → substance : "made of"
+  domain_topic: 4,    // term  → field     : "studied in"
+};
+
 // ---- 2. parse the noun lexicographer files --------------------------------
 
 function loadSynsets() {
@@ -112,11 +140,16 @@ function loadSynsets() {
     const lex = basename(f, '.yaml');
     const data = parse(readFileSync(join(dir, f), 'utf8'));
     for (const [id, s] of Object.entries(data)) {
+      const rels = {};
+      for (const [key, rel] of Object.entries(REL_KEYS)) {
+        if (s[key]) rels[rel] = s[key];
+      }
       synsets.set(id, {
         lex,
         members: s.members ?? [],
         def: (s.definition ?? [''])[0] ?? '',
         hypernyms: s.hypernym ?? [],
+        rels,
       });
     }
   }
@@ -225,6 +258,31 @@ function main() {
     }));
   }
 
+  // The RELATION TABLE: every non-is-a connection whose BOTH ends survived the
+  // selection. Emitted as flat triples [a, b, rel] of concept indices, one small
+  // file — this is the dotted-line supply, and the game derives what is
+  // available from it rather than storing possibility in anyone's save.
+  //
+  // It is deliberately separate from the concept chunks: chunks are fetched
+  // lazily by range, but a relation can join any two concepts, so it cannot be
+  // chunked by index without splitting edges across files.
+  const rels = [];
+  const relCounts = {};
+  for (const id of order) {
+    const from = index.get(id);
+    for (const [rel, targets] of Object.entries(synsets.get(id).rels)) {
+      for (const t of targets) {
+        const to = index.get(t);
+        if (to === undefined) continue;   // the other end did not survive selection
+        if (to === from) continue;
+        rels.push([from, to, Number(rel)]);
+        relCounts[rel] = (relCounts[rel] ?? 0) + 1;
+      }
+    }
+  }
+  writeFileSync(join(OUT, 'rel.json'), JSON.stringify({ e: rels }));
+  log(`wrote rel.json: ${rels.length} non-is-a relations`, JSON.stringify(relCounts));
+
   // CC BY 4.0 §3(a)(1) travels with the DATA, not just the docs: the deployed
   // site serves public/ and never docs/, so the notice ships here too.
   //
@@ -252,6 +310,9 @@ function main() {
     '  - Excluded senses the source marks as slurs or disparaging.',
     '  - Reordered breadth-first from "entity"; re-parented concepts whose own',
     '    parent was not selected to their nearest selected ancestor.',
+    '  - Extracted the part/member/substance and topic relations between',
+    '    selected concepts into rel.json. Kept as authored, including',
+    '    direction; no relation was inverted, inferred or invented.',
     '  - Reserialised as JSON. Definitions are copied VERBATIM and are not',
     '    edited, rewritten, summarised or machine-generated.',
     '',
@@ -277,6 +338,8 @@ function main() {
     concepts: order.length,
     chunkSize: CHUNK,
     chunks: chunkCount,
+    relations: rels.length,
+    relationsUrl: 'rel.json',
     categories: catNames,
   }, null, 2));
 

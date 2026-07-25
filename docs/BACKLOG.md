@@ -146,12 +146,31 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       browser end to end: 4 concepts found dark, 3 lines filled → 3 statements,
       4 lit, attention grew 4→6. **This closes the hand-completion defect** —
       the world can no longer be finished by tapping Discover.
-      Relations currently shipped: WordNet `is a` only (every concept has a
-      parent, so every concept arrives with a line you could fill). The other
-      four WordNet relations and the ConceptNet set slot into the same `Edge`
-      shape once the pipeline lands.
+- [x] **WordNet's other relations shipped** (2026-07-25): `rel.json`, 123 lines
+      — has part 63, studied in 47, has member 13. Colour-coded and labelled at
+      the line midpoint. No new licensing, concept chunks byte-identical, no
+      save impact. `exemplifies`, `attribute` and `instance_hypernym` excluded
+      for cause (see DECISIONS).
+      **⚠️ And it answered the question it was run to answer: 123 lines over
+      4,096 concepts is a garnish, not a system — the first one is ~46
+      discoveries in. Combined with ConceptNet's measured 547, the conclusion is
+      that the SLICE is the problem, not the source.**
 
-- [ ] **★ ConceptNet pipeline — cleared by the-auditor, NOT yet built.**
+- [ ] **★ RE-SLICE THE DATASET — now the highest-value work on the list.**
+      Select 4,096 concepts to maximise induced edge count (subject to staying
+      connected under is-a with one root) instead of breadth-first from
+      `entity`. Current slice: 90% attributes/communications/states/persons,
+      9.7% concrete — and every interesting relation attaches to concrete
+      things. Two independent measurements now agree (WordNet 123, ConceptNet
+      547). ⚠️ Renumbers the world: needs the SYNSET-ID-keyed migration, link
+      regeneration, unresolvable anchors folded to `foldedNodes` +1 each, and an
+      explicit decision about `nextId` (it encodes "recovered = prefix
+      0…nextId−1", which any re-slice destroys; a 4,096-bit bitmap is 512 bytes).
+      See the 2026-07-25 correction block in DECISIONS.
+
+- [ ] **ConceptNet pipeline — cleared by the-auditor, NOT yet built.** Worth
+      ~547 lines at the CURRENT slice; likely far more after a re-slice, which
+      is the argument for doing the re-slice first.
       Owner chose **WordNet + ConceptNet**. Steps, in order:
       1. **the-auditor signs off the ConceptNet licence** (data is CC BY-SA 4.0;
          share-alike binds the shipped data file, not our source). Nothing gets

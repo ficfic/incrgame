@@ -94,7 +94,7 @@ export function paint(canvas: HTMLCanvasElement, input: BoardInput, items: Scene
       case 'anchor': paintAnchor(ctx, it, hue, t, input, reqs); break;
       case 'frontier': paintFrontier(ctx, it, hue, t, input, reqs); break;
       case 'stat': paintStat(ctx, it, hue); break;
-      case 'dotted': break; // the dashed line is the affordance; no extra chrome
+      case 'dotted': paintDotted(ctx, it, hue, reqs); break;
       case 'machine': paintPill(ctx, it, hue, 'machine'); break;
       case 'save': paintGlyph(ctx, it, hue); break;
       default: paintPill(ctx, it, hue, 'action'); break;
@@ -172,6 +172,12 @@ function paintSubstrate(
  *    solid   — drawn. Bright if checked; muted and thin if an unwatched agent
  *              drew it, because that one is going to rot back to dotted.
  */
+/** Each relation gets its own hue, so `has part` never looks like `is a`.
+ *  Offsets, not absolutes, so the whole palette still drifts with progress. */
+function relHue(rel: number, hue: number): number {
+  return (hue + [0, 58, 96, 140, 200][rel % 5]!) % 360;
+}
+
 function paintLinks(
   ctx: CanvasRenderingContext2D, input: BoardInput, hue: number, t: number,
 ): void {
@@ -185,21 +191,29 @@ function paintLinks(
       Math.max(0, Math.min(1, (state.lastTick - (b.until - CONNECT_MS)) / CONNECT_MS)));
   }
 
-  // ---- dotted possibilities
+  // ---- dotted possibilities, one pass per relation so each keeps its colour
   ctx.save();
   ctx.setLineDash([2, 5]);
   ctx.lineDashOffset = -t * 8; // a slow march, so potential reads as alive
   ctx.lineWidth = 1;
-  ctx.strokeStyle = `hsl(${hue} 40% 55% / 0.30)`;
-  ctx.beginPath();
+  const byRel = new Map<number, Array<{ a: number; b: number; rel: number }>>();
   for (const p of input.potential) {
-    const key = `${p.a}:${p.b}:${p.rel}`;
-    if (drawn.has(key)) continue;
-    const pa = anchorPos(p.a, w, h, spin), pb = anchorPos(p.b, w, h, spin);
-    ctx.moveTo(pa.x, pa.y);
-    ctx.lineTo(pb.x, pb.y);
+    if (drawn.has(`${p.a}:${p.b}:${p.rel}`)) continue;
+    const list = byRel.get(p.rel);
+    if (list) list.push(p); else byRel.set(p.rel, [p]);
   }
-  ctx.stroke();
+  for (const [rel, list] of byRel) {
+    // a non-taxonomic possibility is brighter: it is the rarer, more
+    // interesting thing to spend a slot on, and it should read that way
+    ctx.strokeStyle = `hsl(${relHue(rel, hue)} ${rel === 0 ? 40 : 65}% 55% / ${rel === 0 ? 0.3 : 0.5})`;
+    ctx.beginPath();
+    for (const p of list) {
+      const pa = anchorPos(p.a, w, h, spin), pb = anchorPos(p.b, w, h, spin);
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+    }
+    ctx.stroke();
+  }
   ctx.restore();
 
   // ---- lines currently filling, drawn as a growing solid over the dash
@@ -215,15 +229,30 @@ function paintLinks(
   }
   ctx.lineWidth = 1;
 
-  // ---- real lines
-  for (const pass of [false, true]) {
-    ctx.strokeStyle = pass
-      ? `hsl(${hue} 65% 58% / 0.85)`          // checked: it stays
-      : 'hsl(42 70% 55% / 0.45)';             // unchecked: it is on its way out
-    ctx.lineWidth = pass ? 1.6 : 1;
+  // ---- real lines. Unchecked ones are all one warning colour regardless of
+  // relation: what matters about them is that they are going to rot.
+  ctx.strokeStyle = 'hsl(42 70% 55% / 0.45)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (const e of state.forged.edges) {
+    if (e.checked) continue;
+    const pa = anchorPos(e.a, w, h, spin), pb = anchorPos(e.b, w, h, spin);
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+  }
+  ctx.stroke();
+
+  ctx.lineWidth = 1.6;
+  const checkedByRel = new Map<number, typeof state.forged.edges>();
+  for (const e of state.forged.edges) {
+    if (!e.checked) continue;
+    const list = checkedByRel.get(e.rel);
+    if (list) list.push(e); else checkedByRel.set(e.rel, [e]);
+  }
+  for (const [rel, list] of checkedByRel) {
+    ctx.strokeStyle = `hsl(${relHue(rel, hue)} 65% 58% / 0.85)`;
     ctx.beginPath();
-    for (const e of state.forged.edges) {
-      if (e.checked !== pass) continue;
+    for (const e of list) {
       const pa = anchorPos(e.a, w, h, spin), pb = anchorPos(e.b, w, h, spin);
       ctx.moveTo(pa.x, pa.y);
       ctx.lineTo(pb.x, pb.y);
@@ -363,6 +392,25 @@ function paintFrontier(
       color: DIM, font: `9px ${MONO}`,
     });
   }
+}
+
+/** The dashed line IS the affordance, so this draws no chrome — it only asks
+ *  for a LABEL on the non-taxonomic ones. `is a` is the backbone and is
+ *  everywhere; naming all 4,095 of them would be noise. Naming `has part` and
+ *  `studied in` is the entire reason for having them, and the label pass drops
+ *  these first when the board is crowded (priority sits under a landing). */
+function paintDotted(
+  ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, reqs: LabelRequest[],
+): void {
+  const rel = (it.payload as { rel: number }).rel;
+  if (rel === 0 || !it.label) return;
+  reqs.push({
+    x: it.x, y: it.y, radius: 4,
+    text: it.label,
+    priority: it.enabled ? 300 : 120,
+    color: `hsl(${relHue(rel, hue)} 70% 66% / 0.9)`,
+    font: `600 9px ${MONO}`,
+  });
 }
 
 function paintStat(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number): void {

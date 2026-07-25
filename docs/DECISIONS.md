@@ -742,3 +742,37 @@ live-edge coverage work.
   Migration v10→v11 turns every existing `[a,b]` pair into a **checked `is a`**
   edge, which is exactly what it was: placed by hand, and hypernymy is the only
   relation the game has ever drawn. Nobody loses a line or a point of coverage.
+
+- 2026-07-25 — **WordNet's other relations ship (123 lines, no new licensing).**
+  The pipeline already read these files and threw the keys away. Now emits
+  `public/ontology/rel.json` — flat `[a, b, rel]` triples of concept indices,
+  one small file, runtime-cached by the existing `/ontology/` rule.
+  **has part 63 · studied in 47 · has member 13 · made of 0.**
+  Kept as a separate file from the concept chunks on purpose: chunks are fetched
+  lazily by index range, but a relation can join any two concepts, so chunking
+  it by index would cut edges in half.
+  Directions are as authored and were verified against the source, not inferred
+  from the key names — every `mero_*` key sits on the WHOLE and lists the PART,
+  so `organism mero_part cell` is **has part**, and reading it the other way
+  would have drawn every part-whole arrow backwards.
+  **Excluded, deliberately:** `exemplifies` (a usage register — "this word is
+  used figuratively"; `cakewalk instance-of trope` would be a shipped
+  falsehood), `attribute` (targets are adjective synsets and we ship nouns
+  only, so all 312 dangle), and `instance_hypernym` (**zero rows in this
+  edition** — OEWN split proper nouns out, so this dataset contains no named
+  individuals at all, which means SIMPLIFICATIONS S2 understates the case: there
+  is no ABox here to collapse).
+  The four concept chunks are **byte-identical** after regeneration, so the
+  recovery order is untouched and no save is affected.
+  Renderer: each relation gets its own hue offset and non-is-a lines carry their
+  relation NAME at the midpoint. `is a` stays unlabelled — it is the backbone
+  and naming all 4,095 would be noise; naming `has part` is the entire reason
+  for having it.
+  **The measurement that matters, and it is not encouraging:** 123 lines across
+  4,096 concepts. Verified in a browser — reaching the FIRST one takes ~46
+  discoveries, about four minutes of play. The variety is real and legible when
+  it appears, but it is rare enough to be a garnish rather than a system. This
+  is the same finding as ConceptNet's 547: **the slice is the problem, not the
+  source.** Our 4,096 are 90% attributes/communications/states/persons and 9.7%
+  concrete, and part/substance/use relations attach to concrete things. Do not
+  build the ConceptNet pipeline expecting it to fix this; re-slice first.
