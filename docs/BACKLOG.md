@@ -36,8 +36,18 @@ without being re-briefed. Move finished items to **Done** with a date.
       domain sizing/gating, Field Notes format, HITL attention budget).
 - [ ] Design the "Field Notes" codex format (in-game explainer + learn-more
       links to real specs).
-- [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on
-      mobile before committing.
+- [x] Graph renderer chosen: **PixiJS** (WebGL, swappable) — see ARCHITECTURE.md.
+- [ ] **Spreadsheet-prove the economy before M3** (Chad/Redditor): sim edges/K/$
+      over ~10h; confirm sell-vs-keep genuinely flips and the inference loop
+      doesn't explode or stall.
+- [ ] **Design the "verb ladder"** (Chad #2): what the player actively *does* at
+      min 5 / hr 2 / day 3 — a recurring decision every ~30–60s per stage.
+- [ ] **Storyboard the first five minutes** (Chad #3): first screen, first tap,
+      first graph node, first joke.
+- [ ] **Spec domain twists as real rules with numbers** (Chad #9), incl. what
+      Biology's "pays prestige" currency actually means.
+- [ ] **Retention/session targets** (Chad #8): check-ins/day, session length,
+      offline cap value — write the numbers to tune toward.
 - [x] Architecture + stack locked (see `docs/ARCHITECTURE.md`): headless pure-TS
       engine + Svelte UI + PixiJS graph + Vite/PWA + Vitest.
 - [ ] Scaffold the skeleton: Vite + TS + Svelte + PWA, `src/core` engine stub
@@ -47,6 +57,15 @@ without being re-briefed. Move finished items to **Done** with a date.
 
 ## Someday / maybe
 
+- [ ] **Genre QoL furniture** (Redditor P6): stats page, achievements, number-
+      notation toggle, settings panel, in-game changelog. Nearly free over a
+      serializable GameState — put in the 🟡 ring.
+- [ ] **Launch positioning** (Redditor P4): lead the r/incremental_games post with
+      the semantic-web / anti-hype credibility, NOT the AI hook ("RDF, OWL
+      reasoners, zero LLMs harmed in the content"). Wear the allergy on the sleeve.
+- [ ] **Earn the Paperclips comparison or drop it** (Redditor P7): the self-
+      description climax must be a real mechanical/narrative turn, not spooky
+      flavor text — or stop name-dropping it.
 - [ ] **Colleagues / team** resource (specialized: ontologist / data engineer /
       curator / ML engineer). Deferred to control scope; revisit post-core-loop.
 - [ ] `add-ontology-content` skill — author domains/entities/edges as declarative

@@ -22,7 +22,8 @@ grows and reorganizes itself — and, eventually, **describes itself**.
 the real ambition behind Cyc, Wikidata, and Google's Knowledge Graph.
 
 **Master progress: "world coverage %."** Approached **domain by domain**
-(medicine → law → biology → …); each domain is a mini-arc that unlocks the next.
+(General → Biology → … ; full order TBD, see domain table); each domain is a
+mini-arc that unlocks the next.
 This mirrors how real ontologies are actually built — one domain at a time,
 never "finished."
 
@@ -185,6 +186,12 @@ representation of its own authors.
 Because the horizon is endless (no true win), these stages deepen across
 prestige loops rather than ending the game.
 
+**Prestige ↔ coverage (how the two axes interlock — Chad gap #10):** **world
+coverage persists** across prestige (it's the north star); Reflect resets only the
+generator/K economy, which you then re-grind *faster* each loop via the Reflection
+multiplier. The four self-description stages **unlock at coverage milestones**, so
+the two axes interlock instead of competing (and coverage never brutally resets).
+
 ## Economy layer (core pillar)
 
 Money and knowledge are intertwined from the start — not a second act.
@@ -255,11 +262,13 @@ out of manual work. Classic idle arc.
 
 **AI agents + human-in-the-loop.** Agents produce triples fast but with an
 **error rate that's high early and decays** as tech matures (see
-`docs/ECONOMY_MODEL.md`). **You review batches (HITL)**; unreviewed errors poison
-quality and can trigger inconsistency → the lawsuit hazard. The tension: run bots
-dirty-and-fast, or review and stay clean. **Agent orchestration** (bots managing
-bots) is a later automation tier. This is thematically exact — it's real
-hallucination + grounding, as a mechanic.
+`docs/ECONOMY_MODEL.md`). Unreviewed errors poison quality and can trigger
+inconsistency → the lawsuit hazard. **HITL review is OPTIONAL, never a chore:**
+**Orchestrators** (bots managing bots) let you buy *out* of manual review —
+dirty-cheap auto or clean-expensive auto — with manual batch review as an optional
+min-max lever for tryhards. The tension is cheap-noisy vs expensive-clean, *not* an
+attention tax. This is thematically exact — real hallucination + grounding, as a
+mechanic — without demanding babysitting.
 
 ## Events — choose-your-own-adventure (locked)
 
@@ -268,6 +277,11 @@ gated by game state, with consequences that ripple (resources, quality, lawsuits
 narrative flags). Some events **fork into multi-step** mini-arcs. They carry the
 satirical-startup voice and the ominous spine, and are the delivery vehicle for
 the emergent motivation below.
+
+**Every choice must move at least one economic lever** (a resource, `Q`, a hazard
+flag, an unlock) — if it doesn't change a number, it's a cutscene, not a decision
+(Chad gap #11). **All event prose is human-written** (CLAUDE.md rule); the pipeline
+wires up structure and consequences only, never the sentences.
 
 ## Motivation (emergent, not up-front)
 
@@ -292,8 +306,8 @@ real-world data would wreck balance and mobile performance.
 
 - **Simulate in numbers; render a representative graph.** A literal node per
   triple will not render on mobile. Use level-of-detail (aggregate/sample nodes,
-  cap visible count) and a **WebGL** renderer — candidates: **sigma.js** or
-  **cytoscape.js**, not raw SVG/d3 for the big blooms.
+  cap visible count) and a **WebGL** renderer — **PixiJS** (chosen; swappable —
+  see `ARCHITECTURE.md`), not raw SVG/d3 for the big blooms.
 - The graph is the **reward surface**, not the source of truth for balance.
 
 ## Domains (branching tech-tree, mechanically distinct)

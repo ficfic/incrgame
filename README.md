@@ -52,16 +52,19 @@ knowledge graphs work.
 ## Built for
 
 GitHub Pages · mobile browsers · developed entirely through Claude Code on a
-phone. Planned stack: vanilla **TypeScript + Vite** ·
-[**break_eternity.js**](https://github.com/Patashu/break_eternity.js) for big
-numbers · **localStorage** saves · a **WebGL** graph renderer.
+phone. Stack: a pure-**TypeScript** headless engine ·
+[**break_eternity.js**](https://github.com/Patashu/break_eternity.js) · **Svelte**
+UI · **PixiJS** graph · **Vite + PWA** · **Vitest** (see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)).
 
 ## Repo
 
 - [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — the full design.
-- [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — real theory ↔ game terms, with sources.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/SPEC.md`](docs/SPEC.md) — the technical contract.
+- [`docs/ECONOMY_MODEL.md`](docs/ECONOMY_MODEL.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md) — the numbers and the build plan.
+- [`docs/GLOSSARY.md`](docs/GLOSSARY.md) · [`docs/SIMPLIFICATIONS.md`](docs/SIMPLIFICATIONS.md) — real theory ↔ game terms, with the labels we owe.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — why things are the way they are.
-- [`docs/BACKLOG.md`](docs/BACKLOG.md) — what's next.
 - `CLAUDE.md` — how this project is built (rules & guardrails).
-- `.claude/hooks/guardrails.sh` — enforced guardrails (destructive-git + secret
-  blocks; it's a public repo).
+- `.claude/agents/` — the five in-character review agents.
+
+**License:** MIT (code) · CC-BY-4.0 (docs/content) — see [`LICENSE`](LICENSE).

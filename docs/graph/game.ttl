@@ -6,6 +6,13 @@
 # This file can later become the game's actual content source.
 #
 # Prose is for "why". This is for "what". Keep them in sync deliberately.
+#
+# SCOPE (on-record, not silent drift): this is a *slice* — generators + resources
+# only. Domains, Curators/Schema-builders/Orchestrators, and most mechanics exist
+# in the prose but are not yet instantiated here. It is a DESIGN ARTIFACT, not yet
+# the runtime content source (it lacks baseRate/costRatio — see docs/SPEC.md).
+# NOTE: ig:feedsInto encodes the *game's* linear ladder, a labeled simplification
+# (real schema/TBox vs data/ABox are two layers, not a chain — SIMPLIFICATIONS.md S2).
 
 @prefix ig:   <https://ficfic.github.io/incrgame/ns#> .
 @prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .

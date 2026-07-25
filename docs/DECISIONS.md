@@ -7,6 +7,29 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Five-agent gap analysis run + fixes applied.** All five reviewers
+  swept the whole design; fixes landed:
+  - *Technical spine* (The Graph): `docs/SPEC.md` defines GameState, Action union,
+    10Hz tick, save envelope + Decimal-as-string + migration ladder, offline math +
+    8h cap, mulberry32 RNG-in-state, content types, deploy base path. Currency
+    contradiction resolved → **distinct tiered resources, sellable at any tier.**
+  - *Anti-slop guardrails* (Redditor): CLAUDE.md now hard-forbids LLM-generated
+    player-facing prose; HITL review made non-mandatory (Orchestrator auto-review).
+  - *Accuracy* (Veritas): `docs/SIMPLIFICATIONS.md` register + Field Notes
+    subsystem; glossary +Entity/ABox, TBox/ABox, forward-chaining, closure/fixpoint,
+    monotonicity; split semantic-drift vs ontology-evolution; sameAs bad-merge;
+    domains relabeled by kind; self-description seam labeled; OWA given a mechanic;
+    digital-twin live-sync restored. README stops claiming inference is "(Real)".
+  - *Design depth* (Chad): sell-vs-keep made a real choice (quality saturation +
+    capital-gated compute); hazards given numbers (ex-falso Q→0.5+stall; lawsuit
+    −40% $); prestige↔coverage interlock defined; CYOA choices must move a lever.
+  - *Repo hygiene* (Auditor): added LICENSE (MIT + CC-BY-4.0 content), CONTRIBUTING,
+    SECURITY (notes the hook is advisory → enable GitHub push protection); fixed
+    stale stack in CLAUDE.md + README; render lib propagated to PixiJS everywhere;
+    game.ttl scope-noted.
+  - Deferred to backlog (need a prototype/judgment, not a doc): spreadsheet-prove
+    the economy, verb ladder, first-five-minutes, domain-twist rules, QoL furniture,
+    launch positioning.
 - 2026-07-25 — **Fifth review agent: the-redditor (u/entropy_farmer)** — a jaded
   r/incremental_games veteran allergic to AI hype; reviews genre authenticity +
   community credibility (does it play like a real idle game; is the AI theme

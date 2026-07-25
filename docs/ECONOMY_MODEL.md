@@ -69,6 +69,24 @@ K      -= K_sold                              # selling consumes knowledge
 - **Late game — rent:** unlocked at scale; recurring `$ /s = platformTier × Q`,
   *non-exhaustive*. Renting is the reward for scale.
 
+### Making sell-vs-keep a real choice (not a no-brainer) — Chad gap #1
+
+Hoarding must have a *real cost* or "keep" always wins and the core tension is
+decorative. Three forces (tune so the answer to "sell?" genuinely flips with game
+state):
+
+1. **Tiered resources, sell at any tier** (see `SPEC.md`): sell cheap Triples now,
+   or refine into a Twin worth orders of magnitude more but slower. Real
+   opportunity cost, both directions.
+2. **Quality saturation:** `Q` stops improving past a dedup/consistency ceiling —
+   hoarded K above it is dead weight *unless sold*.
+3. **Capital-gated compute:** reasoner/agent throughput is capped by compute you
+   can **only buy with `$`** — so you must sell to keep growing. Starving for cash
+   throttles the compounding engine.
+
+**Verify in a spreadsheet that neither "always sell" nor "always hoard" wins at
+any stage before building.**
+
 ## AI-agent error model (human-in-the-loop)
 
 Agents produce fast but wrong; error rate is **high early, decays with tech**:
@@ -79,8 +97,22 @@ effectiveOutput = agentOutput × (1 − errorRate)
 ```
 
 - Unreviewed errors reduce `Q` and can trigger inconsistency (→ lawsuit hazard).
-- **HITL:** reviewing a batch converts errors→correct at a time/attention cost.
-- The tension: run bots dirty-and-fast, or review and stay clean.
+- **HITL is OPTIONAL, never a chore** (Redditor P2): Orchestrators buy you *out*
+  of manual review — dirty-and-cheap auto, or clean-and-expensive auto. Manual
+  batch review is an optional min-max lever for tryhards, never the required path.
+  An idle game must not demand babysitting.
+- The tension: cheap-noisy vs expensive-clean throughput — not attention tax.
+
+### Hazard consequences (they had no teeth — Chad gap #4)
+
+Concrete, tunable:
+
+- **Inconsistency / ex-falso:** `Q_consistency → 0.5` **and** freeze Reasoner
+  output until cleaned (a visible, annoying stall with a clear dig-out path).
+- **Lawsuit:** one-time `$ → $ × 0.6` (−40% current capital), scaled to recent
+  *unlicensed* volume, plus a temporary `marketPrice` debuff on the offending
+  domain. There is no game-over — only lose-ground, which the genre needs to make
+  risk real.
 
 ## Prestige — "Reflect"
 
