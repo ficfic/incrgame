@@ -101,6 +101,10 @@ export const MIGRATIONS: Migration[] = [
   // simply arrive with nothing supervised and nothing booked, which is the
   // honest starting position for a graph nobody was watching.
   (s) => ({ ...s, supervised: 0, bookings: [] }),
+  // v9 → v10 — away time now respects the supervision split instead of banking
+  // everything unchecked. Purely additive: whatever is already banked stays
+  // banked, and stays unverified, which is what it honestly was.
+  (s) => ({ ...s, pendingClean: '0' }),
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

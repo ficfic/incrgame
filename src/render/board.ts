@@ -239,10 +239,11 @@ export function layout(input: BoardInput): SceneItem[] {
       enabled: ok, tone: ok ? 'warn' : 'muted',
     });
   }
-  if (D(state.pending).gt(0)) {
+  const banked = D(state.pending).add(D(state.pendingClean));
+  if (banked.gt(0)) {
     actions.push({
       id: 'absorb', kind: 'absorb', x: 0, y: actionY, r: 34, draw: 27,
-      label: 'Absorb', sub: formatWhole(state.pending),
+      label: 'Absorb', sub: formatWhole(banked.toString()),
       enabled: true, tone: 'warn',
     });
   }

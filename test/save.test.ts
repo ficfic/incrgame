@@ -69,6 +69,21 @@ describe('save round-trip', () => {
     expect(back.graph.edges).toBe(oldWeb.edges);
   });
 
+  it('migrates v9 → v10 without losing a banked statement', () => {
+    const v9 = {
+      ...initialState(),
+      saveVersion: 9,
+      pending: '4321',
+      resources: { ...initialState().resources, triples: '900' },
+    } as unknown as ReturnType<typeof initialState>;
+    delete (v9 as unknown as Record<string, unknown>).pendingClean;
+    const back = deserialize(serialize(v9));
+    expect(back.saveVersion).toBe(CURRENT_SAVE_VERSION);
+    expect(back.pending).toBe('4321');   // still banked
+    expect(back.pendingClean).toBe('0'); // and honestly unverified, as it was
+    expect(back.resources.triples).toBe('900');
+  });
+
   it('backfills missing fields additively (never a hard reset)', () => {
     const s = initialState() as unknown as Record<string, unknown>;
     delete s.forged;

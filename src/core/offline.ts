@@ -14,7 +14,7 @@
 import type { GameState, ResourceId } from './types';
 import { TIER_LADDER } from './types';
 import { add, mul, gt } from './numbers';
-import { extractionPerSecond, ratePerSecond } from './engine';
+import { ratePerSecond, supervisedPerSecond, unsupervisedPerSecond } from './engine';
 import { deriveGraph } from './graph';
 
 export const OFFLINE_CAP_MS = 8 * 3600 * 1000; // 8h, tunable
@@ -44,14 +44,25 @@ export function applyOfflineProgress(state: GameState, now: number): OfflineResu
   }
   // Machine output goes to the bank, NOT into the graph: it cannot drift while
   // it is banked, so an absence can never cost fidelity.
-  const minted = mul(extractionPerSecond(state), seconds);
-  const pending = gt(minted, 0) ? add(state.pending, minted) : state.pending;
+  //
+  // And it banks at EXACTLY the rates the online loop would have used, split by
+  // exactly the supervision you left set — supervised agents at their 0.55×
+  // penalty into the clean bank, unwatched ones at full speed into the dirty
+  // one. Before this, away time ran the whole roster at full rate and dumped
+  // all of it unverified, which made closing the game the highest-throughput
+  // play in the game and the supervision dial pure downside.
+  const clean = mul(supervisedPerSecond(state), seconds);
+  const raw = mul(unsupervisedPerSecond(state), seconds);
+  const minted = add(clean, raw);
+  const pending = gt(raw, 0) ? add(state.pending, raw) : state.pending;
+  const pendingClean = gt(clean, 0) ? add(state.pendingClean, clean) : state.pendingClean;
 
   return {
     state: {
       ...state,
       resources,
       pending,
+      pendingClean,
       lastTick: now,
       graph: deriveGraph(state.forged, resources.triples),
     },

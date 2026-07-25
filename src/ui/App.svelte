@@ -65,17 +65,30 @@
   let slotOf = new Map<number, number>();
 
   $effect(() => {
+    // A retrain, an import or a flush rewinds the board to the lone root. The
+    // seen-set has to rewind with it: it kept every id from the previous
+    // generation, so after one prestige nothing ever animated in again — for
+    // the rest of the save.
+    const anchors = $game.forged.anchors;
+    if (anchors.length <= 1 && knownAnchors.size > 1) {
+      knownAnchors = new Set();
+      landings.clear();
+      slotOf.clear();
+    }
     // remember which ring slot each in-flight discovery occupies
     for (const b of $game.bookings) {
       if (b.kind === 'discover' && b.node !== undefined) slotOf.set(b.node, b.slot ?? 0);
     }
     const now = performance.now();
-    for (const id of $game.forged.anchors) {
+    for (const id of anchors) {
       if (knownAnchors.has(id)) continue;
       knownAnchors.add(id);
       if (id === 0) continue; // the root was always there
       landings.set(id, { at: now, slot: slotOf.get(id) ?? 0 });
     }
+    // and the finished landings are dropped, or these two maps grow for the
+    // lifetime of the tab
+    for (const [id, l] of landings) if (now - l.at > 4000) { landings.delete(id); slotOf.delete(id); }
   });
 
   const input = $derived({
@@ -128,10 +141,17 @@
     switch (it.kind) {
       case 'frontier':
         return; // a discovery in flight is already working; nothing to tap
-      case 'survey':
+      case 'survey': {
         if (!it.enabled) { say('No free attention'); return; }
-        dispatch({ type: 'discover' });
+        // The engine is pure and knows nothing about WordNet, so the SHELL looks
+        // up the real hypernym of the concept about to be found and hands it
+        // over as a plain integer. Without it the new edge was wired to a
+        // hash-picked anchor — a random spanning forest drawn under a caption
+        // that told the player it was a taxonomy.
+        const parent = conceptAt($game.forged.nextId)?.parent;
+        dispatch({ type: 'discover', parent: parent !== undefined && parent >= 0 ? parent : undefined });
         return;
+      }
       case 'setSupervision':
         if (!it.enabled) return;
         dispatch({ type: 'setSupervision', slots: it.payload as number });

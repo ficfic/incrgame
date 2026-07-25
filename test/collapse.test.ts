@@ -207,6 +207,31 @@ describe('review (human in the loop)', () => {
     expect(after.bookings.some((b) => b.kind === 'review')).toBe(true);
   });
 
+  it('does not replay the same desk: minting advances the stream it consumed', () => {
+    // `mintReview` walked the RNG locally and threw the advanced seed away;
+    // `reviewBatch` then guessed how far to skip (`queue.length * 3`), which is
+    // not how far minting actually walks — retries consume extra draws. So the
+    // stream desynced and desks could repeat.
+    // A world with enough recovered concepts that a desk CAN differ. `dirty()`
+    // sets `graph` directly, but `graph` is derived from `forged` on every tick,
+    // so that fixture is a one-concept world where every desk is [0:0].
+    const s = tick({
+      ...initialState(),
+      forged: { ...initialState().forged, foldedNodes: '400' },
+      resources: { ...initialState().resources, triples: '100' },
+      provenance: { unverified: '60', drifted: '40' },
+    }, 0.1);
+    expect(s.rngState).not.toBe(initialState().rngState); // minting wrote back
+    const first = reviewQueue(s).map((i) => `${i.conceptIndex}:${i.glossIndex}`);
+    expect(first.length).toBeGreaterThan(1);
+    let t = apply(s, { type: 'reviewBatch', keep: first.map(() => true) });
+    expect(t.review).toEqual([]);
+    for (let i = 0; i < 400 && t.review.length === 0; i++) t = tick(t, 0.1);
+    const second = reviewQueue(t).map((i) => `${i.conceptIndex}:${i.glossIndex}`);
+    expect(second.length).toBeGreaterThan(0);
+    expect(second).not.toEqual(first);
+  });
+
   it('makes certifying a lie cost something the player cannot see', () => {
     const s = dirty();
     const q = reviewQueue(s);
@@ -259,6 +284,46 @@ describe('offline — you never come back to damage', () => {
     let t = after;
     for (let i = 0; i < 200 && Number(t.pending) > 0; i++) t = apply(t, { type: 'absorb' });
     expect(t.pending).toBe('0');
+  });
+
+  it('respects the supervision split you left set', () => {
+    // Away time used to run every agent at FULL rate and bank all of it
+    // unchecked. Closing the game was therefore +82% throughput and −100%
+    // verification: the supervision dial, the game's one real decision, was
+    // strictly worse than the app switcher.
+    const watched: GameState = { ...withExtractors(10), supervised: 10, lastTick: 1_000 };
+    const loose: GameState = { ...withExtractors(10), supervised: 0, lastTick: 1_000 };
+    const hour = 3600_000;
+
+    const w = applyOfflineProgress(watched, 1_000 + hour).state;
+    const l = applyOfflineProgress(loose, 1_000 + hour).state;
+
+    expect(Number(w.pendingClean)).toBeGreaterThan(0);
+    expect(Number(w.pending)).toBe(0);        // nothing unwatched, nothing dirty
+    expect(Number(l.pendingClean)).toBe(0);
+    expect(Number(l.pending)).toBeGreaterThan(0);
+    // and watching still COSTS throughput offline, exactly as it does online
+    expect(Number(w.pendingClean)).toBeLessThan(Number(l.pending));
+  });
+
+  it('absorbs the bank in its true mix and credits the clean half', () => {
+    const s: GameState = { ...initialState(), pending: '6000', pendingClean: '2000' };
+    const after = apply(s, { type: 'absorb' });
+    const took = Number(after.resources.triples);
+    expect(took).toBeGreaterThan(0);
+    // a quarter of the bank was supervised, so a quarter of every slice is
+    // verified — you cannot skim the clean statements first
+    expect(Number(after.provenance.unverified) / took).toBeCloseTo(0.75, 6);
+    expect(Number(after.lifetimeVerified)).toBeCloseTo(took * 0.25, 6);
+    expect(Number(verified(after))).toBeCloseTo(took * 0.25, 6);
+
+    let t = after;
+    for (let i = 0; i < 400 && Number(t.pending) + Number(t.pendingClean) > 0; i++) {
+      t = apply(t, { type: 'absorb' });
+    }
+    expect(Number(t.pending)).toBeCloseTo(0, 6);
+    expect(Number(t.pendingClean)).toBeCloseTo(0, 6);
+    expect(Number(t.resources.triples)).toBeCloseTo(8000, 3);
   });
 });
 

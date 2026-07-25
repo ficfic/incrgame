@@ -43,6 +43,15 @@ const PAD = 3;
 const LINE = 13;
 const SUB_LINE = 11;
 
+/** Hard ceiling on how many requests are even CONSIDERED, applied after the
+ *  priority sort. Placement is quadratic — each candidate box is tested against
+ *  every box already down — and the board can hand us 240 anchors at 60 fps,
+ *  which is ~230k rectangle tests per frame on a phone. A screen this size fits
+ *  nowhere near 32 labels anyway, so everything past the cut would have been
+ *  measured, rejected and thrown away. Priority order means what gets dropped is
+ *  the same set that crowding would have dropped. */
+const MAX_CANDIDATES = 32;
+
 function overlaps(a: Rect, b: Rect): boolean {
   return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
 }
@@ -61,7 +70,9 @@ export function placeLabels(
 ): PlacedLabel[] {
   const taken: Rect[] = [...occupied];
   const out: PlacedLabel[] = [];
-  const ordered = [...requests].sort((a, b) => b.priority - a.priority);
+  const ordered = [...requests]
+    .sort((a, b) => b.priority - a.priority)
+    .slice(0, MAX_CANDIDATES);
 
   for (const req of ordered) {
     const font = req.font ?? '600 11px ui-sans-serif, system-ui, sans-serif';

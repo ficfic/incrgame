@@ -53,8 +53,12 @@ export function observeTransition(prev: GameState, next: GameState): void {
   }
 }
 
-export function sayAwayReturn(gained: string | undefined): void {
-  if (gained) {
-    say('away-return', `while away: +${formatWhole(gained)} ${RESOURCE_LABELS.data}`);
+/** What actually accumulates while you are gone is BANKED STATEMENTS. This line
+ *  used to report `gains.data` in Datums — a currency that no longer exists and
+ *  a rate that is now permanently zero, so the ticker never said anything about
+ *  an absence at all. */
+export function sayAwayReturn(banked: string | undefined): void {
+  if (banked && Number(banked) > 0) {
+    say('away-return', `while away: ${formatWhole(banked)} statements banked`);
   }
 }

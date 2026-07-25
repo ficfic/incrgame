@@ -100,8 +100,55 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       "+0.25 Triples/s" on Orchestrator, and `buyGenerator` silently dropped
       during the engine rewrite (caught by a test, not by me).
 
+- [x] **All-canvas board** (2026-07-25): there is no HTML UI any more. Every
+      counter, button and label is a node laid out by `src/render/board.ts` and
+      painted by `src/render/paint.ts` off ONE item list, so what you tap is
+      provably what you saw. Sheets (review / vignette / save) are drawn on the
+      board too.
+- [x] **The attention economy replaced Datums** (2026-07-25, save v9): Datums
+      deleted; attention is CAPACITY you allocate (free / booked / reserved),
+      never a wallet. Discover books a slot for 18s; review books one for 25s;
+      supervision reserves one per watched agent and its output arrives already
+      verified at a 0.55× rate penalty. Agents are bought with VERIFIED
+      statements — a graph you let rot cannot build another agent.
+- [x] **Discovery takes time, and lands** (2026-07-25): radial cooldowns, the
+      concept unnamed until it arrives, an eased landing from its ring slot, and
+      a priority-ordered label pass that drops the least important label rather
+      than smearing two on top of each other (`src/render/labels.ts`).
+- [x] **iOS Edge zoom collapse fixed** (2026-07-25): the board is measured with a
+      `ResizeObserver` on the canvas, not `window.innerWidth`, and pinch belongs
+      to the game rather than the browser (viewport meta).
+- [x] **Use the real is-a parent when drawing edges** (2026-07-25, no migration
+      needed): the shell looks up the concept's true WordNet hypernym and passes
+      it to `discover` as a plain integer, so the engine stays pure and the
+      picture on screen is the actual taxonomy. `mixId` survives only as the
+      fallback for a folded-away parent or an unloaded chunk. Existing `[a,b]`
+      pairs stay valid — only new links change.
+- [x] **the-graph's defect list cleared** (2026-07-25, save v10): offline now
+      respects the supervision split (closing the game was +82% throughput and
+      −100% verification, making the game's one real decision strictly worse
+      than the app switcher); the headline stat renders large again (`stat-datums`
+      → `stat-statements`); landings animate after a prestige (the seen-set never
+      reset, so nothing ever eased in again for the rest of a save); discovery
+      is refused before the clock starts and past the last concept (both were
+      free-statement faucets); the review RNG seed is written back instead of
+      guessed at; agent prices come from the content table, so an Extractor and a
+      Reasoner no longer cost byte-identical amounts; the away ticker reports
+      banked statements instead of a currency that no longer exists; label
+      placement is capped at 32 candidates (it was ~230k rectangle tests/frame).
+
 ## ▶ Next — in order
 
+- [ ] **★ THE EDGES CARRY NO DATA — owner's question, and it is the real one.**
+      A link is a bare `[a, b]` pair. Nothing distinguishes one edge from
+      another, nothing is stored *in* an edge, and coverage counts a concept as
+      recovered forever once its node exists. That is why the stated goal is
+      still reachable by sprinting clean early: coverage is a monotone ratchet.
+      The fix under discussion (owner's own proposal) is edges-as-statements —
+      a concept counts as recovered only while a live statement supports it, and
+      building structure out of edges is what yields the resource that unlocks
+      automation, as a THRESHOLD rather than a price. Needs owner decisions and
+      numbers before any code: it touches the save and the win condition.
 - [ ] **★ BALANCE PASS — the headline design claim is still not true.** Measured
       over 12h sims after the agent round: gen-1 attentive completes 4096/4096 in
       ~4h; gen-1 idle reaches 97.5% in 8h (a healthy 1.1x gap — that part is
@@ -141,16 +188,15 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       Chad should price this properly.
 - [ ] **Prose-free vignette #2 and #3** — one vignette does not prove a branching
       narrative. Needs at least a fork that *matters* two beats later.
-- [ ] **Use the real is-a parent when drawing edges.** The dataset ships each
-      concept's true parent and the loader exposes it; the engine still wires new
-      nodes to a hash-picked anchor (`mixId`). Wiring to the real parent makes
-      the on-screen graph the actual taxonomy. Engine change + save migration.
+- [x] **Use the real is-a parent when drawing edges** — done 2026-07-25. Needed
+      no save migration in the end: existing pairs stay valid, only new links
+      change.
 - [ ] **Show rot ON the graph**, not just in the bar — drifted nodes should
       visibly corrupt on the canvas. The corruption function already exists
       (`corrupt()` in `src/shell/ontology.ts`); the renderer doesn't use it yet.
-- [ ] **Replace the Princeton notice with the correct upstream text** — the one
-      in ATTRIBUTION is WordNet 3.0/2006; this data carries the 3.1/2011 variant
-      plus the OEWN team's own copyright line. Fetch `WNDB_License.txt` verbatim.
+- [x] **Replace the Princeton notice with the correct upstream text** — done
+      2026-07-25: `third_party/wordnet/WNDB_License.txt` is vendored byte-identical
+      from upstream and embedded into the shipped `public/ontology/LICENSE.txt`.
 - [ ] Mark the "Wikidata / Open English Namenet — CC0" row in ATTRIBUTION as
       UNVERIFIED — no LICENSE file was found at that repo root.
 - [ ] **Theory debts from prof-veritas** (still owed, mostly one-line fixes):
@@ -171,12 +217,8 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       Every concept already knows its domain and the UI already shows it — right
       now that's flavor, not mechanics. Candidates: per-domain coverage goals,
       domain-gated recovery, a domain-completion bonus. Chad should price it.
-- [ ] **Use the real hierarchy in the loop.** The dataset ships each concept's
-      is-a parent, and recovery order is a real tree walk — but the game still
-      wires new nodes to a *hash-picked* anchor (`mixId` in `engine.ts`). Wiring
-      to the actual parent would make the on-screen graph the real taxonomy.
-      This one DOES touch the engine and DOES need a save migration — scope it
-      properly, don't sneak it in.
+- [x] **Use the real hierarchy in the loop** — done 2026-07-25 (duplicate of the
+      entry above; both are now closed).
 - [ ] **Exploit the rare tail.** Model collapse eats low-frequency concepts
       first; the endgame should make recovering `benthos`/`kickshaw` feel like
       the last lights coming back on. Needs a mechanic, not just ordering.

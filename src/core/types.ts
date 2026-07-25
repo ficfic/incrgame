@@ -70,6 +70,11 @@ export interface Booking {
   kind: 'discover' | 'review';
   until: number;   // epoch ms; compared against lastTick
   node?: number;   // for 'discover': the id the concept will land on
+  /** The node this discovery will attach to when it lands: the concept's REAL
+   *  parent. Without it the edge was wired to a hash-picked anchor, which meant
+   *  the picture was a random spanning forest while SIMPLIFICATIONS S10/S14 told
+   *  the player it was WordNet hypernymy. */
+  parent?: number;
   /** Which position on the frontier ring this discovery occupies, 0..cap-1.
    *  Assigned at booking time and held until it lands, so discoveries are
    *  EVENLY SPACED and never overlap. Positioned by a hash instead, two of them
@@ -96,7 +101,13 @@ export interface GameState {
    *  the number that makes the stated goal unreachable. */
   syntheticShare: number;
   lifetimeGenerated: Dec;                   // machine-minted statements THIS run
-  pending: Dec;                             // work banked while away, not yet absorbed
+  pending: Dec;                             // UNSUPERVISED work banked while away
+  /** SUPERVISED work banked while away (v10). Offline used to run every agent at
+   *  full speed and bank all of it unchecked — so closing the game was a straight
+   *  +82% throughput and −100% verification, and the supervision dial, which is
+   *  the game's only real decision, was strictly worse than the app switcher.
+   *  Away time now respects exactly the split you left set. */
+  pendingClean: Dec;
   modifiers: Record<string, number>;         // multiplicative, set by vignette choices
   vignette: { active: string | null; seen: string[] };
   // ---- the ratchet: the only things that survive a retrain ----
@@ -143,7 +154,11 @@ export interface GameState {
 export type Action =
   | { type: 'tick'; dt: number; now?: number }     // dt in SECONDS; `now` (epoch ms) advances lastTick
   | { type: 'survey' }                             // DEPRECATED (v8 verb); inert no-op
-  | { type: 'discover' }                           // book a slot onto a new discovery
+  /** Book a slot onto a new discovery. `parent` is the TRUE hypernym parent of
+   *  the concept about to be found, looked up by the shell and passed in as a
+   *  plain integer — the engine stays pure and still knows nothing about the
+   *  dataset. Omitted only if the chunk has not loaded. */
+  | { type: 'discover'; parent?: number }
   | { type: 'setSupervision'; slots: number }      // reserve/release supervision slots
   | { type: 'claimNode'; id: number }              // pay Datums, wire a frontier entity in: +1 triples
   | { type: 'manualConnect' }                      // DEPRECATED (pre-v4 verb); inert no-op
@@ -165,6 +180,12 @@ export interface Generator {
   costResource: ResourceId; // cost(n) = baseCost × costRatio^n of costResource
   baseRate: Dec;
   produces: ResourceId;     // output/sec of `produces`
+  /** Price of the next unit in VERIFIED STATEMENTS: agentBase × agentRatio^owned.
+   *  This is the live pricing since the attention economy; `baseCost`/`costRatio`
+   *  above are the retired Datums-era pair, kept so the content shape is stable.
+   *  Omit and the engine falls back to its own default pair. */
+  agentBase?: Dec;
+  agentRatio?: number;
 }
 
 export interface Refinement {

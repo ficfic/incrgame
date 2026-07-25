@@ -4,6 +4,8 @@ import {
   supervisedPerSecond, tick, unsupervised, unsupervisedPerSecond, verified,
 } from '../src/core/engine';
 import { ANCHOR_CAP, FRONTIER_CAP } from '../src/core/graph';
+import { GENERATORS } from '../src/content/generators';
+import { CONCEPT_BUDGET } from '../src/content/ontologyMeta';
 import { D, format, formatWhole } from '../src/core/numbers';
 import { nextRand } from '../src/core/rng';
 import type { GameState } from '../src/core/types';
@@ -48,6 +50,52 @@ describe('discovery — booking attention onto work', () => {
     const green = initialState();
     const grown = { ...green, lifetimeVerified: '10000' };
     expect(attentionCap(grown)).toBeGreaterThan(attentionCap(green));
+  });
+});
+
+describe('discovery is bounded by the clock and by the world', () => {
+  it('refuses to book before the clock has started', () => {
+    // lastTick is 0 in a fresh state. Booking against it produced `until: 18000`,
+    // and the first real tick — epoch ms — is a trillion past that, so the
+    // discovery completed instantly and for free.
+    const fresh = initialState();
+    expect(fresh.lastTick).toBe(0);
+    expect(apply(fresh, { type: 'discover' })).toBe(fresh);
+  });
+
+  it('refuses past the last concept in the dataset', () => {
+    const edge: GameState = {
+      ...initialState(),
+      lastTick: 1_000,
+      forged: { ...initialState().forged, nextId: CONCEPT_BUDGET },
+    };
+    expect(apply(edge, { type: 'discover' })).toBe(edge);
+    // and one short of it still works, so the gate is at the edge and not before
+    const nearly = { ...edge, forged: { ...edge.forged, nextId: CONCEPT_BUDGET - 1 } };
+    expect(apply(nearly, { type: 'discover' }).bookings).toHaveLength(1);
+  });
+
+  it('wires the edge to the REAL parent the shell handed it', () => {
+    let s: GameState = { ...initialState(), lastTick: 1_000 };
+    // land node 1 first so there are two anchors to choose between
+    s = apply(s, { type: 'discover' });
+    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
+    expect(s.forged.anchors).toContain(1);
+
+    const t0 = s.lastTick;
+    s = apply(s, { type: 'discover', parent: 1 });
+    s = apply(s, { type: 'tick', dt: 20, now: t0 + DISCOVER_MS + 1 });
+    const link = s.forged.links.find(([, b]) => b === 2);
+    expect(link?.[0]).toBe(1); // the parent we asked for, not a hash
+  });
+
+  it('falls back to an anchor when the named parent is not on the board', () => {
+    let s: GameState = { ...initialState(), lastTick: 1_000 };
+    s = apply(s, { type: 'discover', parent: 9999 }); // folded away / never loaded
+    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
+    const link = s.forged.links.find(([, b]) => b === 1);
+    expect(link?.[0]).toBe(0); // the root: the only anchor available
+    expect(s.forged.anchors).toContain(1);
   });
 });
 
@@ -128,6 +176,18 @@ describe('agent prices climb', () => {
     expect(second).toBeGreaterThan(first);
     s = { ...s, generators: { ...s.generators, extractor: 5 } };
     expect(Number(agentCost(s, 'extractor')) / second).toBeGreaterThan(second / first);
+  });
+
+  it('is priced from the CONTENT TABLE, not from one constant for everything', () => {
+    // The engine used a single hardcoded base/ratio pair, so the Extractor and
+    // the Reasoner — different rates, different jobs, different roles in the
+    // run — cost byte-identical amounts and balance could not be tuned as data.
+    const s = initialState();
+    expect(agentCost(s, 'extractor')).not.toBe(agentCost(s, 'reasoner'));
+    expect(Number(agentCost(s, 'extractor')))
+      .toBe(Number(GENERATORS.extractor.agentBase));
+    expect(Number(agentCost(s, 'reasoner')))
+      .toBe(Number(GENERATORS.reasoner.agentBase));
   });
 });
 

@@ -1,7 +1,14 @@
 # Decision log
 
-Append-only. Newest at the top. One entry per non-trivial decision so a future
-session knows *why* things are the way they are. Format:
+Append-only, **chronological: oldest at the top, newest at the bottom.**
+
+(The header used to say "newest at the top" and three sessions running appended
+at the bottom anyway. Reordering ~500 lines of history to match a preference
+nobody has followed is churn with a real risk of losing an entry, so the
+convention was corrected to match the file. Append at the END.)
+
+One entry per non-trivial decision so a future session knows *why* things are
+the way they are. Format:
 
 `YYYY-MM-DD — <decision> — <one-line why> (alternatives rejected, if notable)`
 
@@ -524,3 +531,43 @@ session knows *why* things are the way they are. Format:
   halo. Taps push a ripple. Animation state lives in the UI (`landings`,
   `ripples`), never in the engine — the engine is still not allowed to know the
   screen exists.
+- 2026-07-25 — **Edges follow the REAL hypernym, not a hash** (no save migration
+  needed). The shell looks up the concept's true WordNet parent and passes it to
+  `discover` as a plain integer, so `src/core/` still knows nothing about the
+  dataset. `mixId` survives only as the fallback for a folded-away parent or an
+  unloaded chunk. Existing `[a,b]` pairs stay valid — only new links change,
+  which is why the backlog's "needs a migration" note turned out to be wrong.
+  The picture on screen is now the actual taxonomy: `entity → physical entity /
+  abstraction / thing`, `abstraction → attribute`.
+- 2026-07-25 — **Away time respects the supervision split** (save **v10**, field
+  `pendingClean`, additive). Offline ran every agent at full rate and banked all
+  of it unverified, so closing the game was +82% throughput and −100%
+  verification — the supervision dial, which is the game's only real decision,
+  was strictly worse than the app switcher. Banked work now splits exactly the
+  way you left it set, and `absorb` takes each slice in the bank's true mix, so
+  the clean half cannot be skimmed first.
+- 2026-07-25 — **Agent prices live in the content table** (`agentBase` /
+  `agentRatio`). The engine used one hardcoded pair for every agent, so an
+  Extractor (0.4 statements/s) and a Reasoner (0.05 concepts/s, and the machine
+  that actually wins the run) cost byte-identical amounts and balance could not
+  be tuned as data. Reasoner set to 90 @ 1.32 against the Extractor's 40 @ 1.30:
+  buying your way past the fidelity gate should stay the expensive move.
+- 2026-07-25 — **Review minting writes its RNG seed back.** `mintReview` walked
+  the stream locally and threw the advanced seed away; `reviewBatch` then guessed
+  how far to skip (`queue.length * 3`), which is not how far minting actually
+  walks — retries consume extra draws. Desks could repeat. Minting now returns
+  its seed and `tick` stores it; `reviewBatch` no longer touches `rngState`.
+- 2026-07-25 — **Discovery is gated at both ends of the clock and the world.**
+  Refused while `lastTick === 0` (a tap before the first tick booked `until:
+  18000`, and the first real tick is epoch-now — the discovery completed
+  instantly and free), and refused past `CONCEPT_BUDGET` (past the last concept
+  it was still minting an anchor and a VERIFIED statement for a node with
+  nothing behind it — an infinite faucet of the one scarce thing).
+- 2026-07-25 — **Label placement is capped at 32 candidates**, applied after the
+  priority sort. Placement is quadratic and the board can hand it 240 anchors at
+  60 fps (~230k rectangle tests per frame on a phone). A phone fits nowhere near
+  32 labels, and priority order means the cut drops exactly what crowding would
+  have dropped anyway.
+- 2026-07-25 — **DECISIONS.md is chronological, newest at the BOTTOM.** The
+  header claimed the opposite and no session had followed it. Convention
+  corrected to match the file rather than reordering 500 lines of history.

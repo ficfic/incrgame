@@ -325,7 +325,10 @@ function paintStat(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number): v
     return;
   }
   ctx.textAlign = 'center';
-  const big = it.id === 'stat-datums';
+  // The headline stat. It was keyed to `stat-datums`, an id that stopped
+  // existing when Datums did — so the one number the whole screen is about was
+  // rendering at 17px in dim grey like a footnote.
+  const big = it.id === 'stat-statements';
   ctx.font = big ? `700 34px ${FONT}` : `700 17px ${FONT}`;
   ctx.fillStyle = big ? INK : tone(it.tone, hue);
   ctx.fillText(it.label, it.x, it.y);

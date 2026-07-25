@@ -22,7 +22,7 @@ import { CONCEPT_BUDGET } from '../content/ontologyMeta';
 import { VIGNETTES } from '../content/vignettes';
 import { nextRand } from './rng';
 
-export const CURRENT_SAVE_VERSION = 9;
+export const CURRENT_SAVE_VERSION = 10;
 
 // Frontier Mining knobs (Chad's term sheet; tune by playing)
 const START_DATA = '15';        // enough to wire the first ~2 entities
@@ -61,7 +61,13 @@ export const REVIEW_BOOK_MS = 25_000;
 
 /** Building an agent COSTS VERIFIED STATEMENTS — you distil the next one out of
  *  the graph you already trust. Which is, exactly, the setup of the paper this
- *  game is about. A graph you have let rot cannot produce new agents. */
+ *  game is about. A graph you have let rot cannot produce new agents.
+ *
+ *  These are the FALLBACK numbers only. Each agent's real price lives in the
+ *  content table (`agentBase`/`agentRatio` in content/generators.ts), because
+ *  balance is data — the engine reading one hardcoded pair meant an Extractor
+ *  and a Reasoner cost exactly the same despite doing entirely different jobs
+ *  at entirely different rates. */
 const AGENT_BASE_COST = 40;
 const AGENT_COST_RATIO = 1.30;
 
@@ -83,7 +89,10 @@ export const REVIEW_BATCH = 3;
  *  review is unbounded — tap-spam clears the pool, the Orchestrator buyout
  *  becomes decorative, and "optional" stops being true. */
 const REVIEW_SAMPLE_SHARE = 0.02;
-export const REVIEW_COOLDOWN_MS = 45_000;
+// (There was a REVIEW_COOLDOWN_MS here asserting a 45s rate limit. It was
+//  referenced nowhere. The real brake is the 25s attention BOOKING that
+//  committing a review costs — which is the intended design. Removed rather
+//  than left claiming something the code does not do.)
 
 /** Automated review scales with the pool too. If it didn't, a flat rate would
  *  fall infinitely behind a proportional human and the no-babysitting guarantee
@@ -151,10 +160,12 @@ export function unsupervised(state: GameState): number {
   return Math.max(0, state.generators.extractor - state.supervised);
 }
 
-/** Cost of the next agent, in VERIFIED statements. */
+/** Cost of the next agent, in VERIFIED statements. Priced from the content
+ *  table so an Extractor and a Reasoner can differ, which they must. */
 export function agentCost(state: GameState, id: GeneratorId): string {
-  return D(AGENT_BASE_COST)
-    .mul(Decimal.pow(AGENT_COST_RATIO, state.generators[id]))
+  const g = GENERATORS[id];
+  return D(g.agentBase ?? AGENT_BASE_COST)
+    .mul(Decimal.pow(g.agentRatio ?? AGENT_COST_RATIO, state.generators[id]))
     .ceil().toString();
 }
 
@@ -196,6 +207,7 @@ export function initialState(seed = 1): GameState {
     syntheticShare: 0,
     lifetimeGenerated: '0',
     pending: '0',
+    pendingClean: '0',
     modifiers: {},
     vignette: { active: null, seen: [] },
     lifetimeVerified: '0',
@@ -283,18 +295,11 @@ export function generatorCost(state: GameState, id: GeneratorId): string {
 
 /** Datums per second: every statement pays, but trust decides how much. */
 export function ratePerSecond(state: GameState, res: ResourceId): string {
-  let rate = D(0);
-  if (res === 'data') {
-    for (const g of Object.values(GENERATORS)) {
-      const count = state.generators[g.id];
-      if (count > 0 && g.produces === 'data') rate = rate.add(D(g.baseRate).mul(count));
-    }
-    rate = rate
-      .add(D(YIELD_VERIFIED).mul(D(verified(state)).floor()))
-      .add(D(YIELD_UNVERIFIED).mul(D(state.provenance.unverified).floor()))
-      .add(D(YIELD_DRIFTED).mul(D(state.provenance.drifted).floor()));
-  }
-  return rate.toString();
+  // Datums were deleted. Nothing reads `data`, yet this was still the largest
+  // per-tick Decimal computation in the loop, run ten times a second forever.
+  void res;
+  void YIELD_VERIFIED; void YIELD_UNVERIFIED; void YIELD_DRIFTED;
+  return '0';
 }
 
 /** Statements per second minted by machines — all of it unverified. */
@@ -367,13 +372,20 @@ export function reviewQueue(state: GameState): ReviewItem[] {
 }
 
 /** Draw a fresh batch. Called once, by `tick`, when the desk is empty and off
- *  cooldown; the result is frozen into state. Never call this per render. */
-function mintReview(state: GameState): ReviewItem[] {
-  if (!reviewReady(state)) return [];
+ *  cooldown; the result is frozen into state. Never call this per render.
+ *
+ *  Returns the ADVANCED SEED alongside the items, and the caller must store it.
+ *  It used to throw the seed away and let `reviewBatch` guess how far to skip
+ *  (`queue.length * 3`), which is not how far minting actually walks the stream
+ *  — retries consume extra draws. The consequence was a stream that replayed
+ *  itself: two desks in a row could be the identical three concepts, and the
+ *  corrupt/clean pattern was predictable across a reload. */
+function mintReview(state: GameState): { items: ReviewItem[]; seed: number } {
+  if (!reviewReady(state)) return { items: [], seed: state.rngState };
   const unver = D(state.provenance.unverified).toNumber();
   const drift = D(state.provenance.drifted).toNumber();
   const pool = unver + drift;
-  if (pool < REVIEW_MIN_POOL) return [];
+  if (pool < REVIEW_MIN_POOL) return { items: [], seed: state.rngState };
   const corruptShare = pool > 0 ? drift / pool : 0;
   const items: ReviewItem[] = [];
   const used = new Set<number>();
@@ -403,7 +415,7 @@ function mintReview(state: GameState): ReviewItem[] {
     used.add(conceptIndex);
     items.push({ conceptIndex, glossIndex, corrupt });
   }
-  return items;
+  return { items, seed };
 }
 
 function advanceRng(seed: number, steps: number): number {
@@ -501,7 +513,13 @@ export function apply(state: GameState, action: Action): GameState {
         bookings = bookings.filter((b) => b.until > lastTick);
         for (const b of done) {
           if (b.kind !== 'discover' || b.node === undefined) continue;
-          const anchor = anchors[mixId(b.node) % anchors.length] ?? 0;
+          // Wire to the concept's REAL parent when we have it and it is still
+          // on the board. Recovery order guarantees parent(N) < N and parents
+          // land first, so it almost always is. The hash is now only a fallback
+          // for a folded-away parent or an unloaded chunk.
+          const anchor = b.parent !== undefined && anchors.includes(b.parent)
+            ? b.parent
+            : anchors[mixId(b.node) % anchors.length] ?? 0;
           anchors = [...anchors, b.node];
           links = [...links, [anchor, b.node] as [number, number]];
           while (anchors.length > ANCHOR_CAP) {
@@ -536,7 +554,11 @@ export function apply(state: GameState, action: Action): GameState {
       };
       // Mint the next batch only when the desk is empty — the array identity
       // must stay stable while the player is looking at it.
-      return next.review.length === 0 ? { ...next, review: mintReview(next) } : next;
+      if (next.review.length > 0) return next;
+      const drawn = mintReview(next);
+      return drawn.items.length === 0 && drawn.seed === next.rngState
+        ? next
+        : { ...next, review: drawn.items, rngState: drawn.seed };
     }
 
     case 'survey':
@@ -548,6 +570,16 @@ export function apply(state: GameState, action: Action): GameState {
       // that were never machine-generated.
       if (attentionFree(state) < 1) return state;
       if (state.bookings.length >= FRONTIER_CAP) return state;
+      // The clock has to have started. `lastTick` is 0 in a fresh state, so a tap
+      // in the frames before the first tick booked `until: 18000` — and the first
+      // real tick sets lastTick to epoch-now, ~1.7e12, which is past it. The
+      // discovery completed instantly, free. Tap-spam the opening and you had a
+      // graph before the loop was running.
+      if (state.lastTick === 0) return state;
+      // The world is finite. Past the last concept, discovery was still minting
+      // +1 anchor and +1 VERIFIED statement for nodes with nothing behind them —
+      // an infinite faucet of the one thing the game says is scarce.
+      if (state.forged.nextId >= CONCEPT_BUDGET) return state;
       const node = state.forged.nextId;
       // take the lowest free ring slot so discoveries never share a position
       const taken = new Set(state.bookings.map((b) => b.slot));
@@ -555,7 +587,10 @@ export function apply(state: GameState, action: Action): GameState {
       while (taken.has(slot) && slot < FRONTIER_CAP) slot++;
       const bookings = [
         ...state.bookings,
-        { kind: 'discover' as const, until: state.lastTick + DISCOVER_MS, node, slot },
+        {
+          kind: 'discover' as const, until: state.lastTick + DISCOVER_MS, node, slot,
+          parent: action.parent,
+        },
       ];
       return {
         ...state,
@@ -631,7 +666,9 @@ export function apply(state: GameState, action: Action): GameState {
         // only HAND-checked statements feed the ratchet — that is the point
         lifetimeVerified: add(state.lifetimeVerified, newlyVerified.toString()),
         falselyVerified: add(state.falselyVerified, falselyVerified.toString()),
-        rngState: advanceRng(state.rngState, queue.length * 3),
+        // rngState is NOT touched here: minting already advanced it past exactly
+        // the draws it made. Skipping a guessed `queue.length * 3` on top was
+        // double-counting in one direction and undercounting in the other.
         reviewReadyAt: state.lastTick,
         bookings: [...state.bookings, { kind: 'review' as const, until: state.lastTick + REVIEW_BOOK_MS }],
         review: [], // consumed; tick mints the next one after the cooldown
@@ -648,19 +685,31 @@ export function apply(state: GameState, action: Action): GameState {
       // ~100x and cost four orders of magnitude of recovery — "you never come
       // back to damage" held only in the letter. A slice at a time keeps the
       // reward a reward and leaves room to review between bites.
-      const pending = D(state.pending);
-      if (pending.lte(0)) return state;
+      const dirty = D(state.pending);
+      const cleanBank = D(state.pendingClean);
+      const bank = dirty.add(cleanBank);
+      if (bank.lte(0)) return state;
       const held = D(state.resources.triples);
-      const slice = Decimal.min(pending, Decimal.max(held.mul(ABSORB_SLICE), D(ABSORB_MIN)));
+      const slice = Decimal.min(bank, Decimal.max(held.mul(ABSORB_SLICE), D(ABSORB_MIN)));
+      // Each slice takes the same MIX the bank holds, so absorbing in bites can
+      // never reorder which half you get — you cannot take the clean statements
+      // first and leave the rot for later.
+      const share = slice.div(bank);
+      const cleanPart = cleanBank.mul(share);
+      const dirtyPart = slice.sub(cleanPart);
       const resources = { ...state.resources, triples: add(state.resources.triples, slice.toString()) };
       return {
         ...state,
         resources,
-        pending: pending.sub(slice).toString(),
+        pending: dirty.sub(dirtyPart).toString(),
+        pendingClean: cleanBank.sub(cleanPart).toString(),
         provenance: {
-          unverified: add(state.provenance.unverified, slice.toString()),
+          // only the unwatched half arrives unchecked; the supervised half was
+          // checked as it was made, exactly as it would have been online
+          unverified: add(state.provenance.unverified, dirtyPart.toString()),
           drifted: state.provenance.drifted,
         },
+        lifetimeVerified: add(state.lifetimeVerified, cleanPart.toString()),
         lifetimeGenerated: add(state.lifetimeGenerated, slice.toString()),
         graph: deriveGraph(state.forged, resources.triples),
       };
@@ -690,7 +739,7 @@ export function apply(state: GameState, action: Action): GameState {
       if (recovered(state) < REFLECT_MIN_CONCEPTS) return state;
       // Banked work counts toward what you carry forward. Dropping it silently
       // punished the player for having been away before they retrained.
-      const generated = D(state.lifetimeGenerated).add(D(state.pending));
+      const generated = D(state.lifetimeGenerated).add(D(state.pending)).add(D(state.pendingClean));
       const inherited = generated.mul(INHERIT_FRACTION).floor();
       const fresh = initialState(advanceRng(state.rngState, 1));
       // COVERAGE PERSISTS. It is the north star (GAME_DESIGN, VISION) — resetting

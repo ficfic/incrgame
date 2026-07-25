@@ -30,6 +30,9 @@ export const GENERATORS: Record<GeneratorId, Generator> = {
     costResource: 'data',
     baseRate: '0.4',
     produces: 'triples',
+    // volume machine: cheap to start, and the ratio is what stops you owning ten
+    agentBase: '40',
+    agentRatio: 1.30,
   },
   // Subsumption reasoning — turns trusted statements back into recovered
   // concepts. Its rate is multiplied by FIDELITY, so rot stalls it.
@@ -41,6 +44,11 @@ export const GENERATORS: Record<GeneratorId, Generator> = {
     costResource: 'data',
     baseRate: '0.05',
     produces: 'entities',
+    // The machine that actually wins the run, so it is not priced identically to
+    // the one that only makes volume. Steeper too: recovery is the scarce thing,
+    // and buying your way out of the fidelity gate should stay expensive.
+    agentBase: '90',
+    agentRatio: 1.32,
   },
   aiAgent: {
     id: 'aiAgent',
