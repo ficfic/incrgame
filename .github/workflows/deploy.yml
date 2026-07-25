@@ -46,6 +46,10 @@ jobs:
           path: dist
 
   deploy:
+    # The github-pages environment only allows the default (pinned) branch —
+    # other branches get CI (build+test) but skip the publish instead of
+    # failing on environment protection rules.
+    if: github.ref == 'refs/heads/claude/incremental-game-github-pages-w7pvk6'
     needs: build
     runs-on: ubuntu-latest
     environment:

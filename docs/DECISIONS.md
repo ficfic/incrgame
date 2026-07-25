@@ -18,10 +18,13 @@ session knows *why* things are the way they are. Format:
   - **M1 graph renderer = thin canvas-2D** (`src/render/minigraph.ts`, LOD-capped
     at 72 drawn nodes) — "MVP stays thin"; PixiJS arrives at M3 when the bloom is
     the deliverable. Renderer is swappable per ARCHITECTURE, so zero engine impact.
-  - **Deploy workflow triggers on the pinned branch AND the build-session branch**
-    — session branches can't push to the pinned branch without permission, and a
-    deploy that never fires can't prove M0's "installable on your phone."
-    Concurrency group `pages`, latest push wins.
+  - **Deploy workflow triggers on the pinned branch AND the build-session branch,
+    but the publish job runs only from the pinned branch** — the `github-pages`
+    environment's protection rules reject non-default branches (verified: run #1's
+    deploy job was rejected with no runner), so session branches get build+test CI
+    and the Pages publish fires when work merges into the pinned branch. To deploy
+    from other branches, the owner would add them under Settings → Environments →
+    github-pages → deployment branches.
   - **TypeScript pinned to `~5.9`** — svelte-check 4 crashes on TS 7 (the native
     rewrite). Revisit when svelte-check supports it.
   - **Save-load backfills missing fields from `initialState`** (migrate
