@@ -88,6 +88,17 @@ verdict underneath.** A funny reviewer that lies is worthless.
   simplifies real theory, **label the simplification in-game** so players never
   learn something false. If glossary and mechanic conflict, the glossary wins
   unless we change it deliberately and log it in `docs/DECISIONS.md`.
+- **★ All player-facing PROSE is human-written.** Event text, jokes, Field
+  Notes, flavor, UI copy — a human writes every sentence a player reads. The
+  `game.ttl`/content pipeline generates **structured data only** (costs, gates,
+  node graphs, numbers), **never sentences.** This game's whole thesis is mocking
+  AI slop; shipping AI-generated prose would make it the hypocrisy it satirizes —
+  an instant, deserved, unrecoverable failure. As load-bearing as "never break a
+  save."
+- **HITL review is never mandatory.** The AI-agent review loop must be *buyable
+  out of* (Orchestrators auto-review at a quality/cost tradeoff); manual review is
+  an optional min-max lever for tryhards, never a required attention tax. An idle
+  game that demands babysitting isn't an idle game.
 
 ## Stack (see `docs/ARCHITECTURE.md` — the source of truth)
 

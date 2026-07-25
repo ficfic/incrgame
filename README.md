@@ -12,7 +12,8 @@ It's a satire of the AI gold rush. It's also, underneath, an accurate course in
 the semantic web — RDF, OWL, reasoning, RAG, digital twins. You laugh at
 "Ingestion Pipeline™," then you learn it's an RDF harvester.
 
-> **Status: design complete, not yet built.** The full concept lives in
+> **Status: core design locked; several mechanics still open (see
+> [`docs/BACKLOG.md`](docs/BACKLOG.md)). Not yet built.** The full concept lives in
 > [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md). Code is next.
 
 ## The loop
@@ -21,10 +22,11 @@ the semantic web — RDF, OWL, reasoning, RAG, digital twins. You laugh at
 them by monetizing the graph → that lets you model more → coverage climbs toward
 "all knowledge."**
 
-- **Harvest → Triples → Entities → Ontologies → Digital Twins.** A real
-  semantic-web ladder.
-- **Inference compounds.** Reasoners generate new edges from edges you already
-  have — the richer the graph, the faster it grows. (Real. This is the engine.)
+- **Harvest → Triples → Entities → Taxonomies → Ontologies → Digital Twins.** A
+  real semantic-web ladder.
+- **Inference compounds.** Reasoners derive new edges from edges you already have.
+  *(A labeled simplification: real reasoners terminate at a finite closure — see
+  Field Notes. In-game it's the compounding engine.)*
 - **Sell vs keep.** Every triple is a fork: cash out now, or hoard it to raise
   quality and feed your own AI. This tension is the whole game.
 - **Data vendor → platform.** Sell raw knowledge early; rent access as

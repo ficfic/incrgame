@@ -101,7 +101,9 @@ Each rung feeds the next:
    step before full ontologies. (Real: a taxonomy is `rdfs:subClassOf` structure.)
 5. **Ontologies** — schemas organizing entities into typed clusters with rich
    axioms; unlocking one opens a new **domain** to model.
-6. **Digital Twins** — a fully-modeled domain; a high-prestige mega-node.
+6. **Digital Twins** — a domain model **kept live-synced** to a (simulated) real
+   system; a high-prestige mega-node. (Real: sync/liveness is the *defining*
+   property — not just "a big finished model.")
 
 ## Generators / upgrades
 
@@ -144,8 +146,10 @@ The tier ladder *is* the real stack:
 - **Inconsistency explosion** — assert an individual into two `disjointWith`
   classes → the reasoner derives everything (ex falso) → a hazard. Teaches why
   consistency matters.
-- **Open-world assumption** — absence isn't falsehood; you can't win by leaving
-  things out. A real, mind-bending concept as a puzzle constraint.
+- **Open-world assumption** — a query/CYOA where assuming "not stated = false"
+  triggers a costly wrong call (you treat a missing fact as false and get burned).
+  Teaches, by stinging you, that *absence ≠ falsehood*. (A real mechanic, not just
+  flavor — Veritas gap #7.)
 - **Vocabulary reuse reward** — mirrors the 5-star Linked Open Data model:
   interoperability pays.
 
@@ -153,9 +157,14 @@ The tier ladder *is* the real stack:
 
 Self-description is the game's crown jewel and the payoff of the ominous spine.
 It escalates in **four stages** that ride the dread curve — the joke slowly
-curdles into awe. Theoretically honest throughout: RDFS/OWL are themselves RDF,
-so a graph describing itself is real metamodeling, and a *universal* knowledge
-graph genuinely would contain a representation of its own authors.
+curdles into awe. RDFS/OWL are themselves RDF, so a graph describing itself is
+real metamodeling, and a *universal* knowledge graph genuinely would contain a
+representation of its own authors.
+
+> **Truth/fiction seam (labeled, per accuracy rule — S3 in SIMPLIFICATIONS.md):**
+> stage 1 (self-*description*) is real metamodeling. Stages 2–4 (proposes goals →
+> self-operates → agency) are **satire, not a consequence of metamodeling** —
+> graphs don't wake up. A Field Note at the Reflection beat draws this line.
 
 1. **Reflection (prestige).** The graph builds an ontology *of itself* (a
    meta-graph). Reset lower layers, keep a permanent **Reflection** multiplier.
@@ -296,7 +305,7 @@ twist** from that field's real nature, and a satirical "we're pivoting to ___"
 beat. As coverage spreads, the graph knows more of the world — feeding both the
 north star and the ominous "it's modeling everything" climax.
 
-| Domain | Real ontology | Mechanical twist | Satire beat |
+| Domain | Real standard *(kind)* | Mechanical twist | Satire beat |
 |---|---|---|---|
 | **General knowledge** *(starter)* | Wikidata, schema.org | Broad but shallow: high volume, low value/triple; gentle onboarding to triples. | "A search engine, but worse" |
 | **Biology** | Gene Ontology, OBO | Deeply hierarchical → subclass/transitivity reasoning is overpowered here; rewards the compounding engine. Buyers pay prestige, not cash. | "We're going to cure aging" |
@@ -305,7 +314,10 @@ north star and the ominous "it's modeling everything" climax.
 | **Law** | LKIF | Rule-heavy → OWL axioms & consistency dominate; ex-falso hazard nastiest. Law-about-law foreshadows self-description. | "AI replaces lawyers (this is fine)" |
 | **Engineering / IoT** | DTDL, W3C WoT | Live-syncing → unlocks the **Digital Twin** tier; real-time data streams. | "Smart everything" |
 
-(Lineup is a first pass; domain sizing, unlock gating, and tree shape are open.)
+*(Not all of these are ontologies: Wikidata is a knowledge base, schema.org a
+vocabulary, XBRL a taxonomy, FHIR an exchange format, SNOMED CT a terminology.
+The game labels each kind honestly — accuracy rule.) Lineup is a first pass;
+domain sizing, unlock gating, and tree shape are open.*
 
 ## Cut (deliberately not in the game)
 

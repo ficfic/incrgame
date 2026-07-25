@@ -19,11 +19,16 @@ glossary deliberately and log it in `DECISIONS.md`).
 | **RDFS** (RDF Schema) | Vocabulary for classes/properties: `rdf:type`, `rdfs:subClassOf`, `rdfs:domain`, `rdfs:range`. | The "Schema" tier. | [RDF Schema 1.1](https://www.w3.org/TR/rdf-schema/) |
 | **OWL** (Web Ontology Language) | Ontology language built on RDF, based on description logic; richer axioms. | The "Axioms" tier. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
 | **Ontology** | Formal, explicit specification of a shared conceptualization of a domain (Gruber 1993; Studer et al. 1998). | What you assemble to unlock domains. | [Gruber, *Ontology*](https://tomgruber.org/writing/ontology-definition-2007) |
+| **Entity / Individual (ABox)** | A specific instance/thing in the data — as opposed to a class or type. | Resource tier "Entities" (nodes). | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
+| **TBox vs ABox** | Schema (classes, axioms) vs instances (individuals) — two *layers*, not one production chain. | Why the linear resource ladder is a **labeled simplification** (see SIMPLIFICATIONS.md). | [Description Logic](https://en.wikipedia.org/wiki/Description_logic) |
 | **Description Logic** | Family of (mostly decidable) logics underpinning OWL DL (subsumption, classification, consistency). *Note: OWL Full is undecidable and not a DL.* | The math behind reasoning. | [Baader et al., *DL Handbook*](https://en.wikipedia.org/wiki/Description_logic) |
 | **Entailment / inference** | Deriving triples that logically follow from asserted ones (RDFS/OWL). Monotonic; the deductive **closure** is finite and terminates at a fixpoint. | The "compounding engine" — a **labeled game metaphor**: closure yields more triples than asserted (a production multiplier), but real inference does *not* accelerate or run away. | [SPARQL 1.1 Entailment Regimes](https://www.w3.org/TR/sparql11-entailment/) |
+| **Forward chaining / materialization** | Eagerly computing and storing all entailed triples up front. | How a Reasoner "produces" edges. | [SPARQL 1.1 Entailment Regimes](https://www.w3.org/TR/sparql11-entailment/) |
+| **Deductive closure / fixpoint** | The complete, **finite** set of entailed triples; materialization stops when no new triple appears (the fixpoint). | Why the "compounding" engine is bounded, not infinite. | [RDF 1.1 Semantics](https://www.w3.org/TR/rdf11-mt/) |
+| **Monotonicity** | Adding facts never retracts a prior conclusion (RDFS/OWL entailment is monotonic). | Why inference can't "rewrite" meaning — contrast the title's *drift*. | [RDF 1.1 Semantics](https://www.w3.org/TR/rdf11-mt/) |
 | **Reasoner** | Software computing entailments / checking consistency (HermiT, ELK, RDFox). | The "Reasoner" generators. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
 | **Transitive property** | If P is transitive and `a P b`, `b P c`, then `a P c` is entailed. | An axiom upgrade that auto-spawns edges. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
-| **owl:sameAs** | Asserts two IRIs denote the same entity (entity linking). | Curators merging duplicates. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
+| **owl:sameAs** | Asserts two IRIs denote the same entity (entity linking). **Over-eager `sameAs` corrupts a graph** — merging is not free. | Curators merging duplicates → a *bad-merge* hazard, not pure upside. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
 | **Open-World Assumption** | What isn't stated is *unknown*, not false (unlike databases). | A puzzle constraint; you can't win by omission. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
 | **Inconsistency (ex falso)** | An inconsistent ontology entails *everything*; reasoning becomes meaningless. | A hazard (e.g. an individual in two disjoint classes). | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
 | **SPARQL** | W3C query language for RDF; matches basic graph patterns. | A "query" action to harvest matching patterns. | [SPARQL 1.1 Query](https://www.w3.org/TR/sparql11-query/) |
@@ -35,7 +40,8 @@ glossary deliberately and log it in `DECISIONS.md`).
 | **W3C WoT Thing Description** | Standard describing a Thing's metadata/interfaces; converging with DTDL. | Alternate twin spec. | [W3C WoT](https://www.w3.org/WoT/) |
 | **PROV-O** | W3C Provenance Ontology: entities, activities, agents; how data was produced. | Tracks where facts came from. | [PROV-O](https://www.w3.org/TR/prov-o/) |
 | **Metamodeling / self-description** | RDFS/OWL vocabularies are themselves RDF; graphs can describe their own structure. | The "Reflect" prestige. | [RDF Schema 1.1](https://www.w3.org/TR/rdf-schema/) |
-| **Semantic / concept drift** | The meaning of terms shifts over time; in ontologies, "ontology evolution" / concept drift forces schemas to be re-versioned. | **The game's title** — the graph rewrites meaning as it wakes. | [Ontology evolution](https://en.wikipedia.org/wiki/Ontology_(information_science)) |
+| **Semantic drift** (linguistics) | A word's meaning gradually shifts over time. | **The game's title.** | [Semantic change](https://en.wikipedia.org/wiki/Semantic_change) |
+| **Ontology evolution** | Re-versioning a schema as its domain changes. *Distinct from ML "concept drift"* (shifting data distributions — not about meaning). | The graph rewrites meaning as it wakes (title concept). | [Ontology (info science)](https://en.wikipedia.org/wiki/Ontology_(information_science)) |
 | **Upper ontology** | Domain-independent foundational ontology (BFO, DOLCE, SUMO). | Endgame meta-structure. | [BFO](https://basic-formal-ontology.org/) |
 
 ## AI economy terms
@@ -56,11 +62,13 @@ These ground the money/AI layer in the real AI industry.
 | **AI agents / orchestration** | Autonomous LLM-driven programs that act toward a goal; orchestration coordinates many agents. | Your automated "workforce"; the Orchestrator tier. | *(emerging term — no single spec)* |
 | **Universal knowledge graph** | The long-standing ambition to encode all of human knowledge in one machine-readable graph. | The north-star goal (world coverage %). | [Wikidata](https://www.wikidata.org/) · [Cyc](https://en.wikipedia.org/wiki/Cyc) |
 
-## Domain ontologies (real, one per game domain)
+## Domain standards & ontologies (real, one per game domain)
 
-Each game domain nods to a real-world ontology — playing it teaches these exist.
+Each domain nods to a real-world standard — *not all are ontologies* (a knowledge
+base, a taxonomy, and an exchange format are different things; the game labels the
+kind, per accuracy rules).
 
-| Domain | Real ontology | Source |
+| Domain | Real standard (kind) | Source |
 |---|---|---|
 | Biology | **Gene Ontology (GO)** — gene function vocabulary; **OBO Foundry** — shared bio-ontology library. | [Gene Ontology](https://geneontology.org/) · [OBO Foundry](https://obofoundry.org/) |
 | Finance | **FIBO** (Financial Industry Business Ontology); **XBRL** for reporting. | [FIBO](https://spec.edmcouncil.org/fibo/) |
