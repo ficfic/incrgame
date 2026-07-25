@@ -202,15 +202,18 @@ spec them explicitly and **verify on a physical device at M0** (a container can'
   `actions/upload-pages-artifact` (dir `dist`) → `actions/deploy-pages`.
 - `permissions: { contents: read, pages: write, id-token: write }` (least
   privilege — do not inherit broad defaults). Add a `concurrency` group.
+- **Trigger branch (PINNED):** `on: push: branches: [ claude/incremental-game-github-pages-w7pvk6 ]`
+  — there is **no `main`**; deploy directly from the working branch. Do NOT
+  default the workflow to `main` or it will never fire.
 - **Vite `base: '/incrgame/'`** (project Pages subpath) — wrong base = blank page.
   Owner `ficfic`, URL `https://ficfic.github.io/incrgame/`.
 
 ### ⚠️ Owner-side prerequisites (a container CANNOT do these — do them by hand)
 
-1. **GitHub → Settings → Pages → Source = "GitHub Actions".**
-2. Decide the **deploy branch** and point the workflow `on: push: branches:` at it
-   (there is currently no `main`; work is on `claude/incremental-game-github-pages-w7pvk6`).
-3. **Enable push protection / secret scanning** (the real server-side secret gate;
-   our commit hook is advisory and MCP-bypassable).
-4. **Verify install + standalone on the physical iOS device** (Safari fallback if
-   Edge won't install).
+1. **GitHub → Settings → Pages → Source = "GitHub Actions".** ✅ *(done by owner)*
+2. **Deploy branch = the working branch** `claude/incremental-game-github-pages-w7pvk6`
+   (no `main`) — already pinned in the workflow `on:` above. Nothing to decide.
+3. **Enable push protection / secret scanning** (do anytime — the real
+   server-side secret gate; our commit hook is advisory and MCP-bypassable).
+4. **Verify install + standalone on the physical iOS device** *after* the first
+   successful deploy (Safari fallback if Edge won't install).

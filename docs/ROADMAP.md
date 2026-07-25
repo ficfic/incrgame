@@ -27,9 +27,11 @@ we build the green slice first and earn the rest.
     `window`/`document`/`ui`/`render` imports) → `vite build` → deploy-pages;
     least-privilege `permissions`.
   - [ ] Vitest wired; one trivial engine test green.
-  - **⚠️ Owner-side first (see SPEC "Owner-side prerequisites"):** set Pages
-    Source = GitHub Actions; pick the deploy branch + point the workflow at it;
-    enable push protection; verify install on the iOS device (Safari if Edge won't).
+  - **⚠️ Owner-side (see SPEC "Owner-side prerequisites"):** Pages Source =
+    GitHub Actions ✅ *done*. Deploy branch is **pinned** to
+    `claude/incremental-game-github-pages-w7pvk6` (no `main`) — set the workflow
+    `on:` to it. Push protection: enable anytime. iOS install: verify after first
+    deploy (Safari if Edge won't).
 - [ ] **M1 · Core loop slice.** `Data` resource, manual "connect" action (→ Data),
   one Harvester (cost `15 × 1.15ⁿ`), fixed-tick production (10 Hz) — **plus a
   trivial 5-node graph that grows per connect** so the hook is on screen in the
