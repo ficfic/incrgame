@@ -70,6 +70,11 @@ export interface Booking {
   kind: 'discover' | 'review';
   until: number;   // epoch ms; compared against lastTick
   node?: number;   // for 'discover': the id the concept will land on
+  /** Which position on the frontier ring this discovery occupies, 0..cap-1.
+   *  Assigned at booking time and held until it lands, so discoveries are
+   *  EVENLY SPACED and never overlap. Positioned by a hash instead, two of them
+   *  landed on top of each other and their labels became unreadable. */
+  slot?: number;
 }
 
 export interface GameState {

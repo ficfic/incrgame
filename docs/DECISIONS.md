@@ -507,3 +507,20 @@ session knows *why* things are the way they are. Format:
   made Datums. The Orchestrator bought automated review — and supervision *is*
   automated review, so it was the same idea charged for twice. Both remain in
   GENERATORS for save shape.
+- 2026-07-25 — **Labels are laid out, not drawn blind** (`src/render/labels.ts`).
+  Every label is a REQUEST with a priority; requests are placed in priority
+  order, each trying above/below/right/left around its node, skipping any
+  position that overlaps an already-placed label or leaves the band. A label
+  with nowhere to go is dropped. Crowding therefore degrades by losing the least
+  important labels instead of producing a smear — which is what the owner's
+  screenshot showed: `measure` and `group` overwriting each other's cost lines,
+  `psychological fea…` truncated, `otherworld` running off the right edge.
+  Priority order: root > just-landed > work in flight > settled anchors.
+- 2026-07-25 — **Discoveries take EVENLY SPACED ring slots**, assigned at
+  booking time and held until they land. Positioned by a hash of the node id,
+  two discoveries could occupy the same spot; slots make that impossible.
+- 2026-07-25 — **A landing concept eases into place over ~850ms** from the ring
+  slot it was discovered in, flaring and shrinking as it arrives, with a fading
+  halo. Taps push a ripple. Animation state lives in the UI (`landings`,
+  `ripples`), never in the engine — the engine is still not allowed to know the
+  screen exists.

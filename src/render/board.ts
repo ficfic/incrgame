@@ -59,6 +59,12 @@ export interface BoardInput {
   conceptFor: (index: number) => { label: string; gloss: string; category: string } | null;
   labelForNode: (nodeId: number) => string | undefined;
   timeMs: number;
+  /** Concepts that have just landed: node id → when it landed and which ring
+   *  slot it came from, so the painter can ease it into place instead of
+   *  snapping it there. Animation is a skin concern; the engine never sees it. */
+  landings: Map<number, { at: number; slot: number }>;
+  /** Tap feedback, in board coordinates. */
+  ripples: Array<{ x: number; y: number; at: number }>;
 }
 
 // ---------------------------------------------------------------- geometry --
@@ -97,11 +103,15 @@ export function anchorPos(id: number, w: number, h: number, spin: number): { x: 
   return { x: cx + Math.cos(a) * r + jitter(id, 1) * 5, y: cy + Math.sin(a) * r + jitter(id, 2) * 5 };
 }
 
-function frontierPos(id: number, w: number, h: number): { x: number; y: number } {
+/** Evenly spaced around the ring by SLOT, not by hash. Slot 0 sits at the top
+ *  and they fan clockwise, so N discoveries are always N apart and their labels
+ *  have room. */
+export function frontierPos(slot: number, w: number, h: number): { x: number; y: number } {
   const { cx, cy, outer } = band(w, h);
-  const a = (jitter(id, 9) + 0.5) * Math.PI * 2;
+  const a = -Math.PI / 2 + (slot / FRONTIER_SLOTS) * Math.PI * 2;
   return { x: cx + Math.cos(a) * outer, y: cy + Math.sin(a) * outer };
 }
+export const FRONTIER_SLOTS = 8;
 
 /** Representative rot: provenance is aggregate, so a stable share of nodes is
  *  drawn rotted rather than one record per statement (mobile perf budget). */
@@ -183,7 +193,7 @@ export function layout(input: BoardInput): SceneItem[] {
   // and it lands by itself. Not tappable — it is already working.
   for (const b of state.bookings) {
     if (b.kind !== 'discover' || b.node === undefined) continue;
-    const p = frontierPos(b.node, w, h);
+    const p = frontierPos(b.slot ?? 0, w, h);
     const left = Math.max(0, (b.until - state.lastTick) / 1000);
     push({
       id: `f${b.node}`, kind: 'frontier', x: p.x, y: p.y, r: 0, draw: 7,

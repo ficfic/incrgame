@@ -56,6 +56,28 @@
     toastTimer = setTimeout(() => (toast = ''), 2200);
   }
 
+  // A concept that lands should travel from the slot it was discovered in, not
+  // teleport. Tracked here rather than in the engine: it is animation, and the
+  // engine is not allowed to know the screen exists.
+  const landings = new Map<number, { at: number; slot: number }>();
+  const ripples: Array<{ x: number; y: number; at: number }> = [];
+  let knownAnchors = new Set<number>();
+  let slotOf = new Map<number, number>();
+
+  $effect(() => {
+    // remember which ring slot each in-flight discovery occupies
+    for (const b of $game.bookings) {
+      if (b.kind === 'discover' && b.node !== undefined) slotOf.set(b.node, b.slot ?? 0);
+    }
+    const now = performance.now();
+    for (const id of $game.forged.anchors) {
+      if (knownAnchors.has(id)) continue;
+      knownAnchors.add(id);
+      if (id === 0) continue; // the root was always there
+      landings.set(id, { at: now, slot: slotOf.get(id) ?? 0 });
+    }
+  });
+
   const input = $derived({
     state: $game,
     w: vw,
@@ -66,6 +88,8 @@
     conceptFor: (i: number) => conceptAt(i),
     labelForNode: (id: number) => conceptForNode(id)?.label,
     timeMs: 0,
+    landings,
+    ripples,
   });
 
   let items: SceneItem[] = [];
@@ -87,7 +111,12 @@
 
   function onTap(e: PointerEvent): void {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const it = hit(items, e.clientX - rect.left, e.clientY - rect.top);
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    const it = hit(items, px, py);
+    if (it?.enabled) {
+      ripples.push({ x: it.x, y: it.y, at: performance.now() });
+      if (ripples.length > 6) ripples.shift();
+    }
     if (!it) {
       if (sheet && sheet !== 'review') sheet = null; // tap-away closes, except mid-review
       return;

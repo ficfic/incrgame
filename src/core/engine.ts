@@ -549,7 +549,14 @@ export function apply(state: GameState, action: Action): GameState {
       if (attentionFree(state) < 1) return state;
       if (state.bookings.length >= FRONTIER_CAP) return state;
       const node = state.forged.nextId;
-      const bookings = [...state.bookings, { kind: 'discover' as const, until: state.lastTick + DISCOVER_MS, node }];
+      // take the lowest free ring slot so discoveries never share a position
+      const taken = new Set(state.bookings.map((b) => b.slot));
+      let slot = 0;
+      while (taken.has(slot) && slot < FRONTIER_CAP) slot++;
+      const bookings = [
+        ...state.bookings,
+        { kind: 'discover' as const, until: state.lastTick + DISCOVER_MS, node, slot },
+      ];
       return {
         ...state,
         bookings,

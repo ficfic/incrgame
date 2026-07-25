@@ -2,7 +2,8 @@
 // what you tap is provably what you saw (see board.ts).
 import type { GameState } from '../core/types';
 import type { BoardInput, SceneItem } from './board';
-import { anchorPos, band, stageHue } from './board';
+import { anchorPos, band, frontierPos, stageHue } from './board';
+import { drawLabels, placeLabels, type LabelRequest } from './labels';
 import { displayedFidelity } from '../core/engine';
 import { D } from '../core/numbers';
 
@@ -84,16 +85,56 @@ export function paint(canvas: HTMLCanvasElement, input: BoardInput, items: Scene
   paintLinks(ctx, state, w, h, hue, t);
   paintProvenanceRing(ctx, state, w, h, hue);
 
+  // Shapes first, then ONE label pass over the whole board. Labels drawn
+  // per-item cannot see each other, which is how two frontier nodes ended up
+  // overwriting each other's text.
+  const reqs: LabelRequest[] = [];
   for (const it of items) {
     switch (it.kind) {
-      case 'anchor': paintAnchor(ctx, it, hue, t); break;
-      case 'frontier': paintFrontier(ctx, it, hue, t); break;
+      case 'anchor': paintAnchor(ctx, it, hue, t, input, reqs); break;
+      case 'frontier': paintFrontier(ctx, it, hue, t, input, reqs); break;
       case 'stat': paintStat(ctx, it, hue); break;
       case 'machine': paintPill(ctx, it, hue, 'machine'); break;
       case 'save': paintGlyph(ctx, it, hue); break;
       default: paintPill(ctx, it, hue, 'action'); break;
     }
   }
+  const b = band(w, h);
+  drawLabels(ctx, placeLabels(ctx, reqs, w, h, { top: 96, bottom: b.cy + b.outer + 40 }));
+
+  paintRipples(ctx, input, hue);
+}
+
+/** Where a node is RIGHT NOW: a freshly landed concept eases in from the ring
+ *  slot it was discovered in, rather than snapping to its place. */
+function livePos(
+  it: SceneItem, input: BoardInput, spin: number,
+): { x: number; y: number; k: number } {
+  const id = Number(it.id.slice(1));
+  const landed = input.landings.get(id);
+  const home = { x: it.x, y: it.y };
+  if (landed === undefined) return { ...home, k: 1 };
+  const k = Math.min(1, (input.timeMs - landed.at) / LAND_MS);
+  if (k >= 1) return { ...home, k: 1 };
+  const from = frontierPos(landed.slot, input.w, input.h);
+  const e = 1 - Math.pow(1 - k, 3); // ease-out cubic
+  return { x: from.x + (home.x - from.x) * e, y: from.y + (home.y - from.y) * e, k };
+}
+
+export const LAND_MS = 850;
+
+/** Expanding rings from a tap. Cheap, and it makes the board feel answered. */
+function paintRipples(ctx: CanvasRenderingContext2D, input: BoardInput, hue: number): void {
+  for (const r of input.ripples) {
+    const k = (input.timeMs - r.at) / 520;
+    if (k < 0 || k > 1) continue;
+    ctx.strokeStyle = `hsl(${hue} 80% 70% / ${0.5 * (1 - k)})`;
+    ctx.lineWidth = 2 * (1 - k);
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, 8 + k * 46, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
 }
 
 // ------------------------------------------------------------- graph layers --
@@ -170,54 +211,74 @@ function paintProvenanceRing(
 
 // -------------------------------------------------------------- item paints --
 
-function paintAnchor(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, t: number): void {
+function paintAnchor(
+  ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, t: number,
+  input: BoardInput, reqs: LabelRequest[],
+): void {
   const rotted = it.tone === 'bad';
   const isHub = it.id === 'a0';
+  const { x, y, k } = livePos(it, input, t * 0.02);
+  const arriving = k < 1;
   const tw = rotted
     ? 0.45 + 0.35 * Math.abs(Math.sin(t * 5.1))
-    : 0.8 + 0.2 * Math.sin(t * 0.7 + it.x * 0.05);
-  ctx.globalAlpha = isHub ? 1 : tw;
+    : 0.8 + 0.2 * Math.sin(t * 0.7 + x * 0.05);
+  // a landing concept flares and shrinks into place
+  const r = it.draw * (arriving ? 1 + 2.2 * (1 - k) : 1);
+  ctx.globalAlpha = isHub ? 1 : arriving ? 1 : tw;
   ctx.beginPath();
-  ctx.arc(it.x, it.y, it.draw, 0, Math.PI * 2);
-  ctx.fillStyle = tone(it.tone, hue);
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = arriving ? `hsl(${hue} 85% 72%)` : tone(it.tone, hue);
   ctx.fill();
+  if (arriving) {
+    ctx.strokeStyle = `hsl(${hue} 85% 72% / ${0.6 * (1 - k)})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 10 + 26 * (1 - k), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+  }
   if (isHub) {
     ctx.beginPath();
-    ctx.arc(it.x, it.y, 3, 0, Math.PI * 2);
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
     ctx.fillStyle = INK;
     ctx.fill();
   }
   ctx.globalAlpha = 1;
-  if (isHub && it.label) {
-    ctx.font = `600 11px ${FONT}`;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = `hsl(${hue} 80% 80% / 0.9)`;
-    ctx.fillText(it.label, it.x, it.y - 14);
-  }
+  if (!it.label) return;
+  reqs.push({
+    x, y, radius: r,
+    text: clip(it.label, 24),
+    // the root always wins its spot; a just-landed concept nearly always;
+    // ordinary anchors are the first labels dropped when the board fills up
+    priority: isHub ? 1000 : arriving ? 900 : 10,
+    color: isHub ? `hsl(${hue} 80% 82%)` : arriving ? `hsl(${hue} 85% 80%)` : `hsl(${hue} 40% 62% / 0.8)`,
+    font: isHub || arriving ? `600 12px ${FONT}` : `500 10px ${FONT}`,
+  });
 }
 
-function paintFrontier(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, t: number): void {
+function paintFrontier(
+  ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, t: number,
+  _input: BoardInput, reqs: LabelRequest[],
+): void {
   const breathe = 1 + 0.16 * Math.sin(t * 1.6 + it.x * 0.07);
-  const c = tone(it.enabled ? 'good' : 'muted', hue);
+  const c = tone('good', hue);
   ctx.strokeStyle = c;
   ctx.lineWidth = 1.6;
   ctx.beginPath();
   ctx.arc(it.x, it.y, it.draw * breathe, 0, Math.PI * 2);
   ctx.stroke();
+  // a sweep showing how much of the booking is done
   ctx.beginPath();
   ctx.arc(it.x, it.y, 2, 0, Math.PI * 2);
   ctx.fillStyle = c;
   ctx.fill();
-  ctx.font = `600 11px ${FONT}`;
-  ctx.textAlign = 'center';
-  ctx.fillStyle = it.enabled ? `hsl(${hue} 80% 78%)` : DIM;
-  ctx.fillText(clip(it.label, 18), it.x, it.y - it.draw - 8);
-  if (it.sub) {
-    ctx.font = `9px ${MONO}`;
-    ctx.fillStyle = DIM;
-    ctx.fillText(it.sub, it.x, it.y + it.draw + 13);
-  }
   ctx.lineWidth = 1;
+  reqs.push({
+    x: it.x, y: it.y, radius: it.draw + 2,
+    text: clip(it.label, 22), sub: it.sub,
+    priority: 500, // work in flight outranks settled anchors
+    color: `hsl(${hue} 80% 78%)`, subColor: DIM,
+  });
 }
 
 function paintStat(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number): void {
