@@ -238,7 +238,8 @@ spec them explicitly and **verify on a physical device at M0** (a container can'
 ## Concept data — the ontology contract (added 2026-07-25)
 
 The game's concepts are **real data**, not generated content: Open English
-WordNet, CC BY 4.0, pinned to `2025-edition`. Licence trail: `docs/ATTRIBUTION.md`.
+WordNet, CC BY 4.0, pinned to `2025-edition`, CURATED to a 4,096-concept subset.
+Licence trail: `docs/ATTRIBUTION.md`.
 
 ### Generation
 
@@ -251,19 +252,38 @@ are hermetic and CI never touches the network for content.
 
 ```
 public/ontology/index.json      manifest: source, edition, commit, licence,
-                                concepts, chunkSize, chunks, domains[45]
+                                licenceUrl, attribution, noticeUrl,
+                                concepts, chunkSize, chunks, categories[26]
+public/ontology/LICENSE.txt     the notice, shipped WITH the data (CC BY §3(a)(1))
 public/ontology/cNNN.json       chunk of `chunkSize` concepts, arrays aligned:
                                 l[] label · d[] domain index · p[] parent index
                                 (-1 = a root) · g[] definition, verbatim
 ```
 
-Chunk size is **2048** (~55 KB gzip). A fresh save only ever needs `c000.json`.
+Chunk size is **1024**. The whole dataset is ~348 KB; a fresh save needs only
+`c000.json`. `LICENSE.txt` ships alongside because the WordNet licence requires
+its notice to travel with every copy of the database, and `docs/` is never
+deployed.
+
+### Selection ⚠️
+
+Nouns **reachable from `entity`** only — so the shipped set has exactly ONE root
+and the hierarchy claim is true. Senses the source marks as slurs are excluded.
+One concept per word form. Capped at `CONCEPT_BUDGET`. A concept whose own parent
+was rejected re-parents to its nearest accepted ancestor, so the result is always
+a connected tree with no dangling parents (asserted by the generator and by
+`test/ontology.test.ts`).
+
+`src/content/ontologyMeta.ts` carries `CONCEPT_BUDGET` for the engine, which
+needs the denominator but must not fetch. A test keeps the two in sync.
 
 ### The frozen ordering contract ⚠️
 
-Concepts are ordered **breadth-first from `entity`**, WordNet's unique beginner;
-concepts unreachable from it follow, grouped by their own roots. Ties break on
-`(label, synset id)`, so the order is reproducible from the pinned source.
+Concepts are ordered **breadth-first from `entity`**, WordNet's unique beginner
+for nouns. Ties break on `(label, synset id)`, so the order is reproducible from
+the pinned source. The generator VERIFIES the cached checkout is at the pinned
+commit before reading it — a stale cache would otherwise renumber the world under
+a manifest still claiming the pinned edition.
 
 **A save stores integer node ids, and node id N means "concept index N mod
 total".** Therefore the ordering is a save-visible contract with the same status

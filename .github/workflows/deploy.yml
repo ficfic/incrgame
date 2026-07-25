@@ -47,9 +47,15 @@ jobs:
         # ships a world with no concepts in it.
         run: |
           test -f public/ontology/index.json || { echo '::error::public/ontology/index.json missing — run npm run ontology'; exit 1; }
+          test -f public/ontology/LICENSE.txt || { echo '::error::public/ontology/LICENSE.txt missing — the notice must ship WITH the data'; exit 1; }
           node -e '
             const m = require("./public/ontology/index.json");
-            if (!m.license || !m.attribution) { console.error("::error::ontology manifest is missing its licence/attribution"); process.exit(1); }
+            // CC BY 4.0 s3(a)(1) needs BOTH parties, the licence and a link —
+            // truthiness is not enough, so assert the content.
+            if (!m.license || !m.licenseUrl || !m.attribution) { console.error("::error::ontology manifest is missing licence/licenceUrl/attribution"); process.exit(1); }
+            if (!/Princeton/.test(m.attribution) || !/Open English WordNet/.test(m.attribution)) {
+              console.error("::error::attribution must name BOTH Princeton WordNet and the Open English WordNet team"); process.exit(1);
+            }
             const fs = require("fs");
             for (let i = 0; i < m.chunks; i++) {
               const f = `public/ontology/c${String(i).padStart(3, "0")}.json`;

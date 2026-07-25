@@ -1,114 +1,87 @@
-# Handover — session of 2026-07-25 (the "zero → live game" day)
+# Handover — read after CLAUDE.md, before anything else
 
-Read me first in a fresh session, after CLAUDE.md. I am the fast path; the full
-trail is in `DECISIONS.md` (why), `BACKLOG.md` (what's next), `SPEC.md` (contracts).
+## 1. Read `docs/VISION.md` first. Seriously.
 
-## ⚠️ Read this first: the premise pivoted (2026-07-25, later same day)
+It is the newest and most important document in the repo, and it exists because
+it didn't. Without it, a session found a free 107,519-concept dataset, shipped
+all of it, and nothing in the repo could say that was wrong. VISION says who
+this is for (**the owner, one person** — public only because Pages is easy),
+what it's for, and what it rules out.
 
-**The game is now about knowledge RECOVERY, not knowledge conquest.** The world's
-knowledge was lost to AI; the player rebuilds it from one surviving concept,
-`entity`. Owner decision via chips; logged in DECISIONS.
+## 2. What the game is now
 
-The concepts are **real data now**: Open English WordNet, CC BY 4.0, pinned to
-`2025-edition` — 107,519 concepts, 45 semantic domains, 88k is-a edges, ordered
-breadth-first from `entity`.
+**An incremental about speed versus truth.**
 
-- Generator: `scripts/build-ontology.mjs` (`npm run ontology`). Output committed
-  to `public/ontology/` (53 chunks, 8.6 MB raw / ~2.7 MB gzip).
-- Runtime: `src/shell/ontology.ts` — lazy, chunked, failure-tolerant.
-- **`src/core/` still knows only integer node ids.** That boundary is why this
-  cost zero engine changes and zero save migration. Keep it.
-- **The pinned edition and the recovery order are a frozen contract** — node id
-  N means concept index N. Bumping the edition renumbers the owner's world. See
-  SPEC "Concept data".
-- Licensing: `docs/ATTRIBUTION.md`. CC BY attribution renders in-game from the
-  data manifest — **do not remove it**. SNOMED CT is dropped (not openly
-  licensed).
-- **The prose has NOT been rewritten to match.** That's owner work (prose
-  guardrail) and it's the top backlog item. Don't let an agent voice it.
+```
+Extractors mint statements fast → all UNVERIFIED → they DRIFT into nonsense
+   → drifted knowledge stalls recovery (Reasoners run at fidelity²)
+   → review is the only brake (by hand, or bought out with Orchestrators)
+```
 
-Everything below predates the pivot; the mechanical facts still hold.
+- **You cannot lose. You plateau.** Soft rot; nothing is ever deleted.
+- **Prestige inherits your own machine output**, unverified, and each generation
+  rots faster (`syntheticShare`). So **100% is unreachable by construction** —
+  the stated goal is not the real goal, and that is true mechanically before it
+  is ever narrated.
+- **Nothing rots while you're away.** Absence *banks* work (`pending` → `absorb`);
+  you come back to a job, never to damage.
+- **HITL is never mandatory.** Manual review is acceptance sampling (one item
+  stands for ~2% of the pool); Orchestrators do it for you, worse, forever.
 
-## Where things stand
+## 3. State of the code
 
-- **The game is LIVE**: <https://ficfic.github.io/incrgame/> (PWA, iOS-first).
-- **Deploy flow**: push to `claude/incremental-game-github-pages-w7pvk6` (the
-  default/pinned branch) → GitHub Action tests-gate → Pages. Session branches
-  get CI but only the pinned branch may publish (environment protection).
-  Working pattern used all day: commit on the session branch, then
-  `git checkout <pinned> && git merge --ff-only <session> && git push`.
-- **Save version: v4**, migration chain v1→v2→v3→v4 all tested end-to-end.
-  The owner plays their real save — it has survived three core-model pivots
-  today. Keep it that way.
+- **Save v5.** Migration chain v1→v5 tested. v4→v5 marks every existing
+  statement **verified** — the owner placed them all by hand, so that's true.
+- **63 tests green**, `svelte-check` clean, `vite build` clean.
+- `src/core/` is still pure and knows only integers. CI greps for it, now
+  including `shell/` and `fetch`.
+- Key files: `src/core/engine.ts` (the whole loop, heavily commented),
+  `src/content/vignettes.ts` (CYOA data, **prose empty on purpose**),
+  `src/ui/ReviewPanel.svelte` (the HITL desk), `src/shell/ontology.ts` (loader +
+  the `corrupt()` glitch function), `scripts/build-ontology.mjs` (the pipeline).
 
-## The current game (Frontier Mining, owner-chosen loop)
+## 4. The dataset
 
-- **Edges ARE the income**: each statement (Triple) drips 0.15 Datums/s
-  (`ratePerSecond` in `src/core/engine.ts`).
-- **Survey** (big button, free, frontier cap 8) reveals entities on a
-  stationary outer ring; **tapping one on the canvas** pays
-  `ceil(5 × 1.08^edges)` Datums to wire it in → +1 Triples.
-- Machines: Ingestion Pipeline™ (15 × 1.15ⁿ, +0.1 Datums/s). Extractor/Reasoner
-  are content stubs awaiting M3.
-- **State**: `forged` = { anchors ≤240, links ≤512 (oldest fold to aggregates),
-  frontier ≤8, foldedNodes } + Dec balances. `graph` counters are a derived
-  cache, never balance inputs. Explicit pairs come only from player actions;
-  machines will forge into aggregates. RNG exists but is consumed by nothing
-  until M3.
-- UI extras: event ticker (mechanical lines only — owner writes flavor, see
-  `TICKER_LINES.md`), export/import, two-tap Flush project, pan/zoom canvas,
-  palette hue drifts with graph size, per-event FX (node pulse / edge flash /
-  wandering touch highlight).
+**4,096 concepts**, curated: nouns reachable from `entity` (exactly one root),
+one concept per word form, offensive senses excluded. 348 KB. Pinned to Open
+English WordNet `2025-edition`, commit `dc343f26`; the generator *verifies* the
+cache is at that commit before reading it.
 
-## File map (~1,700 LOC, 1 runtime dep)
+Its job is **ground truth so drift is legible** — you can only watch a definition
+rot because a correct one exists to rot away from. It is the lab bench, not the
+curriculum. Do not grow it because more is available.
 
-`src/core/` pure engine (reducer, numbers, graph derive + frozen migration
-fossils, save+migrations, offline, rng) · `src/content/` data · `src/shell/`
-loop/storage/ticker (browser-facing) · `src/ui/` App + GraphPanel ·
-`src/render/minigraph.ts` canvas skin (**designated throwaway** — PixiJS
-replaces it at M3; don't gold-plate).
+⚠️ The recovery order is **save-visible**: node id N means concept index N.
+Changing the edition or the selection renumbers the owner's world.
 
-## Invariants (enforced or sacred)
+## 5. What is NOT done, in priority order
 
-1. Never break a save — additive migrations only; migration steps are frozen
-   once shipped; `projectGraph` bands are fossils, do not retune.
-2. `src/core/` never touches DOM/ui/render — CI greps and fails the deploy.
-3. All player-facing flavor prose is owner-written (ticker enforces this).
-4. Manual play must never be mandatory (automation buys out every verb).
-5. Graph counters (JS numbers) are the picture; balances (Decimals) are the
-   truth. The M3 multiplier reads `resources.triples`.
+1. **★ Prose. The game has almost no words, deliberately.** Vignette title/body/
+   choices are empty strings rendering `⟨owner⟩` slots. **An agent must never
+   fill these in** — a test asserts they're empty. Also: `Ingestion Pipeline™`
+   is pre-pivot startup satire sitting under a card about knowledge rotting.
+2. **Balance is a first pass, not balanced.** Simulated: attentive player ≈4,095
+   concepts and 95% fidelity in ~4h; idle player floors ~43-49% fidelity and is
+   ~2× behind. Is 2× too strong a pull toward manual play? Chad should price it.
+3. One vignette is not a branching narrative. Needs forks that matter later.
+4. Real is-a parents are shipped and loaded but the engine still wires edges to
+   a hash-picked anchor (`mixId`). Using the real parent makes the picture the
+   actual taxonomy — engine change + migration.
+5. Rot isn't visible on the canvas yet (`corrupt()` exists, renderer ignores it).
+6. Licence bookkeeping: the Princeton notice in ATTRIBUTION is the 3.0/2006 text;
+   this data carries 3.1/2011. Fetch `WNDB_License.txt` verbatim.
+7. Theory debts from prof-veritas — SIMPLIFICATIONS rows and glossary entries;
+   "late collapse" should read "early collapse" in GAME_DESIGN.
 
-## Review agents — use them, they earn their keep
+## 6. How to work here
 
-`chad-liquidity` (fun/economy numbers) · `the-redditor` (genre authenticity) ·
-`the-graph` (consistency/code; demands DECISIONS entries — comply) ·
-`prof-veritas` (theory accuracy) · `the-auditor` (public-repo safety).
-Today they materially changed the loop design (Datums-not-Inference,
-automation deadline, count-vs-topology state ruling). Owner decides via
-AskUserQuestion chips; log every real decision.
-
-## Open items, in order
-
-1. **Owner**: verify iOS home-screen install on the physical phone (last M0
-   box); write the first ticker-line batch (`TICKER_LINES.md`).
-2. **M3, re-scoped** (the big one): Extractor auto-claims into aggregates
-   (~min 9, no-babysitting deadline), Reasoner multiplier
-   `1 + level·log10(1+triples)/10` **shown on screen**, PixiJS bloom with
-   production-driven motion, M3 ticker triggers. Then **M4 fast** (sell —
-   Capital, exhaustive, quality-gated).
-3. Watch-list from the architecture review: split `App.svelte` when the shop
-   grows; migration ladder grows by design; ESLint boundary rule still
-   deferred (grep gate covers it).
-4. Pacing check worth one playtest: fresh start = 15 Datums, first claim ~11s,
-   but pre-machine income is drip-only — if the gap to the first Pipeline (15)
-   feels slow, tune `DRIP_PER_EDGE` or `START_DATA` (knobs at top of
-   `engine.ts`).
-
-## Session log (one line each)
-
-M0 skeleton+PWA+deploy → M1 loop → M2 saves/offline → first Pages deploy
-(fixed env-protection skip) → owner feedback #1 (LOD freeze at 143, nodes==edges,
-integers, pan/zoom, progress colors) → polish (ticker, floats, Datums name via
-chips) → one-substance v2 → banded slowdown + typed FX v3 → flush + wandering
-touch → **Frontier Mining v4** (3-agent review, owner chips) → architecture
-review (lean; 1 dep; ~36 KB gzip; pivot-proof).
+- **Chips for decisions** (`AskUserQuestion`) — the owner is on a phone.
+- **Run the review agents before shipping** — they materially changed this
+  design twice. `chad-liquidity` (fun/economy), `the-graph` (consistency/code),
+  `prof-veritas` (theory), `the-auditor` (licences/safety), `the-redditor`
+  (genre). Note: the-redditor grades for a public launch, which per VISION this
+  is **not** — weight accordingly, but its safety/credibility points still land.
+- **Simulate before believing.** The economy was rewritten twice off the back of
+  a headless sim that took minutes and disproved what the code "obviously" did.
+- **Verify before claiming.** Two rounds of confident, false statements got into
+  this repo because nobody checked them against the shipped data.

@@ -26,3 +26,19 @@ NOTE ON CONTENT: The MIT license above covers the CODE. The prose documentation
 and educational content under docs/ (game design, glossary, Field Notes) is
 licensed CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/) — reuse freely
 with attribution.
+
+---
+
+THIRD-PARTY DATA (not covered by the MIT grant above)
+
+Concept data under `public/ontology/` is derived from Open English WordNet,
+licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), itself
+derived from Princeton WordNet under the WordNet Licence. Attribution is owed
+to both the Open English WordNet team and Princeton WordNet.
+
+Full notices, and a statement of the changes made:
+  - docs/ATTRIBUTION.md
+  - public/ontology/LICENSE.txt  (ships with the data)
+
+The MIT licence above conveys only what this project owns. It does not, and
+cannot, relicense the WordNet-derived data.

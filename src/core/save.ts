@@ -54,6 +54,21 @@ export const MIGRATIONS: Migration[] = [
     };
     return { ...s, resources, forged, graph: deriveGraph(forged, resources.triples) };
   },
+  // v4 → v5 — provenance & collapse. Everything in a v4 save was placed BY HAND
+  // by the player, one tap at a time, before machines existed. So all of it
+  // becomes VERIFIED: unverified and drifted both start at zero. Nothing is
+  // lost, nothing is reinterpreted, and the owner's real save arrives at the
+  // new model with a perfect record — which is also the truth of how they
+  // built it.
+  (s) => ({
+    ...s,
+    provenance: { unverified: '0', drifted: '0' },
+    syntheticShare: 0,
+    lifetimeGenerated: '0',
+    pending: '0',
+    modifiers: {},
+    vignette: { active: null, seen: [] },
+  }),
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

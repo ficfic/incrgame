@@ -393,3 +393,57 @@ session knows *why* things are the way they are. Format:
   licensed (affiliate licence required), so it cannot ship in a public game.
   Replacement for a medicine domain to be chosen from openly licensed
   alternatives. Logged in `docs/ATTRIBUTION.md`.
+
+## The vertical slice (2026-07-25, later session)
+
+- 2026-07-25 — **`docs/VISION.md` exists now, and is read first** — the repo had
+  six documents about *what* and *how* and none about *why*, so every session
+  optimised locally and looked correct doing it. That is the direct cause of the
+  107k-concept dump. VISION states who the game is for (the owner, one person;
+  public only because Pages is easy), what it is for, and what it rules out.
+- 2026-07-25 — **The core loop is SPEED VERSUS TRUTH** — machines mint statements
+  fast and unverified; unverified knowledge drifts; drifted knowledge stalls
+  concept recovery because Reasoners are gated by fidelity²; review is the only
+  brake. This is simultaneously the game's tension and the real 2026 knowledge-
+  management problem, which is why the fun goal and the learning goal stop
+  competing. Protect it.
+- 2026-07-25 — **The dataset is the lab bench, not the curriculum** — real data
+  exists so that drift is *legible*: you can only see a definition rot if a
+  correct one is there to rot away from. That job needs ~4k good concepts, not a
+  lexicon. Supersedes the previous session's "ship all 107,519".
+- 2026-07-25 — **Dataset curated to 4,096 concepts** — nouns only, reachable from
+  `entity` (so there is exactly ONE root and the hierarchy claim is true), one
+  concept per word form (27% of the full set shared a label; two identical cards
+  read as a bug), and senses the source marks as slurs excluded. 348 KB, down
+  from 8.6 MB. Renumbering was free because nothing had been deployed.
+- 2026-07-25 — **Collapse is SOFT ROT; there is no losing** (owner chips) —
+  quality decays, nothing is deleted, no run-ending cascade. Failure is a
+  plateau you can see coming, never a surprise loss.
+- 2026-07-25 — **Prestige inherits your own synthetic output** (owner chips) —
+  25% of what your machines minted, carried forward unverified, with synthetic
+  ancestry rising and drift scaling with it. Each generation starts richer and
+  rots faster. This makes the reveal (you are the model; you have been collapsing
+  all along) mechanically true before it is ever narrated.
+- 2026-07-25 — **Nothing rots while you are away** (owner chips) — but away time
+  BANKS work rather than completing it, or closing the game becomes the optimal
+  strategy and the whole dial collapses. You return to a job, never to damage.
+- 2026-07-25 — **Recovery is gated by fidelity SQUARED and by remaining
+  coverage** — squared because reasoning over contradictions degrades fast, not
+  gracefully; × remaining because the last of the world is the hardest to get
+  back. Together they make 100% approached and never reached, which is the design
+  goal rather than a balance accident. Found by simulation: the first tuning
+  finished the game in 2 hours with no plateau at all.
+- 2026-07-25 — **Manual review is ACCEPTANCE SAMPLING** — one inspected item
+  stands for ~2% of the pool. Without it hand-review is a rounding error at
+  scale and the HITL lever silently stops existing (simulation: attentive and
+  idle players finished identically). It is also how quality control really
+  works, so it earns its place twice.
+- 2026-07-25 — **Vignettes ship with EMPTY prose fields and render visible
+  `⟨owner⟩` slots** — the effects render from their numbers, so a choice is a
+  real, legible decision before it has words. A test asserts the fields are
+  empty; delete that test only when a human has written them.
+- 2026-07-25 — **CC BY notice now ships WITH the data** (`public/ontology/
+  LICENSE.txt`, generated) — docs/ is never deployed, and the WordNet licence
+  requires its notice to travel with all copies of the database. The in-game
+  credit now names both Princeton and the OEWN team and links the licence and
+  the notice, per CC BY 4.0 §3(a)(1).

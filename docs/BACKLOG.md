@@ -83,7 +83,60 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       with a real denominator, in-game CC BY attribution, SW runtime caching.
       **Zero engine changes, zero save migration** — the core/skin boundary held.
       See `docs/ATTRIBUTION.md`, SPEC "Concept data", DECISIONS.
-- [ ] **★ OWNER PROSE — the pivot's copy is unwritten and it shows.** The
+- [x] **VERTICAL SLICE of the real design shipped** (2026-07-25): speed-vs-truth
+      loop end to end. Provenance (verified/unverified/drifted), drift scaled by
+      graph size and synthetic ancestry, fidelity² gating on recovery, HITL
+      review desk with acceptance sampling, Orchestrator buyout, offline
+      banking + absorb, prestige that inherits your own machine output, one
+      branching vignette with empty owner prose slots. Save **v5**, additive
+      migration (every v4 statement becomes verified — you placed them by hand).
+      63 tests. See `docs/VISION.md`, DECISIONS.
+- [x] **`docs/VISION.md` written** — the missing "why". Read first, every session.
+- [x] **Dataset curated 107,519 → 4,096** — nouns from `entity`, one root, one
+      concept per label, offensive senses excluded. 8.6 MB → 348 KB.
+- [x] **Fixed from the agent round**: CI red (node types in tsconfig), the
+      failed-chunk retry storm (~600 req/s from the render loop), `entity`
+      being folded away at claim 240, the false README claims, the misleading
+      "+0.25 Triples/s" on Orchestrator, and `buyGenerator` silently dropped
+      during the engine rewrite (caught by a test, not by me).
+
+## ▶ Next — in order
+
+- [ ] **★ OWNER PROSE — the game has almost no words, on purpose.** Owner-written
+      per the guardrail: (1) the **first vignette** in `src/content/vignettes.ts`
+      (title, body, three choice labels — the mechanical effects already render);
+      (2) the **cold open**; (3) **ticker lines** (`docs/TICKER_LINES.md`);
+      (4) **rename `Ingestion Pipeline™`** — it is pre-pivot startup satire
+      sitting under a card about knowledge rotting, and it is the single most
+      "lazy reskin" artifact in the build; (5) does the title still fit?
+- [ ] **BALANCE PASS — the slice is a first tuning, not a balanced economy.**
+      Simulated: an attentive player reaches ~4,095/4,096 concepts in ~4h and
+      95% fidelity; an idle player who never hand-reviews floors at ~43-49%
+      fidelity and is roughly 2× behind at every checkpoint. Open questions:
+      is 2× too strong a pull toward manual play given HITL must stay optional?
+      Should the asymptote bite harder so the plateau arrives before completion?
+      Chad should price this properly.
+- [ ] **Prose-free vignette #2 and #3** — one vignette does not prove a branching
+      narrative. Needs at least a fork that *matters* two beats later.
+- [ ] **Use the real is-a parent when drawing edges.** The dataset ships each
+      concept's true parent and the loader exposes it; the engine still wires new
+      nodes to a hash-picked anchor (`mixId`). Wiring to the real parent makes
+      the on-screen graph the actual taxonomy. Engine change + save migration.
+- [ ] **Show rot ON the graph**, not just in the bar — drifted nodes should
+      visibly corrupt on the canvas. The corruption function already exists
+      (`corrupt()` in `src/shell/ontology.ts`); the renderer doesn't use it yet.
+- [ ] **Replace the Princeton notice with the correct upstream text** — the one
+      in ATTRIBUTION is WordNet 3.0/2006; this data carries the 3.1/2011 variant
+      plus the OEWN team's own copyright line. Fetch `WNDB_License.txt` verbatim.
+- [ ] Mark the "Wikidata / Open English Namenet — CC0" row in ATTRIBUTION as
+      UNVERIFIED — no LICENSE file was found at that repo root.
+- [ ] **Theory debts from prof-veritas** (still owed, mostly one-line fixes):
+      SIMPLIFICATIONS rows for WordNet-as-"ontology", DAG-flattened-to-tree, and
+      synset-shown-as-one-word; glossary rows for synset, hypernymy, troponymy,
+      lexicographer file, model collapse; and "late collapse" → "early collapse"
+      in GAME_DESIGN (Shumailov's tail-loss phase is EARLY collapse).
+
+- [ ] **(superseded, kept for history)** ★ OWNER PROSE — the pivot's copy is unwritten and it shows.** The
       mechanics moved; the words didn't. Owner-written, per the prose guardrail:
       (1) the **cold open** — what a new player is told when they arrive holding
       one concept; (2) **ticker lines** for the recovery framing

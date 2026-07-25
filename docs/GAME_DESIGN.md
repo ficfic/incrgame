@@ -10,24 +10,33 @@
 ontology engineering, concept drift / ontology evolution. The graph slowly
 rewrites what everything means as it wakes up.)
 
-> ### ⚠️ PREMISE PIVOT — 2026-07-25 (owner decision, logged in DECISIONS.md)
+> ### ⚠️ READ `docs/VISION.md` FIRST. It outranks this file.
 >
-> The frame is now **recovery, not conquest.** The world's knowledge has been
-> lost to AI; the player rebuilds it, concept by concept, from one surviving
-> root node: **`entity`**.
+> ### THE CORE LOOP — 2026-07-25 (owner decisions, logged in DECISIONS.md)
 >
-> **Mechanics are unchanged** — Frontier Mining survives the re-skin intact.
-> Survey is scanning the ruins; claiming is recovering. What changed is the
-> fiction, the framing, and the fact that the concepts are now **real data**
-> (Open English WordNet, 107,519 concepts — see `docs/ATTRIBUTION.md` and the
-> ontology contract in `docs/SPEC.md`).
+> **Speed versus truth.** Machines mint statements fast and everything they mint
+> is **unverified**. Unverified knowledge **drifts** into nonsense. Drifted
+> knowledge stalls concept recovery, because Reasoners run at **fidelity²**.
+> Review — by hand, or bought out with Orchestrators — is the only brake.
 >
-> **Sections below still carry pre-pivot startup-conquest language.** They are
-> kept because their *mechanical* content is still correct and still the plan.
-> Re-read them as "what you rebuild and how you fund it," not "what you conquer."
-> Rewriting the narrative framing of each section is owner work — **all
-> player-facing prose is owner-written** (`CLAUDE.md`); this file should not be
-> re-voiced by an agent.
+> - **You cannot lose. You plateau.** Soft rot only; nothing is ever deleted.
+> - **Prestige inherits your own machine output**, unverified, and each
+>   generation rots faster. The stated goal is unreachable *by construction*.
+> - **Nothing rots while you are away.** Absence banks work; you return to a
+>   job, never to damage.
+> - **HITL is never mandatory.** Orchestrators buy it out at a worse rate.
+>
+> Implemented and tested — see `src/core/engine.ts` and `test/collapse.test.ts`.
+>
+> **Sections below predate this loop.** Their mechanical content is mostly still
+> the plan (resource ladder, domains, economy, endgame), but read them against
+> VISION, not as-is — and note that several carry pre-pivot startup-conquest
+> language. Rewriting the narrative framing is owner work: **all player-facing
+> prose is owner-written** (`CLAUDE.md`). An agent must not re-voice this file.
+>
+> **Known stale, flagged rather than silently certified:** "Real vs abstract"
+> (below) says *"No literal real-world data"* — that decision is **superseded**;
+> the game now ships a real, licensed dataset as ground truth. See DECISIONS.
 
 An incremental/idle game about **knowledge management** — you rebuild a
 **knowledge graph**: recover concepts, restore triples, re-form entities,

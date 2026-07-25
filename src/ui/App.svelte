@@ -2,16 +2,21 @@
   import { onMount } from 'svelte';
   import { game, awayReport, dispatch, exportSave, flushProject, importSave, startGame } from '../shell/game';
   import { ticker } from '../shell/ticker';
-  import { claimCost, generatorCost, ratePerSecond } from '../core/engine';
+  import {
+    claimCost, coverage, driftPerSecond, fidelity, generatorCost, pendingVignette,
+    ratePerSecond, recovered, REFLECT_MIN_CONCEPTS, reviewQueue, verified,
+  } from '../core/engine';
   import { format, formatWhole, gte } from '../core/numbers';
   import { GENERATORS, M1_ROSTER } from '../content/generators';
   import { RESOURCE_LABELS } from '../content/resources';
+  import { VIGNETTES } from '../content/vignettes';
+  import { CONCEPT_BUDGET } from '../content/ontologyMeta';
   import { FRONTIER_CAP } from '../core/graph';
   import { stageHue } from '../render/minigraph';
-  import {
-    conceptForNode, coverageOf, loadManifest, ontologyCredit, ontologyRevision, totalConcepts,
-  } from '../shell/ontology';
+  import { conceptForNode, loadManifest, ontologyCredit, ontologyRevision } from '../shell/ontology';
   import GraphPanel from './GraphPanel.svelte';
+  import ReviewPanel from './ReviewPanel.svelte';
+  import VignettePanel from './VignettePanel.svelte';
 
   let toast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -49,22 +54,83 @@
   // The concept most recently wired in — the card below the graph reads it back.
   // Held as an id, not a snapshot, so it fills in if its chunk lands afterwards.
   let recoveredId = $state<number | null>(null);
-  const recovered = $derived.by(() => {
+  const recoveredConcept = $derived.by(() => {
     void $ontologyRevision; // re-resolve when a chunk arrives
     return recoveredId === null ? null : conceptForNode(recoveredId);
-  });
-  const coverage = $derived.by(() => {
-    void $ontologyRevision;
-    return coverageOf($game.graph.nodes);
-  });
-  const conceptTotal = $derived.by(() => {
-    void $ontologyRevision;
-    return totalConcepts();
   });
   const credit = $derived.by(() => {
     void $ontologyRevision;
     return ontologyCredit();
   });
+
+  // ---- the speed-versus-truth readouts ----
+  const trust = $derived(fidelity($game));
+  const verifiedCount = $derived(verified($game));
+  const cover = $derived(coverage($game));
+  const recoveredCount = $derived(recovered($game));
+  const queue = $derived(reviewQueue($game));
+  const rotPerSec = $derived(driftPerSecond($game));
+  const canReflect = $derived(recoveredCount >= REFLECT_MIN_CONCEPTS);
+
+  const activeVignette = $derived.by(() => {
+    const id = pendingVignette($game);
+    return id ? (VIGNETTES.find((v) => v.id === id) ?? null) : null;
+  });
+
+  // Stacked provenance bar: what share of the graph is trusted, unchecked, rotted.
+  const bar = $derived.by(() => {
+    const total = Number($game.resources.triples) || 0;
+    if (total <= 0) return { v: 0, u: 0, d: 0 };
+    const u = Number($game.provenance.unverified) || 0;
+    const d = Number($game.provenance.drifted) || 0;
+    const v = Math.max(0, total - u - d);
+    return { v: (v / total) * 100, u: (u / total) * 100, d: (d / total) * 100 };
+  });
+
+  /** One line per machine describing its actual effect on the loop, built from
+   *  its own rate. Mechanical description, not flavour — the labels themselves
+   *  are still owner-writable copy. */
+  function machineRole(id: (typeof M1_ROSTER)[number]): string {
+    const g = GENERATORS[id];
+    const r = format(g.baseRate);
+    switch (id) {
+      case 'harvester': return `+${r} ${RESOURCE_LABELS.data}/s`;
+      case 'extractor': return `+${r} statements/s · unverified`;
+      case 'orchestrator': return `checks ${r} statements/s`;
+      case 'reasoner': return `+${r} concepts/s × fidelity²`;
+      default: return `+${r}/s`;
+    }
+  }
+
+  function review(keep: boolean[]) {
+    dispatch({ type: 'reviewBatch', keep });
+    pulseKey++;
+  }
+
+  function choose(choiceId: string) {
+    if (activeVignette) dispatch({ type: 'chooseOption', eventId: activeVignette.id, choiceId });
+  }
+
+  function absorb() {
+    dispatch({ type: 'absorb' });
+    pulseKey++;
+  }
+
+  let reflectArmed = $state(false);
+  let reflectTimer: ReturnType<typeof setTimeout> | undefined;
+  function onReflect() {
+    if (!canReflect) return;
+    if (!reflectArmed) {
+      reflectArmed = true;
+      clearTimeout(reflectTimer);
+      reflectTimer = setTimeout(() => (reflectArmed = false), 4000);
+      return;
+    }
+    clearTimeout(reflectTimer);
+    reflectArmed = false;
+    dispatch({ type: 'reflect' });
+    recoveredId = null;
+  }
 
   function claim(id: number) {
     const affordable = gte($game.resources.data, nextClaimCost);
@@ -166,6 +232,15 @@
     </div>
   {/if}
 
+  <!-- Banked away-work. Nothing rotted while the player was gone; it starts to
+       drift only once absorbed, in front of them. -->
+  {#if gte($game.pending, '1')}
+    <button class="banked" onclick={absorb}>
+      Absorb {formatWhole($game.pending)} banked statements
+      <small>unverified on arrival · they drift from then on</small>
+    </button>
+  {/if}
+
   <section class="counter" aria-live="polite">
     <div class="amount">{formatWhole($game.resources.data)}</div>
     <div class="sub">
@@ -176,24 +251,56 @@
 
   <GraphPanel graph={$game.graph} forged={$game.forged} {pulseKey} onclaim={claim} />
 
-  {#if recovered}
-    {#key recovered.index}
+  <!-- Provenance: the whole game in one bar. Trusted / unchecked / rotted. -->
+  {#if gte($game.resources.triples, '1')}
+    <section class="prov">
+      <div class="prov-bar" role="img"
+           aria-label="{bar.v.toFixed(0)}% verified, {bar.u.toFixed(0)}% unverified, {bar.d.toFixed(0)}% drifted">
+        <span class="seg v" style="width:{bar.v}%"></span>
+        <span class="seg u" style="width:{bar.u}%"></span>
+        <span class="seg d" style="width:{bar.d}%"></span>
+      </div>
+      <div class="prov-legend">
+        <span class="k v">{formatWhole(verifiedCount)} verified</span>
+        <span class="k u">{formatWhole($game.provenance.unverified)} unchecked</span>
+        <span class="k d">{formatWhole($game.provenance.drifted)} drifted</span>
+      </div>
+      <div class="prov-stats">
+        <span>Fidelity <b>{(trust * 100).toFixed(1)}%</b></span>
+        {#if rotPerSec > 0}
+          <span>drift <b>{(rotPerSec * 100).toFixed(2)}%/s</b> of unchecked</span>
+        {/if}
+        {#if $game.reflection > 0}
+          <span>gen <b>{$game.reflection + 1}</b> · synthetic <b>{($game.syntheticShare * 100).toFixed(0)}%</b></span>
+        {/if}
+      </div>
+    </section>
+  {/if}
+
+  {#if activeVignette}
+    <VignettePanel vignette={activeVignette} onchoose={choose} />
+  {/if}
+
+  {#if recoveredConcept}
+    {#key recoveredConcept.index}
       <section class="recovered" aria-live="polite">
         <div class="recovered-head">
           <span class="tag">Recovered</span>
-          <span class="domain">{recovered.domain}</span>
+          <span class="domain">{recoveredConcept.category}</span>
         </div>
-        <div class="term">{recovered.label}</div>
-        {#if recovered.gloss}<p class="gloss">{recovered.gloss}</p>{/if}
+        <div class="term">{recoveredConcept.label}</div>
+        {#if recoveredConcept.gloss}<p class="gloss">{recoveredConcept.gloss}</p>{/if}
       </section>
     {/key}
   {/if}
 
-  {#if conceptTotal > 0}
-    <div class="coverage">
-      {formatWhole(String($game.graph.nodes))} / {conceptTotal.toLocaleString('en-US')} concepts
-      · {(coverage * 100).toFixed(coverage < 0.01 ? 4 : 2)}%
-    </div>
+  <div class="coverage">
+    {formatWhole(String(recoveredCount))} / {CONCEPT_BUDGET.toLocaleString('en-US')} concepts
+    · {(cover * 100).toFixed(cover < 0.01 ? 3 : 2)}%
+  </div>
+
+  {#if queue.length > 0}
+    <ReviewPanel items={queue} oncommit={review} />
   {/if}
 
   {#if $game.forged.frontier.length > 0}
@@ -227,7 +334,11 @@
       <button class="gen" onclick={() => buy(id)} disabled={!affordable}>
         <span class="gen-name">
           {g.label}
-          <small>+{format(g.baseRate)} {RESOURCE_LABELS[g.produces]}/s</small>
+          <!-- What the machine DOES, not what field it writes: an Orchestrator
+               checks statements, it does not mint them, and "+0.25 Triples/s"
+               said the opposite. Generated from the numbers, so it can't drift
+               from the engine. -->
+          <small>{machineRole(id)}</small>
         </span>
         <span class="gen-meta">
           <span class="owned">×{$game.generators[id]}</span>
@@ -249,6 +360,19 @@
     {/if}
   </section>
 
+  <!-- Prestige = retraining on your own output. It is never forced; the run
+       just stops paying, and this is how you start the next generation. -->
+  {#if canReflect}
+    <button class="reflect" class:armed={reflectArmed} onclick={onReflect}>
+      {reflectArmed ? 'Tap again to retrain' : `Retrain — generation ${$game.reflection + 2}`}
+      <small>
+        inherit {formatWhole(String(Math.floor(Number($game.lifetimeGenerated) * 0.25)))} unverified
+        statements · synthetic ancestry
+        {(($game.syntheticShare + (1 - $game.syntheticShare) * 0.5) * 100).toFixed(0)}%
+      </small>
+    </button>
+  {/if}
+
   <footer>
     <button class="ghost" onclick={onExport}>Export save</button>
     <button class="ghost" onclick={onImport}>Import save</button>
@@ -258,9 +382,11 @@
   </footer>
 
   {#if credit}
-    <!-- CC BY 4.0 requires attribution wherever the work is used. -->
+    <!-- CC BY 4.0 §3(a)(1): the parties, the licence, and a link to both. -->
     <div class="credit">
-      Concepts: <a href="https://en-word.net/" target="_blank" rel="noopener">{credit}</a>
+      {credit.text}
+      <a href={credit.licenseUrl} target="_blank" rel="noopener license">CC BY 4.0</a> ·
+      <a href={credit.noticeUrl} target="_blank" rel="noopener">notice</a>
     </div>
   {/if}
 
@@ -362,6 +488,62 @@
     margin-top: -6px;
   }
   .credit a { color: #46586a; }
+  .prov { display: flex; flex-direction: column; gap: 5px; }
+  .prov-bar {
+    display: flex;
+    height: 9px;
+    border-radius: 5px;
+    overflow: hidden;
+    background: #111826;
+    border: 1px solid #16202e;
+  }
+  .seg { display: block; height: 100%; transition: width 300ms ease-out; }
+  .seg.v { background: hsl(var(--hue, 168) 65% 52%); }
+  .seg.u { background: hsl(45 60% 48%); }
+  .seg.d { background: #7c3b4a; }
+  .prov-legend, .prov-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    color: #46586a;
+  }
+  .k.v { color: hsl(var(--hue, 168) 55% 58%); }
+  .k.u { color: hsl(45 50% 58%); }
+  .k.d { color: #b06a7a; }
+  .prov-stats b { color: #8fa5b3; font-weight: 600; }
+  .banked {
+    appearance: none;
+    border: 1px solid hsl(45 40% 30%);
+    background: hsl(45 30% 10%);
+    color: hsl(45 60% 70%);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .banked small { font-weight: 400; font-size: 0.68rem; color: #6b6350; }
+  .reflect {
+    appearance: none;
+    border: 1px solid #4a3a6b;
+    background: #16122a;
+    color: #b9a6e8;
+    border-radius: 12px;
+    padding: 11px 14px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .reflect.armed { border-color: #7a5ab0; background: #221a3d; }
+  .reflect small { font-weight: 400; font-size: 0.68rem; color: #6b5f8a; }
   .connect {
     appearance: none;
     border: none;

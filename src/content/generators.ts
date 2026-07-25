@@ -16,23 +16,27 @@ export const GENERATORS: Record<GeneratorId, Generator> = {
     baseRate: '0.1',
     produces: 'data',
   },
+  // Information extraction — mints statements fast, and everything it mints
+  // arrives UNVERIFIED. This is the speed side of the game's only real dial.
   extractor: {
     id: 'extractor',
     label: 'Extractor',
-    baseCost: '100',
+    baseCost: '60',
     costRatio: 1.15,
     costResource: 'data',
-    baseRate: '1',
+    baseRate: '0.4',
     produces: 'triples',
   },
+  // Subsumption reasoning — turns trusted statements back into recovered
+  // concepts. Its rate is multiplied by FIDELITY, so rot stalls it.
   reasoner: {
     id: 'reasoner',
     label: 'Reasoner',
-    baseCost: '1100',
+    baseCost: '250',
     costRatio: 1.15,
     costResource: 'data',
-    baseRate: '8',
-    produces: 'triples',
+    baseRate: '0.05',
+    produces: 'entities',
   },
   aiAgent: {
     id: 'aiAgent',
@@ -43,16 +47,22 @@ export const GENERATORS: Record<GeneratorId, Generator> = {
     baseRate: '47',
     produces: 'triples',
   },
+  // The HITL buyout (CLAUDE.md: review must never be mandatory). Orchestrators
+  // check statements automatically. They are deliberately worse per Datum than
+  // a human doing it by hand — manual review stays a lever for tryhards, never
+  // an attention tax.
   orchestrator: {
     id: 'orchestrator',
     label: 'Orchestrator',
-    baseCost: '130000',
+    baseCost: '600',
     costRatio: 1.15,
     costResource: 'data',
-    baseRate: '260',
+    baseRate: '0.25',
     produces: 'triples',
   },
 };
 
-/** Which generators the M1 UI actually offers (thin slice — bouncer's orders). */
-export const M1_ROSTER: GeneratorId[] = ['harvester'];
+/** Which generators the UI offers in the vertical slice. Each one is a distinct
+ *  position on the speed-versus-truth dial, which is why all four ship: fuel,
+ *  speed, trust, and the thing that converts trust back into the world. */
+export const M1_ROSTER: GeneratorId[] = ['harvester', 'extractor', 'orchestrator', 'reasoner'];

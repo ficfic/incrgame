@@ -10,22 +10,41 @@
 import { writable, get, type Readable } from 'svelte/store';
 
 export interface Concept {
-  index: number;   // position in recovery order
-  label: string;   // the concept's first word form
-  domain: string;  // lexicographer file, e.g. "noun.animal"
-  gloss: string;   // definition, verbatim from the source dataset
-  parent: number;  // index of the concept it was recovered through (-1 = a root)
+  index: number;    // position in recovery order
+  label: string;    // the concept's most common word form
+  category: string; // WordNet lexicographer file, e.g. "noun.animal"
+  gloss: string;    // definition, verbatim from the source dataset
+  parent: number;   // index of the concept it was recovered through (-1 = the root)
+}
+
+/** Deterministic character-level corruption of a REAL string — a visual glitch
+ *  effect on licensed text, not generated text. Used to show what a drifted
+ *  statement looks like: the definition you had, decaying. */
+export function corrupt(text: string, seed: number, strength: number): string {
+  const GLYPHS = '▒▓░#§¤∎⌁≠∅';
+  let s = seed >>> 0;
+  const next = (): number => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+  return [...text].map((ch) => {
+    if (ch === ' ') return ch;
+    if (next() >= strength) return ch;
+    return GLYPHS[Math.floor(next() * GLYPHS.length)]!;
+  }).join('');
 }
 
 interface Manifest {
   concepts: number;
   chunkSize: number;
   chunks: number;
-  domains: string[];
+  categories: string[];
   source: string;
   edition: string;
   license: string;
+  licenseUrl: string;
   attribution: string;
+  noticeUrl: string;
 }
 
 interface Chunk { l: string[]; d: number[]; p: number[]; g: string[] }
@@ -64,30 +83,47 @@ export function totalConcepts(): number {
   return manifest?.concepts ?? 0;
 }
 
-export function ontologyCredit(): string {
-  return manifest ? `${manifest.source} ${manifest.edition} · ${manifest.license}` : '';
+/** CC BY 4.0 §3(a)(1) needs the parties, the licence and a link. Built from the
+ *  manifest so it can never drift out of sync with the data it credits. */
+export function ontologyCredit(): { text: string; licenseUrl: string; noticeUrl: string } | null {
+  if (!manifest) return null;
+  return {
+    text: manifest.attribution,
+    licenseUrl: manifest.licenseUrl,
+    noticeUrl: `${import.meta.env.BASE_URL}${manifest.noticeUrl}`,
+  };
 }
 
-/** Node id → concept index. Ids are minted monotonically by the engine, so this
- *  is identity until a run outgrows the dataset, then it wraps: the world is
- *  finite and the game says so rather than inventing concepts. */
+/** Node id → concept index, clamped at the edge of the dataset. The world is
+ *  finite; past the last concept a node simply has no name, which is honest.
+ *  It does not wrap — replaying `entity` as a fresh discovery would be a lie. */
 export function conceptIndexFor(nodeId: number): number {
-  const total = totalConcepts();
-  return total > 0 ? nodeId % total : nodeId;
+  return nodeId;
 }
 
 function chunkOf(index: number): number {
   return Math.floor(index / (manifest?.chunkSize ?? 2048));
 }
 
-function ensureChunk(n: number): void {
+/** Chunk → epoch ms of the last failed attempt. Without this a failed fetch is
+ *  retried from inside the render loop — up to ~10 calls per frame at 60 fps,
+ *  which on a phone is a request flood and a battery fire, not a degradation. */
+const failed = new Map<number, number>();
+const RETRY_AFTER_MS = 30_000;
+
+function ensureChunk(n: number, nowMs: number): void {
   if (!manifest || n < 0 || n >= manifest.chunks) return;
   if (chunks.has(n) || inflight.has(n)) return;
+  const lastFail = failed.get(n);
+  if (lastFail !== undefined && nowMs - lastFail < RETRY_AFTER_MS) return;
   const name = `c${String(n).padStart(3, '0')}.json`;
   const p = fetchJson<Chunk>(name).then((c) => {
     if (c) {
       chunks.set(n, c);
+      failed.delete(n);
       revision.update((r) => r + 1);
+    } else {
+      failed.set(n, Date.now());
     }
     inflight.delete(n);
   });
@@ -99,13 +135,14 @@ function ensureChunk(n: number): void {
  *  expression and it will fill in when the data arrives. */
 export function conceptAt(index: number): Concept | null {
   if (!manifest) {
-    void loadManifest().then(() => ensureChunk(chunkOf(index)));
+    void loadManifest().then(() => ensureChunk(chunkOf(index), Date.now()));
     return null;
   }
+  if (index < 0 || index >= manifest.concepts) return null; // past the edge of the world
   const n = chunkOf(index);
   const chunk = chunks.get(n);
   if (!chunk) {
-    ensureChunk(n);
+    ensureChunk(n, Date.now());
     return null;
   }
   const i = index - n * manifest.chunkSize;
@@ -114,7 +151,7 @@ export function conceptAt(index: number): Concept | null {
   return {
     index,
     label,
-    domain: manifest.domains[chunk.d[i]!] ?? '',
+    category: manifest.categories[chunk.d[i]!] ?? '',
     gloss: chunk.g[i] ?? '',
     parent: chunk.p[i] ?? -1,
   };
@@ -127,12 +164,13 @@ export function conceptForNode(nodeId: number): Concept | null {
 
 /** Prefetch the chunk a node id needs, so a label is ready before it is asked
  *  for (the frontier is surveyed before it is claimed). */
-export function warm(nodeIds: Iterable<number>): void {
+export function warm(nodeIds: readonly number[]): void {
   if (!manifest) {
     void loadManifest().then(() => warm(nodeIds));
     return;
   }
-  for (const id of nodeIds) ensureChunk(chunkOf(conceptIndexFor(id)));
+  const now = Date.now();
+  for (const id of nodeIds) ensureChunk(chunkOf(conceptIndexFor(id)), now);
 }
 
 /** Share of the dataset recovered so far, 0..1 — a real denominator. */

@@ -34,6 +34,27 @@ export interface ForgedGraph {
   foldedNodes: Dec;                // entity mass beyond the explicit lists
 }
 
+/** Provenance of the knowledge in the graph — the heart of the game (v5).
+ *
+ *  `resources.triples` is the TOTAL number of statements. This splits that
+ *  total by how much it can be trusted:
+ *    verified   = triples − unverified − drifted  (checked; full yield)
+ *    unverified = machine output nobody has checked yet; it DRIFTS
+ *    drifted    = statements that rotted; near-worthless, and they lie
+ *
+ *  Verified is derived, never stored, so the three can never disagree. */
+export interface Provenance {
+  unverified: Dec;
+  drifted: Dec;
+}
+
+/** One item awaiting human review. `corrupt` is the truth of it; the player
+ *  only ever sees the concept and its (possibly drifted) definition. */
+export interface ReviewItem {
+  conceptIndex: number; // resolved to a real concept by the shell, never by core
+  corrupt: boolean;
+}
+
 export interface GameState {
   saveVersion: number;                      // the ONE version authority; starts at 1
   lastTick: number;                         // epoch ms of last processed tick
@@ -43,9 +64,19 @@ export interface GameState {
   generators: Record<GeneratorId, number>;  // owned counts (integers)
   flags: Record<string, boolean>;           // narrative/unlock/event flags
   coverage: Record<DomainId, number>;       // 0..1 per domain (persists across prestige)
-  reflection: number;                       // prestige multiplier level (persists)
+  reflection: number;                       // prestige count = retraining generation
   graph: GraphStats;                        // derived cache of forged + balances
   forged: ForgedGraph;                      // the hand-built layer (Frontier Mining)
+  // ---- v5: provenance, collapse, and the generational loop ----
+  provenance: Provenance;                   // how much of the graph can be trusted
+  /** 0..1 — how much of this run's inheritance descends from machine output
+   *  rather than from real data. Rises every prestige and never falls. This is
+   *  the number that makes the stated goal unreachable. */
+  syntheticShare: number;
+  lifetimeGenerated: Dec;                   // machine-minted statements THIS run
+  pending: Dec;                             // work banked while away, not yet absorbed
+  modifiers: Record<string, number>;         // multiplicative, set by vignette choices
+  vignette: { active: string | null; seen: string[] };
 }
 
 export type Action =
@@ -56,9 +87,10 @@ export type Action =
   | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource
   | { type: 'refine'; from: ResourceId }           // M4: from ∈ TIER_LADDER; one tier up
   | { type: 'sell'; id: ResourceId; amount: Dec }  // M4: consumes `id`, yields `capital`
-  | { type: 'reviewBatch'; keep: boolean[] }       // HITL (in-vision)
+  | { type: 'reviewBatch'; keep: boolean[] }       // HITL — accept/reject the queue
+  | { type: 'absorb' }                             // take banked away-work into the graph
   | { type: 'chooseOption'; eventId: string; choiceId: string }
-  | { type: 'reflect' };                           // prestige
+  | { type: 'reflect' };                           // prestige = retrain on yourself
 
 // ---- content data types (SPEC "Content data types") ----
 
@@ -76,6 +108,27 @@ export interface Refinement {
   from: ResourceId;
   to: ResourceId;
   ratio: number; // `ratio` of `from` → 1 `to`
+}
+
+/** A choose-your-own-adventure beat. PROSE FIELDS ARE OWNER-WRITTEN and ship
+ *  empty until the owner fills them — the engine only ever reads the numbers
+ *  (CLAUDE.md: no generated sentences, ever). */
+export interface Vignette {
+  id: string;
+  /** Fires the first time every stated condition holds. */
+  trigger: { minTriples?: number; minDrifted?: number; minGeneration?: number };
+  title: string;   // ← owner
+  body: string;    // ← owner
+  choices: VignetteChoice[];
+}
+
+export interface VignetteChoice {
+  id: string;
+  label: string;   // ← owner
+  /** Multiplicative modifiers applied on choice; 1 = no change. Shown to the
+   *  player as generated NUMBERS, which is data, not prose. */
+  effects: { drift?: number; extraction?: number; review?: number };
+  flag?: string;
 }
 
 export interface FieldNote {

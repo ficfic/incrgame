@@ -13,7 +13,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "allowJs": false,
-    "types": ["svelte", "vite/client", "vite-plugin-pwa/client"]
+    "types": ["node", "svelte", "vite/client", "vite-plugin-pwa/client"]
   },
   "include": ["src/**/*.ts", "src/**/*.svelte", "test/**/*.ts", "vite.config.ts"]
 }
