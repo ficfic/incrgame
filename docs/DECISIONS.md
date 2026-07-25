@@ -571,3 +571,47 @@ the way they are. Format:
 - 2026-07-25 — **DECISIONS.md is chronological, newest at the BOTTOM.** The
   header claimed the opposite and no session had followed it. Convention
   corrected to match the file rather than reordering 500 lines of history.
+- 2026-07-25 — **The dataset grows a second source: WordNet + ConceptNet**
+  (owner chips). Owner: "i thought the dataset had this info… otherwise it's
+  boring and the edges have no meaning." Measured rather than assumed: WordNet's
+  noun graph carries **12,128** non-is-a edges across five kinds (part-of 5,387,
+  subject-of 3,950, instance-of 1,243, made-of 825, member-of 723) — but only
+  **148** of them have both ends inside the shipped 4,096, because that slice is
+  the top of the tree and part-of/member-of live at the bottom (`wheel`/`car`,
+  `wolf`/`pack`). Holding all 12,128 would need ~17,668 concepts, and even then
+  it is 12k edges over 72k concepts: **WordNet is a dictionary taxonomy, not a
+  knowledge graph.** Decision: keep WordNet as the is-a backbone (clean, single
+  root, already vendored, ground truth) and add **ConceptNet** for edges that
+  mean something — used-for, capable-of, made-of, causes, found-at, has-property.
+  Licence read from source, not memory: ConceptNet **data is CC BY-SA 4.0**
+  (their code is Apache-2.0 and they state explicitly the two are separate
+  works). Share-alike binds the derived data file we ship, not our source.
+  **the-auditor must sign this off before any ConceptNet data is committed.**
+- 2026-07-25 — **The renderer goes hybrid: canvas underneath, DOM pills on top**
+  (owner asked what to take from Infinite Craft — "the architecture and how it
+  performs and how convenient it is for UX"). Infinite Craft is not a canvas
+  game; it is absolutely-positioned DOM on a pannable plane. Measured at 390×844
+  with CPU throttled 4×, main-thread script time per frame:
+  | nodes | DOM pills + canvas edges | all canvas |
+  |---|---|---|
+  | 240 | **0.60 ms** | 4.20 ms |
+  | 500 | **0.80 ms** | 7.50 ms |
+  | 1000 | **1.20 ms** | 14.20 ms |
+  7× cheaper at our cap, 12× at 1000, because text is the expensive part: the
+  DOM lays out and rasterizes each label ONCE and then pans the world with a
+  single composited transform, while the canvas re-measures and re-rasterizes
+  every glyph every frame. It also DELETES code — `render/labels.ts` (collision
+  avoidance, priority ordering, dropped labels), `hit()`, and `band()`'s
+  clamping all become the browser's job — and text stays crisp at any zoom
+  instead of baked at one scale. Canvas keeps what it is good at: edges, the
+  substrate, the rot shimmer. One shared transform drives both layers.
+  This does NOT reverse "the entire game is the graph" — every control is still
+  a node on the plane; only the rendering substrate for text changes.
+- 2026-07-25 — **HUD terminology gets simplified** (owner: "i think we need to
+  simplify terminology, i'm failing to understand what you're saying at times").
+  On screen: statement/triple → **fact**; verified/unverified/drifted →
+  **checked / unchecked / rotten**; fidelity → **how much you trust**; coverage →
+  **how much of the world is back**; "provenance" and "acceptance sampling"
+  disappear from the UI entirely. The real terms stay in GLOSSARY and Field
+  Notes, where learning them is the point — that is the educational goal
+  (VISION) without taxing the player for reading a HUD.

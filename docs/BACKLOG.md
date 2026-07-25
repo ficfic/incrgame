@@ -139,7 +139,34 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
 
 ## ▶ Next — in order
 
-- [ ] **★ THE EDGES CARRY NO DATA — owner's question, and it is the real one.**
+- [ ] **★ EDGES THAT MEAN SOMETHING — decided 2026-07-25, not yet built.**
+      Owner chose **WordNet + ConceptNet**. Steps, in order:
+      1. **the-auditor signs off the ConceptNet licence** (data is CC BY-SA 4.0;
+         share-alike binds the shipped data file, not our source). Nothing gets
+         committed before this.
+      2. Extend `scripts/build-ontology.mjs` to emit an **edge table**: WordNet
+         is-a for the backbone, plus ConceptNet relations joined on label. Pin
+         ConceptNet by release + checksum the same way WordNet is pinned.
+      3. Re-pick the concept slice. The current top-4,096 holds only 148
+         non-is-a edges because it is the abstract top of the tree; the slice
+         should be chosen for EDGE DENSITY, not breadth-first depth. ⚠️ This
+         renumbers the world — needs a save migration that preserves what the
+         owner has already recovered, or a decision to accept a reset.
+      4. Then, and only then, edges carrying a real predicate + trust + source.
+
+- [ ] **★ HYBRID RENDERER — decided 2026-07-25 (measured), not yet built.**
+      Canvas underneath for edges/substrate/rot; DOM pills on top for concepts;
+      one shared transform. 7× cheaper at 240 nodes, 12× at 1000. Deletes
+      `render/labels.ts`, `hit()`, and `band()`'s clamping. Pills are readable
+      and finger-sized by construction, text stays crisp at any zoom, and the
+      plane becomes infinite and pannable instead of a clamped band.
+
+- [ ] **★ SIMPLIFY THE HUD WORDS — decided 2026-07-25.** fact / checked /
+      unchecked / rotten / "how much you trust" / "how much of the world is
+      back". "Provenance" and "acceptance sampling" come off the screen. Real
+      terms stay in GLOSSARY and Field Notes.
+
+- [ ] **(background) the old framing of the same problem, kept for the reasoning.**
       A link is a bare `[a, b]` pair. Nothing distinguishes one edge from
       another, nothing is stored *in* an edge, and coverage counts a concept as
       recovered forever once its node exists. That is why the stated goal is
