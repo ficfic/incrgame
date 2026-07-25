@@ -30,7 +30,21 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // The ontology chunks are deliberately NOT precached — 8.6 MB would be a
+        // rude install. They are cached the moment the game actually reads one,
+        // so a domain you have played is a domain you can play offline.
         globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.includes('/ontology/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ontology-v1',
+              expiration: { maxEntries: 64, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

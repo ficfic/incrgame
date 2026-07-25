@@ -3,6 +3,32 @@
 Read me first in a fresh session, after CLAUDE.md. I am the fast path; the full
 trail is in `DECISIONS.md` (why), `BACKLOG.md` (what's next), `SPEC.md` (contracts).
 
+## ⚠️ Read this first: the premise pivoted (2026-07-25, later same day)
+
+**The game is now about knowledge RECOVERY, not knowledge conquest.** The world's
+knowledge was lost to AI; the player rebuilds it from one surviving concept,
+`entity`. Owner decision via chips; logged in DECISIONS.
+
+The concepts are **real data now**: Open English WordNet, CC BY 4.0, pinned to
+`2025-edition` — 107,519 concepts, 45 semantic domains, 88k is-a edges, ordered
+breadth-first from `entity`.
+
+- Generator: `scripts/build-ontology.mjs` (`npm run ontology`). Output committed
+  to `public/ontology/` (53 chunks, 8.6 MB raw / ~2.7 MB gzip).
+- Runtime: `src/shell/ontology.ts` — lazy, chunked, failure-tolerant.
+- **`src/core/` still knows only integer node ids.** That boundary is why this
+  cost zero engine changes and zero save migration. Keep it.
+- **The pinned edition and the recovery order are a frozen contract** — node id
+  N means concept index N. Bumping the edition renumbers the owner's world. See
+  SPEC "Concept data".
+- Licensing: `docs/ATTRIBUTION.md`. CC BY attribution renders in-game from the
+  data manifest — **do not remove it**. SNOMED CT is dropped (not openly
+  licensed).
+- **The prose has NOT been rewritten to match.** That's owner work (prose
+  guardrail) and it's the top backlog item. Don't let an agent voice it.
+
+Everything below predates the pivot; the mechanical facts still hold.
+
 ## Where things stand
 
 - **The game is LIVE**: <https://ficfic.github.io/incrgame/> (PWA, iOS-first).

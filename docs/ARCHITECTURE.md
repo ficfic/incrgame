@@ -83,3 +83,30 @@ We adopt the *capable* stack but the first build uses a *thin slice* of it: a
 list-based UI, one resource, one generator, a handful of nodes (~5–10). The wild parts (WebGL
 blooms, worker, domains) are earned, not front-loaded. The architecture exists so
 we *can* scale — not so we must.
+
+## Content pipeline — real ontology data (added 2026-07-25)
+
+The CONTENT layer now has two kinds of data, and the distinction matters:
+
+| | Hand-authored content | Generated ontology data |
+|---|---|---|
+| **What** | resources, generators, costs, gates | 107,519 concepts: names, domains, is-a parents, definitions |
+| **Where** | `src/content/*.ts` | `public/ontology/*.json` (committed build output) |
+| **From** | design decisions | `scripts/build-ontology.mjs` ← Open English WordNet, pinned |
+| **Edited by** | humans | **nobody** — regenerate, never hand-patch |
+
+Both are still *declarative data*, and the engine is still ignorant of both
+beyond what it is handed. The rule that keeps this clean:
+
+> **`src/core/` knows only integer node ids.** Concept identity — id → name,
+> domain, definition — is resolved in `src/shell/ontology.ts`, at the skin
+> boundary. The engine cannot tell whether node 41 is `dry ice` or nothing at
+> all, and it must stay that way: the ontology is a skin over the simulation,
+> swappable like every other skin.
+
+That boundary is why the pivot to real data cost no engine changes and no save
+migration. It is also why a failed chunk fetch is a cosmetic degradation and not
+a broken game.
+
+Full contract — file shapes, chunking, the frozen ordering rule, caching — is in
+`docs/SPEC.md` ("Concept data"). Licensing is in `docs/ATTRIBUTION.md`.

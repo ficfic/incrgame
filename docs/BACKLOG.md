@@ -73,6 +73,37 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
 - [x] **M2.0 Frontier Mining** (2026-07-25, owner core-loop fork after 3-agent
       review): edges drip Datums, Survey + tap-to-claim on canvas, forged
       overlay state, save v4 with old-web credit. See DECISIONS.
+- [x] **PREMISE PIVOT + real ontology shipped** (2026-07-25, owner chips): the
+      world's knowledge is lost to AI and the player recovers it, starting from
+      one node — `entity`. Concepts are now **Open English WordNet** (CC BY 4.0,
+      pinned `2025-edition`): 107,519 concepts, 45 domains, 88k is-a edges, in a
+      frozen breadth-first recovery order. New: `scripts/build-ontology.mjs`,
+      `public/ontology/` (53 chunks), `src/shell/ontology.ts`, canvas concept
+      labels, a Recovered card showing the real definition, a coverage readout
+      with a real denominator, in-game CC BY attribution, SW runtime caching.
+      **Zero engine changes, zero save migration** — the core/skin boundary held.
+      See `docs/ATTRIBUTION.md`, SPEC "Concept data", DECISIONS.
+- [ ] **★ OWNER PROSE — the pivot's copy is unwritten and it shows.** The
+      mechanics moved; the words didn't. Owner-written, per the prose guardrail:
+      (1) the **cold open** — what a new player is told when they arrive holding
+      one concept; (2) **ticker lines** for the recovery framing
+      (`docs/TICKER_LINES.md` — the old batch is still unwritten too); (3) the
+      **Recovered card's** framing words (currently the bare label "Recovered");
+      (4) whether the title stays *Semantic Drift* post-pivot. Until this lands,
+      the game reads as a mechanics demo wearing a premise.
+- [ ] **Design: what the 45 real domains DO** (see GAME_DESIGN "Domains" note).
+      Every concept already knows its domain and the UI already shows it — right
+      now that's flavor, not mechanics. Candidates: per-domain coverage goals,
+      domain-gated recovery, a domain-completion bonus. Chad should price it.
+- [ ] **Use the real hierarchy in the loop.** The dataset ships each concept's
+      is-a parent, and recovery order is a real tree walk — but the game still
+      wires new nodes to a *hash-picked* anchor (`mixId` in `engine.ts`). Wiring
+      to the actual parent would make the on-screen graph the real taxonomy.
+      This one DOES touch the engine and DOES need a save migration — scope it
+      properly, don't sneak it in.
+- [ ] **Exploit the rare tail.** Model collapse eats low-frequency concepts
+      first; the endgame should make recovering `benthos`/`kickshaw` feel like
+      the last lights coming back on. Needs a mechanic, not just ordering.
 - [ ] **Owner: write the first ticker-line batch** (`docs/TICKER_LINES.md`).
 - [ ] **▶ NEXT after owner's polish verdict: M3, re-scoped per agents** — (1) graph rebind: edges←triples,
       nodes←entity emergence; data = fuel only (deletes the ambient bridge);

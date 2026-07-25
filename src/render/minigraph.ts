@@ -80,6 +80,26 @@ export interface DrawOptions {
   view: GraphView;
   timeMs: number;
   fx: Fx | null;
+  /** Node id → concept name. Undefined while its data is still loading; the
+   *  picture must read the same either way, so labels are decoration only. */
+  labelFor?: (id: number) => string | undefined;
+}
+
+/** Labels are drawn unscaled so they stay legible at any zoom, and clipped so a
+ *  long concept name can't smear across the whole panel. */
+function drawLabel(
+  ctx: CanvasRenderingContext2D, p: P, text: string, zoom: number, color: string, dy: number,
+): void {
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.scale(1 / zoom, 1 / zoom);
+  ctx.font = '11px ui-sans-serif, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const clipped = text.length > 22 ? `${text.slice(0, 21)}…` : text;
+  ctx.fillStyle = color;
+  ctx.fillText(clipped, 0, dy);
+  ctx.restore();
 }
 
 export function drawGraph(canvas: HTMLCanvasElement, scene: GraphScene, opts: DrawOptions): void {
@@ -91,7 +111,7 @@ export function drawGraph(canvas: HTMLCanvasElement, scene: GraphScene, opts: Dr
     canvas.width = w * dpr;
     canvas.height = h * dpr;
   }
-  const { view, timeMs, fx } = opts;
+  const { view, timeMs, fx, labelFor } = opts;
   const { graph, forged } = scene;
   const t = timeMs / 1000;
   const spin = t * 0.02;
@@ -205,6 +225,21 @@ export function drawGraph(canvas: HTMLCanvasElement, scene: GraphScene, opts: Dr
   }
   ctx.globalAlpha = 1;
 
+  // Anchor names: the root always, the newest always, everything else only once
+  // you've zoomed in far enough that 240 labels won't become a grey smear.
+  if (labelFor) {
+    const showAll = view.zoom >= 1.8;
+    for (const id of forged.anchors) {
+      const isHub = id === 0;
+      if (!showAll && !isHub && id !== newestAnchor) continue;
+      const name = labelFor(id);
+      if (!name) continue;
+      drawLabel(ctx, anchorPos(id, w, h, spin), name, view.zoom,
+        isHub ? `hsl(${hue} 90% 82% / 0.95)` : `hsl(${hue} 45% 66% / 0.75)`,
+        isHub ? -14 : -10);
+    }
+  }
+
   // ---- FRONTIER: hollow, breathing, stationary — asking to be claimed ----
   for (const id of forged.frontier) {
     const p = frontierPos(id, w, h);
@@ -218,6 +253,9 @@ export function drawGraph(canvas: HTMLCanvasElement, scene: GraphScene, opts: Dr
     ctx.arc(p.x, p.y, 1.6, 0, Math.PI * 2);
     ctx.fillStyle = `hsl(${hue} 85% 68% / 0.6)`;
     ctx.fill();
+    // You choose what to recover: the frontier says what each one IS.
+    const name = labelFor?.(id);
+    if (name) drawLabel(ctx, p, name, view.zoom, `hsl(${hue} 85% 78% / 0.9)`, -14);
   }
   ctx.lineWidth = 1;
 }

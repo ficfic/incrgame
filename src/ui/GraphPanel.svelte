@@ -6,6 +6,8 @@
     type Fx, type GraphView,
   } from '../render/minigraph';
 
+  import { conceptForNode, warm } from '../shell/ontology';
+
   let {
     graph,
     forged,
@@ -17,6 +19,15 @@
     pulseKey?: number;
     onclaim?: (id: number) => void;
   } = $props();
+
+  // Pull the chunks the visible ids need; the lookup then resolves synchronously.
+  $effect(() => {
+    warm([...forged.frontier, ...forged.anchors]);
+  });
+
+  // No reactivity needed: the canvas redraws every frame, so a chunk that lands
+  // mid-run simply shows up on the next one.
+  const labelFor = (id: number): string | undefined => conceptForNode(id)?.label;
 
   let canvas: HTMLCanvasElement | undefined = $state();
   let view = $state<GraphView>({ x: 0, y: 0, zoom: 1 });
@@ -51,7 +62,7 @@
     if (!canvas) return;
     let raf = 0;
     const frame = (t: number) => {
-      drawGraph(canvas!, { graph, forged }, { view, timeMs: t, fx });
+      drawGraph(canvas!, { graph, forged }, { view, timeMs: t, fx, labelFor });
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);

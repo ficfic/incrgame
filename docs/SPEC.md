@@ -232,3 +232,59 @@ spec them explicitly and **verify on a physical device at M0** (a container can'
    server-side secret gate; our commit hook is advisory and MCP-bypassable).
 4. **Verify install + standalone on the physical iOS device** *after* the first
    successful deploy (Safari fallback if Edge won't install).
+
+---
+
+## Concept data — the ontology contract (added 2026-07-25)
+
+The game's concepts are **real data**, not generated content: Open English
+WordNet, CC BY 4.0, pinned to `2025-edition`. Licence trail: `docs/ATTRIBUTION.md`.
+
+### Generation
+
+`scripts/build-ontology.mjs` (`npm run ontology`) shallow-clones the pinned
+upstream into `.ontology-src/` (gitignored), parses the 45 lexicographer files,
+and writes `public/ontology/`. The generated output **is committed** — deploys
+are hermetic and CI never touches the network for content.
+
+### On-disk shape
+
+```
+public/ontology/index.json      manifest: source, edition, commit, licence,
+                                concepts, chunkSize, chunks, domains[45]
+public/ontology/cNNN.json       chunk of `chunkSize` concepts, arrays aligned:
+                                l[] label · d[] domain index · p[] parent index
+                                (-1 = a root) · g[] definition, verbatim
+```
+
+Chunk size is **2048** (~55 KB gzip). A fresh save only ever needs `c000.json`.
+
+### The frozen ordering contract ⚠️
+
+Concepts are ordered **breadth-first from `entity`**, WordNet's unique beginner;
+concepts unreachable from it follow, grouped by their own roots. Ties break on
+`(label, synset id)`, so the order is reproducible from the pinned source.
+
+**A save stores integer node ids, and node id N means "concept index N mod
+total".** Therefore the ordering is a save-visible contract with the same status
+as a migration fossil:
+
+- **Do not** bump `SRC_REF` casually — a newer edition renumbers the world and
+  silently relabels every node in the owner's save.
+- Bumping it is a deliberate decision requiring a logged entry in
+  `docs/DECISIONS.md` and a plan for existing saves.
+- The recovery order must stay a pure function of the pinned source. No RNG.
+
+### Runtime rules
+
+- The loader is `src/shell/ontology.ts`. **`src/core/` must never import it** —
+  the engine knows only integer node ids and stays pure (CI greps for this).
+- Loading is lazy and failure-tolerant: a missing or failed chunk degrades to an
+  unlabelled node, never a crash or a stall. The game is playable offline before
+  any chunk has ever loaded.
+- Chunks are **runtime-cached** by the service worker (CacheFirst,
+  `ontology-v1`), never precached — 8.6 MB would be a rude install.
+- Definitions are rendered **verbatim**. Nothing in this pipeline may synthesise
+  a sentence (see `CLAUDE.md`).
+- Attribution renders in-game from `index.json`, so it cannot drift out of sync
+  with the data it credits. **Do not remove it** — CC BY requires it.

@@ -34,12 +34,29 @@ jobs:
       - name: Test (gates deploy)
         run: npx vitest run
       - name: Core-purity check
-        # core/ must stay headless: no DOM globals, no imports from ui/ or render/.
+        # core/ must stay headless: no DOM globals, no imports from ui/render/shell.
+        # shell/ is browser-facing (fetch, storage, the ontology loader), so an
+        # import from core into shell breaks the engine's portability too.
         run: |
-          if grep -rnE '\bwindow\b|\bdocument\b|from '\''\.\./(ui|render)|from "\.\./(ui|render)' src/core/; then
-            echo '::error::src/core must not touch the DOM or import ui/render'
+          if grep -rnE '\bwindow\b|\bdocument\b|\bfetch\b|from '\''\.\./(ui|render|shell)|from "\.\./(ui|render|shell)' src/core/; then
+            echo '::error::src/core must not touch the DOM/network or import ui/render/shell'
             exit 1
           fi
+      - name: Ontology data present and self-describing
+        # The committed build output is the game's content; a deploy without it
+        # ships a world with no concepts in it.
+        run: |
+          test -f public/ontology/index.json || { echo '::error::public/ontology/index.json missing — run npm run ontology'; exit 1; }
+          node -e '
+            const m = require("./public/ontology/index.json");
+            if (!m.license || !m.attribution) { console.error("::error::ontology manifest is missing its licence/attribution"); process.exit(1); }
+            const fs = require("fs");
+            for (let i = 0; i < m.chunks; i++) {
+              const f = `public/ontology/c${String(i).padStart(3, "0")}.json`;
+              if (!fs.existsSync(f)) { console.error(`::error::missing ontology chunk ${f}`); process.exit(1); }
+            }
+            console.log(`ontology ok: ${m.concepts} concepts, ${m.chunks} chunks, ${m.source} ${m.edition} (${m.license})`);
+          '
       - run: npx vite build
       - uses: actions/upload-pages-artifact@v3
         with:

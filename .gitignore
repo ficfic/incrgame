@@ -22,3 +22,6 @@ Thumbs.db
 
 # Claude Code local overrides (personal, not shared)
 .claude/settings.local.json
+
+# Ontology source cache (re-clonable; see scripts/build-ontology.mjs)
+.ontology-src/

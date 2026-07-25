@@ -10,16 +10,47 @@
 ontology engineering, concept drift / ontology evolution. The graph slowly
 rewrites what everything means as it wakes up.)
 
-An incremental/idle game about **knowledge management** — you grow a **knowledge
-graph**: harvest data, extract triples, form entities, build ontologies, and
-model **digital twins** of domains. The reward is a large, beautiful graph that
-grows and reorganizes itself — and, eventually, **describes itself**.
-"Universal Paperclips for ontologists."
+> ### ⚠️ PREMISE PIVOT — 2026-07-25 (owner decision, logged in DECISIONS.md)
+>
+> The frame is now **recovery, not conquest.** The world's knowledge has been
+> lost to AI; the player rebuilds it, concept by concept, from one surviving
+> root node: **`entity`**.
+>
+> **Mechanics are unchanged** — Frontier Mining survives the re-skin intact.
+> Survey is scanning the ruins; claiming is recovering. What changed is the
+> fiction, the framing, and the fact that the concepts are now **real data**
+> (Open English WordNet, 107,519 concepts — see `docs/ATTRIBUTION.md` and the
+> ontology contract in `docs/SPEC.md`).
+>
+> **Sections below still carry pre-pivot startup-conquest language.** They are
+> kept because their *mechanical* content is still correct and still the plan.
+> Re-read them as "what you rebuild and how you fund it," not "what you conquer."
+> Rewriting the narrative framing of each section is owner work — **all
+> player-facing prose is owner-written** (`CLAUDE.md`); this file should not be
+> re-voiced by an agent.
+
+An incremental/idle game about **knowledge management** — you rebuild a
+**knowledge graph**: recover concepts, restore triples, re-form entities,
+reconstruct ontologies, and model **digital twins** of domains. The reward is a
+large, beautiful graph that grows and reorganizes itself — and, eventually,
+**describes itself**. "Universal Paperclips for ontologists."
+
+### Why the premise is theory-faithful, not just a vibe
+
+Model collapse is real and peer-reviewed: training generative models on
+recursively generated data drives **late collapse**, where low-frequency events
+permanently disappear ([Shumailov et al., *Nature*, 2024](https://www.nature.com/articles/s41586-024-07566-y)).
+The rare tail goes first. WordNet's rare tail — `benthos`, `kickshaw`, `biont` —
+is therefore what the player recovers **last**. The pacing curve and the
+citation are the same object. Keep it that way; if a mechanic contradicts the
+paper, the paper wins (`CLAUDE.md`, theory-faithfulness rule).
 
 ## North star & macro-loop
 
-**The goal: model all the world's knowledge as one graph.** Not fiction — it's
-the real ambition behind Cyc, Wikidata, and Google's Knowledge Graph.
+**The goal: restore all the world's knowledge as one graph.** The target is not
+fictional either — it's the real ambition behind Cyc, Wikidata, and Google's
+Knowledge Graph, and in this game it has a **real denominator**: 107,519
+concepts. Coverage % is an honest fraction, not a progress bar.
 
 **Master progress: "world coverage %."** Approached **domain by domain**
 (General → Biology → … ; full order TBD, see domain table); each domain is a
@@ -312,7 +343,16 @@ real-world data would wreck balance and mobile performance.
 
 ## Domains (branching tech-tree, mechanically distinct)
 
-You conquer knowledge **domain by domain** toward world coverage. After a starter
+> **Post-pivot note (2026-07-25).** The shipped dataset already carries **45 real
+> semantic domains** — WordNet's lexicographer files (`noun.animal`,
+> `noun.cognition`, `verb.weather`, …). Every concept knows which one it belongs
+> to, and the recovery card shows it. That is a domain system we get for free and
+> should exploit *before* building the tech-tree below. Open question for design:
+> do the 45 WordNet domains become the early-game map, with the ontologies in the
+> table below as later, separately-licensed expansions? Licences for those are
+> already checked in `docs/ATTRIBUTION.md`.
+
+You restore knowledge **domain by domain** toward world coverage. After a starter
 domain, domains open as a **branching tech-tree** (choose your path — replayable,
 strategic). Each domain teaches a **real ontology**, gets a **distinct mechanical
 twist** from that field's real nature, and a satirical "we're pivoting to ___"
@@ -324,7 +364,7 @@ north star and the ominous "it's modeling everything" climax.
 | **General knowledge** *(starter)* | Wikidata, schema.org | Broad but shallow: high volume, low value/triple; gentle onboarding to triples. | "A search engine, but worse" |
 | **Biology** | Gene Ontology, OBO | Deeply hierarchical → subclass/transitivity reasoning is overpowered here; rewards the compounding engine. Buyers pay prestige, not cash. | "We're going to cure aging" |
 | **Finance** | FIBO, XBRL | Data decays fast → hoarding loses value; pushes toward the **sell** side of sell-vs-keep. Teaches freshness. | "Disrupting fintech" |
-| **Medicine** | SNOMED CT, FHIR | Regulated → premium prices, but the provenance/licensing lawsuit hazard bites hardest (patient privacy). | "Move fast, break patients" |
+| **Medicine** | ⚠️ **SNOMED CT dropped — not openly licensed.** Replace with an openly licensed source (MONDO / HPO / the open NCI Thesaurus subset) before building this domain. FHIR stays as the exchange format. | Regulated → premium prices, but the provenance/licensing lawsuit hazard bites hardest (patient privacy). | "Move fast, break patients" |
 | **Law** | LKIF | Rule-heavy → OWL axioms & consistency dominate; ex-falso hazard nastiest. Law-about-law foreshadows self-description. | "AI replaces lawyers (this is fine)" |
 | **Engineering / IoT** | DTDL, W3C WoT | Live-syncing → unlocks the **Digital Twin** tier; real-time data streams. | "Smart everything" |
 

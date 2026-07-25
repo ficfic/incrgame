@@ -8,6 +8,9 @@
   import { RESOURCE_LABELS } from '../content/resources';
   import { FRONTIER_CAP } from '../core/graph';
   import { stageHue } from '../render/minigraph';
+  import {
+    conceptForNode, coverageOf, loadManifest, ontologyCredit, ontologyRevision, totalConcepts,
+  } from '../shell/ontology';
   import GraphPanel from './GraphPanel.svelte';
 
   let toast = $state('');
@@ -43,6 +46,26 @@
     setTimeout(() => (floats = floats.filter((f) => f.id !== id)), 700);
   }
 
+  // The concept most recently wired in — the card below the graph reads it back.
+  // Held as an id, not a snapshot, so it fills in if its chunk lands afterwards.
+  let recoveredId = $state<number | null>(null);
+  const recovered = $derived.by(() => {
+    void $ontologyRevision; // re-resolve when a chunk arrives
+    return recoveredId === null ? null : conceptForNode(recoveredId);
+  });
+  const coverage = $derived.by(() => {
+    void $ontologyRevision;
+    return coverageOf($game.graph.nodes);
+  });
+  const conceptTotal = $derived.by(() => {
+    void $ontologyRevision;
+    return totalConcepts();
+  });
+  const credit = $derived.by(() => {
+    void $ontologyRevision;
+    return ontologyCredit();
+  });
+
   function claim(id: number) {
     const affordable = gte($game.resources.data, nextClaimCost);
     if (!affordable) {
@@ -50,6 +73,8 @@
       return;
     }
     dispatch({ type: 'claimNode', id });
+    // succeeded iff it left the frontier (anchor count can sit at its cap)
+    if (!$game.forged.frontier.includes(id)) recoveredId = id;
   }
 
   function buy(id: (typeof M1_ROSTER)[number]) {
@@ -116,6 +141,7 @@
 
   onMount(() => {
     void startGame();
+    void loadManifest(); // concept chunks load lazily behind this
   });
 </script>
 
@@ -149,6 +175,26 @@
   </section>
 
   <GraphPanel graph={$game.graph} forged={$game.forged} {pulseKey} onclaim={claim} />
+
+  {#if recovered}
+    {#key recovered.index}
+      <section class="recovered" aria-live="polite">
+        <div class="recovered-head">
+          <span class="tag">Recovered</span>
+          <span class="domain">{recovered.domain}</span>
+        </div>
+        <div class="term">{recovered.label}</div>
+        {#if recovered.gloss}<p class="gloss">{recovered.gloss}</p>{/if}
+      </section>
+    {/key}
+  {/if}
+
+  {#if conceptTotal > 0}
+    <div class="coverage">
+      {formatWhole(String($game.graph.nodes))} / {conceptTotal.toLocaleString('en-US')} concepts
+      · {(coverage * 100).toFixed(coverage < 0.01 ? 4 : 2)}%
+    </div>
+  {/if}
 
   {#if $game.forged.frontier.length > 0}
     <div class="hint">
@@ -211,6 +257,13 @@
     </button>
   </footer>
 
+  {#if credit}
+    <!-- CC BY 4.0 requires attribution wherever the work is used. -->
+    <div class="credit">
+      Concepts: <a href="https://en-word.net/" target="_blank" rel="noopener">{credit}</a>
+    </div>
+  {/if}
+
   {#if toast}<div class="toast">{toast}</div>{/if}
 </main>
 
@@ -256,6 +309,59 @@
   }
   .sub { color: #7f95a3; font-size: 0.95rem; }
   .rate { color: hsl(var(--hue, 168) 70% 60%); margin-left: 6px; }
+  .recovered {
+    border: 1px solid hsl(var(--hue, 168) 40% 24%);
+    border-radius: 12px;
+    padding: 10px 14px;
+    background: hsl(var(--hue, 168) 30% 8%);
+    animation: recovered-in 420ms ease-out;
+  }
+  @keyframes recovered-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .recovered { animation: none; }
+  }
+  .recovered-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .tag {
+    font-size: 0.62rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: hsl(var(--hue, 168) 60% 60%);
+  }
+  .domain { font-size: 0.7rem; color: #46586a; font-family: ui-monospace, monospace; }
+  .term {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #eaf6f2;
+    margin-top: 2px;
+  }
+  .gloss {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: #8fa5b3;
+  }
+  .coverage {
+    text-align: center;
+    font-size: 0.72rem;
+    color: #46586a;
+    font-variant-numeric: tabular-nums;
+    margin-top: -6px;
+  }
+  .credit {
+    text-align: center;
+    font-size: 0.65rem;
+    color: #33445a;
+    margin-top: -6px;
+  }
+  .credit a { color: #46586a; }
   .connect {
     appearance: none;
     border: none;

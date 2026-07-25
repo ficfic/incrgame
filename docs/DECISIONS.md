@@ -353,3 +353,43 @@ session knows *why* things are the way they are. Format:
 - 2026-07-25 — **Skills that must stay private go in a separate private repo**,
   not this public one — anything committed here (skills, CLAUDE.md, settings) is
   world-visible. Game-building skills are fine to keep public.
+- 2026-07-25 — **Premise pivot: knowledge recovery, not knowledge conquest** —
+  the world's knowledge has been lost to AI; the player rebuilds it. Owner call
+  via chips. Mechanics are unchanged (Frontier Mining survives the re-skin
+  intact); only the fiction and the framing move. Rejected: keeping the
+  startup-conquest premise, and a two-act "build it then lose it" arc (adds a
+  mid-game turn we'd have to earn before we've earned the first hour).
+- 2026-07-25 — **The concept graph is real: Open English WordNet, CC BY 4.0** —
+  107,519 concepts across 45 semantic domains, 88k is-a edges, pinned to the
+  `2025-edition` tag. Chosen over Wikidata (CC0 but 1.6 TB and needs a SPARQL
+  endpoint the build environment can't reach), ConceptNet (CC BY-SA, dumps
+  unreachable) and schema.org (823 types — too small to be the spine). Full
+  licence trail in `docs/ATTRIBUTION.md`.
+- 2026-07-25 — **Recovery order = breadth-first from `entity`** — the player
+  gets the skeleton of the world before its details, in the real hierarchy's own
+  order, seeded at WordNet's unique beginner. This ordering is a **frozen
+  contract**: a save stores integer node ids and id N means "the Nth concept in
+  recovery order", so re-running the pipeline against a newer edition would
+  silently relabel every node in an existing save. Bumping the edition requires
+  a deliberate, migration-bearing decision. Rejected: random assignment (throws
+  away the real structure), domain-at-a-time (fights the is-a tree).
+- 2026-07-25 — **Ship the generated ontology, don't build it in CI** — the 53
+  JSON chunks (8.6 MB raw, ~2.7 MB gzip) are committed. Keeps deploys hermetic
+  and auditable, and means CI never needs a 45 MB upstream clone. The generator
+  stays in `scripts/build-ontology.mjs` for reproducibility.
+- 2026-07-25 — **Ontology loading is lazy, chunked, and failure-tolerant** —
+  2,048 concepts per chunk (~55 KB gzip); a fresh save only ever fetches chunk 0;
+  chunks are cached on demand by the service worker rather than precached (8.6 MB
+  would be a rude install). A failed fetch degrades to an unlabelled node, never
+  a crash. The loader lives in `src/shell/`, never `src/core/` — the engine still
+  knows only integer node ids.
+- 2026-07-25 — **Definitions are shown verbatim as the reward for recovering a
+  concept** — owner call via chips. These are human lexicographers' sentences,
+  quoted and attributed, so the "all player-facing prose is human-written" rule
+  holds: the pipeline still generates structured data only and never writes a
+  sentence. Attribution is rendered in-game from the data manifest so it cannot
+  drift.
+- 2026-07-25 — **SNOMED CT is dropped from the domain plan** — it is not openly
+  licensed (affiliate licence required), so it cannot ship in a public game.
+  Replacement for a medicine domain to be chosen from openly licensed
+  alternatives. Logged in `docs/ATTRIBUTION.md`.
