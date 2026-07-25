@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { game, awayReport, dispatch, exportSave, importSave, startGame } from '../shell/game';
+  import { ticker } from '../shell/ticker';
   import { generatorCost, ratePerSecond } from '../core/engine';
   import { format, formatWhole, gte } from '../core/numbers';
   import { GENERATORS, M1_ROSTER } from '../content/generators';
@@ -23,13 +24,22 @@
   // Horizon tease: the next machine is visible (locked) once you own the first.
   const nextLocked = $derived($game.generators.harvester >= 1 ? GENERATORS.extractor : null);
 
+  let floats = $state<{ id: number; x: number }[]>([]);
+  let nextFloatId = 0;
+
   function connect() {
     dispatch({ type: 'manualConnect' });
     pulseKey++;
+    const id = nextFloatId++;
+    floats.push({ id, x: (id * 37) % 80 - 40 }); // deterministic scatter, no RNG needed
+    setTimeout(() => (floats = floats.filter((f) => f.id !== id)), 700);
   }
 
   function buy(id: (typeof M1_ROSTER)[number]) {
+    const g = GENERATORS[id];
+    const affordable = gte($game.resources[g.costResource], generatorCost($game, id));
     dispatch({ type: 'buyGenerator', id });
+    if (affordable) pulseKey++; // fuel became structure — the graph answers the purchase
   }
 
   function say(msg: string) {
@@ -106,10 +116,22 @@
 
   <GraphPanel graph={$game.graph} {pulseKey} />
 
-  <button class="connect" onclick={connect}>
-    Connect
-    <small>+1 {RESOURCE_LABELS.data} · grows the graph</small>
-  </button>
+  {#if $ticker.length > 0}
+    {@const last = $ticker[$ticker.length - 1]}
+    <div class="ticker" aria-live="polite">
+      {#key last?.id}<span class="ticker-line">▸ {last?.text}</span>{/key}
+    </div>
+  {/if}
+
+  <div class="connect-wrap">
+    <button class="connect" onclick={connect}>
+      Connect
+      <small>+1 {RESOURCE_LABELS.data} · grows the graph</small>
+    </button>
+    {#each floats as f (f.id)}
+      <span class="float" style="left: calc(50% + {f.x}px)">+1</span>
+    {/each}
+  </div>
 
   <section class="shop">
     {#each M1_ROSTER as id}
@@ -213,6 +235,36 @@
   }
   .connect:active { transform: scale(0.98); }
   .connect small { font-size: 0.75rem; font-weight: 500; opacity: 0.75; }
+  .connect-wrap { position: relative; display: flex; flex-direction: column; }
+  .float {
+    position: absolute;
+    top: -4px;
+    transform: translateX(-50%);
+    font-weight: 700;
+    font-size: 1rem;
+    color: hsl(var(--hue, 168) 70% 65%);
+    pointer-events: none;
+    animation: float-up 0.7s ease-out forwards;
+  }
+  @keyframes float-up {
+    from { opacity: 1; translate: 0 0; }
+    to { opacity: 0; translate: 0 -34px; }
+  }
+  .ticker {
+    height: 1.15rem;
+    overflow: hidden;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #7f95a3;
+  }
+  .ticker-line {
+    display: inline-block;
+    animation: ticker-in 0.35s ease-out;
+  }
+  @keyframes ticker-in {
+    from { opacity: 0; translate: 0 8px; }
+    to { opacity: 1; translate: 0 0; }
+  }
   .shop { display: flex; flex-direction: column; gap: 10px; }
   .gen {
     appearance: none;

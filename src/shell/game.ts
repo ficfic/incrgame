@@ -6,6 +6,7 @@ import { apply, initialState } from '../core/engine';
 import { deserialize, serialize } from '../core/save';
 import { applyOfflineProgress, type OfflineResult } from '../core/offline';
 import { loadBlob, saveBlob, requestPersistence } from './storage';
+import { observeTransition, sayAwayReturn } from './ticker';
 
 const TICK_MS = 100; // fixed logical step: 10 Hz (SPEC "Tick model")
 const MAX_CATCHUP_MS = 30_000; // beyond this, the offline calc takes over
@@ -18,13 +19,20 @@ export const game: Readable<GameState> = store;
 export const awayReport = writable<OfflineResult | null>(null);
 
 export function dispatch(action: Action): void {
-  store.update((s) => apply(s, action));
+  store.update((s) => {
+    const next = apply(s, action);
+    if (next !== s) observeTransition(s, next);
+    return next;
+  });
 }
 
 function resumeFromGap(now: number): void {
   store.update((s) => {
     const result = applyOfflineProgress(s, now);
-    if (result.elapsedMs >= AWAY_BANNER_MIN_MS) awayReport.set(result);
+    if (result.elapsedMs >= AWAY_BANNER_MIN_MS) {
+      awayReport.set(result);
+      sayAwayReturn(result.gains.data);
+    }
     return result.state;
   });
 }

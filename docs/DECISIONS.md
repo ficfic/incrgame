@@ -7,6 +7,16 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Owner decisions via chips (post-M1.5):** tier-1 resource is
+  named **"Datums"** (label only; `ResourceId 'data'` unchanged — ids are
+  save-stable). **Polish-the-first-5-minutes round before M3** (owner override
+  of all three agents' M3-first recommendation — their call to make). **Ticker:
+  owner will write the flavor lines** — system shipped with mechanical
+  fallbacks only; trigger list in `docs/TICKER_LINES.md` awaits their pen.
+- 2026-07-25 — **Polish round shipped:** Paperclips-style event ticker
+  (shell-side, observes state transitions, prose guardrail enforced in code
+  comments), +1 float feedback on Connect, graph pulse on purchase (fuel →
+  structure made visible, per Redditor finding #4).
 - 2026-07-25 — **M1.5 feedback round** (owner playtest + three review agents:
   Chad `NEEDS ANOTHER ROUND`, Redditor `FINE, I GUESS`, The Graph `DRIFT
   DETECTED` — all three converge on "ship M3 next"). Changes:

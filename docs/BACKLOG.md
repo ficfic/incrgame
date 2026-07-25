@@ -61,7 +61,11 @@ without being re-briefed. Move finished items to **Done** with a date.
       agents → integer costs/display, node/edge decoupling (crosslinks), ambient
       graph life, LOD densification past cap, pan/zoom, progress-driven palette,
       locked next-generator teaser. See DECISIONS.
-- [ ] **▶ NEXT: M3, re-scoped per agents** — (1) graph rebind: edges←triples,
+- [x] **Polish round** (2026-07-25, owner-picked over M3-first): Datums rename,
+      event ticker (mechanical lines; owner writes flavor — `docs/TICKER_LINES.md`),
+      +1 float on Connect, graph pulse on buy.
+- [ ] **Owner: write the first ticker-line batch** (`docs/TICKER_LINES.md`).
+- [ ] **▶ NEXT after owner's polish verdict: M3, re-scoped per agents** — (1) graph rebind: edges←triples,
       nodes←entity emergence; data = fuel only (deletes the ambient bridge);
       (2) Extractor + Reasoner, multiplier consumes `resources.triples` and is
       SHOWN on screen ("Inference ×1.34"); (3) PixiJS bloom w/ production-driven
