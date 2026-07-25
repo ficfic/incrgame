@@ -85,9 +85,21 @@ is the trap: **the failure is something you do to yourself.**
 Agents are distilled from verified statements, so a graph you let rot cannot
 build another agent.
 
-Capacity grows logarithmically with verified knowledge. Agents grow linearly.
-Therefore supervised share → 0 for every strategy — **the plateau is structural,
-not tuned.** That is the property three balance passes failed to buy.
+Capacity grows logarithmically with verified knowledge. Agents are priced
+geometrically, so their **count grows logarithmically too** — just faster:
+capacity gains 4.5 slots per decade of verified knowledge, agents gain 8.78.
+
+So supervised share decays toward **~51%**, not to zero, and steady-state
+fidelity is closed-form: `f∞ = 0.55·s / (1 − 0.45·s)`. At s = 0.8 that is
+**68.75%**, which is exactly the 67% the 8-hour simulation produced.
+
+**The plateau is real and it is structural — but it FLOORS around 36–50%
+fidelity rather than collapsing.** An earlier version of this document claimed
+supervised share → 0; that was an interpretation error, not a measurement one.
+The simulation was right and the sentence about it was wrong.
+
+A floor you can feel is arguably the better game. What it is *not* is a
+mechanism that makes the stated goal unreachable — see below.
 
 ## The three decisions that shape everything
 
@@ -102,6 +114,20 @@ is not the real data. It's what your machines generated: unverified, and it rots
 faster. Each generation starts richer and more wrong. Coverage climbs while
 fidelity falls.
 
+> ### ⚠️ THE GOAL IS STILL REACHABLE, AND NOW WE KNOW WHY
+> **Coverage is a ratchet.** `recovered()` only ever goes up, and the
+> `(f − coverage)/f` term stops the *rate* without ever taking a concept back.
+> So the dominant strategy is: supervise everything while agents are few, race
+> coverage to 4,096, then stop caring — the plateau becomes a cosmetic bar over
+> a race you already won. That is why three balance passes failed; they were
+> tuning the speed of a race rather than making it losable.
+>
+> The fix requires **edges that carry data**: a concept counts as recovered only
+> while at least one non-drifted statement supports it. Rot the statement and
+> the node goes dark — still there, still re-verifiable, nothing deleted. That
+> makes coverage able to fall, which is the only honest route to "unreachable by
+> construction". It is impossible today because edges are `[a, b]` number pairs.
+>
 > ### ⚠️ STATUS (updated 2026-07-25, after the attention rework)
 > The RECESSION is now real and structural: measured over 8h, an 80%-supervising
 > player decays 100% → 67% fidelity, balanced → 22%, unsupervised → 2%. Coverage
