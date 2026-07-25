@@ -5,20 +5,24 @@ without being re-briefed. Move finished items to **Done** with a date.
 
 ## Now / next
 
-- [ ] Decide the game flavor (classic clicker / number-go-up / themed / scaffold
-      first). Owner is thinking about it — leaning toward nailing ways-of-working
-      before committing.
-- [ ] Optional: a `decide` skill wrapping the chip-based decision flow +
-      auto-log to DECISIONS.md. Deferred — not built yet.
-- [ ] Optional: a build/verify (SessionStart) hook once there's a game to build.
-      Deferred until the game exists.
+- [x] Game concept chosen: **knowledge-graph incremental** (see
+      `docs/GAME_DESIGN.md`). Core engine locked: inference = compounding.
+- [ ] Flesh out the design's open questions (balance curves, how self-
+      description plays, theme/tone).
+- [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on
+      mobile before committing.
+- [ ] Scaffold the game (TS + Vite + break_eternity + GH Pages deploy) when
+      ready to start building.
 
 ## Someday / maybe
 
+- [ ] `add-ontology-content` skill — author domains/entities/edges as declarative
+      data; write it once adding content is a repeated motion.
+- [ ] `save-migration` skill — scaffold a versioned save + migration step safely.
 - [ ] `release`/deploy skill (build → verify → push → Pages) — write it once the
       deploy flow has been done manually twice.
-- [ ] `add-game-content` skill — write it once adding content is a repeated
-      motion.
+- [ ] Build/verify (SessionStart) hook — once there's a game to build.
+- [ ] Optional `decide` skill wrapping the chip-based decision flow + auto-log.
 
 ## Done
 

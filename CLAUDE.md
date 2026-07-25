@@ -49,6 +49,15 @@ That is why the decision log and backlog exist and must be kept current.
 - **Develop on branch `claude/incremental-game-github-pages-w7pvk6`.** Commit
   with clear messages; push with `git push -u origin <branch>`. Don't push to
   other branches without explicit permission. Don't open a PR unless asked.
+- **Never break an existing save.** The owner plays their own save long-term;
+  corrupting it loses real progress. Rules: every save carries a `version`;
+  loading an older version runs a **forward migration**, never a hard reset;
+  never rename/remove a saved field without a migration that preserves it; and
+  always keep the **export/import-to-clipboard** escape hatch working. When in
+  doubt, migrate additively.
+- **Respect the mobile performance budget** (see `docs/GAME_DESIGN.md`):
+  simulate in numbers, render only a *representative* graph with level-of-detail
+  and a WebGL renderer. Don't render one node per triple.
 
 ## Planned stack (not built yet — changeable)
 

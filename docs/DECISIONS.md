@@ -7,6 +7,19 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Never break an existing save** (versioned saves + forward
+  migration + export/import escape hatch) — the owner plays their own save
+  long-term; corruption loses real progress. Added as a CLAUDE.md guardrail
+  before any save code exists.
+- 2026-07-25 — **Game concept: knowledge-graph incremental** — harvest data →
+  triples → entities → ontologies → digital twins; reward is a large graph that
+  grows and eventually describes itself. Captured in `docs/GAME_DESIGN.md`.
+- 2026-07-25 — **Core engine locked: inference = compounding multiplier** —
+  reasoners generate edges from the existing graph, so growth is self-
+  accelerating. The rest of the design serves this loop.
+- 2026-07-25 — **Render a representative graph, not one node per triple** —
+  simulate in numbers; use level-of-detail + a WebGL renderer (sigma.js /
+  cytoscape.js) so huge graphs stay smooth on mobile.
 - 2026-07-25 — **Record the planned stack now** (vanilla TS + Vite,
   break_eternity, localStorage, GitHub Pages) in CLAUDE.md, marked as planned —
   gives future sessions a starting point; still changeable before the game
