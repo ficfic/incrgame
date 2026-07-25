@@ -1,0 +1,68 @@
+# incrgame — project rules & ways of working
+
+A solo incremental/idle game, built to run on **GitHub Pages** and played
+mainly by the owner in **iOS Edge**. Developed **entirely through Claude Code
+on mobile/web**, where each session starts in a fresh, ephemeral container and
+context may be summarized mid-session.
+
+**Read this first every session, then skim `docs/DECISIONS.md` and
+`docs/BACKLOG.md`.** Those three files are the project's durable memory — they
+survive when a session's context does not.
+
+---
+
+## The one constraint that shapes everything
+
+Sessions are **ephemeral and mobile**. Anything that must outlive a session
+lives in a **committed file**, never in Claude's memory or the chat scrollback.
+That is why the decision log and backlog exist and must be kept current.
+
+---
+
+## Ways of working
+
+- **Confirm decisions with chips.** Whenever there's a genuine choice (design,
+  scope, tradeoffs, "A or B"), use the `AskUserQuestion` tool (tappable option
+  chips) rather than a wall of prose. Up to 4 questions per prompt, 2–4 options
+  each, plus free-text. This is the owner's preferred way to decide on mobile.
+  Don't use it for trivial calls with an obvious default — just proceed and say
+  what you did.
+- **Default mode: build, then review.** For most changes, make the change and
+  present the result for review — the owner reviews after. Reserve up-front
+  plans for genuinely large or hard-to-reverse work.
+- **Log every real decision.** After any non-trivial choice, append a one-line
+  entry to `docs/DECISIONS.md` (date, decision, one-line why). Skip trivia.
+- **Keep the backlog live.** When work is finished or new work appears, update
+  `docs/BACKLOG.md` so the next session knows the state without being re-told.
+- **Be brief.** Output is read on a phone. Lead with the answer; keep prose
+  tight; prefer chips and short lists over long paragraphs.
+
+## Guardrails (some are enforced, not just asked)
+
+- **Destructive git is hard-blocked** by `.claude/hooks/guardrails.sh`:
+  `push --force` (use `--force-with-lease` if truly needed), `reset --hard`,
+  `clean -f`, `checkout/switch --force`, `branch -D`. If one is genuinely
+  necessary, explain why and get explicit confirmation first.
+- **This repo is PUBLIC. Never commit secrets.** The same hook scans staged
+  commits for common key shapes and blocks them. Secrets belong in GitHub
+  Actions secrets or an untracked, gitignored env file — never in the repo.
+- **Develop on branch `claude/incremental-game-github-pages-w7pvk6`.** Commit
+  with clear messages; push with `git push -u origin <branch>`. Don't push to
+  other branches without explicit permission. Don't open a PR unless asked.
+
+## Planned stack (not built yet — changeable)
+
+- **Vanilla TypeScript + Vite** — minimal build, easy to debug from mobile.
+- **[break_eternity.js](https://github.com/Patashu/break_eternity.js)** for big
+  numbers (idle games blow past `1e308` fast).
+- **localStorage** saves, with an export/import-to-clipboard escape hatch
+  (mobile browsers can clear storage).
+- **GitHub Pages** deploy via a GitHub Action.
+- Game content (resources, generators, upgrades, costs, formulas) kept as
+  **declarative data** so it's safe and easy to extend from a phone; the engine
+  (tick loop, save/load, number formatting) stays small and stable.
+
+## Commit conventions
+
+- Small, focused commits with a clear subject line (imperative mood).
+- Never commit secrets or large build artifacts (see `.gitignore`).
