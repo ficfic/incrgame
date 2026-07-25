@@ -3,7 +3,15 @@
 import type { Action, GameState, GeneratorId, ResourceId } from './types';
 import { TIER_LADDER } from './types';
 import { add, sub, gte, mul, scaleCost, D } from './numbers';
+import { nextRand } from './rng';
 import { GENERATORS } from '../content/generators';
+
+// Graph-life tuning knobs (structure grows organically, never 1:1 with clicks).
+// NOTE (logged in DECISIONS): ambient growth off data production is an M1.5
+// bridge for "the graph must always live"; at M3 the graph rebinds to
+// triples/entities balances and this bridge is replaced.
+const CROSSLINK_CHANCE = 0.35;    // a connect sometimes discovers an extra relation
+const AMBIENT_GROWTH_CHANCE = 0.003; // per producing tick (10 Hz ⇒ ~1.8 nodes/min)
 
 export const CURRENT_SAVE_VERSION = 1;
 
@@ -59,17 +67,40 @@ export function apply(state: GameState, action: Action): GameState {
       }
       const lastTick = action.now ?? state.lastTick + dt * 1000;
       if (!touched && lastTick === state.lastTick) return state;
-      return { ...state, resources, lastTick };
+
+      // Ambient graph life: while generators produce, structure keeps forming
+      // on its own (seeded RNG — deterministic, no save-scumming). Offline
+      // deliberately does NOT do this: structure freezes with the multipliers.
+      let { graph, rngState } = state;
+      if (touched) {
+        const [roll, seed1] = nextRand(rngState);
+        rngState = seed1;
+        if (roll < AMBIENT_GROWTH_CHANCE) {
+          const [extraRoll, seed2] = nextRand(rngState);
+          rngState = seed2;
+          graph = {
+            nodes: graph.nodes + 1,
+            edges: graph.edges + 1 + (extraRoll < CROSSLINK_CHANCE ? 1 : 0),
+          };
+        }
+      }
+      return { ...state, resources, lastTick, graph, rngState };
     }
 
     case 'manualConnect': {
       // +1 data, and the graph visibly grows — the first-30-seconds hook.
-      const nodes = state.graph.nodes + 1;
-      const edges = state.graph.edges + (state.graph.nodes >= 1 ? 1 : 0);
+      // Edges vary: every new node attaches once, and sometimes a cross-link
+      // forms too, so the structure tangles instead of staying a clean chain.
+      const [roll, rngState] = nextRand(state.rngState);
+      const crosslink = state.graph.nodes >= 4 && roll < CROSSLINK_CHANCE ? 1 : 0;
       return {
         ...state,
+        rngState,
         resources: { ...state.resources, data: add(state.resources.data, 1) },
-        graph: { nodes, edges },
+        graph: {
+          nodes: state.graph.nodes + 1,
+          edges: state.graph.edges + 1 + crosslink,
+        },
       };
     }
 

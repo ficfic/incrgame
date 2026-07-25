@@ -66,6 +66,13 @@ describe('offline progress', () => {
     expect(D(state.resources.data).toNumber()).toBeCloseTo(0.1 * 8 * 3600, 6);
   });
 
+  it('freezes graph structure and RNG offline (deliberate: multipliers freeze, structure too)', () => {
+    const s = withHarvesters(3, 1_000_000);
+    const { state } = applyOfflineProgress(s, 1_000_000 + 3600 * 1000);
+    expect(state.graph).toEqual(s.graph);
+    expect(state.rngState).toBe(s.rngState);
+  });
+
   it('never goes backwards on clock skew', () => {
     const s = withHarvesters(1, 2_000_000);
     const { state, elapsedMs } = applyOfflineProgress(s, 1_500_000); // clock went back

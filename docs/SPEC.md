@@ -78,8 +78,10 @@ type Action =
 ```
 
 `apply` is pure. Actions that draw randomness MUST thread the new seed back into
-returned state (see RNG). M0/M1 actions (`tick`/`manualConnect`/`buyGenerator`)
-are fully deterministic — no RNG needed until M3.
+returned state (see RNG). Since M1.5, `manualConnect` and producing `tick`s draw
+seeded RNG for graph texture (cross-links, ambient growth) — still deterministic
+via the threaded seed; `buyGenerator` remains RNG-free. (Amended from "no RNG
+until M3" — see DECISIONS 2026-07-25.)
 
 ## Tick model
 

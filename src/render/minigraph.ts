@@ -1,17 +1,27 @@
-// M1 mini graph renderer — canvas 2D, deliberately thin (ARCHITECTURE: "MVP
-// stays thin"). Swappable: the PixiJS bloom replaces this at M3 without
-// touching core/. Renders a REPRESENTATIVE constellation with LOD — never one
-// node per triple (mobile perf guardrail).
+// M1.5 mini graph renderer — canvas 2D, deliberately thin (ARCHITECTURE: "MVP
+// stays thin"; PixiJS bloom replaces this at M3 without touching core/).
+// Renders a REPRESENTATIVE constellation with LOD — never one node per triple.
+// Always alive: slow rotation + twinkle; pan/zoom lives in the UI layer and
+// arrives here as a view transform.
 import type { GraphStats } from '../core/types';
 
-const MAX_RENDER_NODES = 72; // LOD cap; beyond this the constellation densifies visually, not literally
-const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+export const MAX_RENDER_NODES = 240; // LOD cap; past this the constellation densifies visually
 
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const BG = '#0b0e14';
-const EDGE = 'rgba(83, 224, 196, 0.22)';
-const NODE = '#53e0c4';
-const NODE_DIM = '#2f8f83';
-const CORE = '#d9fff5';
+
+export interface GraphView {
+  x: number;    // pan offset, css px
+  y: number;
+  zoom: number; // 1 = fit
+}
+
+/** Accent hue for a given graph size — the world's palette drifts as you grow.
+ *  teal (~10 nodes) → azure (~100) → violet (~1k) → magenta (~10k) → ember (~100k). */
+export function stageHue(nodes: number): number {
+  const drift = Math.max(0, Math.log10(Math.max(nodes, 1)) - 1) * 36;
+  return (168 + drift) % 360;
+}
 
 /** Deterministic pseudo-hash for per-node jitter (render-only; NOT game RNG). */
 function jitter(i: number, salt: number): number {
@@ -22,23 +32,31 @@ function jitter(i: number, salt: number): number {
 
 interface P { x: number; y: number }
 
-function layout(count: number, w: number, h: number): P[] {
+function layout(count: number, w: number, h: number, spin: number): P[] {
   const cx = w / 2, cy = h / 2;
   const maxR = Math.min(w, h) * 0.44;
+  const denom = Math.max(count, 40);
   const pts: P[] = [];
   for (let i = 0; i < count; i++) {
-    // golden-angle spiral: stable positions — existing nodes never move when one is added
-    const r = i === 0 ? 0 : maxR * Math.sqrt(i / Math.max(count, MAX_RENDER_NODES * 0.6));
-    const a = i * GOLDEN_ANGLE;
+    // golden-angle spiral: stable positions — existing nodes never move when
+    // one is added; the whole constellation rotates slowly as one body
+    const r = i === 0 ? 0 : maxR * Math.sqrt(i / denom);
+    const a = i * GOLDEN_ANGLE + spin;
     pts.push({
-      x: cx + Math.cos(a) * r + jitter(i, 1) * 8,
-      y: cy + Math.sin(a) * r + jitter(i, 2) * 8,
+      x: cx + Math.cos(a) * r + jitter(i, 1) * 7,
+      y: cy + Math.sin(a) * r + jitter(i, 2) * 7,
     });
   }
   return pts;
 }
 
-export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, pulse = 0): void {
+export interface DrawOptions {
+  view: GraphView;
+  timeMs: number; // animation clock (ambient twinkle + rotation)
+  pulse: number;  // 0..1, connect feedback on the newest node
+}
+
+export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, opts: DrawOptions): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -47,41 +65,89 @@ export function drawGraph(canvas: HTMLCanvasElement, graph: GraphStats, pulse = 
     canvas.width = w * dpr;
     canvas.height = h * dpr;
   }
+  const { view, timeMs, pulse } = opts;
+  const t = timeMs / 1000;
+  const hue = stageHue(graph.nodes);
+  const node = `hsl(${hue} 70% 60%)`;
+  const nodeDim = `hsl(${hue} 45% 38%)`;
+  const core = `hsl(${hue} 100% 92%)`;
+
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, w, h);
 
-  const shown = Math.max(1, Math.min(graph.nodes, MAX_RENDER_NODES));
-  const pts = layout(shown, w, h);
+  // view transform: zoom about the panel center, then pan
+  ctx.translate(w / 2 + view.x, h / 2 + view.y);
+  ctx.scale(view.zoom, view.zoom);
+  ctx.translate(-w / 2, -h / 2);
 
-  // representative edges: each node links back to a deterministic ancestor
-  ctx.strokeStyle = EDGE;
+  const shown = Math.max(1, Math.min(graph.nodes, MAX_RENDER_NODES));
+  const spin = t * 0.02; // one slow revolution every ~5 minutes — always moving
+  const pts = layout(shown, w, h, spin);
+  const sizeScale = Math.max(0.42, Math.sqrt(48 / Math.max(shown, 48)));
+
+  // edges: a spanning tree first, then surplus edges become faint cross-chords
   ctx.lineWidth = 1;
-  const shownEdges = Math.min(graph.edges, shown - 1);
-  for (let i = 1; i <= shownEdges; i++) {
+  const treeEdges = Math.min(graph.edges, shown - 1);
+  ctx.strokeStyle = `hsl(${hue} 45% 40% / 0.25)`;
+  ctx.beginPath();
+  for (let i = 1; i <= treeEdges; i++) {
     const parent = i === 1 ? 0 : Math.abs(Math.floor(jitter(i, 3) * 2 * i)) % i;
     const a = pts[parent] ?? pts[0]!;
     const b = pts[i]!;
-    ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
+  }
+  ctx.stroke();
+
+  const chords = Math.min(Math.max(graph.edges - (shown - 1), 0), shown);
+  if (chords > 0 && shown > 3) {
+    ctx.strokeStyle = `hsl(${hue} 55% 50% / 0.12)`;
+    ctx.beginPath();
+    for (let c = 0; c < chords; c++) {
+      const i = Math.abs(Math.floor(jitter(c, 5) * 2 * shown)) % shown;
+      const j = Math.abs(Math.floor(jitter(c, 6) * 2 * shown)) % shown;
+      if (i === j) continue;
+      ctx.moveTo(pts[i]!.x, pts[i]!.y);
+      ctx.lineTo(pts[j]!.x, pts[j]!.y);
+    }
     ctx.stroke();
+  }
+
+  // beyond the LOD cap the world keeps visibly thickening: an outer halo of
+  // "unrendered mass" grows with the true count
+  const overflow = graph.nodes / MAX_RENDER_NODES;
+  if (overflow > 1) {
+    const halo = Math.min(0.45, 0.16 * Math.log10(overflow * 10));
+    const maxR = Math.min(w, h) * 0.47;
+    ctx.strokeStyle = `hsl(${hue} 70% 55% / ${halo})`;
+    ctx.lineWidth = 4 + 3 * Math.log10(overflow * 10);
+    ctx.beginPath();
+    ctx.arc(w / 2, h / 2, maxR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 1;
   }
 
   for (let i = 0; i < shown; i++) {
     const p = pts[i]!;
     const isHub = i === 0;
     const isNewest = i === shown - 1 && shown > 1;
-    const r = isHub ? 7 : 2.6 + 1.6 * Math.abs(jitter(i, 4));
+    // ambient twinkle: each node breathes on its own phase — never a still frame
+    const tw = 0.78 + 0.22 * Math.sin(t * (0.6 + Math.abs(jitter(i, 7))) + i * 1.7);
+    const r = isHub
+      ? 7 + 2 * Math.max(0, Math.log10(Math.max(overflow, 1)))
+      : (2.6 + 1.6 * Math.abs(jitter(i, 4))) * sizeScale;
+    ctx.globalAlpha = isHub ? 1 : tw;
     ctx.beginPath();
     ctx.arc(p.x, p.y, isNewest ? r + pulse * 3 : r, 0, Math.PI * 2);
-    ctx.fillStyle = isHub ? NODE : isNewest ? NODE : NODE_DIM;
+    ctx.fillStyle = isHub || isNewest ? node : nodeDim;
     ctx.fill();
     if (isHub) {
       ctx.beginPath();
       ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-      ctx.fillStyle = CORE;
+      ctx.fillStyle = core;
       ctx.fill();
     }
   }
+  ctx.globalAlpha = 1;
 }

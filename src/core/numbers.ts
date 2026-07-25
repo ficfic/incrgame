@@ -12,9 +12,15 @@ export const mul = (a: Dec, b: Dec | number): Dec => D(a).mul(b).toString();
 export const gte = (a: Dec, b: Dec | number): boolean => D(a).gte(b);
 export const gt = (a: Dec, b: Dec | number): boolean => D(a).gt(b);
 
-/** cost(n) = baseCost × ratio^n, kept as Dec. */
+/** cost(n) = ceil(baseCost × ratio^n) — costs are always whole units
+ *  (genre norm; fractional prices read as a bug). */
 export const scaleCost = (baseCost: Dec, ratio: number, owned: number): Dec =>
-  D(baseCost).mul(Decimal.pow(ratio, owned)).toString();
+  D(baseCost).mul(Decimal.pow(ratio, owned)).ceil().toString();
+
+/** Format the whole-unit part of a balance (stocks display as integers;
+ *  the fractional remainder keeps accruing silently underneath). Suffixed
+ *  magnitudes keep their decimals — only the sub-1000 range shows raw units. */
+export const formatWhole = (v: Dec): string => format(D(v).floor().toString());
 
 const SUFFIXES = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
 

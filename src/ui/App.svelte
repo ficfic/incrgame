@@ -2,9 +2,10 @@
   import { onMount } from 'svelte';
   import { game, awayReport, dispatch, exportSave, importSave, startGame } from '../shell/game';
   import { generatorCost, ratePerSecond } from '../core/engine';
-  import { format, gte } from '../core/numbers';
+  import { format, formatWhole, gte } from '../core/numbers';
   import { GENERATORS, M1_ROSTER } from '../content/generators';
   import { RESOURCE_LABELS } from '../content/resources';
+  import { stageHue } from '../render/minigraph';
   import GraphPanel from './GraphPanel.svelte';
 
   let toast = $state('');
@@ -12,6 +13,15 @@
   let pulseKey = $state(0);
 
   const dataRate = $derived(ratePerSecond($game, 'data'));
+
+  // The whole UI's accent drifts with graph size — the world ages with you.
+  const hue = $derived(stageHue($game.graph.nodes));
+  $effect(() => {
+    document.documentElement.style.setProperty('--hue', String(Math.round(hue)));
+  });
+
+  // Horizon tease: the next machine is visible (locked) once you own the first.
+  const nextLocked = $derived($game.generators.harvester >= 1 ? GENERATORS.extractor : null);
 
   function connect() {
     dispatch({ type: 'manualConnect' });
@@ -87,7 +97,7 @@
   {/if}
 
   <section class="counter" aria-live="polite">
-    <div class="amount">{format($game.resources.data)}</div>
+    <div class="amount">{formatWhole($game.resources.data)}</div>
     <div class="sub">
       {RESOURCE_LABELS.data}
       {#if dataRate !== '0'}<span class="rate">+{format(dataRate)}/s</span>{/if}
@@ -119,6 +129,16 @@
         </span>
       </button>
     {/each}
+    {#if nextLocked}
+      <div class="gen locked">
+        <span class="gen-name">???</span>
+        <span class="gen-meta">
+          <span class="cost">
+            {format(nextLocked.baseCost)} {RESOURCE_LABELS[nextLocked.costResource]}
+          </span>
+        </span>
+      </div>
+    {/if}
   </section>
 
   <footer>
@@ -170,7 +190,7 @@
     line-height: 1.1;
   }
   .sub { color: #7f95a3; font-size: 0.95rem; }
-  .rate { color: #53e0c4; margin-left: 6px; }
+  .rate { color: hsl(var(--hue, 168) 70% 60%); margin-left: 6px; }
   .connect {
     appearance: none;
     border: none;
@@ -179,8 +199,12 @@
     font-size: 1.25rem;
     font-weight: 700;
     color: #06231d;
-    background: linear-gradient(180deg, #5ff0d2, #3cc9ab);
-    box-shadow: 0 6px 24px rgba(83, 224, 196, 0.25);
+    background: linear-gradient(
+      180deg,
+      hsl(var(--hue, 168) 82% 66%),
+      hsl(var(--hue, 168) 55% 51%)
+    );
+    box-shadow: 0 6px 24px hsl(var(--hue, 168) 70% 60% / 0.25);
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -211,7 +235,9 @@
   .gen-meta { display: flex; flex-direction: column; align-items: end; gap: 2px; }
   .owned { color: #7f95a3; font-size: 0.85rem; }
   .cost { color: #b06a6a; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
-  .cost.ok { color: #53e0c4; }
+  .cost.ok { color: hsl(var(--hue, 168) 70% 60%); }
+  .gen.locked { opacity: 0.4; cursor: default; filter: saturate(0.4); }
+  .gen.locked .cost { color: #7f95a3; }
   footer { margin-top: auto; display: flex; gap: 10px; justify-content: center; }
   .ghost {
     appearance: none;

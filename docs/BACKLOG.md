@@ -57,10 +57,18 @@ without being re-briefed. Move finished items to **Done** with a date.
       workflow, versioned save in IndexedDB, export/import, offline progress.
 - [x] **Deployed to production** (2026-07-25): merged into the pinned branch,
       Pages run green — **live at <https://ficfic.github.io/incrgame/>**.
-- [ ] **▶ NEXT: owner verifies on-device** — open the URL on the phone, install
-      to home screen (Safari if Edge won't), confirm standalone + save survives.
-      Then **M3** (Extractor → Triples, Reasoner + bounded inference multiplier,
-      PixiJS bloom).
+- [x] **M1.5 feedback round shipped** (2026-07-25): owner playtest → 3 review
+      agents → integer costs/display, node/edge decoupling (crosslinks), ambient
+      graph life, LOD densification past cap, pan/zoom, progress-driven palette,
+      locked next-generator teaser. See DECISIONS.
+- [ ] **▶ NEXT: M3, re-scoped per agents** — (1) graph rebind: edges←triples,
+      nodes←entity emergence; data = fuel only (deletes the ambient bridge);
+      (2) Extractor + Reasoner, multiplier consumes `resources.triples` and is
+      SHOWN on screen ("Inference ×1.34"); (3) PixiJS bloom w/ production-driven
+      motion (no production = still graph), pan/zoom carried over; (4) event
+      ticker (Paperclips-style) — NEEDS OWNER-WRITTEN LINES (prose guardrail).
+      Then M4 fast (sell = graph visibly shrinks — the payoff).
+- [ ] Owner: on-device iOS install check (Safari if Edge won't) — still open.
 - [ ] Shake down the review agents on the new code (the-graph on `src/core/`,
       chad-liquidity on the M1 feel, the-redditor on genre feel).
 - [ ] (Later) ESLint boundary rule enforcing core-purity (no DOM in `core/`).

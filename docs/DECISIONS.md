@@ -7,6 +7,35 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **M1.5 feedback round** (owner playtest + three review agents:
+  Chad `NEEDS ANOTHER ROUND`, Redditor `FINE, I GUESS`, The Graph `DRIFT
+  DETECTED` — all three converge on "ship M3 next"). Changes:
+  - **Costs are whole units** — `cost(n) = ceil(base × ratio^n)` — and the
+    headline counter displays `floor(balance)` (genre law per Redditor: Cookie
+    Clicker/AD do exactly this); decimals remain internal and on the /s rate.
+  - **Seeded RNG pulled forward to M1.5** for graph texture: `manualConnect`
+    cross-links (35%), ambient growth on producing ticks (0.3%/tick ≈ 1.8
+    nodes/min). Determinism preserved (seed threaded per SPEC); SPEC's "no RNG
+    until M3" note amended. Fixes owner's "nodes always equal edges."
+  - **Ambient growth off data production is an M1.5 BRIDGE** (owner: "something
+    must at all times happen with the graph"). The Graph correctly objects that
+    raw data should not manufacture structure — accepted: at **M3 the graph
+    rebinds** to a projection of triples/entities balances (edges←triples,
+    nodes←entity emergence) and this bridge is deleted. Fuel-vs-structure then
+    becomes legible, and M4 selling visibly shrinks the graph (Chad's payoff).
+  - **Offline freezes structure + RNG** (only resources accrue) — deliberate:
+    per-tick RNG can't replay 288k rolls; revisit at M3 when the derived graph
+    makes offline growth exact and free.
+  - **Renderer**: LOD cap 72→240 with honest densification past cap (halo of
+    unrendered mass, size scaling, surplus edges drawn as cross-chords — the
+    old cap froze the picture at ~143 "things", the owner's exact complaint);
+    always-alive (twinkle + slow rotation + continuous rAF); pan/pinch-zoom
+    with reset; **palette hue drifts with log10(nodes)** and tints the whole
+    UI via `--hue` (owner: colors change with progress).
+  - **M3 seam noted (The Graph):** the inference multiplier must consume
+    `resources.triples` (Dec), NOT `graph.edges` (JS number, 2^53 ceiling) —
+    graph stays the bounded reward-surface projection, not balance input.
+    Supersedes the earlier "edges feed the multiplier" line.
 - 2026-07-25 — **M0+M1+M2 built** (session branch `claude/project-review-build-shub7f`).
   Build-session decisions, all additive:
   - **`graph: {nodes, edges}` added to `GameState` v1** — M1 needs the graph to
