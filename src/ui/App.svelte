@@ -6,6 +6,7 @@
   import { format, formatWhole, gte } from '../core/numbers';
   import { GENERATORS, M1_ROSTER } from '../content/generators';
   import { RESOURCE_LABELS } from '../content/resources';
+  import { FRONTIER_CAP } from '../core/graph';
   import { stageHue } from '../render/minigraph';
   import GraphPanel from './GraphPanel.svelte';
 
@@ -27,7 +28,7 @@
   let floats = $state<{ id: number; x: number }[]>([]);
   let nextFloatId = 0;
 
-  const frontierFull = $derived($game.forged.frontier.length >= 8);
+  const frontierFull = $derived($game.forged.frontier.length >= FRONTIER_CAP);
   const nextClaimCost = $derived(claimCost($game));
 
   function survey() {
@@ -165,7 +166,7 @@
   <div class="connect-wrap">
     <button class="connect" onclick={survey} class:dim={frontierFull}>
       Survey
-      <small>reveal an entity · frontier {$game.forged.frontier.length}/8</small>
+      <small>reveal an entity · frontier {$game.forged.frontier.length}/{FRONTIER_CAP}</small>
     </button>
     {#each floats as f (f.id)}
       <span class="float" style="left: calc(50% + {f.x}px)">+1</span>

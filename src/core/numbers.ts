@@ -4,7 +4,6 @@ import Decimal from 'break_eternity.js';
 import type { Dec } from './types';
 
 export const D = (v: Dec | number): Decimal => new Decimal(v);
-export const dec = (v: Decimal | number): Dec => new Decimal(v).toString();
 
 export const add = (a: Dec, b: Dec | number): Dec => D(a).add(b).toString();
 export const sub = (a: Dec, b: Dec | number): Dec => D(a).sub(b).toString();
