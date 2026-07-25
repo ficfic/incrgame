@@ -42,30 +42,9 @@ describe('KNOWN DEFECT — the speed-versus-truth loop is switched off in gen 1'
   });
 });
 
-describe('KNOWN DEFECT — the world can be hand-completed, machines optional', () => {
-  it('4096 discoveries finish the game at perfect fidelity with zero agents', () => {
-    // `discover` mints a node AND a verified statement. 8 concurrent bookings
-    // at 18s each = 0.444 concepts/s = ~2h34m for the whole dataset. The
-    // machine route takes ~3.5h, so the machine the game is ABOUT is optional.
-    let s: GameState = { ...initialState(), lastTick: 1000 };
-    let t = 1000;
-    for (let step = 0; step < 200_000 && recovered(s) < CONCEPT_BUDGET; step++) {
-      for (let k = 0; k < 8; k++) {
-        const next = apply(s, { type: 'discover' });
-        if (next === s) break;
-        s = next;
-      }
-      t += 1000;
-      s = apply(s, { type: 'tick', dt: 1, now: t });
-    }
-    expect(recovered(s)).toBe(CONCEPT_BUDGET);
-    expect(fidelity(s)).toBe(1);
-    expect(s.generators.extractor).toBe(0);
-    expect(s.generators.reasoner).toBe(0);
-    // wall-clock the run would have taken, as a guard against it getting FASTER
-    expect((t - 1000) / 60_000).toBeGreaterThan(120); // minutes
-  });
-});
+// (The hand-completion defect was FIXED on 2026-07-25 — discovery now lands a
+//  concept dark and a line must be filled before it counts. The assertion moved
+//  to test/collapse.test.ts, inverted. This is what a resolved entry looks like.)
 
 describe('KNOWN DEFECT — prestige after a completed run is a dead end', () => {
   it('retraining a finished world zeroes recovery permanently', () => {

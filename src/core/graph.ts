@@ -32,8 +32,15 @@ export function deriveGraph(forged: ForgedGraph, triples: Dec): GraphStats {
   };
 }
 
+/** Drawn lines, capped. Distinct from `deriveGraph().edges`, which is the
+ *  statement BALANCE and is a different quantity — the balance counts every
+ *  statement the machines have ever minted; this counts lines actually on the
+ *  board. Keeping them separate is why the balance can be astronomical while
+ *  the picture stays inside the mobile render budget. */
+export const EDGE_CAP = 512;
+
 export function emptyForged(): ForgedGraph {
-  return { nextId: 1, anchors: [0], links: [], frontier: [], foldedNodes: '0' };
+  return { nextId: 1, anchors: [0], links: [], edges: [], frontier: [], foldedNodes: '0' };
 }
 
 // (datums span, datums per new node/edge). Tuning knobs — feel, then adjust.

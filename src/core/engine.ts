@@ -12,17 +12,17 @@
 // falls until recovery stops. You prestige because you stalled, and what you
 // inherit is your own machine output, which drifts faster. The stated goal is
 // unreachable by construction, and gets further away every generation.
-import type { Action, GameState, GeneratorId, ResourceId, ReviewItem } from './types';
+import type { Action, Edge, GameState, GeneratorId, ResourceId, ReviewItem } from './types';
 import { TIER_LADDER } from './types';
 import { add, sub, gte, mul, scaleCost, D } from './numbers';
 import Decimal from 'break_eternity.js';
-import { ANCHOR_CAP, FRONTIER_CAP, LINK_CAP, deriveGraph, emptyForged } from './graph';
+import { ANCHOR_CAP, EDGE_CAP, FRONTIER_CAP, LINK_CAP, deriveGraph, emptyForged } from './graph';
 import { GENERATORS } from '../content/generators';
 import { CONCEPT_BUDGET } from '../content/ontologyMeta';
 import { VIGNETTES } from '../content/vignettes';
 import { nextRand } from './rng';
 
-export const CURRENT_SAVE_VERSION = 10;
+export const CURRENT_SAVE_VERSION = 11;
 
 // Frontier Mining knobs (Chad's term sheet; tune by playing)
 const START_DATA = '15';        // enough to wire the first ~2 entities
@@ -58,6 +58,10 @@ const ATTENTION_BASE = 4;
 const ATTENTION_PER_DECADE = 4.5;
 export const DISCOVER_MS = 18_000;
 export const REVIEW_BOOK_MS = 25_000;
+/** Filling in a dotted line is the FAST verb. Discovery finds a thing and is
+ *  slow and human-only; connecting realises a line the world already offers.
+ *  Two verbs at two tempos, because one verb on one timer is a metronome. */
+export const CONNECT_MS = 7_000;
 
 /** Building an agent COSTS VERIFIED STATEMENTS — you distil the next one out of
  *  the graph you already trust. Which is, exactly, the setup of the paper this
@@ -121,6 +125,10 @@ const ABSORB_SLICE = 0.25;
 const ABSORB_MIN = 50;
 const INHERIT_FRACTION = 0.25;  // of what your machines minted this run
 const SYNTHETIC_STEP = 0.5;     // each prestige closes half the gap to fully synthetic
+/** Lines drawn per statement minted. Well under 1: statements are the volume
+ *  the machines produce, lines are the structure, and structure should always
+ *  lag volume — that gap is what the player is for. */
+const AGENT_LINES_PER_STATEMENT = 0.12;
 
 /** Price of wiring in the NEXT frontier entity: ceil(5 × 1.08^handClaimed).
  *
@@ -208,6 +216,8 @@ export function initialState(seed = 1): GameState {
     lifetimeGenerated: '0',
     pending: '0',
     pendingClean: '0',
+    lineRot: 0,
+    lineDebt: 0,
     modifiers: {},
     vignette: { active: null, seen: [] },
     lifetimeVerified: '0',
@@ -255,10 +265,37 @@ export function fidelity(state: GameState): number {
   return Math.max(0, Math.min(1, f));
 }
 
+/** Nodes with at least one line actually drawn to them. A concept you have
+ *  found but never connected is DARK: on the board, and not yet recovered.
+ *
+ *  This is the hinge of the whole design. Coverage used to count nodes, and a
+ *  node only ever appeared — so coverage was a monotone ratchet and the world
+ *  could be finished by tapping Discover for two and a half hours without ever
+ *  buying a machine. Counting LIT concepts instead lets a rotting line drop a
+ *  concept back into the dark, so the number can fall, so the stated goal is
+ *  unreachable by construction rather than by hopeful tuning. */
+export function lit(state: GameState): number {
+  const seen = new Set<number>();
+  for (const e of state.forged.edges) { seen.add(e.a); seen.add(e.b); }
+  return seen.size;
+}
+
 /** Concepts recovered so far, clamped to the size of the dataset — the world is
- *  finite and the readout says so rather than looping past 100%. */
+ *  finite and the readout says so rather than looping past 100%.
+ *
+ *  `foldedNodes` is the aggregate mass Reasoners recover; it has no per-concept
+ *  identity and never had, so it is counted as-is and only the explicit layer
+ *  is gated on being lit. */
 export function recovered(state: GameState): number {
-  return Math.min(state.graph.nodes, CONCEPT_BUDGET);
+  const folded = D(state.forged.foldedNodes).floor().toNumber();
+  return Math.min(lit(state) + (Number.isFinite(folded) ? folded : 0), CONCEPT_BUDGET);
+}
+
+/** Lines you have drawn but nobody has checked. These are what rot. */
+export function unchecked(state: GameState): number {
+  let n = 0;
+  for (const e of state.forged.edges) if (!e.checked) n++;
+  return n;
 }
 
 export function coverage(state: GameState): number {
@@ -482,6 +519,18 @@ export function apply(state: GameState, action: Action): GameState {
         unverified = unverified.sub(rot);
         drifted = drifted.add(rot);
       }
+      // ...and the same decay UN-FILLS drawn lines. An unchecked line is one an
+      // unwatched agent drew; when it rots it is simply removed, and the
+      // connection goes back to being merely dotted. This is what lets coverage
+      // FALL — the single change that makes the stated goal unreachable by
+      // construction instead of by hopeful tuning.
+      //
+      // Deterministic, never random: `lineRot` accumulates the fractional debt
+      // in state, so the same save always decays the same lines at the same
+      // time and offline catch-up cannot diverge from real time.
+      let lineRot = state.lineRot + driftPerSecond(state) * dt * unchecked(state);
+      let decayed = 0;
+      while (lineRot >= 1) { lineRot -= 1; decayed++; }
       // Verified knowledge decays back to unchecked — but ONLY once your
       // ancestry is synthetic. Generation 1 is exactly zero here.
       const redrift = state.syntheticShare > 0
@@ -492,8 +541,61 @@ export function apply(state: GameState, action: Action): GameState {
       if (auto.gt(0)) unverified = unverified.sub(Decimal.min(auto, unverified));
       if (unverified.lt(0)) unverified = D(0);
 
-      // Reasoners recover concepts, gated by fidelity — the plateau lives here
+      // Agents draw lines as well as statements. Without this the only thing
+      // that ever fills a dotted line is a human thumb, coverage is capped by
+      // tap-time forever, and the no-babysitting rule in CLAUDE.md is broken.
+      //
+      // A watched agent's line arrives CHECKED and true. An unwatched one
+      // arrives unchecked — so it rots — and a share of them are INVENTED:
+      // connections the dataset does not contain, drawn identically to real
+      // ones. That share is the corruption rate the review desk already uses.
+      let rng = state.rngState;
       let forged = state.forged;
+      const drawn = D(supervisedPerSecond(state)).add(D(unsupervisedPerSecond(state)))
+        .mul(dt).mul(AGENT_LINES_PER_STATEMENT).toNumber();
+      let lineDebt = state.lineDebt + (Number.isFinite(drawn) ? drawn : 0);
+      if (lineDebt >= 1 && forged.anchors.length > 1) {
+        const made: Edge[] = [];
+        const cleanShare = D(supervisedPerSecond(state)).toNumber()
+          / Math.max(1e-9, D(supervisedPerSecond(state)).add(D(unsupervisedPerSecond(state))).toNumber());
+        let budget = Math.min(Math.floor(lineDebt), 24); // never stall a tick
+        lineDebt -= Math.floor(lineDebt);
+        while (budget-- > 0) {
+          let ra: number, rb: number, rc: number;
+          [ra, rng] = nextRand(rng);
+          [rb, rng] = nextRand(rng);
+          [rc, rng] = nextRand(rng);
+          const a = forged.anchors[Math.floor(ra * forged.anchors.length)] ?? 0;
+          const b = forged.anchors[Math.floor(rb * forged.anchors.length)] ?? 0;
+          if (a === b) continue;
+          const checked = rc < cleanShare;
+          made.push({ a, b, rel: 0, checked, fake: !checked });
+        }
+        if (made.length > 0) {
+          const next = [...forged.edges];
+          for (const e of made) {
+            if (next.some((x) => x.a === e.a && x.b === e.b && x.rel === e.rel)) continue;
+            next.push(e);
+          }
+          while (next.length > EDGE_CAP) next.shift();
+          forged = { ...forged, edges: next };
+          touched = true;
+        }
+      }
+      if (decayed > 0) {
+        // oldest unchecked lines go first, so a line survives exactly as long as
+        // it goes unexamined and no longer
+        const survivors = [...forged.edges];
+        for (let n = 0; n < decayed; n++) {
+          const i = survivors.findIndex((e) => !e.checked);
+          if (i < 0) { lineRot = 0; break; }
+          survivors.splice(i, 1);
+        }
+        if (survivors.length !== forged.edges.length) {
+          forged = { ...forged, edges: survivors };
+          touched = true;
+        }
+      }
       const gainedConcepts = recoveryPerSecond(state) * dt;
       if (gainedConcepts > 0) {
         forged = { ...forged, foldedNodes: add(forged.foldedNodes, String(gainedConcepts)) };
@@ -507,36 +609,47 @@ export function apply(state: GameState, action: Action): GameState {
       let bookings = state.bookings;
       let anchors = forged.anchors;
       let links = forged.links;
+      let edges = forged.edges;
       let foldedNodes = forged.foldedNodes;
       const done = bookings.filter((b) => b.until <= lastTick);
       if (done.length > 0) {
         bookings = bookings.filter((b) => b.until > lastTick);
         for (const b of done) {
+          // A finished CONNECT puts the line on the board. This is the only way
+          // a line the player drew comes into existence — you watch it fill.
+          if (b.kind === 'connect' && b.edge) {
+            if (anchors.includes(b.edge.a) && anchors.includes(b.edge.b)
+                && !edges.some((e) => e.a === b.edge!.a && e.b === b.edge!.b && e.rel === b.edge!.rel)) {
+              edges = [...edges, b.edge];
+              while (edges.length > EDGE_CAP) edges.shift();
+              resources = touched ? resources : { ...resources };
+              resources.triples = add(resources.triples, 1);
+              lifetimeVerified = lifetimeVerified.add(1);
+            }
+            continue;
+          }
           if (b.kind !== 'discover' || b.node === undefined) continue;
-          // Wire to the concept's REAL parent when we have it and it is still
-          // on the board. Recovery order guarantees parent(N) < N and parents
-          // land first, so it almost always is. The hash is now only a fallback
-          // for a folded-away parent or an unloaded chunk.
-          const anchor = b.parent !== undefined && anchors.includes(b.parent)
-            ? b.parent
-            : anchors[mixId(b.node) % anchors.length] ?? 0;
+          // A discovery lands the concept DARK. It sits on the board with every
+          // connection the dataset offers drawn as a dotted line, and it does
+          // not count toward coverage until one of them is filled in. Wiring an
+          // edge here for free is what made the world hand-completable in 2h34m
+          // without ever buying a machine.
           anchors = [...anchors, b.node];
-          links = [...links, [anchor, b.node] as [number, number]];
           while (anchors.length > ANCHOR_CAP) {
             const folded = anchors.splice(1, 1)[0]!;
             links = links.filter(([x, y]) => x !== folded && y !== folded);
+            edges = edges.filter((e) => e.a !== folded && e.b !== folded);
             // credit the fold, or every concept past the cap is destroyed and
             // coverage stops dead at ANCHOR_CAP
             foldedNodes = add(foldedNodes, 1);
           }
           while (links.length > LINK_CAP) links.shift();
-          resources = touched ? resources : { ...resources };
-          resources.triples = add(resources.triples, 1);
-          lifetimeVerified = lifetimeVerified.add(1);
         }
         forged = {
-          ...forged, anchors, links, foldedNodes,
-          frontier: bookings.map((b) => b.node ?? -1).filter((n) => n >= 0),
+          ...forged, anchors, links, edges, foldedNodes,
+          frontier: bookings
+            .filter((b) => b.kind === 'discover')
+            .map((b) => b.node ?? -1).filter((n) => n >= 0),
         };
         touched = true;
       }
@@ -549,16 +662,19 @@ export function apply(state: GameState, action: Action): GameState {
         lifetimeGenerated: lifetimeGenerated.toString(),
         lifetimeVerified: lifetimeVerified.toString(),
         bookings,
+        lineRot,
+        lineDebt,
+        rngState: rng,
         graph: deriveGraph(forged, resources.triples),
         lastTick,
       };
       // Mint the next batch only when the desk is empty — the array identity
       // must stay stable while the player is looking at it.
       if (next.review.length > 0) return next;
-      const drawn = mintReview(next);
-      return drawn.items.length === 0 && drawn.seed === next.rngState
+      const desk = mintReview(next);
+      return desk.items.length === 0 && desk.seed === next.rngState
         ? next
-        : { ...next, review: drawn.items, rngState: drawn.seed };
+        : { ...next, review: desk.items, rngState: desk.seed };
     }
 
     case 'survey':
@@ -600,6 +716,36 @@ export function apply(state: GameState, action: Action): GameState {
           nextId: node + 1,
           frontier: [...state.forged.frontier, node],
         },
+      };
+    }
+
+    case 'connect': {
+      // Fill in a dotted line. The shell decides WHICH potential connection was
+      // tapped and hands over the finished shape — core cannot tell a real
+      // relation from an invented one, and that is correct: neither can the
+      // player until they check it.
+      if (attentionFree(state) < 1) return state;
+      if (state.lastTick === 0) return state;
+      const { a, b, rel } = action.edge;
+      // both ends must be on the board, and the line must not already exist or
+      // already be in flight — otherwise a double-tap books the same work twice
+      if (!state.forged.anchors.includes(a) || !state.forged.anchors.includes(b)) return state;
+      if (state.forged.edges.some((e) => e.a === a && e.b === b && e.rel === rel)) return state;
+      if (state.bookings.some((x) => x.edge && x.edge.a === a && x.edge.b === b && x.edge.rel === rel)) {
+        return state;
+      }
+      return {
+        ...state,
+        bookings: [
+          ...state.bookings,
+          {
+            kind: 'connect' as const,
+            until: state.lastTick + CONNECT_MS,
+            // A line you draw yourself is checked, by definition — you looked
+            // at it. `fake` is carried through from the shell untouched.
+            edge: { ...action.edge, checked: true },
+          },
+        ],
       };
     }
 

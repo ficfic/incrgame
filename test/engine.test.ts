@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  agentCost, apply, attentionCap, attentionFree, DISCOVER_MS, fidelity, initialState,
+  agentCost, apply, attentionCap, attentionFree, CONNECT_MS, DISCOVER_MS, fidelity, initialState,
   supervisedPerSecond, tick, unsupervised, unsupervisedPerSecond, verified,
 } from '../src/core/engine';
 import { ANCHOR_CAP, FRONTIER_CAP } from '../src/core/graph';
@@ -75,27 +75,57 @@ describe('discovery is bounded by the clock and by the world', () => {
     expect(apply(nearly, { type: 'discover' }).bookings).toHaveLength(1);
   });
 
-  it('wires the edge to the REAL parent the shell handed it', () => {
+  it('does not wire any edge — a found concept lands dark', () => {
+    // Discovery used to mint a free anchor AND a free verified statement. That
+    // is what let a player finish the entire dataset by hand in ~2h34m without
+    // ever buying a machine, and it is why coverage could only ever go up.
     let s: GameState = { ...initialState(), lastTick: 1_000 };
-    // land node 1 first so there are two anchors to choose between
     s = apply(s, { type: 'discover' });
     s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
     expect(s.forged.anchors).toContain(1);
+    expect(s.forged.edges).toHaveLength(0);
+    expect(s.resources.triples).toBe('0');
+  });
+});
 
-    const t0 = s.lastTick;
-    s = apply(s, { type: 'discover', parent: 1 });
-    s = apply(s, { type: 'tick', dt: 20, now: t0 + DISCOVER_MS + 1 });
-    const link = s.forged.links.find(([, b]) => b === 2);
-    expect(link?.[0]).toBe(1); // the parent we asked for, not a hash
+describe('connecting — filling in a dotted line', () => {
+  const withTwo = (): GameState => {
+    let s: GameState = { ...initialState(), lastTick: 1_000 };
+    s = apply(s, { type: 'discover' });
+    return apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
+  };
+  const line = { a: 0, b: 1, rel: 0, checked: true, fake: false };
+
+  it('books a slot, and the line only exists once the work finishes', () => {
+    let s = withTwo();
+    const free = attentionFree(s);
+    s = apply(s, { type: 'connect', edge: line });
+    expect(attentionFree(s)).toBe(free - 1);
+    expect(s.forged.edges).toHaveLength(0);
+    s = apply(s, { type: 'tick', dt: 20, now: s.lastTick + CONNECT_MS + 1 });
+    expect(s.forged.edges).toHaveLength(1);
+    expect(attentionFree(s)).toBeGreaterThanOrEqual(free);
   });
 
-  it('falls back to an anchor when the named parent is not on the board', () => {
-    let s: GameState = { ...initialState(), lastTick: 1_000 };
-    s = apply(s, { type: 'discover', parent: 9999 }); // folded away / never loaded
-    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
-    const link = s.forged.links.find(([, b]) => b === 1);
-    expect(link?.[0]).toBe(0); // the root: the only anchor available
-    expect(s.forged.anchors).toContain(1);
+  it('refuses a duplicate, an in-flight repeat, and an end that is not on the board', () => {
+    let s = withTwo();
+    s = apply(s, { type: 'connect', edge: line });
+    // already booked
+    expect(apply(s, { type: 'connect', edge: line })).toBe(s);
+    s = apply(s, { type: 'tick', dt: 20, now: s.lastTick + CONNECT_MS + 1 });
+    // already drawn
+    expect(apply(s, { type: 'connect', edge: line })).toBe(s);
+    // an end that was never discovered
+    expect(apply(s, { type: 'connect', edge: { ...line, b: 999 } })).toBe(s);
+  });
+
+  it('costs attention, so it competes with discovering and reviewing', () => {
+    let s = withTwo();
+    for (let i = 0; i < attentionCap(s) + 2; i++) {
+      s = apply(s, { type: 'connect', edge: { a: 0, b: 1, rel: i, checked: true, fake: false } });
+    }
+    expect(attentionFree(s)).toBe(0);
+    expect(apply(s, { type: 'discover' })).toBe(s); // no slot left for anything else
   });
 });
 

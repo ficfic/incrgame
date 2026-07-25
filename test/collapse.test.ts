@@ -22,12 +22,35 @@ describe('provenance', () => {
     expect(fidelity(s)).toBe(1);
   });
 
-  it('counts a DISCOVERED concept as VERIFIED — you placed it yourself', () => {
+  it('lands a discovered concept DARK — finding is not recovering', () => {
+    // Discovery used to mint a free verified statement and a guaranteed node,
+    // which is what made the whole world hand-completable in ~2h34m without
+    // ever buying a machine. A found concept now sits on the board with its
+    // connections merely dotted, and counts for nothing until one is filled.
     let s: GameState = { ...initialState(), lastTick: 1_000 };
     s = apply(s, { type: 'discover' });
     s = apply(s, { type: 'tick', dt: 20, now: 1_000 + 18_001 });
-    expect(s.resources.triples).toBe('1');
-    expect(s.provenance.unverified).toBe('0');
+    expect(s.forged.anchors).toContain(1);   // it is on the board
+    expect(s.forged.edges).toHaveLength(0);  // and connected to nothing
+    expect(s.resources.triples).toBe('0');   // no free statement
+    expect(recovered(s)).toBe(0);            // and it does not count yet
+  });
+
+  it('a filled line is what recovers a concept, and it arrives checked', () => {
+    let s: GameState = { ...initialState(), lastTick: 1_000 };
+    s = apply(s, { type: 'discover' });
+    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + 18_001 });
+    expect(recovered(s)).toBe(0);
+
+    const t0 = s.lastTick;
+    s = apply(s, { type: 'connect', edge: { a: 0, b: 1, rel: 0, checked: true, fake: false } });
+    expect(s.bookings.some((b) => b.kind === 'connect')).toBe(true);
+    expect(s.forged.edges).toHaveLength(0); // not until it finishes filling
+    s = apply(s, { type: 'tick', dt: 20, now: t0 + 20_000 });
+
+    expect(s.forged.edges).toHaveLength(1);
+    expect(s.forged.edges[0]!.checked).toBe(true);
+    expect(recovered(s)).toBe(2);           // both ends are now lit
     expect(fidelity(s)).toBe(1);
   });
 
@@ -98,8 +121,10 @@ describe('the plateau — the reason the goal is unreachable', () => {
     // the dataset in about seven hours, so the claim was false. The ceiling is
     // now fidelity itself, which is also the game's whole argument.
     const gens = { ...initialState().generators, reasoner: 10 };
+    // coverage is driven by LIT concepts + folded mass now, never by graph.nodes
     const at = (nodes: number, unver: string, drift: string): number => recoveryPerSecond({
-      ...initialState(), generators: gens, graph: { nodes, edges: 0 },
+      ...initialState(), generators: gens,
+      forged: { ...initialState().forged, foldedNodes: String(nodes) },
       resources: { ...initialState().resources, triples: '100' },
       provenance: { unverified: unver, drifted: drift },
     });
@@ -124,11 +149,76 @@ describe('the plateau — the reason the goal is unreachable', () => {
     const done: GameState = {
       ...initialState(),
       generators: { ...initialState().generators, reasoner: 99 },
-      graph: { nodes: CONCEPT_BUDGET + 5000, edges: 0 },
+      forged: { ...initialState().forged, foldedNodes: String(CONCEPT_BUDGET + 5000) },
     };
     expect(recovered(done)).toBe(CONCEPT_BUDGET);
     expect(coverage(done)).toBe(1);
     expect(recoveryPerSecond(done)).toBe(0);
+  });
+});
+
+describe('the world can no longer be finished by hand alone', () => {
+  it('tapping Discover forever recovers nothing without lines', () => {
+    // The defect this replaces: 4096 discoveries completed the entire dataset
+    // at fidelity 1.000 in ~2h34m, with zero machines, because discovery minted
+    // a node AND a verified statement. Now a found concept is dark until a line
+    // is filled, and filling lines competes for the same attention slots.
+    let s: GameState = { ...initialState(), lastTick: 1_000 };
+    let t = 1_000;
+    for (let step = 0; step < 400; step++) {
+      for (let k = 0; k < 8; k++) {
+        const next = apply(s, { type: 'discover' });
+        if (next === s) break;
+        s = next;
+      }
+      t += 1000;
+      s = apply(s, { type: 'tick', dt: 1, now: t });
+    }
+    // dozens of concepts found — and note the cap never grew past its base 4,
+    // because attention capacity is fed by lifetimeVerified and discovery no
+    // longer mints any. Connecting is what earns you room to think.
+    expect(s.forged.anchors.length).toBeGreaterThan(50);
+    // ...and none of them recovered, because nothing was ever connected
+    expect(s.forged.edges).toHaveLength(0);
+    expect(recovered(s)).toBe(0);
+    expect(coverage(s)).toBe(0);
+  });
+
+  it('an unchecked line ROTS, and its concepts go dark again', () => {
+    // This is the mechanism that lets coverage FALL — the thing three balance
+    // passes could not achieve by tuning, because nothing in the model could
+    // ever reduce it.
+    let s: GameState = {
+      ...initialState(), lastTick: 1_000,
+      forged: {
+        ...initialState().forged,
+        anchors: [0, 1, 2],
+        nextId: 3,
+        edges: [{ a: 0, b: 1, rel: 0, checked: false, fake: false }],
+      },
+      resources: { ...initialState().resources, triples: '400' },
+      provenance: { unverified: '400', drifted: '0' },
+    };
+    expect(recovered(s)).toBe(2);
+    for (let i = 0; i < 2000 && s.forged.edges.length > 0; i++) s = tick(s, 1);
+    expect(s.forged.edges).toHaveLength(0); // the line un-filled
+    expect(recovered(s)).toBe(0);           // and both ends went dark
+  });
+
+  it('a line you drew yourself never rots', () => {
+    let s: GameState = {
+      ...initialState(), lastTick: 1_000,
+      forged: {
+        ...initialState().forged,
+        anchors: [0, 1], nextId: 2,
+        edges: [{ a: 0, b: 1, rel: 0, checked: true, fake: false }],
+      },
+      resources: { ...initialState().resources, triples: '400' },
+      provenance: { unverified: '400', drifted: '0' },
+    };
+    for (let i = 0; i < 5000; i++) s = tick(s, 1);
+    expect(s.forged.edges).toHaveLength(1);
+    expect(recovered(s)).toBeGreaterThanOrEqual(2);
   });
 });
 
@@ -330,6 +420,7 @@ describe('offline — you never come back to damage', () => {
 describe('prestige — retraining on yourself', () => {
   const ready = (): GameState => ({
     ...initialState(),
+    forged: { ...initialState().forged, foldedNodes: String(REFLECT_MIN_CONCEPTS) },
     graph: { nodes: REFLECT_MIN_CONCEPTS, edges: 400 },
     lifetimeGenerated: '400',
     resources: { ...initialState().resources, triples: '400', data: '999' },

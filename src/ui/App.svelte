@@ -10,7 +10,10 @@
   import { game, awayReport, dispatch, exportSave, flushProject, importSave, startGame } from '../shell/game';
   import { pendingVignette } from '../core/engine';
   import { VIGNETTES } from '../content/vignettes';
-  import { conceptAt, conceptForNode, loadManifest, ontologyCredit, ontologyRevision, warm } from '../shell/ontology';
+  import {
+    conceptAt, conceptForNode, loadManifest, ontologyCredit, ontologyRevision,
+    potentialEdges, warm,
+  } from '../shell/ontology';
   import { hit, layout, type Sheet, type SceneItem } from '../render/board';
   import { paint } from '../render/paint';
 
@@ -115,8 +118,17 @@
     for (const [id, l] of landings) if (now - l.at > 4000) { landings.delete(id); slotOf.delete(id); }
   });
 
+  // The dotted lines. Recomputed when the board changes or a chunk lands —
+  // never stored, because what is POSSIBLE belongs to the dataset and only what
+  // you have actually DRAWN belongs to your save.
+  const potential = $derived.by(() => {
+    void $ontologyRevision;
+    return potentialEdges($game.forged.anchors);
+  });
+
   const input = $derived({
     state: $game,
+    potential,
     w: vw,
     h: vh,
     sheet,
@@ -168,6 +180,13 @@
       case 'survey': {
         if (!it.enabled) { say('No free attention'); return; }
         dispatch({ type: 'discover', parent: nearestLivingAncestor($game.forged.nextId) });
+        return;
+      }
+      case 'dotted': {
+        if (!it.enabled) { say('No free attention'); return; }
+        const p = it.payload as { a: number; b: number; rel: number };
+        // Filling a line yourself makes it CHECKED and real — you looked at it.
+        dispatch({ type: 'connect', edge: { ...p, checked: true, fake: false } });
         return;
       }
       case 'setSupervision':
@@ -282,16 +301,17 @@
 
 {#if credit}
   <!-- CC BY 4.0 §3(a)(1): a real link, because a painted circle is not one. -->
-  <!-- `credit.text` is the ONLY string here that names Princeton, and it was
-       computed and then never rendered — while ATTRIBUTION.md claimed the
-       footer named both parties. The obligation was arguably still met through
-       the notice link, but the documented claim was false. -->
+  <!-- Names BOTH parties, which is what ATTRIBUTION.md claims and what the
+       footer previously did not do — `credit.text` was computed and thrown
+       away. The full statement of changes runs to three lines and covered the
+       machine row, so the first sentence is shown verbatim (it carries both
+       creators) and the notice link supplies the rest, which CC BY 4.0
+       §3(a)(2) expressly allows. Not paraphrased, not truncated mid-clause. -->
   <div class="credit">
-    {credit.text}
-    ·
+    {credit.short}
     <a href={credit.licenseUrl} target="_blank" rel="noopener license">CC BY 4.0</a>
     ·
-    <a href={credit.noticeUrl} target="_blank" rel="noopener">notice</a>
+    <a href={credit.noticeUrl} target="_blank" rel="noopener">full notice</a>
   </div>
 {/if}
 
@@ -322,11 +342,15 @@
   }
   .credit {
     position: fixed;
-    left: 10px;
-    bottom: calc(env(safe-area-inset-bottom) + 4px);
-    font-size: 0.58rem;
-    color: #2f3d4e;
+    left: 8px;
+    right: 8px;
+    bottom: calc(env(safe-area-inset-bottom) + 2px);
+    font-size: 0.52rem;
+    line-height: 1.25;
+    text-align: center;
+    color: #2a3646;
     z-index: 2;
+    pointer-events: auto;
   }
   .credit a { color: #3d5166; }
 </style>

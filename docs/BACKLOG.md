@@ -139,7 +139,19 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
 
 ## ▶ Next — in order
 
-- [ ] **★ EDGES THAT MEAN SOMETHING — decided 2026-07-25, not yet built.**
+- [x] **★ EDGES THAT MEAN SOMETHING — BUILT 2026-07-25 (save v11).** Dotted
+      lines for every connection the dataset offers; spend a slot to fill one
+      in. A concept counts only while a line supports it, unchecked lines rot
+      back to dotted, agents fill real ones and invent fake ones. Verified in a
+      browser end to end: 4 concepts found dark, 3 lines filled → 3 statements,
+      4 lit, attention grew 4→6. **This closes the hand-completion defect** —
+      the world can no longer be finished by tapping Discover.
+      Relations currently shipped: WordNet `is a` only (every concept has a
+      parent, so every concept arrives with a line you could fill). The other
+      four WordNet relations and the ConceptNet set slot into the same `Edge`
+      shape once the pipeline lands.
+
+- [ ] **★ ConceptNet pipeline — cleared by the-auditor, NOT yet built.**
       Owner chose **WordNet + ConceptNet**. Steps, in order:
       1. **the-auditor signs off the ConceptNet licence** (data is CC BY-SA 4.0;
          share-alike binds the shipped data file, not our source). Nothing gets

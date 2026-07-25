@@ -4,7 +4,7 @@ import type { GameState } from '../core/types';
 import type { BoardInput, SceneItem } from './board';
 import { anchorPos, band, frontierPos, stageHue } from './board';
 import { drawLabels, placeLabels, type LabelRequest } from './labels';
-import { displayedFidelity } from '../core/engine';
+import { CONNECT_MS, displayedFidelity } from '../core/engine';
 import { D } from '../core/numbers';
 
 const BG = '#080b11';
@@ -82,7 +82,7 @@ export function paint(canvas: HTMLCanvasElement, input: BoardInput, items: Scene
   }
 
   paintSubstrate(ctx, state, w, h, hue, t);
-  paintLinks(ctx, state, w, h, hue, t);
+  paintLinks(ctx, input, hue, t);
   paintProvenanceRing(ctx, state, w, h, hue);
 
   // Shapes first, then ONE label pass over the whole board. Labels drawn
@@ -94,6 +94,7 @@ export function paint(canvas: HTMLCanvasElement, input: BoardInput, items: Scene
       case 'anchor': paintAnchor(ctx, it, hue, t, input, reqs); break;
       case 'frontier': paintFrontier(ctx, it, hue, t, input, reqs); break;
       case 'stat': paintStat(ctx, it, hue); break;
+      case 'dotted': break; // the dashed line is the affordance; no extra chrome
       case 'machine': paintPill(ctx, it, hue, 'machine'); break;
       case 'save': paintGlyph(ctx, it, hue); break;
       default: paintPill(ctx, it, hue, 'action'); break;
@@ -162,19 +163,74 @@ function paintSubstrate(
   ctx.globalAlpha = 1;
 }
 
+/** Lines, in three states, because the state of a line IS the game now.
+ *
+ *    dotted  — the dataset offers this connection and you have not drawn it.
+ *              Faint, dashed, and tappable at its midpoint.
+ *    filling — a slot of your attention is booked on it; the dash marches and
+ *              the solid part grows from `a` toward `b`, so you watch it fill.
+ *    solid   — drawn. Bright if checked; muted and thin if an unwatched agent
+ *              drew it, because that one is going to rot back to dotted.
+ */
 function paintLinks(
-  ctx: CanvasRenderingContext2D, state: GameState, w: number, h: number, hue: number, t: number,
+  ctx: CanvasRenderingContext2D, input: BoardInput, hue: number, t: number,
 ): void {
+  const { state, w, h } = input;
   const spin = t * 0.02;
-  ctx.strokeStyle = `hsl(${hue} 55% 50% / 0.42)`;
-  ctx.lineWidth = 1.2;
+  const drawn = new Set(state.forged.edges.map((e) => `${e.a}:${e.b}:${e.rel}`));
+  const flight = new Map<string, number>();
+  for (const b of state.bookings) {
+    if (!b.edge) continue;
+    flight.set(`${b.edge.a}:${b.edge.b}:${b.edge.rel}`,
+      Math.max(0, Math.min(1, (state.lastTick - (b.until - CONNECT_MS)) / CONNECT_MS)));
+  }
+
+  // ---- dotted possibilities
+  ctx.save();
+  ctx.setLineDash([2, 5]);
+  ctx.lineDashOffset = -t * 8; // a slow march, so potential reads as alive
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = `hsl(${hue} 40% 55% / 0.30)`;
   ctx.beginPath();
-  for (const [a, b] of state.forged.links) {
-    const pa = anchorPos(a, w, h, spin), pb = anchorPos(b, w, h, spin);
+  for (const p of input.potential) {
+    const key = `${p.a}:${p.b}:${p.rel}`;
+    if (drawn.has(key)) continue;
+    const pa = anchorPos(p.a, w, h, spin), pb = anchorPos(p.b, w, h, spin);
     ctx.moveTo(pa.x, pa.y);
     ctx.lineTo(pb.x, pb.y);
   }
   ctx.stroke();
+  ctx.restore();
+
+  // ---- lines currently filling, drawn as a growing solid over the dash
+  for (const [key, k] of flight) {
+    const [a, b] = key.split(':').map(Number) as [number, number];
+    const pa = anchorPos(a, w, h, spin), pb = anchorPos(b, w, h, spin);
+    ctx.strokeStyle = `hsl(${hue} 80% 68%)`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pa.x + (pb.x - pa.x) * k, pa.y + (pb.y - pa.y) * k);
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
+
+  // ---- real lines
+  for (const pass of [false, true]) {
+    ctx.strokeStyle = pass
+      ? `hsl(${hue} 65% 58% / 0.85)`          // checked: it stays
+      : 'hsl(42 70% 55% / 0.45)';             // unchecked: it is on its way out
+    ctx.lineWidth = pass ? 1.6 : 1;
+    ctx.beginPath();
+    for (const e of state.forged.edges) {
+      if (e.checked !== pass) continue;
+      const pa = anchorPos(e.a, w, h, spin), pb = anchorPos(e.b, w, h, spin);
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+    }
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
 }
 
 /** The provenance split, drawn as a ring around the graph rather than a bar in

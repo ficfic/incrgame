@@ -697,3 +697,48 @@ decide explicitly what happens to `nextId` — it encodes "recovered = the prefi
 0…nextId−1", a property any re-slice destroys, and no scalar can express an
 arbitrary subset. A 4,096-bit bitmap is 512 bytes and would also unlock the
 live-edge coverage work.
+
+- 2026-07-25 — **DOTTED LINES (owner's design, save v11).** Owner: *"let's show
+  dotted lines for potential connections and the player will just spend
+  attention on making them real (filling the dotted line)."* This is better
+  than the drag-to-connect I proposed, for a specific reason the-redditor
+  named: our oracle says **no** ~99.9% of the time (8.4M ordered pairs, low
+  thousands of real edges), so guessing is misery. Dotted lines invert the verb
+  from **recall** to **allocation** — the game shows what is possible, and your
+  decision is which lines are worth a slot. That is an idle-game decision.
+  Owner's three calls, all taken:
+  - **A concept counts only while a line supports it.** `recovered()` counts LIT
+    concepts (≥1 drawn edge) plus folded mass. Discovery lands a concept DARK.
+    This is the fix for the defect Chad and I both confirmed by simulation: the
+    entire 4,096-concept world was hand-completable in ~2h34m at fidelity 1.000
+    with zero machines, because discovery minted a node *and* a free verified
+    statement. Coverage was a monotone ratchet; now it can fall.
+  - **Unchecked lines rot back to dotted.** An unwatched agent's line decays and
+    is removed; the connection returns to being merely potential and its
+    endpoints can go dark. Deterministic — the fractional decay debt is stored
+    in `lineRot`, so offline catch-up and real time cannot diverge and a reload
+    cannot re-roll it.
+  - **Agents fill real lines AND invent fake ones.** A watched agent's line
+    arrives checked; an unwatched one arrives unchecked and a share are `fake`,
+    drawn identically to real ones. `AGENT_LINES_PER_STATEMENT = 0.12`, well
+    under 1: statements are volume, lines are structure, and structure must lag
+    volume — that gap is what the player is for. Without agents drawing lines at
+    all, coverage would be capped by thumb speed and the no-babysitting rule in
+    CLAUDE.md would be broken.
+  Shape: `forged.edges: Edge[]` where `Edge = {a, b, rel, checked, fake}`.
+  **Potential is DERIVED, never stored** (`potentialEdges()` in the shell) —
+  what is possible belongs to the dataset, what you have drawn belongs to your
+  save. That also means re-slicing the dataset can never leave a stale
+  possibility rotting in someone's save file.
+  `CONNECT_MS = 7_000` against discovery's 18s: two verbs at two tempos, because
+  one verb on one timer is a metronome (Chad F5).
+  Relation names are the ones prof-veritas verified against the source, not the
+  ones I guessed: `mero_part` runs whole→part so it is **has-part**, not
+  part-of; `mero_member` is **has-member**; `domain_topic` is **studied in**,
+  never "subject" (that word means the subject position of a triple in a game
+  about RDF); and `exemplifies` is **excluded entirely** — it is a usage
+  register ("this word is used figuratively"), not a relation between concepts,
+  and `cakewalk instance-of trope` would have been a shipped falsehood.
+  Migration v10→v11 turns every existing `[a,b]` pair into a **checked `is a`**
+  edge, which is exactly what it was: placed by hand, and hypernymy is the only
+  relation the game has ever drawn. Nobody loses a line or a point of coverage.

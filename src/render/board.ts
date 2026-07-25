@@ -13,8 +13,9 @@
 //   2. TAP TARGETS ARE FINGERS, NOT PIXELS. Every item carries a hit radius of
 //      at least MIN_TOUCH; the drawn shape may be smaller than the target.
 import type { GameState, ReviewItem, Vignette } from '../core/types';
+import { REL_NAMES } from '../core/types';
 import {
-  agentCost, attentionCap, attentionFree, coverage, displayedFidelity, DISCOVER_MS,
+  agentCost, attentionCap, attentionFree, CONNECT_MS, coverage, displayedFidelity, DISCOVER_MS,
   recovered, REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS, supervisedPerSecond, unsupervised, unsupervisedPerSecond,
   verified,
 } from '../core/engine';
@@ -31,7 +32,7 @@ const MIN_TOUCH = 26; // css px radius — ~52px across
 const SUBSTRATE_DOTS = 90;
 
 export type ItemKind =
-  | 'frontier' | 'anchor' | 'machine' | 'stat' | 'survey' | 'review'
+  | 'frontier' | 'anchor' | 'machine' | 'stat' | 'survey' | 'review' | 'dotted'
   | 'vignette' | 'retrain' | 'absorb' | 'reviewVerdict' | 'commit'
   | 'choice' | 'sheetClose' | 'save' | 'setSupervision';
 
@@ -69,6 +70,10 @@ export interface BoardInput {
   landings: Map<number, { at: number; slot: number }>;
   /** Tap feedback, in board coordinates. */
   ripples: Array<{ x: number; y: number; at: number }>;
+  /** Connections the DATASET offers between concepts on the board, supplied by
+   *  the shell. Drawn dotted; tap the midpoint to spend a slot filling one in.
+   *  Never stored in the save — potential belongs to the world, not to you. */
+  potential: Array<{ a: number; b: number; rel: number }>;
 }
 
 // ---------------------------------------------------------------- geometry --
@@ -193,6 +198,31 @@ export function layout(input: BoardInput): SceneItem[] {
     });
   }
 
+  // ---- dotted lines: connections the world offers and you have not drawn.
+  // The tap target is the MIDPOINT of the line, which is why these are pushed
+  // after the anchors and before the action row — later items win a contested
+  // tap, and a line should never steal a tap from a node.
+  const drawnKey = new Set(state.forged.edges.map((e) => `${e.a}:${e.b}:${e.rel}`));
+  const inFlight = new Set(
+    state.bookings.filter((b) => b.edge).map((b) => `${b.edge!.a}:${b.edge!.b}:${b.edge!.rel}`),
+  );
+  const freeSlot = attentionFree(state) >= 1;
+  for (const p of input.potential) {
+    const key = `${p.a}:${p.b}:${p.rel}`;
+    if (drawnKey.has(key)) continue; // already a real line
+    const pa = anchorPos(p.a, w, h, spin), pb = anchorPos(p.b, w, h, spin);
+    const busy = inFlight.has(key);
+    push({
+      id: `d${key}`, kind: 'dotted',
+      x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2,
+      r: busy ? 0 : 15, draw: 0,
+      label: REL_NAMES[p.rel] ?? '',
+      enabled: !busy && freeSlot,
+      tone: busy ? 'warn' : freeSlot ? 'good' : 'muted',
+      payload: p,
+    });
+  }
+
   // Work in flight. A slot of your attention is booked onto each one and it
   // finishes by itself.
   //
@@ -230,6 +260,17 @@ export function layout(input: BoardInput): SceneItem[] {
     sub: worldDone ? 'world recovered' : canDiscover ? '1 slot · 18s' : 'no free slot',
     enabled: canDiscover, tone: canDiscover ? 'good' : 'muted',
   });
+  const filling = state.bookings.filter((b) => b.kind === 'connect').length;
+  if (filling > 0) {
+    actions.push({
+      id: 'filling', kind: 'stat', x: 0, y: actionY, r: 0, draw: 27,
+      label: `${filling}`,
+      sub: filling === 1 ? 'line filling' : 'lines filling',
+      progress: Math.max(...state.bookings.filter((b) => b.kind === 'connect')
+        .map((b) => Math.max(0, Math.min(1, (state.lastTick - (b.until - CONNECT_MS)) / CONNECT_MS)))),
+      enabled: false, tone: 'good',
+    });
+  }
   const reviewBooking = state.bookings.find((b) => b.kind === 'review');
   if (reviewBooking) {
     const started = reviewBooking.until - REVIEW_BOOK_MS;

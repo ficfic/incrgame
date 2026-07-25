@@ -29,10 +29,57 @@ export interface GraphStats {
 export interface ForgedGraph {
   nextId: number;                  // monotonic node id; never reused
   anchors: number[];               // owned, wired-in entity ids (≤ ANCHOR_CAP)
-  links: Array<[number, number]>;  // player-forged pairs (≤ LINK_CAP; oldest fold out)
+  /** DEPRECATED at v11, kept so old saves round-trip. Superseded by `edges`. */
+  links: Array<[number, number]>;
+  /** The real graph (v11). A line you have actually drawn. Everything else the
+   *  board shows is DOTTED — a connection the dataset says is available, derived
+   *  by the shell and never stored, because potential is a property of the world
+   *  and not of your save. */
+  edges: Edge[];
   frontier: number[];              // surveyed, unclaimed entity ids (≤ FRONTIER_CAP)
   foldedNodes: Dec;                // entity mass beyond the explicit lists
 }
+
+/** A drawn line. Subject, object, and WHICH relation — an edge finally carries
+ *  data, which is the thing the owner correctly said it lacked.
+ *
+ *  `checked` is the whole economy in one boolean:
+ *    true  — you drew it yourself, or a supervised agent did. Stable.
+ *    false — an unwatched agent drew it. It ROTS: on decay the line is removed
+ *            and the connection goes back to being merely dotted, which is why
+ *            coverage can now fall instead of ratcheting.
+ *
+ *  `fake` is never shown. An unwatched agent invents connections the dataset
+ *  does not contain, and they are drawn identically to real ones. Certifying one
+ *  at the review desk is how `falselyVerified` gets fed: the number on screen
+ *  goes up and the graph does not. */
+export interface Edge {
+  a: number;        // subject node id
+  b: number;        // object node id
+  rel: number;      // index into REL_NAMES; 0 is `is-a`
+  checked: boolean;
+  fake: boolean;
+}
+
+/** Relation vocabulary. Index 0 is load-bearing: it is what every pre-v11 link
+ *  migrates to, and what the taxonomy backbone uses.
+ *
+ *  Names are the ones prof-veritas confirmed against the source, NOT the ones I
+ *  guessed: WordNet's `mero_part` runs whole→part, so it is HAS-PART, not
+ *  part-of, and `mero_member` is HAS-MEMBER. (`exemplifies` is deliberately
+ *  absent — it is a usage register, "this word is used figuratively", not a
+ *  relation between concepts, and shipping it as an edge would teach a
+ *  falsehood.) */
+export const REL_NAMES = [
+  'is a',          // 0 — WordNet hypernym → skos:broader
+  'has part',      // 1 — mero_part   (whole → part)
+  'has member',    // 2 — mero_member (group → member)
+  'made of',       // 3 — mero_substance
+  'studied in',    // 4 — domain_topic; NOT "subject", which means something else here
+  'used for',      // 5 — ConceptNet, pending the compliance conditions
+  'found at',      // 6 — ConceptNet
+  'causes',        // 7 — ConceptNet
+] as const;
 
 /** Provenance of the knowledge in the graph — the heart of the game (v5).
  *
@@ -67,9 +114,13 @@ export interface ReviewItem {
 
 /** One slot, tied up on a piece of work until it finishes. */
 export interface Booking {
-  kind: 'discover' | 'review';
+  kind: 'discover' | 'review' | 'connect';
   until: number;   // epoch ms; compared against lastTick
   node?: number;   // for 'discover': the id the concept will land on
+  /** For 'connect': the line being drawn. Held on the booking so the edge only
+   *  exists once the work finishes — you watch it fill, you do not get it on
+   *  the tap. */
+  edge?: Edge;
   /** The node this discovery will attach to when it lands: the concept's REAL
    *  parent. Without it the edge was wired to a hash-picked anchor, which meant
    *  the picture was a random spanning forest while SIMPLIFICATIONS S10/S14 told
@@ -108,6 +159,13 @@ export interface GameState {
    *  the game's only real decision, was strictly worse than the app switcher.
    *  Away time now respects exactly the split you left set. */
   pendingClean: Dec;
+  /** Fractional decay debt for DRAWN LINES (v11). Lines are whole objects but
+   *  rot is a rate, so the remainder is carried here rather than rounded away.
+   *  Stored, not derived, so offline catch-up and real time agree exactly and a
+   *  save cannot be scummed by reloading. */
+  lineRot: number;
+  /** Fractional debt for lines AGENTS draw, same reason as `lineRot`. */
+  lineDebt: number;
   modifiers: Record<string, number>;         // multiplicative, set by vignette choices
   vignette: { active: string | null; seen: string[] };
   // ---- the ratchet: the only things that survive a retrain ----
@@ -159,6 +217,11 @@ export type Action =
    *  plain integer — the engine stays pure and still knows nothing about the
    *  dataset. Omitted only if the chunk has not loaded. */
   | { type: 'discover'; parent?: number }
+  /** Book a slot onto FILLING IN a dotted line. The shell picks which potential
+   *  connection you tapped and hands over the finished shape; core stays pure
+   *  and cannot tell a real relation from an invented one, which is exactly
+   *  right — neither can the player, until they check. */
+  | { type: 'connect'; edge: Edge }
   | { type: 'setSupervision'; slots: number }      // reserve/release supervision slots
   | { type: 'claimNode'; id: number }              // pay Datums, wire a frontier entity in: +1 triples
   | { type: 'manualConnect' }                      // DEPRECATED (pre-v4 verb); inert no-op

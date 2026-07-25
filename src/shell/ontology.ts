@@ -85,10 +85,16 @@ export function totalConcepts(): number {
 
 /** CC BY 4.0 §3(a)(1) needs the parties, the licence and a link. Built from the
  *  manifest so it can never drift out of sync with the data it credits. */
-export function ontologyCredit(): { text: string; licenseUrl: string; noticeUrl: string } | null {
+export function ontologyCredit():
+  { text: string; short: string; licenseUrl: string; noticeUrl: string } | null {
   if (!manifest) return null;
+  // The first sentence carries both creators ("Open English WordNet …, derived
+  // from Princeton WordNet"); the rest is the statement of changes, which the
+  // linked notice supplies. Sliced at a sentence boundary, never mid-clause.
+  const stop = manifest.attribution.indexOf('. ');
   return {
     text: manifest.attribution,
+    short: stop > 0 ? manifest.attribution.slice(0, stop + 1) : manifest.attribution,
     licenseUrl: manifest.licenseUrl,
     noticeUrl: `${import.meta.env.BASE_URL}${manifest.noticeUrl}`,
   };
@@ -181,3 +187,32 @@ export function coverageOf(recovered: number): number {
 
 /** Test seam: current revision without a store subscription. */
 export const currentRevision = (): number => get(revision);
+
+/** Every connection the DATASET says is available between concepts currently on
+ *  the board — the dotted lines.
+ *
+ *  Derived, never stored: potential is a property of the world, not of your
+ *  save. That also keeps the save small and means re-slicing the dataset can
+ *  never leave a stale possibility behind in someone's save file.
+ *
+ *  Today this is WordNet hypernymy only (`rel: 0`, "is a"), which is enough for
+ *  the mechanic because every concept has a parent — so every concept you find
+ *  arrives with at least one line you could fill. The other relations slot into
+ *  the same shape once `public/relations/` ships (see docs/ATTRIBUTION.md for
+ *  the compliance conditions that gate it).
+ */
+export function potentialEdges(anchors: readonly number[]): Array<{ a: number; b: number; rel: number }> {
+  const live = new Set(anchors);
+  const out: Array<{ a: number; b: number; rel: number }> = [];
+  for (const id of anchors) {
+    if (id === 0) continue;
+    // walk up to the nearest ancestor that is also on the board, so a concept
+    // whose direct parent has folded away still has something to attach to
+    let cursor = conceptAt(id)?.parent;
+    for (let hops = 0; hops < 8 && cursor !== undefined && cursor >= 0; hops++) {
+      if (live.has(cursor)) { out.push({ a: cursor, b: id, rel: 0 }); break; }
+      cursor = conceptAt(cursor)?.parent;
+    }
+  }
+  return out;
+}

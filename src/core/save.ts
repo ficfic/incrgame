@@ -49,6 +49,7 @@ export const MIGRATIONS: Migration[] = [
       nextId: 1,
       anchors: [0],
       links: [] as Array<[number, number]>,
+      edges: [],
       frontier: [] as number[],
       foldedNodes: String(Math.max(0, old.nodes - 1)),
     };
@@ -105,6 +106,30 @@ export const MIGRATIONS: Migration[] = [
   // everything unchecked. Purely additive: whatever is already banked stays
   // banked, and stays unverified, which is what it honestly was.
   (s) => ({ ...s, pendingClean: '0' }),
+  // v10 → v11 — EDGES CARRY DATA. A link was a bare `[a,b]` pair with no
+  // relation, no trust and no source, and coverage counted nodes, so a concept
+  // was recovered forever once found. Now a line is a real object and a concept
+  // counts only while a line supports it.
+  //
+  // Every existing pair migrates to a CHECKED `is a` edge, which is exactly
+  // what it was: the player placed it by hand, and the only relation the game
+  // has ever drawn is hypernymy. Nobody loses a line, nobody loses coverage,
+  // and `links` is kept untouched beside `edges` so the old shape still
+  // round-trips.
+  (s) => {
+    const forged = (s.forged ?? {}) as { links?: Array<[number, number]> };
+    return {
+      ...s,
+      lineRot: 0,
+      lineDebt: 0,
+      forged: {
+        ...forged,
+        edges: (forged.links ?? []).map(([a, b]) => ({
+          a, b, rel: 0, checked: true, fake: false,
+        })),
+      },
+    };
+  },
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----
