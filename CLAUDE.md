@@ -58,6 +58,11 @@ That is why the decision log and backlog exist and must be kept current.
 - **Respect the mobile performance budget** (see `docs/GAME_DESIGN.md`):
   simulate in numbers, render only a *representative* graph with level-of-detail
   and a WebGL renderer. Don't render one node per triple.
+- **Stay theory-faithful (this game is educational).** Every in-game concept
+  must match its real definition in `docs/GLOSSARY.md`; when a mechanic
+  simplifies real theory, **label the simplification in-game** so players never
+  learn something false. If glossary and mechanic conflict, the glossary wins
+  unless we change it deliberately and log it in `docs/DECISIONS.md`.
 
 ## Planned stack (not built yet — changeable)
 

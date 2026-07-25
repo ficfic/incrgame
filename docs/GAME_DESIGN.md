@@ -39,6 +39,41 @@ Each rung feeds the next:
 - **Curators** — merge duplicate entities → quality multiplier.
 - **Schema engineers** — Triples → Ontologies.
 
+## Theory grounding (faithful but playable)
+
+This game teaches the **real semantic-web stack**. Rigor stance: mechanics are
+genuinely accurate; simplifications are labeled in-game; deeper theory lives in
+an optional "Field Notes" codex with links. See `docs/GLOSSARY.md` for the
+authoritative term↔definition↔source mapping.
+
+The tier ladder *is* the real stack:
+
+| Game tier | Real concept |
+|---|---|
+| Statements | RDF triples (subject–predicate–object), IRIs |
+| Vocabularies | reuse FOAF / Dublin Core / schema.org; namespaces |
+| Schema | RDFS (`rdf:type`, `rdfs:subClassOf`, domain/range) |
+| Axioms | OWL (`sameAs`, `inverseOf`, `TransitiveProperty`, `disjointWith`, cardinality) |
+| Reasoning | entailment / description-logic reasoners — **the compounding engine** |
+| Querying | SPARQL basic graph patterns |
+| Digital Twins | DTDL (JSON-LD) / W3C WoT Thing Description |
+| Meta / prestige | metamodeling (RDFS is written in RDF), PROV-O provenance |
+
+### Mechanics that teach (learn by profiting, not by reading)
+
+- **Transitivity** — buy the `TransitiveProperty` axiom; `partOf∘partOf` edges
+  auto-spawn. The player profits from a real inference rule. (This is the
+  compounding engine, mechanically honest.)
+- **owl:sameAs / entity resolution** — Curators merge duplicate entities;
+  teaches Linked Data identity.
+- **Inconsistency explosion** — assert an individual into two `disjointWith`
+  classes → the reasoner derives everything (ex falso) → a hazard. Teaches why
+  consistency matters.
+- **Open-world assumption** — absence isn't falsehood; you can't win by leaving
+  things out. A real, mind-bending concept as a puzzle constraint.
+- **Vocabulary reuse reward** — mirrors the 5-star Linked Open Data model:
+  interoperability pays.
+
 ## Prestige — "Reflect" (self-description)
 
 The graph builds an ontology *of itself* (a meta-graph). Reset the lower layers,

@@ -7,6 +7,17 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Educational rigor stance: "faithful but playable"** — mechanics
+  are genuinely accurate; simplifications are labeled in-game; deep theory is
+  optional (a codex). Rejected: hardcore-accurate (too textbook-y),
+  lightly-themed (not educational). The game teaches the real semantic-web stack.
+- 2026-07-25 — **`docs/GLOSSARY.md` is the accuracy source of truth** — every
+  in-game concept maps to a correct real definition + authoritative source
+  (W3C specs, DTC glossary). CLAUDE.md now requires theory-faithfulness; the
+  glossary wins conflicts unless changed deliberately.
+- 2026-07-25 — **Mechanics teach by being played** — transitivity, owl:sameAs,
+  inconsistency/ex-falso, open-world assumption, and vocabulary reuse become
+  playable mechanics, not definitions to read. Captured in GAME_DESIGN.md.
 - 2026-07-25 — **Never break an existing save** (versioned saves + forward
   migration + export/import escape hatch) — the owner plays their own save
   long-term; corruption loses real progress. Added as a CLAUDE.md guardrail

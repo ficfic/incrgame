@@ -7,8 +7,12 @@ without being re-briefed. Move finished items to **Done** with a date.
 
 - [x] Game concept chosen: **knowledge-graph incremental** (see
       `docs/GAME_DESIGN.md`). Core engine locked: inference = compounding.
+- [x] Educational angle set: "faithful but playable"; GLOSSARY.md is the
+      accuracy source of truth; mechanics teach real theory.
 - [ ] Flesh out the design's open questions (balance curves, how self-
       description plays, theme/tone).
+- [ ] Design the "Field Notes" codex format (in-game explainer + learn-more
+      links to real specs).
 - [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on
       mobile before committing.
 - [ ] Scaffold the game (TS + Vite + break_eternity + GH Pages deploy) when
