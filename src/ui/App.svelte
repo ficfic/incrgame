@@ -46,9 +46,37 @@
   });
 
   // Keep the chunks for everything on screen warm so labels resolve in time.
+  // `nextId` is in here because the PARENT LOOKUP needs it: chunks are 1024
+  // wide, so without this every discovery at 1024 / 2048 / 3072 — and every one
+  // made before chunk 0 lands on a cold start — read `null` and silently
+  // hash-wired instead of using the real taxonomy.
   $effect(() => {
-    warm([...$game.forged.frontier, ...$game.forged.anchors]);
+    warm([...$game.forged.frontier, ...$game.forged.anchors, $game.forged.nextId]);
   });
+
+  // The engine is pure and knows nothing about WordNet, so the SHELL resolves
+  // which node a new concept should hang off and hands the engine a plain
+  // integer.
+  //
+  // It must walk UP, not just read the direct parent. Anchors are a sliding
+  // window of the most recent ANCHOR_CAP=240, and breadth-first-from-`entity`
+  // is precisely the ordering that maximises parent distance — node 4030's
+  // parent sits at index ~4. Reading only the direct parent, the true parent
+  // was still on the board for 100% of the first 240 concepts, 12% of the next
+  // 260, and **0% after that** — 6.6% across the dataset. Every edge past the
+  // ~500th fell back to the hash this code exists to abolish, while DECISIONS
+  // recorded that it "almost always" found the real parent. Walking to the
+  // nearest surviving ancestor makes the claim true: max is-a depth here is 5,
+  // so this is at most five map lookups.
+  function nearestLivingAncestor(nodeId: number): number | undefined {
+    const live = new Set($game.forged.anchors);
+    let cursor = conceptForNode(nodeId)?.parent;
+    for (let hops = 0; hops < 8 && cursor !== undefined && cursor >= 0; hops++) {
+      if (live.has(cursor)) return cursor;
+      cursor = conceptForNode(cursor)?.parent;
+    }
+    return undefined; // chunk not loaded, or nothing above it survives — engine falls back
+  }
 
   function say(msg: string): void {
     toast = msg;
@@ -61,33 +89,29 @@
   // engine is not allowed to know the screen exists.
   const landings = new Map<number, { at: number; slot: number }>();
   const ripples: Array<{ x: number; y: number; at: number }> = [];
-  let knownAnchors = new Set<number>();
   let slotOf = new Map<number, number>();
 
   $effect(() => {
-    // A retrain, an import or a flush rewinds the board to the lone root. The
-    // seen-set has to rewind with it: it kept every id from the previous
-    // generation, so after one prestige nothing ever animated in again — for
-    // the rest of the save.
-    const anchors = $game.forged.anchors;
-    if (anchors.length <= 1 && knownAnchors.size > 1) {
-      knownAnchors = new Set();
-      landings.clear();
-      slotOf.clear();
-    }
+    const now = performance.now();
     // remember which ring slot each in-flight discovery occupies
     for (const b of $game.bookings) {
       if (b.kind === 'discover' && b.node !== undefined) slotOf.set(b.node, b.slot ?? 0);
     }
-    const now = performance.now();
-    for (const id of anchors) {
-      if (knownAnchors.has(id)) continue;
-      knownAnchors.add(id);
-      if (id === 0) continue; // the root was always there
-      landings.set(id, { at: now, slot: slotOf.get(id) ?? 0 });
+    // A concept animates in ONLY if we watched it being discovered — that is,
+    // only if we saw its booking. Everything else just exists: a loaded save,
+    // an imported save, the mass Reasoners fold in. This one rule replaces a
+    // seen-everything set that got all three edge cases wrong — it never reset
+    // on prestige (so nothing ever animated again for the rest of a save), it
+    // would have stampeded 200 concepts out of slot 0 on importing a late-game
+    // save, and any condition based on "an id I remember is missing" fires
+    // constantly during normal play, because anchors fold out of a 240-wide
+    // window by design.
+    for (const id of $game.forged.anchors) {
+      if (id === 0 || !slotOf.has(id) || landings.has(id)) continue;
+      landings.set(id, { at: now, slot: slotOf.get(id)! });
     }
-    // and the finished landings are dropped, or these two maps grow for the
-    // lifetime of the tab
+    // finished landings are dropped, or these two maps grow for the lifetime of
+    // the tab. Dropping from BOTH is what makes the guard above terminal.
     for (const [id, l] of landings) if (now - l.at > 4000) { landings.delete(id); slotOf.delete(id); }
   });
 
@@ -143,13 +167,7 @@
         return; // a discovery in flight is already working; nothing to tap
       case 'survey': {
         if (!it.enabled) { say('No free attention'); return; }
-        // The engine is pure and knows nothing about WordNet, so the SHELL looks
-        // up the real hypernym of the concept about to be found and hands it
-        // over as a plain integer. Without it the new edge was wired to a
-        // hash-picked anchor — a random spanning forest drawn under a caption
-        // that told the player it was a taxonomy.
-        const parent = conceptAt($game.forged.nextId)?.parent;
-        dispatch({ type: 'discover', parent: parent !== undefined && parent >= 0 ? parent : undefined });
+        dispatch({ type: 'discover', parent: nearestLivingAncestor($game.forged.nextId) });
         return;
       }
       case 'setSupervision':
@@ -264,10 +282,16 @@
 
 {#if credit}
   <!-- CC BY 4.0 §3(a)(1): a real link, because a painted circle is not one. -->
+  <!-- `credit.text` is the ONLY string here that names Princeton, and it was
+       computed and then never rendered — while ATTRIBUTION.md claimed the
+       footer named both parties. The obligation was arguably still met through
+       the notice link, but the documented claim was false. -->
   <div class="credit">
+    {credit.text}
+    ·
     <a href={credit.licenseUrl} target="_blank" rel="noopener license">CC BY 4.0</a>
     ·
-    <a href={credit.noticeUrl} target="_blank" rel="noopener">Open English WordNet</a>
+    <a href={credit.noticeUrl} target="_blank" rel="noopener">notice</a>
   </div>
 {/if}
 

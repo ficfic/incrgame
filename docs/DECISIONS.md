@@ -615,3 +615,85 @@ the way they are. Format:
   disappear from the UI entirely. The real terms stay in GLOSSARY and Field
   Notes, where learning them is the point — that is the educational goal
   (VISION) without taxing the player for reading a HUD.
+
+---
+
+## 2026-07-25 — Five-agent review round. Corrections to entries above.
+
+**Read this before trusting the three entries immediately preceding it.** They
+were logged before the work was reviewed, and three of them contain claims that
+are false. Append-only means the wrong sentences stay; it does not mean they
+stay unmarked.
+
+- **CORRECTION to "Edges follow the REAL hypernym, not a hash".** The entry says
+  parents are "almost always" still on the board. Measured against the shipped
+  data: the true parent survives for **100% of the first 240 concepts, 12% of
+  the next 260, and 0% after that — 6.6% across the dataset.** Anchors are a
+  240-wide sliding window and breadth-first-from-`entity` is exactly the
+  ordering that maximises parent distance (node 4030's parent sits at index ~4).
+  So every edge past roughly the 500th fell back to the hash the change existed
+  to abolish. **Fixed** by walking to the nearest *surviving* ancestor in the
+  shell (max is-a depth here is 5, so ≤5 lookups) and by warming the chunk that
+  holds `nextId` — without which every discovery at 1024/2048/3072, and every
+  one on a cold start, silently hash-wired too.
+- **CORRECTION to "The renderer goes hybrid".** The entry claims the browser
+  takes over "collision avoidance, priority ordering, dropped labels". **It does
+  not.** Absolutely-positioned elements overlap freely; no browser repositions
+  or suppresses them, and `overflow:hidden` clips rather than moves. Only
+  `hit()` genuinely disappears, plus the per-frame `measureText` calls — which
+  is where the real cost was, so the measurement stands and the conclusion
+  stands. `labels.ts` is **re-targeted, not deleted**: keep the priority sort
+  and the drop rule, apply them by toggling `visibility` on pills.
+  This entry also **supersedes the implementation clause** of the earlier
+  "the entire game is the graph" decision ("there is no HTML UI", "one
+  full-screen canvas"). The *design* clause — every control is a node on the
+  plane — is retained and is the constraint the new substrate must not break.
+  Enforceable rule so it cannot erode: **the DOM layer may contain only
+  absolutely-positioned pills whose position derives from a board item's
+  transform. No flow layout, no HTML panels, no sheets.** And: nothing drawn on
+  the canvas is ever tappable; opening a sheet must make the pill layer `inert`.
+- **CORRECTION to the label-placement entry.** The "~230k rectangle tests per
+  frame" figure is wrong by ~6×; `taken` only grows when a label is *placed*,
+  and a 390pt board saturates near 30–40, so the real figure is ~38k. The cap is
+  still right — the true cost was 240 `measureText` calls per frame — but the
+  number was invented rather than measured. Also, "drops exactly what crowding
+  would have dropped" holds only at saturation: all ordinary anchors tie at
+  priority 10 and `sort` is stable, so the survivors are always the *oldest*
+  anchors, and a newly settled concept in an empty region can no longer win a
+  spot it previously could.
+- **CORRECTION to the ConceptNet entry.** It planned to join ConceptNet to
+  WordNet **on label**. That is an unverified `owl:sameAs` asserted automatically
+  on every edge — against a slice that keeps only *one sense per label*, chosen
+  by breadth-first accident. Our own GLOSSARY says "over-eager `sameAs` corrupts
+  a graph" and SIMPLIFICATIONS S5 says merging can be wrong. We wrote the
+  warning and scheduled the violation. Join through ConceptNet's WordNet sense
+  links, or mark every label-joined edge as inferred and let it rot — the second
+  is more honest and is a better mechanic.
+
+**And the finding that reframes the whole dataset decision:** ConceptNet yields
+only **547 edges** with both ends inside the shipped 4,096 (measured across all
+34,074,917 assertions), against WordNet's 148. 3.7× more, but still sparse. The
+cause is the same for both sources: our slice is **90% attributes,
+communications, states and persons — only 9.7% concrete nouns** (artifact 90,
+substance 104, object 162, animal 25, plant 11, food 2, body 4). Part-of,
+made-of, used-for and found-at all attach to concrete things, which is precisely
+what breadth-first-from-`entity` excludes. **The second dataset was never the
+fix. The SLICE is.** Selecting 4,096 concepts to maximise induced edge count —
+subject to staying connected under is-a with one root — optimises the property
+the owner actually complained about, instead of hoping a bigger corpus fixes it
+incidentally.
+
+**Migration, if the slice changes: key on OEWN SYNSET ID, not on label.**
+Labels are unique *within* a slice, never *across* slices, so a differently
+chosen slice may keep a different sense of `bank`, `head`, `growth`, `draw`,
+`film` — all of which are in the current 4,096. A label migration would rebind
+those nodes silently, with a plausible label and the wrong gloss and the wrong
+parent. In a game about semantic drift, shipping a migration that performs
+undetectable semantic drift on the owner's save is not an acceptable joke.
+Also: regenerate `forged.links` rather than migrating them (an old pair asserts
+a parent relation that the new dataset may contradict), fold unresolvable
+anchors into `foldedNodes` +1 each so `recovered()` is preserved exactly, and
+decide explicitly what happens to `nextId` — it encodes "recovered = the prefix
+0…nextId−1", a property any re-slice destroys, and no scalar can express an
+arbitrary subset. A 4,096-bit bitmap is 512 bytes and would also unlock the
+live-edge coverage work.

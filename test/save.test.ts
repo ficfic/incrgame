@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { apply, initialState, ratePerSecond, CURRENT_SAVE_VERSION } from '../src/core/engine';
+import {
+  apply, initialState, supervisedPerSecond, unsupervisedPerSecond, CURRENT_SAVE_VERSION,
+} from '../src/core/engine';
 import { projectGraph } from '../src/core/graph';
 import { deserialize, serialize } from '../src/core/save';
 import { applyOfflineProgress, OFFLINE_CAP_MS } from '../src/core/offline';
@@ -94,16 +96,29 @@ describe('save round-trip', () => {
 });
 
 describe('offline progress', () => {
-  it('the drip accrues offline, exactly (ms → seconds)', () => {
-    const s = { ...claimed(), lastTick: 1_000_000 };
-    // whatever the drip is worth right now, a minute of it is exactly 60x
-    const perSecond = D(ratePerSecond(s, 'data')).toNumber();
-    const { state, elapsedMs, gains } = applyOfflineProgress(s, 1_000_000 + 60_000);
+  it('offline converts ms → seconds exactly (the 1000x bug SPEC calls out)', () => {
+    // This test used to measure `ratePerSecond`, which returns '0' now that
+    // Datums are gone — so it asserted 0 ≈ 0 × 60 and covered nothing, while
+    // still being counted in the green total. A vacuously-passing test is worse
+    // than a deleted one. Re-pointed at where the ms→s conversion actually
+    // lives now: the banked machine output in offline.ts.
+    const s = {
+      ...claimed(),
+      lastTick: 1_000_000,
+      generators: { ...initialState().generators, extractor: 10 },
+      supervised: 4,
+    };
+    const clean = D(supervisedPerSecond(s)).toNumber();
+    const dirty = D(unsupervisedPerSecond(s)).toNumber();
+    expect(clean).toBeGreaterThan(0);
+    expect(dirty).toBeGreaterThan(0);
+
+    const { state, elapsedMs } = applyOfflineProgress(s, 1_000_000 + 60_000);
     expect(elapsedMs).toBe(60_000);
-    expect(D(gains.data ?? '0').toNumber()).toBeCloseTo(perSecond * 60, 9);
-    expect(D(state.resources.data).toNumber()).toBeCloseTo(
-      D(s.resources.data).toNumber() + perSecond * 60, 9);
-    expect(state.graph).toEqual(s.graph); // web itself waits for machines (M3)
+    // sixty SECONDS of output, not sixty thousand
+    expect(D(state.pendingClean).toNumber()).toBeCloseTo(clean * 60, 9);
+    expect(D(state.pending).toNumber()).toBeCloseTo(dirty * 60, 9);
+    expect(state.graph).toEqual(s.graph); // banked, not in the graph
   });
 
   it('caps at 8 hours', () => {

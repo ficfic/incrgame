@@ -1,8 +1,8 @@
 // Ontology loader — browser-facing, lazy, cache-on-demand.
 //
-// The concept data is real: Open English WordNet (CC BY 4.0), 107,519 concepts
-// in a frozen recovery order built by scripts/build-ontology.mjs. See
-// docs/ATTRIBUTION.md.
+// The concept data is real: Open English WordNet (CC BY 4.0). We ship a curated
+// 4,096 of its 107,519 concepts, in a frozen recovery order built by
+// scripts/build-ontology.mjs. See docs/ATTRIBUTION.md.
 //
 // Boundary: `src/core/` must never import this — the engine stays pure and
 // knows only integer node ids. The mapping id → concept lives here, in the

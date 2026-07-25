@@ -36,9 +36,17 @@ licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), itself
 derived from Princeton WordNet under the WordNet Licence. Attribution is owed
 to both the Open English WordNet team and Princeton WordNet.
 
+Relation data under `public/relations/` (when it ships) is derived from
+ConceptNet 5, compiled by the Commonsense Computing Initiative. Only assertions
+that ConceptNet itself tags `cc:by/4.0` are used, so the operative licence for
+that material is CC BY 4.0; ConceptNet's own requested credit block ships with
+it regardless. CC BY-SA 4.0 s3(b)(3) forbids imposing different terms on such
+material, so it is carved out here explicitly.
+
 Full notices, and a statement of the changes made:
   - docs/ATTRIBUTION.md
-  - public/ontology/LICENSE.txt  (ships with the data)
+  - public/ontology/LICENSE.txt   (ships with the WordNet data)
+  - public/relations/LICENSE.txt  (ships with the ConceptNet data)
 
 The MIT licence above conveys only what this project owns. It does not, and
-cannot, relicense the WordNet-derived data.
+cannot, relicense the WordNet- or ConceptNet-derived data.

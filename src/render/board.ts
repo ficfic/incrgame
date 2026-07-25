@@ -15,12 +15,13 @@
 import type { GameState, ReviewItem, Vignette } from '../core/types';
 import {
   agentCost, attentionCap, attentionFree, coverage, displayedFidelity, DISCOVER_MS,
-  recovered, REVIEW_BOOK_MS, supervisedPerSecond, unsupervised, unsupervisedPerSecond,
+  recovered, REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS, supervisedPerSecond, unsupervised, unsupervisedPerSecond,
   verified,
 } from '../core/engine';
 import { D, format, formatWhole, gte } from '../core/numbers';
 import { GENERATORS, M1_ROSTER } from '../content/generators';
 import { CONCEPT_BUDGET } from '../content/ontologyMeta';
+import { FRONTIER_CAP } from '../core/graph';
 import { describeEffects } from '../content/vignettes';
 
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -214,10 +215,19 @@ export function layout(input: BoardInput): SceneItem[] {
   // ---- action nodes, ringing the core where the thumb lands
   const actionY = ACTION_Y(h);
   const actions: SceneItem[] = [];
-  const canDiscover = attentionFree(state) >= 1 && state.bookings.length < 8;
+  // Every gate the ENGINE applies has to appear here too. It refuses before the
+  // clock starts and past the last concept; without those two the button
+  // rendered enabled, answered the tap with a ripple, and did nothing —
+  // silently, forever, once the world was recovered. Same disease as a tap
+  // target that disagrees with the picture, one layer up.
+  const worldDone = state.forged.nextId >= CONCEPT_BUDGET;
+  const started = state.lastTick > 0;
+  const canDiscover = attentionFree(state) >= 1
+    && state.bookings.length < FRONTIER_CAP && started && !worldDone;
   actions.push({
     id: 'discover', kind: 'survey', x: 0, y: actionY, r: 34, draw: 27,
-    label: 'Discover', sub: canDiscover ? '1 slot · 18s' : 'no free slot',
+    label: 'Discover',
+    sub: worldDone ? 'world recovered' : canDiscover ? '1 slot · 18s' : 'no free slot',
     enabled: canDiscover, tone: canDiscover ? 'good' : 'muted',
   });
   const reviewBooking = state.bookings.find((b) => b.kind === 'review');
@@ -253,7 +263,7 @@ export function layout(input: BoardInput): SceneItem[] {
       label: 'Decide', sub: 'pending', enabled: true, tone: 'core',
     });
   }
-  if (recovered(state) >= 820) {
+  if (recovered(state) >= REFLECT_MIN_CONCEPTS) {
     actions.push({
       id: 'retrain', kind: 'retrain', x: 0, y: actionY, r: 34, draw: 27,
       label: 'Retrain', sub: `gen ${state.reflection + 2}`, enabled: true, tone: 'bad',

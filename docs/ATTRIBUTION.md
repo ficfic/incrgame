@@ -111,7 +111,7 @@ build yet**; adding one means adding its notice to this file first.
 | **schema.org** | 823 types, 1,529 properties | CC BY-SA 3.0 | usable; ShareAlike applies to the vocabulary, keep it isolated and attributed |
 | **Gene Ontology** | ~40k terms | CC BY 4.0 | clean |
 | **FIBO** (finance) | large | **MIT** | clean |
-| **Wikidata / Open English Namenet** | 100M+ items | CC0 | cleanest licence of all; size is the only obstacle |
+| **Wikidata / Open English Namenet** | 100M+ items | CC0 — ⚠️ **UNVERIFIED** | no LICENSE file was found at that repo root; the CC0 claim is recorded but NOT checked. Do not rely on it until it is. |
 
 ### Explicitly rejected
 
@@ -121,9 +121,66 @@ build yet**; adding one means adding its notice to this file first.
   inside a public game. **Do not ship SNOMED content.** If a medicine domain is
   wanted, use an openly licensed alternative (e.g. MONDO, HPO, or the
   openly-licensed subset of the NCI Thesaurus) and record the check here.
-- **ConceptNet** — CC BY-SA 4.0. Usable in principle, but ShareAlike over the
-  game's central content dataset is a bigger commitment than CC BY, and the
-  dumps are not reachable from the build environment.
+(**ConceptNet moved out of this section 2026-07-25 — see "Adopted, pending
+build" below. The reason recorded here was WRONG: the dump IS reachable from
+this environment, 497,963,447 bytes over HTTP 200. An unverified claim recorded
+as fact in the compliance file is exactly the failure this file exists to
+prevent, so the correction is kept visible rather than deleted.**)
+### Adopted, pending build (ConceptNet)
+
+**Status 2026-07-25: cleared by the-auditor, SHIP WITH CONDITIONS. No ConceptNet
+data is in the tree yet.** Nothing may be committed until conditions 1–4 below
+are implemented in `scripts/`, because they are the ones that carry legal and
+personal-data exposure.
+
+Measured, not assumed (full scan of `conceptnet-assertions-5.7.0.csv.gz`,
+34,074,917 assertions):
+
+- Edges with **both ends inside our shipped 4,096 concepts: 547**
+  (AtLocation 290, UsedFor 166, Causes 60, CapableOf 22, MadeOf 9).
+- **100% of those 547 are tagged `cc:by/4.0`** — zero ShareAlike. ConceptNet
+  tags every assertion with its own `license` field; across the whole dump only
+  two values ever occur (`cc:by-sa/4.0`, `cc:by/4.0`). No NonCommercial, no
+  NoDerivatives, no research-only component exists anywhere in it.
+- Contributing datasets at our join: `/d/conceptnet/4/en` (104,834),
+  `/d/dbpedia/en` (2,135), `/d/wordnet/3.1` (641). No Wiktionary, OpenCyc,
+  JMDict, CLDR or Verbosity — so their separate notice obligations never attach.
+
+**Blocking conditions:**
+
+1. **Hard-gate `license == "cc:by/4.0"` in the build**, and fail the build if any
+   other value survives. Measured at 4,096 concepts; a larger cap could change
+   it, so this must be enforced rather than assumed.
+2. **Strip the `sources` array entirely.** It carries contributor pseudonyms —
+   19,429 distinct OMCS usernames in the dump, *including Twitter-linked ids of
+   the form `…_twitter_103590780` whose trailing digits resolve to live
+   accounts*. Pseudonymised data is still personal data (GDPR Recital 26).
+   Nothing is lost: ConceptNet asks for credit to ConceptNet 5 and the
+   Commonsense Computing Initiative, not to individual contributors.
+3. **Drop `surfaceText`.** 105,475 of the candidate edges carry a free-text
+   English sentence written by an anonymous crowd worker. Not AI-generated, so
+   not a breach of the ★ rule's letter — but `CLAUDE.md` says the pipeline emits
+   structured data only, never sentences, and a human writes every sentence a
+   player reads. Emit `(rel, start, end, weight)` only.
+4. **Extend the third-party carve-out in `LICENSE`** to name ConceptNet, so the
+   repo-wide MIT grant cannot appear to cover it (CC BY-SA 4.0 §3(b)(3) forbids
+   imposing different terms on the material).
+
+**Non-blocking, still required before deploy:** separate directory
+(`public/relations/`) with its own `LICENSE.txt` — join to WordNet **at runtime
+in the browser, never at build time**, so no combined file is ever distributed
+(§1(k)); the verbatim ConceptNet credit block; a new content filter (our WordNet
+gloss regex is *inert* here — ConceptNet has no glosses, and `DENY_LABELS`
+scored 0 hits; ~1,064 edges touch violence/self-harm/sexual/drug terms and need
+term-level denial); the in-game footer credit; a pinned edition + SHA; and a CI
+gate mirroring the WordNet one.
+
+**Why not merge the two datasets into one file:** legal, but it would upgrade
+our WordNet-derived spine from CC BY to CC BY-SA for no benefit (§3(b)(1)) and
+muddy the per-source changes-made statements (§3(a)(1)(B)). Keep them separate.
+
+---
+
 - **SUMO extensions** — GPL. Awkward inside an MIT codebase; avoid unless the
   data is kept strictly separate and the obligation is understood.
 
