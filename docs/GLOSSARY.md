@@ -72,7 +72,7 @@ kind, per accuracy rules).
 |---|---|---|
 | Biology | **Gene Ontology (GO)** — gene function vocabulary; **OBO Foundry** — shared bio-ontology library. | [Gene Ontology](https://geneontology.org/) · [OBO Foundry](https://obofoundry.org/) |
 | Finance | **FIBO** (Financial Industry Business Ontology); **XBRL** for reporting. | [FIBO](https://spec.edmcouncil.org/fibo/) |
-| Medicine | **SNOMED CT** — clinical terminology; **FHIR** — health-data exchange. | [SNOMED CT](https://www.snomed.org/) · [HL7 FHIR](https://www.hl7.org/fhir/) |
+| Medicine | **SNOMED CT** — clinical terminology; **FHIR** — health-data exchange. ⚠️ *SNOMED CT is named here as the real standard, which it is, but it is **not** openly licensed and its content will never ship in this game — see `docs/ATTRIBUTION.md`. An openly licensed source (MONDO, HPO, the open NCI Thesaurus subset) will stand in if a medicine domain is built.* | [SNOMED CT](https://www.snomed.org/) · [HL7 FHIR](https://www.hl7.org/fhir/) |
 | Law | **LKIF** — Legal Knowledge Interchange Format. | [LKIF](https://github.com/RinkeHoekstra/lkif-core) |
 | Engineering/IoT | **DTDL**, **W3C WoT Thing Description** (see digital-twin rows above). | [W3C WoT](https://www.w3.org/WoT/) |
 

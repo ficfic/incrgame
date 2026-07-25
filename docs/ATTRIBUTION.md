@@ -52,42 +52,51 @@ We did not alter a single definition or word form. Definitions are copied
    out of sync with the data it credits.
 3. Here, and in `README.md`.
 
-⚠️ The Princeton notice reproduced below is the **WordNet 3.0 / 2006** text. The
-notice this dataset actually carries upstream is the **3.1 / 2011** variant,
-together with the Open English WordNet team's own copyright line. Fetch
-`WNDB_License.txt` from the pinned commit and replace this section verbatim
-rather than retyping it — this is an open item in `docs/BACKLOG.md`.
+### Upstream licence notice, reproduced verbatim
 
-### Princeton WordNet notice
+Open English WordNet derives from Princeton WordNet. Its `WNDB_License.txt`
+requires that this notice "appear on ALL copies of the software, database and
+documentation, including modifications". A notice from a *different* WordNet
+release is not the same notice, so this is not retyped: it is a byte-identical
+copy of `WNDB_License.txt` at the pinned commit
+`dc343f2683279ecbb13fab4e2fd778d7b162d287`, vendored at
+`third_party/wordnet/WNDB_License.txt` and embedded into
+`public/ontology/LICENSE.txt` by the build so it ships with the data.
 
-Open English WordNet derives from Princeton WordNet, distributed under the
-WordNet Licence, which requires this notice to be carried:
+> **Note:** upstream's file carries leading line numbers and trailing
+> whitespace. Those are reproduced as published. Reformatting a licensor's
+> notice is not our call to make.
 
-> WordNet Release 3.0 — This software and database is being provided to you,
-> the LICENSEE, by Princeton University under the following license. By
-> obtaining, using and/or copying this software and database, you agree that
-> you have read, understood, and will comply with these terms and conditions:
-> Permission to use, copy, modify and distribute this software and database and
-> its documentation for any purpose and without fee or royalty is hereby
-> granted, provided that you agree to comply with the following copyright
-> notice and statements, including the disclaimer, and that the same appear on
-> ALL copies of the software, database and documentation, including
-> modifications that you make for internal use or for distribution.
->
-> WordNet 3.0 Copyright 2006 by Princeton University. All rights reserved.
->
-> THIS SOFTWARE AND DATABASE IS PROVIDED "AS IS" AND PRINCETON UNIVERSITY MAKES
-> NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR IMPLIED. BY WAY OF EXAMPLE, BUT
-> NOT LIMITATION, PRINCETON UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES
-> OF MERCHANTABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF
-> THE LICENSED SOFTWARE, DATABASE OR DOCUMENTATION WILL NOT INFRINGE ANY THIRD
-> PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR OTHER RIGHTS.
->
-> The name of Princeton University or Princeton may not be used in advertising
-> or publicity pertaining to distribution of the software and/or database.
-> Title to copyright in this software, database and any associated
-> documentation shall at all times remain with Princeton University and
-> LICENSEE agrees to preserve same.
+>   1 This software and database is being provided to you, the LICENSEE, by
+>   2 the Open English Wordnet team under the Creative Commons Attribution 4.0
+>   3 International License (CC-BY 4.0).
+>   4
+>   5 Open English Wordnet 2023 Copyright 2023 by the Open English Wordnet team.
+>   6
+>   7 Permission to use, copy, modify and distribute this software and
+>   8 database and its documentation for any purpose and without fee or
+>   9 royalty is hereby granted, provided that you agree to comply with
+>   10 the following copyright notice and statements, including the disclaimer,
+>   11 and that the same appear on ALL copies of the software, database and
+>   12 documentation, including modifications that you make for internal
+>   13 use or for distribution.
+>   14
+>   15 WordNet 3.1 Copyright 2011 by Princeton University.  All rights reserved.
+>   16
+>   17 THIS SOFTWARE AND DATABASE IS PROVIDED "AS IS" AND PRINCETON
+>   18 UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
+>   19 IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PRINCETON
+>   20 UNIVERSITY MAKES NO REPRESENTATIONS OR WARRANTIES OF MERCHANT-
+>   21 ABILITY OR FITNESS FOR ANY PARTICULAR PURPOSE OR THAT THE USE
+>   22 OF THE LICENSED SOFTWARE, DATABASE OR DOCUMENTATION WILL NOT
+>   23 INFRINGE ANY THIRD PARTY PATENTS, COPYRIGHTS, TRADEMARKS OR
+>   24 OTHER RIGHTS.
+>   25
+>   26 The name of Princeton University or Princeton may not be used in
+>   27 advertising or publicity pertaining to distribution of the software
+>   28 and/or database.  Title to copyright in this software, database and
+>   29 any associated documentation shall at all times remain with
+>   30 Princeton University and LICENSEE agrees to preserve same.
 
 ---
 

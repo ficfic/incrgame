@@ -205,6 +205,12 @@ function main() {
 
   // CC BY 4.0 §3(a)(1) travels with the DATA, not just the docs: the deployed
   // site serves public/ and never docs/, so the notice ships here too.
+  //
+  // The upstream notice is EMBEDDED VERBATIM from a vendored copy rather than
+  // retyped. Its own terms require "the same" notice on all copies of the
+  // database, and a notice from a different WordNet release is not the same
+  // notice — we shipped the 3.0/2006 text once by retyping it from memory.
+  const upstreamNotice = readFileSync(join(ROOT, 'third_party/wordnet/WNDB_License.txt'), 'utf8');
   writeFileSync(join(OUT, 'LICENSE.txt'), [
     'Concept data in this directory is derived from Open English WordNet.',
     '',
@@ -213,8 +219,10 @@ function main() {
     'Licence: Creative Commons Attribution 4.0 International (CC BY 4.0)',
     '         https://creativecommons.org/licenses/by/4.0/',
     '',
-    'Attribution is owed to BOTH the Open English WordNet team and Princeton',
-    'WordNet, from which Open English WordNet is derived.',
+    // Keep "Princeton WordNet" on ONE line: a CI check and a test both grep for
+    // it, and a line-wrap once made the notice look compliant while failing.
+    'Attribution is owed to BOTH the Open English WordNet team and',
+    'Princeton WordNet, from which Open English WordNet is derived.',
     '',
     'CHANGES MADE (CC BY 4.0 s3(a)(1)(B)):',
     '  - Selected a subset: nouns reachable from the concept "entity", capped',
@@ -225,8 +233,11 @@ function main() {
     '  - Reserialised as JSON. Definitions are copied VERBATIM and are not',
     '    edited, rewritten, summarised or machine-generated.',
     '',
-    'Full notices, including the Princeton WordNet licence text, are in',
-    'docs/ATTRIBUTION.md in the source repository.',
+    '=====================================================================',
+    'UPSTREAM NOTICE, REPRODUCED VERBATIM (WNDB_License.txt @ ' + sha.slice(0, 12) + ')',
+    '=====================================================================',
+    '',
+    upstreamNotice.trimEnd(),
     '',
   ].join('\n'));
 

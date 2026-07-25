@@ -47,8 +47,15 @@ large, beautiful graph that grows and reorganizes itself — and, eventually,
 ### Why the premise is theory-faithful, not just a vibe
 
 Model collapse is real and peer-reviewed: training generative models on
-recursively generated data drives **late collapse**, where low-frequency events
-permanently disappear ([Shumailov et al., *Nature*, 2024](https://www.nature.com/articles/s41586-024-07566-y)).
+recursively generated data drives **early model collapse**, in which the *tails*
+of the distribution — low-probability events — are lost first. (Shumailov et al.
+define two phases and this is the first: *late* collapse is convergence to a
+distribution with little resemblance to the original and much reduced variance.
+Getting these the wrong way round, as this document did, is exactly the error
+the theory-faithfulness rule exists to catch.) Note also that the result
+concerns recursive training *without* fresh real data; the paper discusses
+retaining original human-produced data as a mitigation, so "permanent" is a
+stronger word than the paper supports ([Shumailov et al., *Nature*, 2024](https://www.nature.com/articles/s41586-024-07566-y)).
 The rare tail goes first. WordNet's rare tail — `benthos`, `kickshaw`, `biont` —
 is therefore what the player recovers **last**. The pacing curve and the
 citation are the same object. Keep it that way; if a mechanic contradicts the
