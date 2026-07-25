@@ -14,9 +14,22 @@ we build the green slice first and earn the rest.
 
 ## 🟢 MVP — prove the fantasy (build first)
 
-- [ ] **M0 · Skeleton.** Vite + TS + Svelte + PWA; empty `core/` engine
-  (`tick`/`apply` + `GameState` type); break_eternity wrapper; GH Pages deploy;
-  Vitest set up. *Deliverable: an alive, empty, installable app on your phone.*
+- [ ] **M0 · Skeleton.** *Deliverable: an alive, empty, installable app on your
+  phone.* Sub-checklist (all per `docs/SPEC.md`):
+  - [ ] Vite + TS + Svelte project; `base: '/incrgame/'`.
+  - [ ] `src/core/` engine stub: `apply(state, action)` sole reducer, `GameState`
+    + all types from SPEC (`ResourceId`/`GeneratorId`/`DomainId` enumerated);
+    break_eternity wrapper in `numbers.ts`.
+  - [ ] PWA: manifest (`start_url`/`scope` = `/incrgame/`), `apple-touch-icon` +
+    apple meta tags, `vite-plugin-pwa` SW scoped `/incrgame/`, icons, `.nojekyll`.
+  - [ ] `.github/workflows/deploy.yml`: `npm ci` → typecheck → **`vitest run`
+    (gates deploy)** → **core-purity check** (grep `src/core/**` for
+    `window`/`document`/`ui`/`render` imports) → `vite build` → deploy-pages;
+    least-privilege `permissions`.
+  - [ ] Vitest wired; one trivial engine test green.
+  - **⚠️ Owner-side first (see SPEC "Owner-side prerequisites"):** set Pages
+    Source = GitHub Actions; pick the deploy branch + point the workflow at it;
+    enable push protection; verify install on the iOS device (Safari if Edge won't).
 - [ ] **M1 · Core loop slice.** `Data` resource, manual "connect" action (→ Data),
   one Harvester (cost `15 × 1.15ⁿ`), fixed-tick production (10 Hz) — **plus a
   trivial 5-node graph that grows per connect** so the hook is on screen in the

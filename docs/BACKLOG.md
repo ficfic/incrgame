@@ -50,9 +50,11 @@ without being re-briefed. Move finished items to **Done** with a date.
       offline cap value — write the numbers to tune toward.
 - [x] Architecture + stack locked (see `docs/ARCHITECTURE.md`): headless pure-TS
       engine + Svelte UI + PixiJS graph + Vite/PWA + Vitest.
-- [ ] Scaffold the skeleton: Vite + TS + Svelte + PWA, `src/core` engine stub
-      (tick/apply), break_eternity wrapper, versioned save, Vitest, GH Pages
-      deploy. Thin slice only.
+- [x] Technical spine hardened + pre-build review passed (The Graph + Auditor);
+      SPEC.md is build-ready (types, reducer, save, offline, RNG, PWA, deploy).
+- [ ] **▶ NEXT: build M0** — follow the `docs/ROADMAP.md` M0 sub-checklist.
+      **Do the owner-side prerequisites first** (Pages source, deploy branch,
+      push protection, iOS device install) — see SPEC "Owner-side prerequisites".
 - [ ] (Later) ESLint boundary rule enforcing core-purity (no DOM in `core/`).
 
 ## Someday / maybe

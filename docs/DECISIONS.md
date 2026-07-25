@@ -7,6 +7,24 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Pre-build technical review (The Graph + The Auditor) + fixes.**
+  Verdicts: BUILDABLE WITH FIXES / CONDITIONS APPLY — all doc-level conditions now
+  closed:
+  - *The Graph P0:* enumerated `GeneratorId`/`DomainId`; added `costResource` to
+    `Generator`; declared **`apply` the sole reducer, `tick` = sugar** (ARCHITECTURE
+    aligned). *P1:* propagated tiered-resources into ECONOMY_MODEL (killed the
+    single-`K` contradiction — output per-ResourceId, `marketPrice(resourceId,
+    domain)`, prestige anchored to new `lifetimeCapital` field); made RNG a **pure**
+    `nextRand(seed)->[v,seed]`; single save-version authority + `CURRENT_SAVE_VERSION`;
+    offline ms→seconds fix + `OFFLINE_CAP` in ms; `TIER_LADDER` const + refine ratio.
+  - *The Auditor:* added the missing **PWA/install section** to SPEC (apple-touch-icon,
+    apple meta, manifest scope=`/incrgame/`, SW scope, `.nojekyll`, iOS-Edge caveat);
+    **IndexedDB + `persist()`** for saves (not evictable localStorage); M0 deploy
+    workflow spec with a **test gate + lightweight core-purity CI check** (overriding
+    the roadmap's deferral of the purity guard); documented **owner-side
+    prerequisites** (Pages source, deploy branch, push protection, device verify).
+  - ROADMAP M0 expanded to a build sub-checklist; CLAUDE.md now points builders to
+    ROADMAP→SPEC→ARCHITECTURE. Docs are build-ready for a fresh session.
 - 2026-07-25 — **Five-agent gap analysis run + fixes applied.** All five reviewers
   swept the whole design; fixes landed:
   - *Technical spine* (The Graph): `docs/SPEC.md` defines GameState, Action union,

@@ -25,7 +25,7 @@ Field Notes are how every label above actually reaches the player. **Designed
 subsystem, not a vague promise:**
 
 - **Data:** each is a `FieldNote` (schema in `docs/SPEC.md`): `{ id, gameTerm,
-  realTerm, glossaryRef, oneLineTruth, simplificationLabel?, learnMore }`.
+  realTerm, glossaryRef, oneLineTruth, simplificationLabel?, learnMore? }`.
 - **Home:** content data in `src/content/`, keyed to `GLOSSARY.md` rows so it
   **can't drift** from the source of truth (generated from the glossary later).
 - **Trigger:** a Field Note unlocks when its mechanic/term first appears in play;

@@ -9,6 +9,12 @@ context may be summarized mid-session.
 `docs/BACKLOG.md`.** Those three files are the project's durable memory — they
 survive when a session's context does not.
 
+**Starting to BUILD?** Read, in order: `docs/ROADMAP.md` (do **M0** first — it has
+a full sub-checklist), `docs/SPEC.md` (the engine/save/PWA/deploy contract — the
+source of record for types and shapes), and `docs/ARCHITECTURE.md` (the
+engine/skin split). `docs/ECONOMY_MODEL.md` has the numbers. Do the **owner-side
+prerequisites** in SPEC before expecting a deploy to work.
+
 ---
 
 ## The one constraint that shapes everything

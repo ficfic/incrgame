@@ -6,25 +6,30 @@ engine ([Kongregate, *Math of Idle Games*](https://blog.kongregate.com/the-math-
 We steal the canonical numbers so we don't invent formulas; **every number here
 is a tunable starting point, meant to be felt in a prototype and adjusted.**
 
-## Currencies
+## Currencies (distinct tiered resources — reconciled with SPEC.md)
 
-- **Knowledge (K)** — soft currency, *produced*. Split into Triples → Entities →
-  Taxonomies → Ontologies → Digital Twins (higher tiers are worth more K).
-- **Capital ($)** — hard currency, earned by **selling** K (exhaustive).
+There is **no single "K"** — the ladder tiers are **distinct, non-fungible
+resources** (`ResourceId` in `SPEC.md`): `data → triples → entities → taxonomies
+→ ontologies → twins`. Each generator produces **one** resource; each is sold at
+**its own tier's price**. Higher tiers are worth far more but come slower.
+
+- **Ladder resources** — *produced* and *refined* one tier up.
+- **Capital ($)** — hard currency, earned by **selling** any tier (exhaustive),
+  spent on generators/compute.
 
 ## Generators — cost & output
 
-Borrowed directly from Cookie Clicker ([Building cost = base × 1.15ⁿ](https://cookieclicker.fandom.com/wiki/Building)):
+Borrowed from Cookie Clicker ([Building cost = base × 1.15ⁿ](https://cookieclicker.fandom.com/wiki/Building)):
 
 ```
-cost(n)  = baseCost × 1.15^n          # n = number already owned
-output   = Σ_k ( count_k × baseRate_k × multipliers )
+cost(n)      = baseCost × costRatio^n      # of the generator's costResource; costRatio=1.15
+output(res)  = Σ_{k produces res} ( count_k × baseRate_k × multipliers )   # PER resource, not a summed K
 ```
 
 Starting table (base costs/rates lifted from Cookie Clicker's first buildings —
 0.1/1/8/47/260 CpS at 15/100/1100/12000/130000 cost):
 
-| Generator | Base cost | Base output (K/s) | Note |
+| Generator | Base cost | Base output (/s) | Note |
 |---|---|---|---|
 | Manual connect | — | 1 / action | The opening; you outgrow it |
 | Harvester | 15 | 0.1 | auto Data |
@@ -60,8 +65,9 @@ Q = Q_consistency × Q_provenance × Q_dedup
 ## Selling (exhaustive) & the sell→rent arc
 
 ```
-$gained = K_sold × marketPrice(domain) × Q
-K      -= K_sold                              # selling consumes knowledge
+$gained = amount × marketPrice(resourceId, domain) × Q   # sell ANY tier at its own price
+resources[resourceId] -= amount                          # selling consumes that resource
+lifetimeCapital       += $gained                         # the prestige anchor (in GameState)
 ```
 
 - `marketPrice(domain)` varies; **finance decays** (freshness) → hoarding loses
@@ -120,7 +126,7 @@ Borrowed from Cookie Clicker's cubic prestige
 ([floor((total/threshold)^(1/3))](https://cookieclicker.fandom.com/wiki/Heavenly_Chips)):
 
 ```
-reflectionLevel = floor( (totalK_ever / T) ^ (1/3) )      # T = threshold, tune
+reflectionLevel = floor( (lifetimeCapital / T) ^ (1/3) )  # anchor = total $ ever earned; T tunable
 permanentBonus  = +1% production per level                # Cookie Clicker parity
 ```
 

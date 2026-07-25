@@ -9,7 +9,8 @@ iterate on*, and *safe to go wild on* — wild only ever touches a skin.
   CONTENT   declarative data (resources, generators, costs, domains)   ← tune by editing data
   ─────────────────────────────────────────────────────────────────
   ENGINE    pure TypeScript, zero UI                                    ← the portable heart
-            tick(state, dt) → state ;  apply(state, action) → state       deterministic · headless · tested
+            apply(state, action) → state  (sole reducer)                  deterministic · headless · tested
+            tick = (s,dt) => apply(s,{type:'tick',dt})  (sugar)
   ─────────────────────────────┬───────────────────────────────────
   UI SKIN  (vertical HUD)       │   GRAPH RENDERER  (WebGL blooms)      ← swappable; "go wild" lives here
 ```
@@ -34,7 +35,7 @@ replaced without touching game logic, so these picks are low-stakes. Only the
 ```
 src/
   core/          # pure engine — MUST NOT import UI/render or touch window/document
-    engine.ts    #   tick(state, dt), apply(state, action)
+    engine.ts    #   apply(state, action) sole reducer; tick(s,dt) is sugar over it
     types.ts     #   GameState, Action, content types
     numbers.ts   #   break_eternity wrapper (format, add, mul, cmp)
     save.ts      #   serialize/deserialize + versioned migrations
@@ -79,6 +80,6 @@ Choose-your-own-adventure events are just **content + engine state + actions**:
 ## MVP stays thin (bouncer's standing order)
 
 We adopt the *capable* stack but the first build uses a *thin slice* of it: a
-list-based UI, one resource, one generator, ~10 nodes. The wild parts (WebGL
+list-based UI, one resource, one generator, a handful of nodes (~5–10). The wild parts (WebGL
 blooms, worker, domains) are earned, not front-loaded. The architecture exists so
 we *can* scale — not so we must.
