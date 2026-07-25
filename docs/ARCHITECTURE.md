@@ -59,6 +59,23 @@ test/            # Vitest engine tests (headless, no DOM)
 5. **One engine, two form factors.** iOS vertical and browser are the same engine
    under a responsive skin — mobile-first, scales up.
 
+## Events / CYOA fit the same model (no special system)
+
+Choose-your-own-adventure events are just **content + engine state + actions**:
+
+- **Event = data:** `{ id, trigger, situation, choices[] }`; a choice is
+  `{ text, requires?, effects[], leadsTo? }`.
+- **The engine** checks triggers each tick; when an event fires *randomly*, it
+  draws from the **seeded RNG** (deterministic → testable, no save-scumming).
+- **A choice is an action:** `apply(state, {type:'chooseOption', eventId,
+  choiceId})` applies the effects and, if `leadsTo` is set, queues the next
+  node — that's **forking / multi-step** events.
+- **Narrative flags** in `GameState` record what's happened. These gate the
+  **emergent world-ending reveal** and the **diegetic weirdness** — both are just
+  flag-conditioned events.
+- The **UI skin** only renders the queued event + buttons; the **engine** decides
+  all consequences. Purity holds.
+
 ## MVP stays thin (bouncer's standing order)
 
 We adopt the *capable* stack but the first build uses a *thin slice* of it: a

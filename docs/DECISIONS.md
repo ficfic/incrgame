@@ -7,6 +7,13 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **CYOA events fit the core architecture** — events are content
+  data + engine flags + actions (choice = an action; `leadsTo` = forking; seeded
+  RNG = deterministic firing). Emergent motivation + diegetic weirdness are
+  flag-gated events. No special system. Documented in `ARCHITECTURE.md`.
+- 2026-07-25 — **Phased build roadmap** (`docs/ROADMAP.md`) — durable, thin,
+  shippable milestones M0–M4 for the MVP, then the in-vision ring. Task tracking =
+  durable ROADMAP/BACKLOG + an ephemeral in-session checklist while building.
 - 2026-07-25 — **Architecture: headless engine + swappable skins** — a pure,
   deterministic TypeScript engine (`tick`/`apply` over plain state) that knows
   nothing about the screen; UI and graph are swappable skins. This is the answer
