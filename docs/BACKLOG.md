@@ -3,6 +3,9 @@
 The running "what's next" list. Keep it current so any session can pick up
 without being re-briefed. Move finished items to **Done** with a date.
 
+**⚡ Fresh session? `docs/HANDOVER.md` is the fast path** — current loop, live
+URL, invariants, and the next moves in one page (written 2026-07-25).
+
 ## Now / next
 
 - [x] Game concept chosen: **knowledge-graph incremental** (see
