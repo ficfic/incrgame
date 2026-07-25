@@ -32,6 +32,46 @@ true finish line. Standard for the genre, endless play.
 > better → coverage climbs toward "all knowledge" — with the **sell-vs-keep**
 > tension inside every cycle.
 
+## Tone & voice
+
+**Dominant tone: satirical tech-startup on the surface, an ominous awe-spine
+underneath.** Funny gold-rush comedy early; a slow-creeping "this is bigger than
+me" dread as the graph grows and begins to describe itself.
+
+**Tonal arc (rides the progression):**
+
+- **Early — startup comedy.** Scrappy founder energy: funding rounds, hype,
+  pivots, "we're an AI company now."
+- **Mid — growth/hype.** Scaling, platform ambitions, dodging lawsuits.
+- **Late — the joke curdles.** The graph is bigger than you; the self-
+  description prestige ("Reflect") is where the ominous spine takes over — the
+  model starts writing its own ontology, and maybe its own goals. Universal
+  Paperclips energy.
+
+**Voice rules:**
+
+- Wry, punchy, self-aware. Satire on top — **never** at the expense of accuracy.
+- The satire is a *wrapper*: every joke-name shows its real term (in Field Notes
+  / glossary). You laugh, then you learn. This is how "faithful but playable"
+  and "satirical" coexist.
+- Simplifications of real theory are still labeled (see the accuracy guardrail).
+
+**First-pass naming (real term → in-game satirical name — all placeholder):**
+
+| Real term | In-game (satirical) |
+|---|---|
+| Data harvesting | "Ingestion Pipeline™" |
+| RDF triple | "Insight" (marketing) — labeled *(a triple)* |
+| Reasoner / inference | "Inference Engine (Series A)" |
+| Curator / dedup | "Data Janitor" / MLOps |
+| Ontology | "the Schema (v2, breaking changes)" |
+| Sell/exhaust | "Exit to a hyperscaler" |
+| Rent/platform | "Platform tier / the API" |
+| AI subscription (opex) | "Vendor API — billed per token" |
+| Own model (capex) | "In-house model (Series B compute)" |
+| Lawsuit hazard | "Cease & Desist" / discovery |
+| Self-description prestige | "Reflection" — the model models itself |
+
 ## The engine (locked)
 
 **Inference is the compounding multiplier.** *Reasoners* generate new edges from

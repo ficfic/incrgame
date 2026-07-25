@@ -13,8 +13,10 @@ without being re-briefed. Move finished items to **Done** with a date.
       provenance/licensing ethics. Central tension = "sell vs keep".
 - [x] North star + macro-loop locked: model all world knowledge (domain by
       domain), endless horizon + prestige, sell-early/rent-late arc.
-- [ ] Flesh out the design's open questions (balance curves, self-description
-      play, theme/tone, sell-vs-keep pacing, sell→rent unlock, domain sizing).
+- [x] Tone locked: satirical startup surface + ominous awe spine; satire wraps
+      exact theory.
+- [ ] Flesh out remaining open questions (balance curves, self-description play,
+      sell-vs-keep pacing, sell→rent unlock, domain sizing, Field Notes format).
 - [ ] Design the "Field Notes" codex format (in-game explainer + learn-more
       links to real specs).
 - [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on

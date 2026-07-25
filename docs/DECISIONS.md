@@ -7,6 +7,11 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Tone: satirical startup surface + ominous awe spine** — gold-
+  rush tech comedy early, curdling into Paperclips-style dread as the graph
+  self-describes. Satire is a wrapper over exact theory: joke-names always show
+  their real term (Field Notes / glossary), reconciling "faithful" with "funny."
+  Rejected: pure satire, pure sci-fi, pure academic.
 - 2026-07-25 — **North star: model all the world's knowledge as one graph** —
   master progress is "world coverage %", approached **domain by domain** (each
   domain a mini-arc unlocking the next). Grounds the game in real universal-KG
