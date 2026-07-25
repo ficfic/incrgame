@@ -35,6 +35,7 @@ glossary deliberately and log it in `DECISIONS.md`).
 | **W3C WoT Thing Description** | Standard describing a Thing's metadata/interfaces; converging with DTDL. | Alternate twin spec. | [W3C WoT](https://www.w3.org/WoT/) |
 | **PROV-O** | W3C Provenance Ontology: entities, activities, agents; how data was produced. | Tracks where facts came from. | [PROV-O](https://www.w3.org/TR/prov-o/) |
 | **Metamodeling / self-description** | RDFS/OWL vocabularies are themselves RDF; graphs can describe their own structure. | The "Reflect" prestige. | [RDF Schema 1.1](https://www.w3.org/TR/rdf-schema/) |
+| **Semantic / concept drift** | The meaning of terms shifts over time; in ontologies, "ontology evolution" / concept drift forces schemas to be re-versioned. | **The game's title** — the graph rewrites meaning as it wakes. | [Ontology evolution](https://en.wikipedia.org/wiki/Ontology_(information_science)) |
 | **Upper ontology** | Domain-independent foundational ontology (BFO, DOLCE, SUMO). | Endgame meta-structure. | [BFO](https://basic-formal-ontology.org/) |
 
 ## AI economy terms

@@ -58,8 +58,8 @@ ig:Reflection  a ig:Prestige ; rdfs:label "Reflection" ;
 
 #### The fourth wall ####
 
-ig:incrgame    a ig:Game ; rdfs:label "incrgame" ;
-               rdfs:comment "A game about turning all knowledge into a graph - described here, as a graph." ;
+ig:incrgame    a ig:Game ; rdfs:label "Semantic Drift" ;
+               rdfs:comment "A game about turning all knowledge into a graph - described here, as a graph. Titled 'Semantic Drift' - the graph rewrites meaning as it wakes." ;
                ig:isDescribedBy ig:thisGraph .
 ig:isDescribedBy a owl:ObjectProperty .
 ig:thisGraph   a owl:Ontology ;

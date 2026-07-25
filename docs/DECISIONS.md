@@ -7,6 +7,10 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Game title: _Semantic Drift_** — a real term (meaning shifting
+  over time; ontology evolution / concept drift). Ominous, accurate, and
+  thematically perfect (the graph rewrites meaning as it wakes). Repo stays
+  `incrgame`. Applied to README, GAME_DESIGN, game.ttl, GLOSSARY.
 - 2026-07-25 — **CYOA events fit the core architecture** — events are content
   data + engine flags + actions (choice = an action; `leadsTo` = forking; seeded
   RNG = deterministic firing). Emergent motivation + diegetic weirdness are

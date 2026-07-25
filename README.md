@@ -1,4 +1,6 @@
-# incrgame
+# Semantic Drift
+
+*(working repo: `incrgame`)*
 
 ### An incremental game about turning *all the world's knowledge* into one graph — and what happens when it starts describing itself.
 

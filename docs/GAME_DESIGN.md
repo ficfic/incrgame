@@ -6,6 +6,10 @@
 
 ## Pitch
 
+**Title: _Semantic Drift_** (a real term — meaning shifting over time; in
+ontology engineering, concept drift / ontology evolution. The graph slowly
+rewrites what everything means as it wakes up.)
+
 An incremental/idle game about **knowledge management** — you grow a **knowledge
 graph**: harvest data, extract triples, form entities, build ontologies, and
 model **digital twins** of domains. The reward is a large, beautiful graph that
