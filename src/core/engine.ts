@@ -22,7 +22,7 @@ import { CONCEPT_BUDGET } from '../content/ontologyMeta';
 import { VIGNETTES } from '../content/vignettes';
 import { nextRand } from './rng';
 
-export const CURRENT_SAVE_VERSION = 11;
+export const CURRENT_SAVE_VERSION = 12;
 
 // Frontier Mining knobs (Chad's term sheet; tune by playing)
 const START_DATA = '15';        // enough to wire the first ~2 entities
@@ -150,11 +150,25 @@ export function surveyCost(state: GameState): string {
     .ceil().toString();
 }
 
+/** log10 of a Decimal, WITHOUT going through a JS number.
+ *
+ *  `D(x).toNumber()` is `Infinity` above ~1.8e308, and this project has already
+ *  seen 1e400 magnitudes. An Infinite `ratchet` makes `recoveryPerSecond`
+ *  Infinite, which writes `foldedNodes: "Infinity"` into the save — and
+ *  `recovered()` guards with `Number.isFinite`, so ALL accumulated folded mass
+ *  becomes zero and stays zero for the rest of that save. Permanent corruption,
+ *  the same class as the drift bug fixed thirty lines below, in the same file.
+ *  `driftPerSecond` and `reviewWeight` already do it this way; these two did
+ *  not, and inconsistent use of a Decimal library is worse than not having one. */
+function decades(v: string): number {
+  const d = D(v);
+  return d.lte(0) ? 0 : Math.max(0, d.add(1).log10().toNumber());
+}
+
 /** Total slots. Grows with lifetime verified knowledge: the more of the world
  *  you have actually checked, the more of it you can hold in your head. */
 export function attentionCap(state: GameState): number {
-  const v = D(state.lifetimeVerified).toNumber();
-  return ATTENTION_BASE + Math.floor(ATTENTION_PER_DECADE * Math.log10(1 + Math.max(0, v)));
+  return ATTENTION_BASE + Math.floor(ATTENTION_PER_DECADE * decades(state.lifetimeVerified));
 }
 
 /** Slots not reserved for supervision and not currently booked on work. */
@@ -182,16 +196,22 @@ export function agentCost(state: GameState, id: GeneratorId): string {
  *  strictly dominated button, and what carries you forward is exactly the
  *  material that model collapse cannot degrade. */
 export function ratchet(state: GameState): number {
-  const v = D(state.lifetimeVerified).toNumber();
-  return 1 + RATCHET_SCALE * Math.log10(1 + Math.max(0, v));
+  return 1 + RATCHET_SCALE * decades(state.lifetimeVerified);
 }
 
-/** Deterministic integer mix for anchor selection (game logic, but no state:
- *  pure function of the claimed id — replay-stable without consuming RNG). */
-function mixId(id: number): number {
-  let t = (id * 374761393) | 0;
-  t = (t ^ (t >>> 13)) * 1274126177;
-  return (t ^ (t >>> 16)) >>> 0;
+/** Keep the drawn-line list inside its cap, sacrificing MACHINE guesses before
+ *  anything a human drew. A plain `shift()` took the oldest, and the oldest are
+ *  the player's opening lines — so once agents filled the buffer, every machine
+ *  line silently deleted one of the player's, un-lighting a concept and dropping
+ *  coverage for no reason the player could see. */
+function trimEdges(edges: Edge[]): Edge[] {
+  if (edges.length <= EDGE_CAP) return edges;
+  const out = [...edges];
+  while (out.length > EDGE_CAP) {
+    const i = out.findIndex((e) => !e.checked);
+    out.splice(i >= 0 ? i : 0, 1);
+  }
+  return out;
 }
 
 export function initialState(seed = 1): GameState {
@@ -253,6 +273,13 @@ export function displayedFidelity(state: GameState): number {
   const total = D(state.resources.triples);
   if (total.lte(0)) return 1;
   return Math.max(0, Math.min(1, D(verified(state)).div(total).toNumber()));
+}
+
+/** Is there anything to be trusting ABOUT? A new save has zero statements and
+ *  `displayedFidelity` returns 1, which the HUD showed as "100% checked" over an
+ *  empty graph — vacuously true, presented as a score. */
+export function hasTrust(state: GameState): boolean {
+  return D(state.resources.triples).gt(0);
 }
 
 /** What the ENGINE uses: the share that is verified AND actually true. Gates
@@ -382,13 +409,21 @@ export function recoveryPerSecond(state: GameState): number {
   // a graph you trust. Reasoning over contradictions doesn't degrade
   // gracefully, it degrades fast — which is what makes trust the real currency.
   const f = fidelity(state);
-  // ...and coverage asymptotes to FIDELITY, not to 1. You can recover as much of
-  // the world as you can be trusted about — which is this game's whole argument
-  // in one expression. `1 - coverage` alone was merely exponential: it reached
-  // 4095/4096 in about seven hours, so "unreachable by construction"
-  // (docs/VISION.md) was simply false. This makes the ceiling the thing the
-  // game is actually about, and a buyout-only player caps around half the world.
-  const remaining = f > 0 ? Math.max(0, (f - coverage(state)) / f) : 0;
+  // ...and the tail gets HARDER as trust falls, rather than hitting a wall.
+  //
+  // This was `(f - coverage) / f`, which is a hard ceiling: once coverage
+  // exceeds fidelity the term clamps to zero and Reasoners output exactly
+  // nothing, however many you own. That bricked generation 2 — prestige carries
+  // coverage at 100%, so a completed run returns at coverage ~0.94 against an
+  // achievable f of ~0.6, and `remaining` is 0 forever. The prestige loop was a
+  // dead end that cost you your machines.
+  //
+  // `(1 - coverage) * f` is BYTE-IDENTICAL AT f = 1, so generation 1 keeps
+  // every number already measured. Below that the total gate becomes f³: a
+  // rotted graph grinds a very hard tail instead of stopping, which is the
+  // actual shape of the Shumailov result — the tail goes first and gets
+  // harder, it does not vanish.
+  const remaining = Math.max(0, 1 - coverage(state)) * f;
   return base * f * f * remaining * ratchet(state);
 }
 
@@ -556,20 +591,31 @@ export function apply(state: GameState, action: Action): GameState {
       let lineDebt = state.lineDebt + (Number.isFinite(drawn) ? drawn : 0);
       if (lineDebt >= 1 && forged.anchors.length > 1) {
         const made: Edge[] = [];
-        const cleanShare = D(supervisedPerSecond(state)).toNumber()
-          / Math.max(1e-9, D(supervisedPerSecond(state)).add(D(unsupervisedPerSecond(state))).toNumber());
         let budget = Math.min(Math.floor(lineDebt), 24); // never stall a tick
         lineDebt -= Math.floor(lineDebt);
         while (budget-- > 0) {
-          let ra: number, rb: number, rc: number;
+          let ra: number, rb: number;
           [ra, rng] = nextRand(rng);
           [rb, rng] = nextRand(rng);
-          [rc, rng] = nextRand(rng);
           const a = forged.anchors[Math.floor(ra * forged.anchors.length)] ?? 0;
           const b = forged.anchors[Math.floor(rb * forged.anchors.length)] ?? 0;
           if (a === b) continue;
-          const checked = rc < cleanShare;
-          made.push({ a, b, rel: 0, checked, fake: !checked });
+          // ALWAYS unchecked, ALWAYS an invention.
+          //
+          // A machine cannot know which pairs are real — the dataset lives in
+          // the shell and core is pure — so every line it draws is a guess
+          // between two concepts it happens to hold. Marking the supervised
+          // share `checked: true` made those guesses PERMANENT and unrottable:
+          // false `is a` claims between random concepts, on the board forever,
+          // as the *reward for supervising*. In a game whose whole point is not
+          // teaching falsehoods, that was the worst bug in the build.
+          //
+          // Unchecked machine lines still light a concept while they live, so
+          // agents still move coverage and the no-babysitting rule holds — but
+          // their contribution decays unless a human confirms it, which is the
+          // thesis stated as arithmetic. Supervision governs STATEMENT
+          // provenance, which is what it always did.
+          made.push({ a, b, rel: 0, checked: false, fake: true });
         }
         if (made.length > 0) {
           const next = [...forged.edges];
@@ -577,7 +623,8 @@ export function apply(state: GameState, action: Action): GameState {
             if (next.some((x) => x.a === e.a && x.b === e.b && x.rel === e.rel)) continue;
             next.push(e);
           }
-          while (next.length > EDGE_CAP) next.shift();
+          const trimmed = trimEdges(next);
+          next.length = 0; next.push(...trimmed);
           forged = { ...forged, edges: next };
           touched = true;
         }
@@ -621,7 +668,7 @@ export function apply(state: GameState, action: Action): GameState {
             if (anchors.includes(b.edge.a) && anchors.includes(b.edge.b)
                 && !edges.some((e) => e.a === b.edge!.a && e.b === b.edge!.b && e.rel === b.edge!.rel)) {
               edges = [...edges, b.edge];
-              while (edges.length > EDGE_CAP) edges.shift();
+              edges = trimEdges(edges);
               resources = touched ? resources : { ...resources };
               resources.triples = add(resources.triples, 1);
               lifetimeVerified = lifetimeVerified.add(1);
@@ -636,12 +683,32 @@ export function apply(state: GameState, action: Action): GameState {
           // without ever buying a machine.
           anchors = [...anchors, b.node];
           while (anchors.length > ANCHOR_CAP) {
-            const folded = anchors.splice(1, 1)[0]!;
+            // EVICT THE DARK FIRST, and never the root.
+            //
+            // Folding by age alone did two bad things. It threw away the
+            // taxonomy: breadth-first order puts every parent at a far lower
+            // index than its children, so the ancestors folded out first and
+            // within ~240 discoveries the only connection any new concept could
+            // offer was a spoke straight to `entity` — a 240-spoke asterisk
+            // instead of a hierarchy. And it fed the coverage lie below.
+            // Keeping lit concepts preserves the spine, because a lit concept
+            // is one something is hanging off.
+            let victim = -1;
+            for (let i = 1; i < anchors.length; i++) {
+              const id = anchors[i]!;
+              if (!edges.some((e) => e.a === id || e.b === id)) { victim = i; break; }
+            }
+            if (victim < 0) victim = 1; // everything is lit: fall back to oldest
+            const folded = anchors.splice(victim, 1)[0]!;
+            const wasLit = edges.some((e) => e.a === folded || e.b === folded);
             links = links.filter(([x, y]) => x !== folded && y !== folded);
             edges = edges.filter((e) => e.a !== folded && e.b !== folded);
-            // credit the fold, or every concept past the cap is destroyed and
-            // coverage stops dead at ANCHOR_CAP
-            foldedNodes = add(foldedNodes, 1);
+            // CREDIT ONLY WHAT WAS LIT. Crediting every fold meant a concept
+            // that arrived dark, sat dark and fell off the board still became
+            // permanent coverage — so past anchor 240 pure Discover-spam
+            // reached 3,856 / 4,096 with ZERO lines drawn. That is the exact
+            // exploit v11 exists to close, relocated one window along.
+            if (wasLit) foldedNodes = add(foldedNodes, 1);
           }
           while (links.length > LINK_CAP) links.shift();
         }

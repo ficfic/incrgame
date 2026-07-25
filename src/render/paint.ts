@@ -6,18 +6,44 @@
 // reimplementations of things the browser already does correctly, and they were
 // what broke under zoom.
 import type { Edge, GameState } from '../core/types';
-import { band, positions, relHue } from './board';
+import { band, relHue } from './board';
 import { CONNECT_MS, displayedFidelity } from '../core/engine';
 import { D } from '../core/numbers';
 
 const ROT = '#b0566b';
+
+/** An arrowhead at `pb`, pulled back off the node so it does not sit under the
+ *  dot. Lines are DIRECTED — `has part` is not symmetric and neither is `is a` —
+ *  and until this existed the renderer drew `car has part wheel` and
+ *  `wheel has part car` as pixel-identical segments, which threw away the one
+ *  thing the relation work spent a day getting right. GLOSSARY's RDF row calls
+ *  it "a directed labeled graph"; this is that word, honoured. */
+function arrow(
+  ctx: CanvasRenderingContext2D,
+  pa: { x: number; y: number }, pb: { x: number; y: number }, size: number,
+): void {
+  const dx = pb.x - pa.x, dy = pb.y - pa.y;
+  const len = Math.hypot(dx, dy);
+  if (len < size * 2.5) return; // too short to read; the label carries it
+  const ux = dx / len, uy = dy / len;
+  const tipX = pb.x - ux * 7, tipY = pb.y - uy * 7; // clear of the node dot
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(tipX - ux * size + uy * size * 0.5, tipY - uy * size - ux * size * 0.5);
+  ctx.lineTo(tipX - ux * size - uy * size * 0.5, tipY - uy * size + ux * size * 0.5);
+  ctx.closePath();
+  ctx.fill();
+}
 
 export interface Scene {
   state: GameState;
   w: number; h: number;
   timeMs: number;
   hue: number;
-  potential: Array<{ a: number; b: number; rel: number }>;
+  /** Connections available but not drawn, and the node positions — both
+   *  computed once by the shell and handed down, never re-derived here. */
+  dotted: Array<{ a: number; b: number; rel: number }>;
+  pos: Map<number, { x: number; y: number }>;
 }
 
 export function paintGraph(canvas: HTMLCanvasElement, s: Scene): void {
@@ -41,7 +67,7 @@ export function paintGraph(canvas: HTMLCanvasElement, s: Scene): void {
  *  statement — that is the whole point of keeping it an aggregate. */
 function substrate(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
   const { state, w, h, hue } = s;
-  const folded = Math.max(0, state.graph.nodes - state.forged.anchors.length);
+  const folded = Math.max(0, D(state.forged.foldedNodes).toNumber() || 0);
   const dots = Math.min(folded, 90);
   const trust = displayedFidelity(state);
   const { cx, cy, core: maxR } = band(w, h);
@@ -67,20 +93,15 @@ function substrate(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
  *              it is on its way back to dotted. */
 function lines(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
   const { state, w, h, hue } = s;
-  const spin = t * 0.02;
-  const pos = positions(state.forged.anchors, w, h, spin);
   const centre = { x: w / 2, y: h / 2 };
-  const at = (id: number): { x: number; y: number } => pos.get(id) ?? centre;
-  const key = (e: { a: number; b: number; rel: number }): string => `${e.a}:${e.b}:${e.rel}`;
-  const drawn = new Set(state.forged.edges.map(key));
+  const at = (id: number): { x: number; y: number } => s.pos.get(id) ?? centre;
 
   ctx.save();
   ctx.setLineDash([2, 5]);
   ctx.lineDashOffset = -t * 8; // a slow march, so possibility reads as alive
   ctx.lineWidth = 1;
   const byRel = new Map<number, Array<{ a: number; b: number; rel: number }>>();
-  for (const p of s.potential) {
-    if (drawn.has(key(p))) continue;
+  for (const p of s.dotted) {
     const list = byRel.get(p.rel);
     if (list) list.push(p); else byRel.set(p.rel, [p]);
   }
@@ -118,6 +139,11 @@ function lines(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
     ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
   }
   ctx.stroke();
+  ctx.fillStyle = 'hsl(42 70% 55% / 0.45)';
+  for (const e of state.forged.edges) {
+    if (e.checked) continue;
+    arrow(ctx, at(e.a), at(e.b), 4);
+  }
 
   ctx.lineWidth = 1.6;
   const solid = new Map<number, Edge[]>();
@@ -127,13 +153,16 @@ function lines(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
     if (list) list.push(e); else solid.set(e.rel, [e]);
   }
   for (const [rel, list] of solid) {
-    ctx.strokeStyle = `hsl(${relHue(rel, hue)} 65% 58% / 0.85)`;
+    const c = `hsl(${relHue(rel, hue)} 65% 58% / 0.85)`;
+    ctx.strokeStyle = c;
     ctx.beginPath();
     for (const e of list) {
       const pa = at(e.a), pb = at(e.b);
       ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
     }
     ctx.stroke();
+    ctx.fillStyle = c;
+    for (const e of list) arrow(ctx, at(e.a), at(e.b), 5);
   }
   ctx.lineWidth = 1;
 }

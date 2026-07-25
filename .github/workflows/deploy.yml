@@ -7,6 +7,11 @@ on:
     branches:
       - claude/incremental-game-github-pages-w7pvk6 # pinned deploy branch (no main)
       - claude/project-review-build-shub7f # build-session branch (same site; latest push wins)
+      # CI on the dev branch too. Four commits shipped without it ever
+      # running — no tests, no core-purity check, no attribution gate. The
+      # `deploy` job below stays gated to the pinned branch, so this buys the
+      # checks without any publishing risk.
+      - claude/knowledge-recovery-ontology-game-g0f9q0
   workflow_dispatch:
 
 # Least privilege (SPEC): nothing beyond what deploy-pages needs.

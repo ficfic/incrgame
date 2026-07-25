@@ -1,5 +1,34 @@
 # Architecture — headless engine, swappable skins
 
+## The technical vision (added 2026-07-25, because there wasn't one)
+
+Everything below this section is a record of choices. THIS is the part that has
+survived six pivots and is the thing to check new code against:
+
+1. **`src/core/` is a pure, deterministic reducer.** `apply(state, action) →
+   state` over a plain, serializable, versioned object that knows only numbers
+   and integer node ids. It never touches the DOM, the network, the clock,
+   `Math.random`, or the dataset. `now` is a parameter; the RNG seed is threaded.
+2. **`src/shell/` owns everything impure** — the 10 Hz clock, IndexedDB,
+   `fetch`, and the id→concept mapping — and hands the engine plain integers.
+   When the engine needs a fact about the world, the shell looks it up and
+   passes it in.
+3. **Everything above is a replaceable skin, and THE BROWSER IS THE FRAMEWORK.**
+   DOM and CSS for anything with text or a tap target; canvas 2D only for what
+   canvas is genuinely better at (many lines, many dots). No layer above the
+   engine holds game state. Do not reimplement layout, hit-testing, text
+   measurement or scrolling — that was tried, it cost 809 lines, and it broke
+   the game under pinch-zoom.
+
+Rules 1 and 2 have never slipped, and they are why the UI could be rewritten
+twice at zero cost to the engine. Rule 3 is new only as *writing*: it is the
+lesson of the all-canvas experiment, stated so it does not have to be relearned.
+
+⚠️ **Historical note.** This document named **PixiJS** as the locked graph
+renderer for months, in five places, and PixiJS was never a dependency. Treat
+any "chosen"/"locked" claim here as needing verification against
+`package.json` before you build on it.
+
 The one principle everything else follows: **the game's brain knows nothing about
 the screen.** A pure, deterministic engine operates on plain state; the UI and the
 graph are swappable skins on top. This is what makes the game *portable*, *fast to
@@ -22,7 +51,7 @@ iterate on*, and *safe to go wild on* — wild only ever touches a skin.
 | **Engine** | pure **TypeScript** + `break_eternity.js` | portable, deterministic, framework-free, unit-testable |
 | **Content** | declarative data (TS/JSON, derivable from `docs/graph/game.ttl`) | iterate balance by editing data, not code |
 | **UI skin** | **Svelte** | compiles away to tiny vanilla JS (mobile perf); least boilerplate = fastest iteration |
-| **Graph** | **PixiJS** (WebGL) | maximum creative freedom for the graph blooms + ominous visuals; swappable for sigma.js |
+| **Graph** | **canvas 2D** | a few hundred lines and dots; no WebGL needed. Anything with text or a tap target is DOM — see the technical vision below. |
 | **Shell** | **Vite + PWA** | PWA = installable, full-screen **iOS vertical** play, offline; Vite = instant HMR |
 | **Tests** | **Vitest** | test the engine headless in milliseconds |
 
@@ -42,7 +71,7 @@ src/
   content/       # declarative game data (may be generated from game.ttl)
     resources.ts  generators.ts  domains.ts
   ui/            # Svelte skin — vertical-first HUD
-  render/        # PixiJS graph renderer (swappable, isolated)
+  render/        # canvas painter: lines, substrate, ring. Geometry in board.ts.
   worker/        # optional: run the engine off the main thread for smooth 60fps
   main.ts
 test/            # Vitest engine tests (headless, no DOM)

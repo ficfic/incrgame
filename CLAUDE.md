@@ -77,8 +77,10 @@ verdict underneath.** A funny reviewer that lies is worthless.
 - **This repo is PUBLIC. Never commit secrets.** The same hook scans staged
   commits for common key shapes and blocks them. Secrets belong in GitHub
   Actions secrets or an untracked, gitignored env file — never in the repo.
-- **Develop on branch `claude/incremental-game-github-pages-w7pvk6`.** Commit
-  with clear messages; push with `git push -u origin <branch>`. Don't push to
+- **Develop on branch `claude/knowledge-recovery-ontology-game-g0f9q0`**, and
+  deploy by fast-forwarding `claude/incremental-game-github-pages-w7pvk6` onto
+  it (the Pages Action watches that branch). Commit with clear messages; push
+  with `git push -u origin <branch>`. Don't push to
   other branches without explicit permission. Don't open a PR unless asked.
 - **Never break an existing save.** The owner plays their own save long-term;
   corrupting it loses real progress. Rules: every save carries a `version`;
@@ -109,7 +111,10 @@ verdict underneath.** A funny reviewer that lies is worthless.
 ## Stack (see `docs/ARCHITECTURE.md` — the source of truth)
 
 Locked stack: **pure-TS headless engine** (+ break_eternity) · **Svelte** UI ·
-**PixiJS** graph · **Vite + PWA** · **Vitest**. GitHub Pages deploy via Action.
+**DOM + CSS** for anything with text or a tap target · **canvas 2D** for the
+graph's lines and atmosphere · **Vite + PWA** · **Vitest**. (PixiJS was named
+here for months and was never a dependency; a WebGL renderer is not needed to
+draw a few hundred lines.) GitHub Pages deploy via Action.
 Game content is **declarative data** (derivable from `docs/graph/game.ttl`); the
 engine stays pure and framework-free. Full rationale + layout + rules in
 `docs/ARCHITECTURE.md`.

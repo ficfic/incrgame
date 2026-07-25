@@ -39,7 +39,11 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       domain sizing/gating, Field Notes format, HITL attention budget).
 - [ ] Design the "Field Notes" codex format (in-game explainer + learn-more
       links to real specs).
-- [x] Graph renderer chosen: **PixiJS** (WebGL, swappable) — see ARCHITECTURE.md.
+- [x] ~~Graph renderer chosen: **PixiJS**~~ — **REVERSED 2026-07-25, never built.**
+      PixiJS was named as the locked renderer in five documents for months and
+      was never a dependency. The graph is canvas 2D for lines and atmosphere;
+      anything with text or a tap target is DOM. A WebGL renderer is not needed
+      to draw a few hundred lines.
 - [ ] **Spreadsheet-prove the economy before M3** (Chad/Redditor): sim edges/K/$
       over ~10h; confirm sell-vs-keep genuinely flips and the inference loop
       doesn't explode or stall.
@@ -100,11 +104,11 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       "+0.25 Triples/s" on Orchestrator, and `buyGenerator` silently dropped
       during the engine rewrite (caught by a test, not by me).
 
-- [x] **All-canvas board** (2026-07-25): there is no HTML UI any more. Every
-      counter, button and label is a node laid out by `src/render/board.ts` and
-      painted by `src/render/paint.ts` off ONE item list, so what you tap is
-      provably what you saw. Sheets (review / vignette / save) are drawn on the
-      board too.
+- [x] ~~**All-canvas board**~~ — **REVERSED the same day.** The hand-written
+      canvas layout engine, hit-tester and label solver were deleted (−809
+      lines) after they made the game unusable under pinch-zoom. The UI is
+      ordinary DOM; the canvas draws lines and atmosphere. The *design* clause
+      (every control sits in the graph) is retained.
 - [x] **The attention economy replaced Datums** (2026-07-25, save v9): Datums
       deleted; attention is CAPACITY you allocate (free / booked / reserved),
       never a wallet. Discover books a slot for 18s; review books one for 25s;

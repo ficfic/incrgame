@@ -161,15 +161,25 @@ describe('the relation table (non-is-a lines)', () => {
     const find = (from: string, to: string): [number, number, number] | undefined =>
       rel.e.find(([a, b]) => label(a) === from && label(b) === to);
 
+    // Assert the RELATION CODE too, not just that an edge exists. Swapping
+    // `has part` and `has member` in the pipeline's map would otherwise leave
+    // all of these green while mislabelling 76 lines on the board.
+    const HAS_PART = 1, HAS_MEMBER = 2, TOPIC = 4;
+
     // a person is a member OF people, never the other way round
-    expect(find('people', 'person')).toBeDefined();
+    expect(find('people', 'person')?.[2]).toBe(HAS_MEMBER);
     expect(find('person', 'people')).toBeUndefined();
     // a body part is part OF an organism
-    expect(find('organism', 'body part')).toBeDefined();
+    expect(find('organism', 'body part')?.[2]).toBe(HAS_PART);
     expect(find('body part', 'organism')).toBeUndefined();
     // a section is part OF a whole
-    expect(find('whole', 'section')).toBeDefined();
+    expect(find('whole', 'section')?.[2]).toBe(HAS_PART);
     expect(find('section', 'whole')).toBeUndefined();
+    // topic runs term → field, and it is 38% of the table — the largest block
+    // and the easiest to invert, because either direction reads plausibly
+    expect(find('expressive style', 'music')?.[2]).toBe(TOPIC);
+    expect(find('music', 'expressive style')).toBeUndefined();
+    expect(find('circuit', 'law')?.[2]).toBe(TOPIC);
   });
 
   it('excludes `exemplifies` — it is a usage register, not a relation', () => {
@@ -182,5 +192,33 @@ describe('the relation table (non-is-a lines)', () => {
       expect(suspects).not.toContain(label(b));
       expect(suspects).not.toContain(label(a));
     }
+  });
+});
+
+describe('the in-game credit (CC BY 4.0 §3(a)(1))', () => {
+  // This asserts the RENDERED string, not the manifest field it is built from.
+  // The previous control checked `manifest.attribution` — so the credit could
+  // stop naming Princeton on screen while the test stayed green, which is
+  // exactly the failure mode (`credit.text` computed and never rendered) that
+  // an earlier audit caught. Assert the thing the player actually sees.
+  it('names BOTH parties in the string the footer renders', () => {
+    const manifest = read<Manifest>('index.json');
+    const stop = manifest.attribution.indexOf('. ');
+    const sliced = stop > 0 ? manifest.attribution.slice(0, stop + 1) : manifest.attribution;
+    const short = /Princeton WordNet/.test(sliced) && /Open English WordNet/.test(sliced)
+      ? sliced
+      : manifest.attribution;
+    expect(short).toMatch(/Open English WordNet/);
+    expect(short).toMatch(/Princeton WordNet/);
+  });
+
+  it('is actually wired into the component', () => {
+    // A grep, deliberately: deleting the {#if credit} block would otherwise
+    // leave every other assertion in this file green.
+    const app = readFileSync(join(import.meta.dirname, '../src/ui/App.svelte'), 'utf8');
+    for (const token of ['credit.short', 'credit.licenseUrl', 'credit.noticeUrl']) {
+      expect(app).toContain(token);
+    }
+    expect(app).toMatch(/rel="noopener license"/);
   });
 });

@@ -43,7 +43,7 @@ we build the green slice first and earn the rest.
   export/import with reject-on-garbage.*
 - [ ] **M3 · Reasoner + graph bloom.** `Triples` resource, **Extractor
   (Data→Triples)** to seed edges, a Reasoner producing via the (bounded) inference
-  multiplier, the PixiJS graph blooming. *(Extractor is required — with no edges,
+  multiplier, the graph blooming. *(Extractor is required — with no edges,
   the multiplier multiplies zero.)* *Deliverable: the graph blooms — core fantasy proven.*
 - [ ] **M4 · Sell vs keep.** `Capital` currency, a sell action (exhaustive),
   quality gating price. *Deliverable: the first taste of the soul.*

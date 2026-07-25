@@ -3,12 +3,15 @@
 // they get asserted rather than asserted-about-in-a-README.
 import { describe, expect, it } from 'vitest';
 import {
-  apply, coverage, driftPerSecond, fidelity, initialState, recovered,
+  apply, coverage, driftPerSecond, fidelity, initialState, lit, recovered,
   displayedFidelity, recoveryPerSecond, REFLECT_MIN_CONCEPTS, reviewQueue, reviewWeight,
   tick, verified,
 } from '../src/core/engine';
 import { applyOfflineProgress } from '../src/core/offline';
+import { deserialize, serialize } from '../src/core/save';
 import { CONCEPT_BUDGET } from '../src/content/ontologyMeta';
+import { GENERATORS } from '../src/content/generators';
+import { ANCHOR_CAP } from '../src/core/graph';
 import { VIGNETTES } from '../src/content/vignettes';
 import type { GameState } from '../src/core/types';
 
@@ -115,24 +118,43 @@ describe('the plateau — the reason the goal is unreachable', () => {
     expect(recoveryPerSecond(dirty)).toBeGreaterThan(0);
   });
 
-  it('caps coverage at FIDELITY — you recover as much as you can be trusted about', () => {
-    // The design claim in VISION is that the stated goal is unreachable BY
-    // CONSTRUCTION. `1 - coverage` alone was merely exponential and completed
-    // the dataset in about seven hours, so the claim was false. The ceiling is
-    // now fidelity itself, which is also the game's whole argument.
+  it('makes the tail HARDER as trust falls, without ever walling off', () => {
+    // This used to be a hard ceiling — `(f - coverage) / f` clamps to zero once
+    // coverage passes fidelity, so Reasoners produced EXACTLY nothing however
+    // many you owned. Prestige carries coverage at 100%, so a completed run
+    // returned at coverage ~0.94 against an achievable f of ~0.6 and generation
+    // 2 could never recover a single concept. The prestige loop was a dead end
+    // that cost you your machines.
     const gens = { ...initialState().generators, reasoner: 10 };
-    // coverage is driven by LIT concepts + folded mass now, never by graph.nodes
     const at = (nodes: number, unver: string, drift: string): number => recoveryPerSecond({
       ...initialState(), generators: gens,
       forged: { ...initialState().forged, foldedNodes: String(nodes) },
       resources: { ...initialState().resources, triples: '100' },
       provenance: { unverified: unver, drifted: drift },
     });
-    // at 60% fidelity, recovery dies as coverage approaches 60% — not 100%
-    expect(at(CONCEPT_BUDGET * 0.3, '0', '40')).toBeGreaterThan(0);
-    expect(at(CONCEPT_BUDGET * 0.61, '0', '40')).toBe(0);
-    // raise fidelity and the ceiling rises with it
-    expect(at(CONCEPT_BUDGET * 0.61, '0', '10')).toBeGreaterThan(0);
+    // low trust still recovers, just very slowly — the tail, not a wall
+    expect(at(CONCEPT_BUDGET * 0.61, '0', '40')).toBeGreaterThan(0);
+    // and lower trust is strictly worse at the same coverage
+    expect(at(CONCEPT_BUDGET * 0.61, '0', '60')).toBeLessThan(at(CONCEPT_BUDGET * 0.61, '0', '40'));
+    // the ONLY hard stop is the edge of the world
+    expect(at(CONCEPT_BUDGET, '0', '0')).toBe(0);
+  });
+
+  it('leaves generation 1 numerically untouched by that change', () => {
+    // `(1 - coverage) * f` is byte-identical to `(f - coverage) / f` at f = 1,
+    // which is every player in generation 1. The retune must not have moved a
+    // single number that was already measured.
+    const gens = { ...initialState().generators, reasoner: 10 };
+    const base = Number(GENERATORS.reasoner.baseRate) * 10;
+    for (const share of [0, 0.25, 0.5, 0.9]) {
+      const st: GameState = {
+        ...initialState(), generators: gens,
+        forged: { ...initialState().forged, foldedNodes: String(CONCEPT_BUDGET * share) },
+      };
+      // at f = 1 the old `(f - coverage) / f` and the new `(1 - coverage) * f`
+      // are the same expression, so this is the old behaviour asserted exactly
+      expect(recoveryPerSecond(st)).toBeCloseTo(base * (1 - coverage(st)), 9);
+    }
   });
 
   it('stops recovery dead at zero fidelity', () => {
@@ -182,6 +204,30 @@ describe('the world can no longer be finished by hand alone', () => {
     expect(s.forged.edges).toHaveLength(0);
     expect(recovered(s)).toBe(0);
     expect(coverage(s)).toBe(0);
+  });
+
+  it('folding a DARK concept off the board credits nothing', () => {
+    // The exploit this closes: `foldedNodes += 1` fired on every eviction,
+    // regardless of whether the concept had ever been connected. Past the
+    // 240-anchor cap that made pure Discover-spam worth 3,856 / 4,096 coverage
+    // with zero lines drawn and zero lit concepts — the same 2h34m hand-only
+    // completion v11 exists to close, relocated one window along.
+    let s: GameState = { ...initialState(), lastTick: 1_000, lifetimeVerified: '1e6' };
+    let t = 1_000;
+    for (let step = 0; step < 40_000 && s.forged.anchors.length <= ANCHOR_CAP + 30; step++) {
+      for (let k = 0; k < 24; k++) {
+        const next = apply(s, { type: 'discover' });
+        if (next === s) break;
+        s = next;
+      }
+      t += 1000;
+      s = apply(s, { type: 'tick', dt: 1, now: t });
+    }
+    expect(s.forged.anchors.length).toBe(ANCHOR_CAP); // the cap was exercised
+    expect(s.forged.edges).toHaveLength(0);
+    expect(lit(s)).toBe(0);
+    expect(Number(s.forged.foldedNodes)).toBe(0);     // nothing dark was credited
+    expect(recovered(s)).toBe(0);
   });
 
   it('an unchecked line ROTS, and its concepts go dark again', () => {
@@ -484,5 +530,39 @@ describe('vignettes', () => {
       // ...but the CHOICE must still be legible from its numbers alone
       for (const c of v.choices) expect(Object.keys(c.effects).length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('a line reads as a sentence', () => {
+  it('stores `is a` as (narrower, broader) so subject comes first', () => {
+    // It was stored the other way round, which printed `canine is a dog` the
+    // moment anything rendered `label(a) REL label(b)`. Invisible only because
+    // the rel-0 label is suppressed — so this is the cheap moment to pin it.
+    const s = apply({ ...initialState(), lastTick: 1_000 }, { type: 'discover' });
+    const landed = apply(s, { type: 'tick', dt: 20, now: 1_000 + 20_000 });
+    // node 1's parent is the root, so a correct `is a` runs 1 → 0
+    const t = apply(landed, { type: 'connect', edge: { a: 1, b: 0, rel: 0, checked: true, fake: false } });
+    const done = apply(t, { type: 'tick', dt: 20, now: t.lastTick + 20_000 });
+    const e = done.forged.edges[0]!;
+    expect(e.a).toBe(1); // the narrower concept is the subject
+    expect(e.b).toBe(0); // the broader one is the object
+  });
+
+  it('migrates v11 is-a edges into the readable orientation', () => {
+    const v11 = {
+      ...initialState(), saveVersion: 11,
+      forged: {
+        ...initialState().forged,
+        anchors: [0, 1, 2], nextId: 3,
+        edges: [
+          { a: 0, b: 1, rel: 0, checked: true, fake: false },  // (broader, narrower)
+          { a: 1, b: 2, rel: 1, checked: true, fake: false },  // has part: already correct
+        ],
+      },
+    } as unknown as GameState;
+    const back = deserialize(serialize(v11));
+    expect(back.forged.edges[0]).toMatchObject({ a: 1, b: 0, rel: 0 }); // swapped
+    expect(back.forged.edges[1]).toMatchObject({ a: 1, b: 2, rel: 1 }); // untouched
+    expect(lit(back)).toBe(3); // and nobody lost a concept
   });
 });

@@ -71,11 +71,25 @@ export interface Edge {
  *  relation between concepts, and shipping it as an edge would teach a
  *  falsehood.) */
 export const REL_NAMES = [
-  'is a',          // 0 — WordNet hypernym → skos:broader
+  // 0 — WordNet hypernym → skos:broader. `a` is the NARROWER concept, so the
+  // tuple reads left-to-right as a sentence: `dog is a canine`. It was stored
+  // the other way round, which was invisible only because the label is
+  // suppressed for rel 0 — anything rendering `label(a) REL label(b)` would
+  // have printed `canine is a dog`.
+  'is a',
   'has part',      // 1 — mero_part   (whole → part)
   'has member',    // 2 — mero_member (group → member)
   'made of',       // 3 — mero_substance
-  'studied in',    // 4 — domain_topic; NOT "subject", which means something else here
+  // 4 — WordNet's domain_topic (Princeton's ";c" pointer, "Domain of synset —
+  // TOPIC"). NOT "studied in": it shipped as that and put
+  // `expressive style — studied in — language` and
+  // `body of water — studied in — lake` on the board. The targets are
+  // heterogeneous — sometimes a discipline (biology, law), sometimes a thing
+  // (lake, ocean, animal) — because the pointer tags a SUBJECT FIELD; it does
+  // not assert that anyone studies anything. "topic" is true of all 47 rows.
+  // Not "subject" either: in a game about RDF that word is the first slot of a
+  // triple. Not "domain": GLOSSARY reserves that for rdfs:domain.
+  'topic',
   'used for',      // 5 — ConceptNet, pending the compliance conditions
   'found at',      // 6 — ConceptNet
   'causes',        // 7 — ConceptNet

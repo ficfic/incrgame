@@ -1,5 +1,31 @@
 # Technical spec — the M0/M1 spine
 
+> ## ⚠️ THIS FILE IS BEHIND THE CODE (checked 2026-07-25)
+>
+> SPEC calls itself the source of record. For the save format, IndexedDB,
+> offline model and the concept-data contract it still is, and those sections
+> were re-verified today. **The engine surface is not.** Measured drift:
+>
+> - The `GameState` sketch below is missing ~18 live fields (`provenance`,
+>   `syntheticShare`, `lifetimeGenerated`, `pending`, `pendingClean`, `lineRot`,
+>   `lineDebt`, `modifiers`, `vignette`, `lifetimeVerified`, `handClaimed`,
+>   `reviewReadyAt`, `falselyVerified`, `attention`, `surveyed`, `supervised`,
+>   `bookings`, `review`), and `forged` is shown without **`edges`** — which is
+>   the entire v11 model.
+> - The action union is missing `discover`, `connect`, `setSupervision` and
+>   `absorb` — every verb the game actually has — while presenting `survey` and
+>   `claimNode` as live. Both are `return state`.
+> - "No action consumes RNG" is **false**: `tick` draws in `mintReview` and in
+>   the agent line-drawing loop.
+> - The edge drip (`0.15 × floor(triples)`) does not exist; `ratePerSecond`
+>   returns `'0'`. Harvester `baseRate` is `0.35`, not `0.1`.
+> - Prestige is gated on `recovered >= REFLECT_MIN_CONCEPTS`, not on
+>   `lifetimeCapital` — which no code path ever writes.
+>
+> **`src/core/types.ts` is the real contract.** Read it first. Fixing this file
+> properly is a backlog item; leaving it unmarked would be worse than either.
+
+
 The concrete contracts M0/M1 need before any engine code. Everything here is
 **additive-by-construction** (the save-safety rule). Numbers are tunable; shapes
 are the contract. This doc is the single source of record for the engine surface —

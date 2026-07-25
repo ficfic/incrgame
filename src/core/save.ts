@@ -130,6 +130,22 @@ export const MIGRATIONS: Migration[] = [
       },
     };
   },
+  // v11 → v12 — `is a` edges were stored (broader, narrower), so the tuple read
+  // "canine is a dog". Swap the endpoints on rel 0 only. Coverage is unaffected:
+  // `lit()` counts both endpoints, so the same concepts stay lit and the edge
+  // count is identical. Nothing renders orientation yet, which is exactly why
+  // this is the moment to fix it.
+  (s) => {
+    const forged = (s.forged ?? {}) as { edges?: Array<Record<string, unknown>> };
+    return {
+      ...s,
+      forged: {
+        ...forged,
+        edges: (forged.edges ?? []).map((e) =>
+          e.rel === 0 ? { ...e, a: e.b, b: e.a } : e),
+      },
+    };
+  },
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

@@ -119,9 +119,18 @@ export function ontologyCredit():
   // from Princeton WordNet"); the rest is the statement of changes, which the
   // linked notice supplies. Sliced at a sentence boundary, never mid-clause.
   const stop = manifest.attribution.indexOf('. ');
+  const sliced = stop > 0 ? manifest.attribution.slice(0, stop + 1) : manifest.attribution;
+  // FAIL SAFE. The slice works today only because "(CC BY 4.0)," has no space
+  // after its period. Reword the manifest to "…(CC BY 4.0). Derived from
+  // Princeton WordNet…" — a natural edit — and the rendered credit silently
+  // stops naming Princeton, which is the §3(a)(1)(A)(i) surface. If the slice
+  // loses either party, show the whole thing and let it wrap.
+  const short = /Princeton WordNet/.test(sliced) && /Open English WordNet/.test(sliced)
+    ? sliced
+    : manifest.attribution;
   return {
     text: manifest.attribution,
-    short: stop > 0 ? manifest.attribution.slice(0, stop + 1) : manifest.attribution,
+    short,
     licenseUrl: manifest.licenseUrl,
     noticeUrl: `${import.meta.env.BASE_URL}${manifest.noticeUrl}`,
   };
@@ -222,11 +231,10 @@ export const currentRevision = (): number => get(revision);
  *  save. That also keeps the save small and means re-slicing the dataset can
  *  never leave a stale possibility behind in someone's save file.
  *
- *  Today this is WordNet hypernymy only (`rel: 0`, "is a"), which is enough for
- *  the mechanic because every concept has a parent — so every concept you find
- *  arrives with at least one line you could fill. The other relations slot into
- *  the same shape once `public/relations/` ships (see docs/ATTRIBUTION.md for
- *  the compliance conditions that gate it).
+ *  Sources: WordNet hypernymy (`rel: 0`) for every concept, plus the typed
+ *  relations in `rel.json` — has part / has member / topic — whenever both ends
+ *  are on the board. ConceptNet slots into the same shape once
+ *  `public/relations/` ships (docs/ATTRIBUTION.md gates it).
  */
 export function potentialEdges(anchors: readonly number[]): Array<{ a: number; b: number; rel: number }> {
   const live = new Set(anchors);
@@ -238,7 +246,7 @@ export function potentialEdges(anchors: readonly number[]): Array<{ a: number; b
     // whose direct parent has folded away still has something to attach to
     let cursor = conceptAt(id)?.parent;
     for (let hops = 0; hops < 8 && cursor !== undefined && cursor >= 0; hops++) {
-      if (live.has(cursor)) { out.push({ a: cursor, b: id, rel: 0 }); break; }
+      if (live.has(cursor)) { out.push({ a: id, b: cursor, rel: 0 }); break; }
       cursor = conceptAt(cursor)?.parent;
     }
     // ...plus every OTHER relation the dataset records, whenever both ends are

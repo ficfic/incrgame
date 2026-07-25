@@ -1,6 +1,6 @@
 # Handover — read after CLAUDE.md, before anything else
 
-Last verified against the code on **2026-07-25**, at save **v10**, 73 tests.
+Last verified against the code on **2026-07-25**, at save **v11**, 90 tests.
 If this file and the code disagree, the code wins and this file is a bug.
 
 ## 1. Read `docs/VISION.md` first. Seriously.
@@ -58,25 +58,42 @@ Agents are bought with **verified statements** — you distil the next one out o
 the graph you already trust, so a graph you let rot cannot build another agent.
 Prices come from the content table (`agentBase` / `agentRatio`), not the engine.
 
-## 2c. The UI is a canvas. All of it.
+## 2c. The UI is DOM. The canvas draws lines.
 
-There is no HTML interface. `src/render/board.ts` lays the whole game out as
-tappable nodes; `src/render/paint.ts` draws them; `App.svelte` is a render loop
-and a pointer handler and nothing else. Stats, machines, Discover, Review,
-Retrain, the save menu — all nodes.
+This is the reverse of what this section said an hour ago, and the reversal is
+the single most useful thing on this page.
 
-- `layout()` / `paint()` / `hit()` consume the SAME item list, deliberately.
-  A tap target that disagrees with the picture is the bug class that made the
-  review desk unusable for a day.
-- `band(w, h)` is the geometry: an explicit clamped region, never a fraction of
-  the viewport. Change it there, not in the painter.
-- `src/render/labels.ts` places labels by **priority** with collision avoidance
-  and drops what doesn't fit. Capped at 32 candidates — placement is quadratic.
-- Sheets (review, vignette, save) are drawn ON the board and take the whole
-  screen, so a stray tap can't reach the graph behind an open decision.
-- The canvas is measured with a `ResizeObserver` **on the element**, never
-  `window.innerWidth` — that's what collapsed the board under iOS pinch-zoom.
-- Only the CC BY attribution stays in the DOM — it has to be a real link.
+- **`src/ui/App.svelte`** is the whole interface: counters, buttons, machines,
+  the supervision dial, the review desk, vignettes, the save menu, concept
+  labels, and a `<button>` at the midpoint of every dotted line. Flex column —
+  header / stage / dock.
+- **`src/render/paint.ts`** draws ONLY lines, the drifting substrate and the
+  provenance ring, into a canvas that fills the stage.
+- **`src/render/board.ts`** is pure geometry: `band`, `positions`,
+  `frontierPos`, `isRotted`, `stageHue`, `relHue`. No DOM, no state.
+- **Nothing is `position: fixed`.** A fixed element anchors to the layout
+  viewport, so a zoomed page becomes a magnified crop with nothing to pan — that
+  is what trapped the owner inside the game with no controls and no way out.
+- **Do not reimplement the browser.** There used to be a `layout()` →
+  `SceneItem[]` pipeline, a `hit()` tap-tester, a `render/labels.ts` collision
+  solver and hand-painted modals. All deleted, −809 lines. Every zoom bug this
+  project had came from that one choice. See ARCHITECTURE's technical vision,
+  rule 3.
+
+**The economy is ATTENTION.** Capacity you allocate, never a wallet:
+`4 + floor(4.5 × log10(1 + lifetimeVerified))` slots.
+
+| verb | cost | effect |
+|---|---|---|
+| **Discover** | 1 slot, 18s | a concept lands **DARK**. No statement, no coverage. |
+| **Connect** | 1 slot, 7s | fills a dotted line → +1 statement, +1 lifetimeVerified, lights both ends |
+| **Review** | 1 slot, 25s | acceptance sampling over the statement pool |
+| **Supervise** | 1 slot, standing | that agent's statements arrive checked, at 0.55× rate |
+
+**A concept counts as recovered only while a line supports it.** Unchecked lines
+rot back to dotted and their endpoints go dark, so coverage can FALL. Agent-drawn
+lines are always unchecked and always `fake` — a machine cannot know which pairs
+are real, because the dataset lives in the shell.
 
 ## 3. State of the code
 
@@ -113,22 +130,19 @@ Changing the edition or the selection renumbers the owner's world.
 
 ## 5. What is NOT done, in priority order
 
-### 5.1 ★ Edges carry no data, and that is why the goal is still reachable
+### 5.1 ✅ SOLVED — edges carry data (save v11)
 
-The owner asked this directly, and they were right. Right now:
+This section used to describe the top open problem: edges were bare `[a,b]`
+pairs, coverage was a monotone ratchet, and the stated goal was reachable by
+tapping Discover for 2h34m. **That shipped.** An edge is now
+`{a, b, rel, checked, fake}`, coverage counts lit concepts, and unchecked lines
+rot back to dotted.
 
-- a link is a bare `[a, b]` pair — no predicate, no provenance, no strength;
-- `resources.triples` (the statement count the whole economy runs on) is a
-  **separate scalar with no relationship to `links` at all**;
-- provenance is global, so a "drifted" statement is not any particular edge —
-  the renderer draws a stable pseudo-random share of nodes as rotted;
-- so a concept, once recovered, is recovered forever.
-
-The fix under discussion is the owner's own proposal: **edges become
-statements**, a concept counts as recovered only while a live statement
-supports it, and *structures* built out of edges (chains, forks, lattices) are
-**thresholds** that unlock agent tiers rather than a price you pay. This touches
-the save and the win condition — needs owner decisions and numbers first.
+What is still open is the *density*: 123 non-is-a lines across 4,096 concepts,
+of which only ~74 are reachable inside a 240-anchor window. The fix is to
+**re-slice the dataset for edge density** — see BACKLOG. Target ≈2,500 global
+non-is-a edges; ConceptNet's measured 547 at the current slice is ~5× short, so
+do the re-slice before building that pipeline.
 
 ### 5.2 Everything else
 
@@ -144,7 +158,8 @@ the save and the win condition — needs owner decisions and numbers first.
 3. One vignette is not a branching narrative. Needs forks that matter later.
    Vignette #1 also fires at ~3 min when its `auto-review ×1.6` reward is ×1.6
    of zero.
-4. Rot isn't visible on the canvas yet (`corrupt()` exists, renderer ignores it).
+4. `corrupt()` in `src/shell/ontology.ts` is still unused — rot is visible as
+   colour on nodes and lines, but no gloss is ever shown decaying.
 5. The review desk shows a concept + gloss under the word "statement" — but a
    statement is a triple, not a dictionary entry (prof-veritas). Now that the
    real parent is wired, rendering `dog is-a canine` would fix the mis-teaching.

@@ -106,7 +106,7 @@ mechanism that makes the stated goal unreachable — see below.
 Owner calls. Changing one of these changes the game.
 
 **Collapse is soft rot.** Contaminated knowledge loses its meaning and its yield.
-Nothing is ever deleted out from under the player, and there is no losing screen.
+Nothing the player CHOSE is ever deleted out from under them (rotted lines are removed — that is the mechanic — but a concept only ever goes dark, never off the board, and relighting is one action), and there is no losing screen.
 You don't die — you **plateau**, and then you choose to move on.
 
 **Prestige inherits your own synthetic output.** What carries into the next run

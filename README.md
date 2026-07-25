@@ -90,7 +90,7 @@ purpose beats quietly fake.** A test asserts those fields are still empty.
 GitHub Pages · mobile browsers · developed entirely through Claude Code on a
 phone. Pure-**TypeScript** headless engine ·
 [**break_eternity.js**](https://github.com/Patashu/break_eternity.js) · **Svelte**
-UI · canvas graph (PixiJS pending) · **Vite + PWA** · **Vitest**.
+UI · canvas graph (lines and atmosphere; everything with text is DOM) · **Vite + PWA** · **Vitest**.
 
 ```
 npm install

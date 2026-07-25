@@ -16,10 +16,11 @@
   import { onMount } from 'svelte';
   import { game, awayReport, dispatch, exportSave, flushProject, importSave, startGame } from '../shell/game';
   import {
-    agentCost, attentionCap, attentionFree, CONNECT_MS, coverage, displayedFidelity,
-    DISCOVER_MS, pendingVignette, recovered, REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS,
-    supervisedPerSecond, unsupervised, unsupervisedPerSecond, verified,
+    agentCost, attentionCap, attentionFree, CONNECT_MS, displayedFidelity,
+    DISCOVER_MS, hasTrust, pendingVignette, recovered, REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS,
+    unsupervised, verified,
   } from '../core/engine';
+  import { FRONTIER_CAP } from '../core/graph';
   import { D, format, formatWhole, gte } from '../core/numbers';
   import { GENERATORS, M1_ROSTER } from '../content/generators';
   import { CONCEPT_BUDGET } from '../content/ontologyMeta';
@@ -31,6 +32,7 @@
   } from '../shell/ontology';
   import { frontierPos, isRotted, positions, relHue, stageHue } from '../render/board';
   import { paintGraph } from '../render/paint';
+  import { ticker } from '../shell/ticker';
 
   let canvas = $state<HTMLCanvasElement>();
   let stage = $state<HTMLDivElement>();
@@ -57,8 +59,22 @@
     return potentialEdges($game.forged.anchors);
   });
 
-  // Spin drives node positions; recomputed per frame from `now`.
-  const spin = $derived(now / 1000 * 0.02);
+  // The graph does NOT spin.
+  //
+  // It used to rotate at 0.02 rad/s — 1.15 degrees per second, imperceptible —
+  // and the cost of that was re-deriving every node position, every concept
+  // lookup and every dotted-line midpoint sixty times a second, then writing
+  // ~480 inline transforms per frame. At the 240-anchor cap the concept lookup
+  // alone allocated 14,400 objects/second to re-read labels that had not
+  // changed. The whole argument for going DOM was that the browser lays a label
+  // out ONCE and then composites it; spinning threw that away.
+  //
+  // With spin fixed, all of this depends only on `$game` and recomputes at the
+  // 10 Hz tick instead. The picture is identical apart from a rotation nobody
+  // could see. The canvas still animates — the dash march, the substrate drift
+  // and the filling lines all key off `timeMs` inside the painter, which is
+  // where per-frame work belongs.
+  const spin = 0;
 
   const pos = $derived(positions($game.forged.anchors, w, h, spin));
 
@@ -78,12 +94,22 @@
   // Tappable midpoints for the dotted lines. Real buttons, so they hit-test
   // themselves and are finger-sized by construction rather than by a magic
   // radius constant.
-  const openLines = $derived.by(() => {
+  /** Potential connections not yet drawn. Computed ONCE and handed to both the
+   *  painter and the button layer — they used to rebuild this Set, and the key
+   *  format, and the positions map, independently in two files. The commit that
+   *  went DOM claimed that beat "two consumers agreeing on a list"; for the
+   *  buttons it does, because the browser hit-tests the element. For the LINES
+   *  it did not — it was still two consumers agreeing, by copy-paste. */
+  const dotted = $derived.by(() => {
     const drawn = new Set($game.forged.edges.map((e) => `${e.a}:${e.b}:${e.rel}`));
+    return potential.filter((p) => !drawn.has(`${p.a}:${p.b}:${p.rel}`));
+  });
+
+  const openLines = $derived.by(() => {
     const flight = new Set($game.bookings.filter((b) => b.edge)
       .map((b) => `${b.edge!.a}:${b.edge!.b}:${b.edge!.rel}`));
     const c = { x: w / 2, y: h / 2 };
-    return potential.filter((p) => !drawn.has(`${p.a}:${p.b}:${p.rel}`)).map((p) => {
+    return dotted.map((p) => {
       const pa = pos.get(p.a) ?? c, pb = pos.get(p.b) ?? c;
       return {
         ...p,
@@ -109,7 +135,7 @@
   const filling = $derived($game.bookings.filter((b) => b.kind === 'connect'));
   const banked = $derived(D($game.pending).add(D($game.pendingClean)));
   const worldDone = $derived($game.forged.nextId >= CONCEPT_BUDGET);
-  const canDiscover = $derived(free >= 1 && $game.bookings.length < 8 && $game.lastTick > 0 && !worldDone);
+  const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP && $game.lastTick > 0 && !worldDone);
 
   function say(msg: string): void {
     toast = msg;
@@ -149,7 +175,7 @@
     const frame = (t: number): void => {
       now = t;
       if (canvas && w > 0 && h > 0) {
-        paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, potential });
+        paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, dotted, pos });
       }
       raf = requestAnimationFrame(frame);
     };
@@ -175,11 +201,14 @@
     return () => ro.disconnect();
   });
 
-  let reported = false;
+  // No `reported` latch. There was one, never reset, so the away toast fired at
+  // most ONCE per page load — and on iOS the page is backgrounded constantly and
+  // often survives, so the player saw it once and never again. The latch was
+  // also redundant: setting the store to null re-runs this with `r === null`,
+  // which is already the idempotence guard.
   $effect(() => {
     const r = $awayReport;
-    if (r && !reported && r.elapsedMs > 0) {
-      reported = true;
+    if (r && r.elapsedMs > 0) {
       say(`Away ${Math.round(r.elapsedMs / 60000)} min · ${Number(r.banked) > 0 ? 'work banked' : 'nothing changed'}`);
       awayReport.set(null);
     }
@@ -217,8 +246,12 @@
     </div>
     <div class="stats">
       <div><b class="good">{recovered($game)}</b><span>of {CONCEPT_BUDGET} recovered</span></div>
-      <div><b class:good={trust > 0.66} class:warn={trust <= 0.66 && trust > 0.33} class:bad={trust <= 0.33}
-        >{(trust * 100).toFixed(0)}%</b><span>checked</span></div>
+      <!-- "—" not "100%": a new save has zero statements and the ratio returns
+           1, which read as a perfect score over an empty graph. -->
+      <div><b class:good={hasTrust($game) && trust > 0.66}
+              class:warn={hasTrust($game) && trust <= 0.66 && trust > 0.33}
+              class:bad={hasTrust($game) && trust <= 0.33}
+        >{hasTrust($game) ? `${(trust * 100).toFixed(0)}%` : '—'}</b><span>checked</span></div>
       <div><b class:good={free > 0} class:warn={free === 0}>{free}</b><span>free of {attentionCap($game)}</span></div>
     </div>
   </header>
@@ -259,10 +292,21 @@
   </div>
 
   <footer class="dock">
+    <!-- The event drip. It has been built, wired and fed since the canvas
+         rewrite and rendered NOWHERE — so the game had no player-facing
+         sentences at all outside UI chrome. Mechanical lines ship now; the
+         owner's flavour lines slot into OWNER_LINES (docs/TICKER_LINES.md)
+         without touching this. -->
+    {#if $ticker.length > 0}
+      <div class="ticker">
+        {#each $ticker.slice(-2) as l (l.id)}<span>{l.text}</span>{/each}
+      </div>
+    {/if}
+
     <div class="actions">
       <button class="act primary" disabled={!canDiscover} onclick={discover}>
         <b>Discover</b>
-        <span>{worldDone ? 'world recovered' : canDiscover ? '1 slot · 18s' : 'no free slot'}</span>
+        <span>{worldDone ? 'world recovered' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
       </button>
 
       {#if filling.length > 0}
@@ -273,7 +317,7 @@
         <div class="act status"><b>Reviewing</b><span>{Math.max(0, Math.ceil((reviewBooking.until - $game.lastTick) / 1000))}s</span></div>
       {:else if $game.review.length > 0}
         <button class="act warn" disabled={free < 1} onclick={() => (free >= 1 ? (sheet = 'review') : say('No free attention'))}>
-          <b>Review</b><span>{free >= 1 ? '1 slot · 25s' : 'no free slot'}</span>
+          <b>Review</b><span>{free >= 1 ? `1 slot · ${REVIEW_BOOK_MS / 1000}s` : 'no free slot'}</span>
         </button>
       {/if}
 
@@ -341,7 +385,7 @@
       <div class="sheet-foot">
         <button class="primary" disabled={free < 1}
           onclick={() => { dispatch({ type: 'reviewBatch', keep: [...verdicts] }); sheet = null; }}>
-          Commit · 1 slot · 25s
+          Commit · 1 slot · {REVIEW_BOOK_MS / 1000}s
         </button>
         <button onclick={() => (sheet = null)}>back</button>
       </div>
@@ -467,6 +511,16 @@
 
   /* ---- dock ---- */
   .dock { flex: 0 0 auto; padding: 4px 8px 6px; }
+  .ticker {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 1px; margin-bottom: 5px; min-height: 1.1em;
+  }
+  .ticker span {
+    font: 0.6rem ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #5d7385; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%;
+  }
+  .ticker span:last-child { color: hsl(var(--hue) 45% 62%); }
   .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   .act {
     flex: 0 1 auto; min-width: 92px;

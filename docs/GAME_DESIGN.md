@@ -355,9 +355,31 @@ real-world data would wreck balance and mobile performance.
 
 - **Simulate in numbers; render a representative graph.** A literal node per
   triple will not render on mobile. Use level-of-detail (aggregate/sample nodes,
-  cap visible count) and a **WebGL** renderer — **PixiJS** (chosen; swappable —
+  cap visible count) and a canvas renderer (2D — WebGL was specified as PixiJS and never built; swappable —
   see `ARCHITECTURE.md`), not raw SVG/d3 for the big blooms.
 - The graph is the **reward surface**, not the source of truth for balance.
+
+
+## ⛔ CUT BY VISION — do not build these
+
+`docs/VISION.md` outranks this file. These sections below are kept for their
+reasoning, and they describe a game we are **not making**. A future session that
+implements them is working against the vision, not toward it.
+
+- **Capital, and the sell-vs-keep tug-of-war.** VISION: *"There is no currency.
+  Two things exist: Statements and Attention."* In code, `sell` and `refine` are
+  `return state`, and `capital` has no faucet anywhere. **CUT.**
+- **The six-tier resource ladder** (data → triples → … → twins). Only `triples`
+  is live. **CUT.**
+- **The inference multiplier as "the core dopamine loop".** `inferenceMult` does
+  not exist; `ECONOMY_MODEL.md` already says so. The compounding role is played
+  by `ratchet()` and by fidelity gating. **CUT as described.**
+
+## 🕓 NOT SCHEDULED — data exists, mechanic does not
+
+- **The domain tech-tree.** Every concept knows its WordNet category and the
+  data ships 26 of them, but `DomainId = 'general'` and nothing gates on it.
+  Real, unbuilt, and worth building — but not "the plan" until it is designed.
 
 ## Domains (branching tech-tree, mechanically distinct)
 

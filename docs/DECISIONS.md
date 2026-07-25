@@ -850,3 +850,98 @@ live-edge coverage work.
   the centre while the world ring sat 180px away.
   **Net −809 lines.** `render/labels.ts` deleted. `render/board.ts` is geometry
   only. `render/paint.ts` is lines only.
+
+---
+
+## 2026-07-25 — Second five-agent round. What it found, and what changed.
+
+The owner asked whether this project even has a game vision and a technical
+vision that it follows. The answer from five independent reviews: **the game
+vision is real and followed; the technical vision was not written down, and the
+documents that claimed to carry it were describing a different game.**
+
+**Defects found and fixed in this batch** (three were confirmed by simulation
+before being touched):
+
+- **The fold credit undid the whole v11 design.** `foldedNodes += 1` fired on
+  every anchor eviction regardless of whether the concept had ever been
+  connected, so past the 240-anchor cap pure Discover-spam reached
+  **3,856 / 4,096 coverage with zero lines drawn and zero lit concepts** — the
+  same 2h34m hand-only completion v11 exists to close, relocated one window
+  along. Found independently by the-redditor and chad-liquidity with identical
+  arithmetic. Now credits only what was lit, and evicts DARK anchors first,
+  which also stops the taxonomy collapsing into a 240-spoke asterisk.
+- **Supervised agents were minting permanent falsehoods.** Agent lines were
+  random anchor pairs asserted as `is a`; the supervised share landed
+  `checked: true`, which is exempt from decay. So the *reward for supervising*
+  was `oxygen is a democracy`, certified, forever, in a game whose rule is that
+  every concept matches its real definition. Agent lines are now always
+  unchecked and always `fake` — a machine cannot know which pairs are real,
+  because the dataset lives in the shell. They still light concepts while they
+  live, so agents still move coverage and the no-babysitting rule holds.
+- **`studied in` was a shipped falsehood** on 27 of 47 lines. The board rendered
+  `expressive style — studied in — language` and `body of water — studied in —
+  lake`. WordNet's `domain_topic` tags a subject field and its targets are
+  heterogeneous (biology, law, but also lake, ocean, animal). Renamed **`topic`**,
+  which is true of all 47.
+- **`is a` was stored (broader, narrower)**, so anything rendering
+  `label(a) REL label(b)` printed `canine is a dog`. Invisible only because the
+  rel-0 label is suppressed. Fixed with migration **v12**; coverage is
+  unaffected because `lit()` counts both endpoints.
+- **Lines had no direction.** The relation directions were verified against the
+  source and then discarded at the pixel — `car has part wheel` and
+  `wheel has part car` drew identically. Arrowheads added.
+- **Generation 2 produced exactly zero.** `remaining = (f − coverage) / f`
+  clamps to zero once coverage passes fidelity, and prestige carries coverage at
+  100%, so a completed run returned to a wall. Now `(1 − coverage) × f`, which
+  is **byte-identical at f = 1** (every gen-1 number already measured is
+  unchanged) and makes the total gate f³ below that — a hard tail instead of a
+  wall, which is the actual Shumailov shape.
+- **`attentionCap` and `ratchet` went Infinite above 1.8e308**, writing
+  `foldedNodes: "Infinity"` into the save — after which `recovered()`'s
+  `Number.isFinite` guard zeroed all folded mass permanently. Same class as the
+  drift bug fixed thirty lines below, in the same file. Both now use Decimal
+  log10.
+- **EDGE_CAP evicted the player's own lines first** (`shift()` takes the
+  oldest, and the oldest are yours). Machine guesses go first now.
+- **The graph spun at 1.15°/s** and paid for it by re-deriving every node
+  position, concept lookup and line midpoint sixty times a second — 14,400
+  object allocations/second at the anchor cap, to rotate a picture
+  imperceptibly. That is the exact opposite of the argument for going DOM. Spin
+  is 0; positions recompute at the 10 Hz tick. The canvas still animates.
+- **The ticker was rendered nowhere** — built, wired and fed since the canvas
+  rewrite, subscribed to by nothing. So the game had no player-facing sentences
+  at all. Now in the dock.
+- **The in-game credit had no regression gate**, and its first-sentence slice
+  could silently stop naming Princeton on a natural manifest reword. Fails safe
+  now, with a test on the rendered string and a grep that the component still
+  uses it.
+- **CI never ran on this branch.** Four commits shipped with no tests, no
+  core-purity check and no attribution gate. Added to the trigger list;
+  publishing stays gated to the pinned branch.
+
+**Documents corrected**, because in this project the committed files ARE the
+memory and they had drifted badly:
+
+- **PixiJS was named as the locked graph renderer in 8 places and was never a
+  dependency.** Purged, with the history kept visible.
+- **ARCHITECTURE now opens with an actual technical vision** — core is a pure
+  reducer, shell owns everything impure, and *the browser is the framework*
+  (rule 3 is the lesson of the all-canvas experiment, written down so it does
+  not have to be relearned a third time).
+- **HANDOVER §2c** was false line by line — it described the canvas UI that was
+  deleted — and §5.1 presented a solved problem as the top open one. Rewritten.
+- **SPEC** calls itself the source of record and is missing 18 state fields, 4
+  live actions and the relation table. Flagged at the top with the measured
+  drift rather than quietly left; `src/core/types.ts` named as the real contract.
+- **GAME_DESIGN** now has `## ⛔ CUT BY VISION` (Capital, the six-tier ladder,
+  the inference multiplier) and `## 🕓 NOT SCHEDULED` (the domain tech-tree).
+  Its banner said the mechanical content was "mostly still the plan"; that
+  sentence was the single largest memory hazard in the repo.
+
+**Still open, deliberately:** the review desk operates on statement pools rather
+than on edges, so `fake` has no verb that acts on it — the mechanic is honest
+now but inert. Density is the other one: 123 non-is-a relations of which only
+~74 are reachable inside a 240-anchor window. Re-slice for edge density, target
+≈2,500 global non-is-a edges; ConceptNet's measured 547 at the current slice is
+~5× short, so the re-slice comes first.
