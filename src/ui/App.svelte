@@ -1,42 +1,136 @@
 <script lang="ts">
-  // The whole game is one canvas. There is no HTML UI: every counter, every
-  // button, every label is a node laid out by `render/board.ts` and painted by
-  // `render/paint.ts`. This file is only the loop and the pointer dispatch.
+  // The UI is DOM. The canvas draws the graph's lines and atmosphere, and
+  // nothing else.
   //
-  // The single exception is the attribution line at the bottom edge. CC BY 4.0
-  // §3(a)(1)(C) wants a link to the licence, and a real anchor is a link in a
-  // way a painted circle is not. It stays in the DOM deliberately.
+  // It used to be the other way round: every counter, button, label and modal
+  // was painted onto one full-screen canvas, with a hand-written layout engine,
+  // hit-tester and label-collision solver behind it. That is a reimplementation
+  // of the browser, and it broke exactly where a reimplementation of the
+  // browser breaks — text overlapped, tap targets drifted, and pinch-zoom moved
+  // the visual viewport out from under a `position: fixed` canvas so the board
+  // rendered as a magnified crop with no controls and no way back.
+  //
+  // Now: a flex column — header, stage, dock. The canvas fills the stage. Zoom
+  // is just zoom, the way it is on any web page, because there is nothing left
+  // that second-guesses the layout.
   import { onMount } from 'svelte';
   import { game, awayReport, dispatch, exportSave, flushProject, importSave, startGame } from '../shell/game';
-  import { pendingVignette } from '../core/engine';
-  import { VIGNETTES } from '../content/vignettes';
+  import {
+    agentCost, attentionCap, attentionFree, CONNECT_MS, coverage, displayedFidelity,
+    DISCOVER_MS, pendingVignette, recovered, REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS,
+    supervisedPerSecond, unsupervised, unsupervisedPerSecond, verified,
+  } from '../core/engine';
+  import { D, format, formatWhole, gte } from '../core/numbers';
+  import { GENERATORS, M1_ROSTER } from '../content/generators';
+  import { CONCEPT_BUDGET } from '../content/ontologyMeta';
+  import { REL_NAMES } from '../core/types';
+  import { VIGNETTES, describeEffects } from '../content/vignettes';
   import {
     conceptAt, conceptForNode, loadManifest, ontologyCredit, ontologyRevision,
     potentialEdges, warm,
   } from '../shell/ontology';
-  import { hit, layout, type Sheet, type SceneItem } from '../render/board';
-  import { paint } from '../render/paint';
+  import { frontierPos, isRotted, positions, relHue, stageHue } from '../render/board';
+  import { paintGraph } from '../render/paint';
 
-  let canvas: HTMLCanvasElement | undefined = $state();
-  let sheet = $state<Sheet>(null);
+  let canvas = $state<HTMLCanvasElement>();
+  let stage = $state<HTMLDivElement>();
+  let sheet = $state<null | 'review' | 'vignette' | 'save'>(null);
   let verdicts = $state<boolean[]>([]);
   let toast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
-  let vw = $state(360);
-  let vh = $state(640);
+  let w = $state(360);
+  let h = $state(480);
+  let now = $state(0);
 
-  const credit = $derived.by(() => {
-    void $ontologyRevision;
-    return ontologyCredit();
-  });
+  const credit = $derived.by(() => { void $ontologyRevision; return ontologyCredit(); });
+  const hue = $derived(stageHue($game.graph.nodes));
+  const trust = $derived(displayedFidelity($game));
+  const free = $derived(attentionFree($game));
 
   const activeVignette = $derived.by(() => {
     const id = pendingVignette($game);
     return id ? (VIGNETTES.find((v) => v.id === id) ?? null) : null;
   });
 
-  // Reset verdicts only when the BATCH ITSELF changes. Keyed on the prop object
-  // this fired ten times a second and erased every tap the player made.
+  const potential = $derived.by(() => {
+    void $ontologyRevision;
+    return potentialEdges($game.forged.anchors);
+  });
+
+  // Spin drives node positions; recomputed per frame from `now`.
+  const spin = $derived(now / 1000 * 0.02);
+
+  const pos = $derived(positions($game.forged.anchors, w, h, spin));
+
+  const nodes = $derived.by(() => {
+    void $ontologyRevision;
+    return $game.forged.anchors.map((id) => {
+      const p = pos.get(id) ?? { x: w / 2, y: h / 2 };
+      return {
+        id, x: p.x, y: p.y,
+        label: conceptForNode(id)?.label ?? '',
+        root: id === 0,
+        rotted: isRotted(id, trust),
+      };
+    });
+  });
+
+  // Tappable midpoints for the dotted lines. Real buttons, so they hit-test
+  // themselves and are finger-sized by construction rather than by a magic
+  // radius constant.
+  const openLines = $derived.by(() => {
+    const drawn = new Set($game.forged.edges.map((e) => `${e.a}:${e.b}:${e.rel}`));
+    const flight = new Set($game.bookings.filter((b) => b.edge)
+      .map((b) => `${b.edge!.a}:${b.edge!.b}:${b.edge!.rel}`));
+    const c = { x: w / 2, y: h / 2 };
+    return potential.filter((p) => !drawn.has(`${p.a}:${p.b}:${p.rel}`)).map((p) => {
+      const pa = pos.get(p.a) ?? c, pb = pos.get(p.b) ?? c;
+      return {
+        ...p,
+        x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2,
+        busy: flight.has(`${p.a}:${p.b}:${p.rel}`),
+        name: REL_NAMES[p.rel] ?? '',
+      };
+    });
+  });
+
+  const inFlight = $derived($game.bookings
+    .filter((b) => b.kind === 'discover' && b.node !== undefined)
+    .map((b) => {
+      const p = frontierPos(b.slot ?? 0, w, h);
+      return {
+        node: b.node!, x: p.x, y: p.y,
+        left: Math.max(0, Math.ceil((b.until - $game.lastTick) / 1000)),
+        pct: Math.max(0, Math.min(1, ($game.lastTick - (b.until - DISCOVER_MS)) / DISCOVER_MS)),
+      };
+    }));
+
+  const reviewBooking = $derived($game.bookings.find((b) => b.kind === 'review'));
+  const filling = $derived($game.bookings.filter((b) => b.kind === 'connect'));
+  const banked = $derived(D($game.pending).add(D($game.pendingClean)));
+  const worldDone = $derived($game.forged.nextId >= CONCEPT_BUDGET);
+  const canDiscover = $derived(free >= 1 && $game.bookings.length < 8 && $game.lastTick > 0 && !worldDone);
+
+  function say(msg: string): void {
+    toast = msg;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (toast = ''), 2200);
+  }
+
+  function discover(): void {
+    if (!canDiscover) { say(worldDone ? 'The world is recovered' : 'No free attention'); return; }
+    dispatch({ type: 'discover' });
+  }
+
+  function connect(p: { a: number; b: number; rel: number }): void {
+    if (free < 1) { say('No free attention'); return; }
+    dispatch({ type: 'connect', edge: { ...p, checked: true, fake: false } });
+  }
+
+  $effect(() => {
+    warm([...$game.forged.frontier, ...$game.forged.anchors, $game.forged.nextId]);
+  });
+
   let armedFor = $state('');
   $effect(() => {
     const q = $game.review;
@@ -48,208 +142,59 @@
     }
   });
 
-  // Keep the chunks for everything on screen warm so labels resolve in time.
-  // `nextId` is in here because the PARENT LOOKUP needs it: chunks are 1024
-  // wide, so without this every discovery at 1024 / 2048 / 3072 — and every one
-  // made before chunk 0 lands on a cold start — read `null` and silently
-  // hash-wired instead of using the real taxonomy.
+  // One loop: advance the clock and repaint the lines. Node pills are Svelte's
+  // job — they re-render from `nodes`, which depends on `now`.
   $effect(() => {
-    warm([...$game.forged.frontier, ...$game.forged.anchors, $game.forged.nextId]);
-  });
-
-  // The engine is pure and knows nothing about WordNet, so the SHELL resolves
-  // which node a new concept should hang off and hands the engine a plain
-  // integer.
-  //
-  // It must walk UP, not just read the direct parent. Anchors are a sliding
-  // window of the most recent ANCHOR_CAP=240, and breadth-first-from-`entity`
-  // is precisely the ordering that maximises parent distance — node 4030's
-  // parent sits at index ~4. Reading only the direct parent, the true parent
-  // was still on the board for 100% of the first 240 concepts, 12% of the next
-  // 260, and **0% after that** — 6.6% across the dataset. Every edge past the
-  // ~500th fell back to the hash this code exists to abolish, while DECISIONS
-  // recorded that it "almost always" found the real parent. Walking to the
-  // nearest surviving ancestor makes the claim true: max is-a depth here is 5,
-  // so this is at most five map lookups.
-  function nearestLivingAncestor(nodeId: number): number | undefined {
-    const live = new Set($game.forged.anchors);
-    let cursor = conceptForNode(nodeId)?.parent;
-    for (let hops = 0; hops < 8 && cursor !== undefined && cursor >= 0; hops++) {
-      if (live.has(cursor)) return cursor;
-      cursor = conceptForNode(cursor)?.parent;
-    }
-    return undefined; // chunk not loaded, or nothing above it survives — engine falls back
-  }
-
-  function say(msg: string): void {
-    toast = msg;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => (toast = ''), 2200);
-  }
-
-  // A concept that lands should travel from the slot it was discovered in, not
-  // teleport. Tracked here rather than in the engine: it is animation, and the
-  // engine is not allowed to know the screen exists.
-  const landings = new Map<number, { at: number; slot: number }>();
-  const ripples: Array<{ x: number; y: number; at: number }> = [];
-  let slotOf = new Map<number, number>();
-
-  $effect(() => {
-    const now = performance.now();
-    // remember which ring slot each in-flight discovery occupies
-    for (const b of $game.bookings) {
-      if (b.kind === 'discover' && b.node !== undefined) slotOf.set(b.node, b.slot ?? 0);
-    }
-    // A concept animates in ONLY if we watched it being discovered — that is,
-    // only if we saw its booking. Everything else just exists: a loaded save,
-    // an imported save, the mass Reasoners fold in. This one rule replaces a
-    // seen-everything set that got all three edge cases wrong — it never reset
-    // on prestige (so nothing ever animated again for the rest of a save), it
-    // would have stampeded 200 concepts out of slot 0 on importing a late-game
-    // save, and any condition based on "an id I remember is missing" fires
-    // constantly during normal play, because anchors fold out of a 240-wide
-    // window by design.
-    for (const id of $game.forged.anchors) {
-      if (id === 0 || !slotOf.has(id) || landings.has(id)) continue;
-      landings.set(id, { at: now, slot: slotOf.get(id)! });
-    }
-    // finished landings are dropped, or these two maps grow for the lifetime of
-    // the tab. Dropping from BOTH is what makes the guard above terminal.
-    for (const [id, l] of landings) if (now - l.at > 4000) { landings.delete(id); slotOf.delete(id); }
-  });
-
-  // The dotted lines. Recomputed when the board changes or a chunk lands —
-  // never stored, because what is POSSIBLE belongs to the dataset and only what
-  // you have actually DRAWN belongs to your save.
-  const potential = $derived.by(() => {
-    void $ontologyRevision;
-    return potentialEdges($game.forged.anchors);
-  });
-
-  const input = $derived({
-    state: $game,
-    potential,
-    w: vw,
-    h: vh,
-    sheet,
-    verdicts,
-    vignette: activeVignette,
-    conceptFor: (i: number) => conceptAt(i),
-    labelForNode: (id: number) => conceptForNode(id)?.label,
-    timeMs: 0,
-    landings,
-    ripples,
-  });
-
-  let items: SceneItem[] = [];
-
-  // One continuous loop: layout, then paint the very same items that will be
-  // hit-tested. `timeMs` is the only thing that changes per frame.
-  $effect(() => {
-    if (!canvas) return;
     let raf = 0;
     const frame = (t: number): void => {
-      const now = { ...input, timeMs: t };
-      items = layout(now);
-      paint(canvas!, now, items);
+      now = t;
+      if (canvas && w > 0 && h > 0) {
+        paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, potential });
+      }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
   });
 
-  function onTap(e: PointerEvent): void {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const px = e.clientX - rect.left, py = e.clientY - rect.top;
-    const it = hit(items, px, py);
-    if (it?.enabled) {
-      ripples.push({ x: it.x, y: it.y, at: performance.now() });
-      if (ripples.length > 6) ripples.shift();
-    }
-    if (!it) {
-      if (sheet && sheet !== 'review') sheet = null; // tap-away closes, except mid-review
-      return;
-    }
-    act(it);
-  }
+  // The stage measures itself. No viewport arithmetic, no visualViewport
+  // plumbing, no constants tuned to one phone — CSS decides how big the graph
+  // area is and this just reads it.
+  onMount(() => {
+    void startGame();
+    void loadManifest();
+    if (!stage) return;
+    const ro = new ResizeObserver(() => {
+      if (!stage) return;
+      w = stage.clientWidth;
+      h = stage.clientHeight;
+    });
+    ro.observe(stage);
+    w = stage.clientWidth;
+    h = stage.clientHeight;
+    return () => ro.disconnect();
+  });
 
-  function act(it: SceneItem): void {
-    switch (it.kind) {
-      case 'frontier':
-        return; // a discovery in flight is already working; nothing to tap
-      case 'survey': {
-        if (!it.enabled) { say('No free attention'); return; }
-        dispatch({ type: 'discover', parent: nearestLivingAncestor($game.forged.nextId) });
-        return;
-      }
-      case 'dotted': {
-        if (!it.enabled) { say('No free attention'); return; }
-        const p = it.payload as { a: number; b: number; rel: number };
-        // Filling a line yourself makes it CHECKED and real — you looked at it.
-        dispatch({ type: 'connect', edge: { ...p, checked: true, fake: false } });
-        return;
-      }
-      case 'setSupervision':
-        if (!it.enabled) return;
-        dispatch({ type: 'setSupervision', slots: it.payload as number });
-        return;
-      case 'machine':
-        if (!it.enabled) { say('Not enough verified knowledge'); return; }
-        dispatch({ type: 'buyGenerator', id: it.payload as never });
-        return;
-      case 'absorb':
-        dispatch({ type: 'absorb' });
-        return;
-      case 'review':
-        if (!it.enabled) { say('No free attention'); return; }
-        sheet = 'review';
-        return;
-      case 'vignette':
-        sheet = 'vignette';
-        return;
-      case 'retrain':
-        dispatch({ type: 'reflect' });
-        say('Retrained');
-        return;
-      case 'reviewVerdict': {
-        const p = it.payload as { i: number; keep: boolean };
-        verdicts = verdicts.map((v, i) => (i === p.i ? p.keep : v));
-        return;
-      }
-      case 'commit':
-        if (!it.enabled) { say('No free attention'); return; }
-        dispatch({ type: 'reviewBatch', keep: [...verdicts] });
-        sheet = null;
-        return;
-      case 'choice':
-        if (activeVignette) {
-          dispatch({ type: 'chooseOption', eventId: activeVignette.id, choiceId: it.payload as string });
-        }
-        sheet = null;
-        return;
-      case 'sheetClose':
-        sheet = null;
-        return;
-      case 'save':
-        if (it.payload === undefined) { sheet = 'save'; return; }
-        void saveAction(it.payload as string);
-        return;
-      default:
+  let reported = false;
+  $effect(() => {
+    const r = $awayReport;
+    if (r && !reported && r.elapsedMs > 0) {
+      reported = true;
+      say(`Away ${Math.round(r.elapsedMs / 60000)} min · ${Number(r.banked) > 0 ? 'work banked' : 'nothing changed'}`);
+      awayReport.set(null);
     }
-  }
+  });
 
   async function saveAction(which: string): Promise<void> {
     if (which === 'export') {
-      try {
-        await navigator.clipboard.writeText(exportSave());
-        say('Save copied');
-      } catch { window.prompt('Copy your save:', exportSave()); }
+      try { await navigator.clipboard.writeText(exportSave()); say('Save copied'); }
+      catch { window.prompt('Copy your save:', exportSave()); }
       return;
     }
     if (which === 'import') {
       let blob: string | null = null;
       try { blob = await navigator.clipboard.readText(); } catch { blob = window.prompt('Paste your save:'); }
-      if (!blob?.trim()) { blob = window.prompt('Paste your save:'); }
+      if (!blob?.trim()) blob = window.prompt('Paste your save:');
       if (!blob?.trim()) return;
       try { await importSave(blob); say('Save imported'); sheet = null; }
       catch { say('Not a valid save — nothing changed'); }
@@ -262,152 +207,355 @@
       say('Project flushed');
     }
   }
-
-  // THE VIEWPORT, and why this is the third attempt.
-  //
-  // iOS has ignored `user-scalable=no` since iOS 10 — it is an accessibility
-  // decision and it is not coming back. So pinch-zoom ALWAYS works, and it moves
-  // the VISUAL viewport while leaving the LAYOUT viewport alone. A
-  // `position: fixed` canvas is laid out against the layout viewport, so under
-  // zoom the player sees a magnified crop of a board that has no idea anything
-  // happened — the owner's screenshot: a huge graph, no HUD, no buttons.
-  //
-  // `ResizeObserver` did not catch it because the element genuinely did not
-  // change size. Neither did `innerWidth`. The only thing that knows is
-  // `visualViewport`, so that is what drives the board now: the canvas is sized
-  // to exactly the region the player can actually see and translated onto it,
-  // at any zoom level. Zooming becomes a magnifier that still shows the whole
-  // game instead of a crop that hides it.
-  //
-  // And `touch-action` is `manipulation`, NOT `none`. `none` swallowed the pinch
-  // — so once you were zoomed in you could not zoom out, could not scroll the
-  // browser chrome back, could not leave. Trapping the player inside the page is
-  // far worse than an occasional stray gesture. `manipulation` still kills
-  // double-tap-to-zoom, which is what caused most of the accidental zooms.
-  function fitToVisibleViewport(): void {
-    if (!canvas) return;
-    const vv = window.visualViewport;
-    if (vv && vv.width > 0 && vv.height > 0) {
-      // AUTHORITATIVE. Do not second-guess it: a small reading here is not a bad
-      // measurement, it is the player zoomed in, and "correcting" it back up to
-      // innerWidth is precisely the crop bug — the board lays out for 390 while
-      // only 156 of it is visible. (My first attempt at this fix had exactly
-      // that guard, and the zoom test caught it.)
-      canvas.style.width = `${vv.width}px`;
-      canvas.style.height = `${vv.height}px`;
-      canvas.style.transform = `translate(${vv.offsetLeft}px, ${vv.offsetTop}px)`;
-      vw = vv.width;
-      vh = vv.height;
-      return;
-    }
-    // No visualViewport (old browsers). Here a zero or absurd reading really is
-    // a bad measurement, and a bad one latches forever because nothing re-fires.
-    let w = canvas.clientWidth || window.innerWidth;
-    let h = canvas.clientHeight || window.innerHeight;
-    if (!(w > 0)) w = Math.max(document.documentElement.clientWidth, 320);
-    if (!(h > 0)) h = Math.max(document.documentElement.clientHeight, 480);
-    vw = w;
-    vh = h;
-  }
-
-  onMount(() => {
-    void startGame();
-    void loadManifest();
-    if (!canvas) return;
-    const ro = new ResizeObserver(fitToVisibleViewport);
-    ro.observe(canvas);
-    const vv = window.visualViewport;
-    // `scroll` matters as much as `resize`: panning while zoomed changes which
-    // region is visible without changing its size.
-    vv?.addEventListener('resize', fitToVisibleViewport);
-    vv?.addEventListener('scroll', fitToVisibleViewport);
-    window.addEventListener('orientationchange', fitToVisibleViewport);
-    document.addEventListener('visibilitychange', fitToVisibleViewport);
-    fitToVisibleViewport();
-    return () => {
-      ro.disconnect();
-      vv?.removeEventListener('resize', fitToVisibleViewport);
-      vv?.removeEventListener('scroll', fitToVisibleViewport);
-      window.removeEventListener('orientationchange', fitToVisibleViewport);
-      document.removeEventListener('visibilitychange', fitToVisibleViewport);
-    };
-  });
-
-  // Surface an away report once, as a toast, then get out of the way.
-  let reported = false;
-  $effect(() => {
-    const r = $awayReport;
-    if (r && !reported && r.elapsedMs > 0) {
-      reported = true;
-      const mins = Math.round(r.elapsedMs / 60000);
-      say(`Away ${mins} min · ${Number(r.banked) > 0 ? 'work banked' : 'nothing changed'}`);
-      awayReport.set(null);
-    }
-  });
 </script>
 
-<canvas bind:this={canvas} onpointerup={onTap}></canvas>
+<div class="app" style="--hue:{hue}">
+  <header class="hud">
+    <div class="headline">
+      <b>{formatWhole($game.resources.triples)}</b>
+      <span>statements</span>
+    </div>
+    <div class="stats">
+      <div><b class="good">{recovered($game)}</b><span>of {CONCEPT_BUDGET} recovered</span></div>
+      <div><b class:good={trust > 0.66} class:warn={trust <= 0.66 && trust > 0.33} class:bad={trust <= 0.33}
+        >{(trust * 100).toFixed(0)}%</b><span>checked</span></div>
+      <div><b class:good={free > 0} class:warn={free === 0}>{free}</b><span>free of {attentionCap($game)}</span></div>
+    </div>
+  </header>
 
-{#if toast}<div class="toast">{toast}</div>{/if}
+  <div class="stage" bind:this={stage}>
+    <canvas bind:this={canvas} style="width:{w}px;height:{h}px"></canvas>
 
-{#if credit}
-  <!-- CC BY 4.0 §3(a)(1): a real link, because a painted circle is not one. -->
-  <!-- Names BOTH parties, which is what ATTRIBUTION.md claims and what the
-       footer previously did not do — `credit.text` was computed and thrown
-       away. The full statement of changes runs to three lines and covered the
-       machine row, so the first sentence is shown verbatim (it carries both
-       creators) and the notice link supplies the rest, which CC BY 4.0
-       §3(a)(2) expressly allows. Not paraphrased, not truncated mid-clause. -->
-  <div class="credit">
-    {credit.short}
-    <a href={credit.licenseUrl} target="_blank" rel="noopener license">CC BY 4.0</a>
-    ·
-    <a href={credit.noticeUrl} target="_blank" rel="noopener">full notice</a>
+    <!-- Dotted-line targets. Real buttons: the browser hit-tests them, so what
+         you tap is what you saw, by construction rather than by a shared list. -->
+    {#each openLines as l (l.a + ':' + l.b + ':' + l.rel)}
+      <button
+        class="line" class:busy={l.busy} class:isa={l.rel === 0}
+        style="--h:{relHue(l.rel, hue)};transform:translate({l.x}px,{l.y}px)"
+        disabled={l.busy || free < 1}
+        title="{l.name}"
+        aria-label="connect: {l.name}"
+        onclick={() => connect(l)}
+      >{#if l.rel !== 0}<i>{l.name}</i>{/if}</button>
+    {/each}
+
+    {#each nodes as n (n.id)}
+      <div class="node" class:root={n.root} class:rotted={n.rotted}
+           style="transform:translate({n.x}px,{n.y}px)">
+        <i></i>{#if n.label}<span>{n.label}</span>{/if}
+      </div>
+    {/each}
+
+    {#each inFlight as f (f.node)}
+      <div class="finding" style="transform:translate({f.x}px,{f.y}px)">
+        <svg viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="20" r="17" />
+          <circle cx="20" cy="20" r="17" class="sweep"
+            style="stroke-dasharray:{f.pct * 106.8} 106.8" />
+        </svg>
+        <span>{f.left}s</span>
+      </div>
+    {/each}
   </div>
-{/if}
+
+  <footer class="dock">
+    <div class="actions">
+      <button class="act primary" disabled={!canDiscover} onclick={discover}>
+        <b>Discover</b>
+        <span>{worldDone ? 'world recovered' : canDiscover ? '1 slot · 18s' : 'no free slot'}</span>
+      </button>
+
+      {#if filling.length > 0}
+        <div class="act status"><b>{filling.length}</b><span>{filling.length === 1 ? 'line filling' : 'lines filling'}</span></div>
+      {/if}
+
+      {#if reviewBooking}
+        <div class="act status"><b>Reviewing</b><span>{Math.max(0, Math.ceil((reviewBooking.until - $game.lastTick) / 1000))}s</span></div>
+      {:else if $game.review.length > 0}
+        <button class="act warn" disabled={free < 1} onclick={() => (free >= 1 ? (sheet = 'review') : say('No free attention'))}>
+          <b>Review</b><span>{free >= 1 ? '1 slot · 25s' : 'no free slot'}</span>
+        </button>
+      {/if}
+
+      {#if banked.gt(0)}
+        <button class="act warn" onclick={() => dispatch({ type: 'absorb' })}>
+          <b>Absorb</b><span>{formatWhole(banked.toString())}</span>
+        </button>
+      {/if}
+
+      {#if activeVignette}
+        <button class="act core" onclick={() => (sheet = 'vignette')}><b>Decide</b><span>pending</span></button>
+      {/if}
+
+      {#if recovered($game) >= REFLECT_MIN_CONCEPTS}
+        <button class="act bad" onclick={() => { dispatch({ type: 'reflect' }); say('Retrained'); }}>
+          <b>Retrain</b><span>gen {$game.reflection + 2}</span>
+        </button>
+      {/if}
+    </div>
+
+    {#if $game.generators.extractor > 0}
+      <div class="dial">
+        <button disabled={$game.supervised === 0}
+          onclick={() => dispatch({ type: 'setSupervision', slots: $game.supervised - 1 })}>−</button>
+        <span class:bad={unsupervised($game) > 0}>
+          {$game.supervised} / {$game.generators.extractor}
+          <i>{unsupervised($game) > 0 ? `${unsupervised($game)} unwatched` : 'all watched'}</i>
+        </span>
+        <button disabled={free < 1 || unsupervised($game) === 0}
+          onclick={() => dispatch({ type: 'setSupervision', slots: $game.supervised + 1 })}>+</button>
+      </div>
+    {/if}
+
+    <div class="machines">
+      {#each M1_ROSTER as id (id)}
+        {@const cost = agentCost($game, id)}
+        {@const ok = gte(verified($game), cost)}
+        <button class="mach" disabled={!ok}
+          onclick={() => (ok ? dispatch({ type: 'buyGenerator', id }) : say('Not enough checked knowledge'))}>
+          <b>×{$game.generators[id]}</b>
+          <em>{GENERATORS[id].label}</em>
+          <span>{format(cost)} checked</span>
+        </button>
+      {/each}
+      <button class="more" aria-label="save menu" onclick={() => (sheet = 'save')}>⋯</button>
+    </div>
+  </footer>
+
+  {#if sheet === 'review'}
+    <div class="sheet">
+      <h2>Review desk</h2>
+      <div class="rows">
+        {#each $game.review as item, i (i)}
+          {@const c = conceptAt(item.conceptIndex)}
+          {@const g = conceptAt(item.glossIndex)}
+          <div class="row" class:cut={!verdicts[i]}>
+            <div class="txt"><b>{c?.label ?? '…'}</b><em>{c?.category ?? ''}</em><p>{g?.gloss ?? ''}</p></div>
+            <div class="verdict">
+              <button class:on={verdicts[i]} onclick={() => (verdicts = verdicts.map((v, k) => (k === i ? true : v)))}>keep</button>
+              <button class:off={!verdicts[i]} onclick={() => (verdicts = verdicts.map((v, k) => (k === i ? false : v)))}>cut</button>
+            </div>
+          </div>
+        {/each}
+      </div>
+      <div class="sheet-foot">
+        <button class="primary" disabled={free < 1}
+          onclick={() => { dispatch({ type: 'reviewBatch', keep: [...verdicts] }); sheet = null; }}>
+          Commit · 1 slot · 25s
+        </button>
+        <button onclick={() => (sheet = null)}>back</button>
+      </div>
+    </div>
+  {:else if sheet === 'vignette' && activeVignette}
+    <div class="sheet">
+      <h2>{activeVignette.title || '⟨title — owner⟩'}</h2>
+      <p class="body">{activeVignette.body || '⟨body — owner⟩'}</p>
+      <div class="sheet-foot col">
+        {#each activeVignette.choices as c (c.id)}
+          <button class="choice"
+            onclick={() => { dispatch({ type: 'chooseOption', eventId: activeVignette.id, choiceId: c.id }); sheet = null; }}>
+            <b>{c.label || '⟨choice — owner⟩'}</b><span>{describeEffects(c.effects)}</span>
+          </button>
+        {/each}
+      </div>
+    </div>
+  {:else if sheet === 'save'}
+    <div class="sheet">
+      <h2>Save</h2>
+      <div class="sheet-foot col">
+        <button onclick={() => saveAction('export')}>Export save</button>
+        <button onclick={() => saveAction('import')}>Import save</button>
+        <button class="bad" onclick={() => saveAction('flush')}>Flush project</button>
+        <button onclick={() => (sheet = null)}>back</button>
+      </div>
+    </div>
+  {/if}
+
+  {#if toast}<div class="toast">{toast}</div>{/if}
+
+  {#if credit}
+    <!-- CC BY 4.0 §3(a)(1)(C): a real link, naming both parties. -->
+    <div class="credit">
+      {credit.short}
+      <a href={credit.licenseUrl} target="_blank" rel="noopener license">CC BY 4.0</a> ·
+      <a href={credit.noticeUrl} target="_blank" rel="noopener">full notice</a>
+    </div>
+  {/if}
+</div>
 
 <style>
-  canvas {
-    display: block;
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    transform-origin: 0 0;
-    /* manipulation, NEVER none. `none` swallowed the pinch, so a player who
-       zoomed in — by accident, or because iOS ignores user-scalable=no — could
-       not zoom back out, could not scroll the browser chrome back, and could
-       not leave the page. `manipulation` still suppresses double-tap-to-zoom
-       (the usual cause) while leaving the escape route open. */
-    touch-action: manipulation;
-    background: #080b11;
-  }
-  .toast {
-    position: fixed;
-    left: 50%;
-    bottom: calc(env(safe-area-inset-bottom) + 58px);
-    transform: translateX(-50%);
-    background: #111826ee;
-    border: 1px solid #22304a;
+  :global(html, body) { margin: 0; background: #080b11; overscroll-behavior: none; }
+  /* NOT `position: fixed`. A fixed element is anchored to the layout viewport,
+     so pinch-zoom shows a magnified CROP of it and there is nothing to pan —
+     which is precisely the trap the owner hit. An ordinary in-flow element
+     pans normally when the page is zoomed, exactly like every other website.
+     Everything else here is absolute WITHIN this element for the same reason. */
+  .app {
+    position: relative;
+    display: flex; flex-direction: column;
+    height: 100dvh;
     color: #cfe0e8;
-    padding: 8px 14px;
-    border-radius: 10px;
-    font-size: 0.82rem;
-    pointer-events: none;
-    z-index: 2;
+    font: 400 14px/1.3 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    box-sizing: border-box;
+  }
+
+  /* ---- header ---- */
+  .hud { flex: 0 0 auto; text-align: center; padding: 6px 8px 2px; }
+  .headline b { display: block; font-size: 2rem; font-weight: 700; color: #eaf6f2; line-height: 1.05; }
+  .headline span { font-size: 0.72rem; color: #5d7385; }
+  .stats { display: flex; justify-content: space-around; margin-top: 4px; }
+  .stats div { display: flex; flex-direction: column; min-width: 0; }
+  .stats b { font-size: 1.05rem; font-weight: 700; }
+  .stats span { font-size: 0.62rem; color: #5d7385; white-space: nowrap; }
+  .good { color: hsl(var(--hue) 70% 58%); }
+  .warn { color: hsl(42 75% 60%); }
+  .bad { color: #b0566b; }
+
+  /* ---- stage: the graph fills whatever is left ---- */
+  .stage { flex: 1 1 auto; position: relative; min-height: 0; overflow: hidden; }
+  canvas { position: absolute; inset: 0; display: block; }
+
+  .node, .line, .finding { position: absolute; left: 0; top: 0; will-change: transform; }
+  .node {
+    display: flex; flex-direction: column; align-items: center;
+    margin: -4px 0 0 -4px; pointer-events: none;
+  }
+  .node i {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: hsl(var(--hue) 40% 46%);
+  }
+  .node.root i { width: 13px; height: 13px; background: hsl(var(--hue) 90% 78%); box-shadow: 0 0 12px hsl(var(--hue) 90% 60% / 0.6); }
+  .node.rotted i { background: #b0566b; }
+  .node span {
+    margin-top: 2px; font-size: 0.62rem; white-space: nowrap;
+    color: hsl(var(--hue) 40% 68%); text-shadow: 0 1px 3px #080b11, 0 0 6px #080b11;
+  }
+  .node.root span { font-weight: 700; font-size: 0.76rem; color: hsl(var(--hue) 80% 84%); }
+
+  /* A dotted-line target. Looks like part of the graph; is a real button. */
+  .line {
+    margin: -14px 0 0 -14px;
+    width: 28px; height: 28px; padding: 0;
+    border: 0; border-radius: 50%; background: transparent;
+    display: grid; place-items: center; cursor: pointer;
+  }
+  .line::before {
+    content: ''; width: 7px; height: 7px; border-radius: 50%;
+    background: hsl(var(--h) 70% 60%); opacity: 0.55;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  .line.isa::before { width: 5px; height: 5px; opacity: 0.3; }
+  .line:active::before { transform: scale(2.2); opacity: 1; }
+  .line:disabled { cursor: default; }
+  .line:disabled::before { opacity: 0.15; }
+  .line i {
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    font: 600 0.56rem ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: hsl(var(--h) 70% 66%); white-space: nowrap; font-style: normal;
+    text-shadow: 0 1px 3px #080b11, 0 0 6px #080b11; pointer-events: none;
+  }
+
+  .finding { margin: -20px 0 0 -20px; width: 40px; height: 40px; pointer-events: none; }
+  .finding svg { width: 40px; height: 40px; transform: rotate(-90deg); }
+  .finding circle { fill: none; stroke: hsl(var(--hue) 70% 58%); stroke-width: 3; opacity: 0.22; }
+  .finding circle.sweep { opacity: 1; stroke-linecap: round; }
+  .finding span {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font: 600 0.56rem ui-monospace, monospace; color: hsl(var(--hue) 70% 70%);
+  }
+
+  /* ---- dock ---- */
+  .dock { flex: 0 0 auto; padding: 4px 8px 6px; }
+  .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .act {
+    flex: 0 1 auto; min-width: 92px;
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
+    padding: 9px 12px; border-radius: 14px; cursor: pointer;
+    background: hsl(var(--hue) 40% 12%);
+    border: 1.5px solid hsl(var(--hue) 70% 58%);
+    color: hsl(var(--hue) 70% 58%);
+    font: inherit;
+  }
+  .act b { font-size: 0.9rem; font-weight: 700; }
+  .act span { font: 0.6rem ui-monospace, monospace; opacity: 0.85; }
+  .act:disabled { background: #10151d; border-color: #2f3d4e; color: #2f3d4e; cursor: default; }
+  .act.status { background: transparent; border-style: dashed; }
+  .act.warn { border-color: hsl(42 75% 60%); color: hsl(42 75% 60%); background: hsl(42 40% 12%); }
+  .act.bad { border-color: #b0566b; color: #b0566b; background: #2416197a; }
+  .act.core { border-color: hsl(var(--hue) 90% 78%); color: hsl(var(--hue) 90% 78%); }
+
+  .dial { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 6px; }
+  .dial button {
+    width: 40px; height: 40px; border-radius: 50%; font-size: 1.1rem; cursor: pointer;
+    background: #10151d; border: 1px solid hsl(var(--hue) 40% 40%); color: #cfe0e8;
+  }
+  .dial button:disabled { border-color: #2f3d4e; color: #2f3d4e; }
+  .dial span { display: flex; flex-direction: column; align-items: center; font-size: 0.8rem; }
+  .dial i { font: 0.58rem ui-monospace, monospace; color: #5d7385; font-style: normal; }
+
+  .machines { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 6px; }
+  .mach {
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    padding: 6px 10px; border-radius: 12px; cursor: pointer; font: inherit;
+    background: hsl(var(--hue) 40% 10%);
+    border: 1px solid hsl(var(--hue) 60% 50%); color: hsl(var(--hue) 60% 62%);
+  }
+  .mach b { font-size: 0.85rem; }
+  .mach em { font-size: 0.62rem; font-style: normal; color: #93a8b8; }
+  .mach span { font: 0.56rem ui-monospace, monospace; }
+  .mach:disabled { background: #10151d; border-color: #2f3d4e; color: #2f3d4e; }
+  .mach:disabled em { color: #2f3d4e; }
+  .more {
+    width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+    background: transparent; border: 1px solid #2f3d4e; color: #5d7385; font-size: 1rem;
+  }
+
+  /* ---- sheets: ordinary modals, scrollable, never clipped ---- */
+  .sheet {
+    position: absolute; inset: 0; z-index: 5;
+    background: #080b11f2; overflow-y: auto;
+    padding: max(16px, env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 10px;
+    color: #cfe0e8; font: 400 14px/1.35 ui-sans-serif, system-ui, sans-serif;
+  }
+  .sheet h2 { margin: 0; font-size: 1rem; color: #eaf6f2; }
+  .sheet .body { margin: 0; color: #93a8b8; }
+  .rows { display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; gap: 10px; align-items: flex-start; border-top: 1px solid #1b2533; padding-top: 10px; }
+  .row.cut { opacity: 0.45; }
+  .txt { flex: 1 1 auto; min-width: 0; }
+  .txt b { font-size: 0.95rem; }
+  .txt em { font: 0.6rem ui-monospace, monospace; color: #5d7385; font-style: normal; margin-left: 6px; }
+  .txt p { margin: 3px 0 0; font-size: 0.78rem; color: #93a8b8; }
+  .verdict { display: flex; flex-direction: column; gap: 6px; }
+  .verdict button {
+    min-width: 58px; padding: 8px 10px; border-radius: 10px; cursor: pointer; font: inherit;
+    background: #10151d; border: 1px solid #2f3d4e; color: #5d7385;
+  }
+  .verdict button.on { border-color: hsl(var(--hue, 168) 70% 58%); color: hsl(var(--hue, 168) 70% 58%); }
+  .verdict button.off { border-color: #b0566b; color: #b0566b; }
+  .sheet-foot { display: flex; gap: 10px; margin-top: auto; padding-top: 12px; }
+  .sheet-foot.col { flex-direction: column; }
+  .sheet-foot button {
+    flex: 1 1 auto; padding: 13px; border-radius: 12px; cursor: pointer; font: inherit;
+    background: #10151d; border: 1px solid #2f3d4e; color: #cfe0e8;
+  }
+  .sheet-foot button.primary { border-color: #3ec8a8; color: #3ec8a8; }
+  .sheet-foot button.bad { border-color: #b0566b; color: #b0566b; }
+  .sheet-foot button:disabled { color: #2f3d4e; border-color: #1b2533; cursor: default; }
+  .choice { display: flex; flex-direction: column; gap: 2px; text-align: left; }
+  .choice span { font: 0.62rem ui-monospace, monospace; color: #5d7385; }
+
+  .toast {
+    position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 96px);
+    transform: translateX(-50%); z-index: 6;
+    background: #111826ee; border: 1px solid #22304a; color: #cfe0e8;
+    padding: 8px 14px; border-radius: 10px; font-size: 0.82rem; pointer-events: none;
   }
   .credit {
-    position: fixed;
-    left: 8px;
-    right: 8px;
-    bottom: calc(env(safe-area-inset-bottom) + 2px);
-    font-size: 0.52rem;
-    line-height: 1.25;
-    text-align: center;
-    color: #2a3646;
-    z-index: 2;
-    pointer-events: auto;
+    flex: 0 0 auto; padding: 3px 8px 2px;
+    text-align: center; font-size: 0.5rem; line-height: 1.2; color: #263140;
   }
-  .credit a { color: #3d5166; }
+  .credit a { color: #37485c; }
 </style>

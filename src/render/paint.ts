@@ -1,295 +1,164 @@
-// Painter for the board. Takes the SAME item list that hit-testing uses, so
-// what you tap is provably what you saw (see board.ts).
-import type { GameState } from '../core/types';
-import type { BoardInput, SceneItem } from './board';
-import { anchorPos, band, frontierPos, stageHue, statsH, uiScale } from './board';
-import { drawLabels, placeLabels, type LabelRequest } from './labels';
+// Canvas painter — LINES AND ATMOSPHERE ONLY.
+//
+// Nodes, labels, counters and buttons are DOM (see App.svelte). This draws the
+// things canvas is genuinely better at: hundreds of lines in one path, a field
+// of drifting dots, an arc. No text, no hit-testing, no layout — those were all
+// reimplementations of things the browser already does correctly, and they were
+// what broke under zoom.
+import type { Edge, GameState } from '../core/types';
+import { band, positions, relHue } from './board';
 import { CONNECT_MS, displayedFidelity } from '../core/engine';
 import { D } from '../core/numbers';
 
-const BG = '#080b11';
 const ROT = '#b0566b';
-const INK = '#eaf6f2';
-const DIM = '#5d7385';
-const MUTED = '#2f3d4e';
 
-const FONT = 'ui-sans-serif, system-ui, -apple-system, sans-serif';
-const MONO = 'ui-monospace, SFMono-Regular, Menlo, monospace';
-
-function tone(t: SceneItem['tone'], hue: number): string {
-  switch (t) {
-    case 'core': return `hsl(${hue} 90% 78%)`;
-    case 'good': return `hsl(${hue} 70% 58%)`;
-    case 'warn': return 'hsl(42 75% 60%)';
-    case 'bad': return ROT;
-    case 'idle': return `hsl(${hue} 40% 46%)`;
-    default: return MUTED;
-  }
+export interface Scene {
+  state: GameState;
+  w: number; h: number;
+  timeMs: number;
+  hue: number;
+  potential: Array<{ a: number; b: number; rel: number }>;
 }
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-/** Wrap text to a width, returning the lines. Canvas has no layout engine, so
- *  this is how a definition gets to be readable on a phone. */
-function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxLines: number): string[] {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let line = '';
-  for (const word of words) {
-    const attempt = line ? `${line} ${word}` : word;
-    if (ctx.measureText(attempt).width <= maxW) { line = attempt; continue; }
-    if (line) lines.push(line);
-    line = word;
-    if (lines.length === maxLines) break;
-  }
-  if (line && lines.length < maxLines) lines.push(line);
-  if (lines.length === maxLines && words.length) {
-    const last = lines[maxLines - 1]!;
-    if (ctx.measureText(`${last}…`).width > maxW) {
-      lines[maxLines - 1] = `${last.slice(0, Math.max(0, last.length - 2))}…`;
-    }
-  }
-  return lines;
-}
-
-export function paint(canvas: HTMLCanvasElement, input: BoardInput, items: SceneItem[]): void {
+export function paintGraph(canvas: HTMLCanvasElement, s: Scene): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  // Multiply by the pinch scale so a zoomed board is still rendered at native
-  // resolution instead of being upscaled into mush. Capped, or a hard zoom on a
-  // 3x phone asks for a backing store nine times the pixels.
-  const zoom = window.visualViewport?.scale ?? 1;
-  const dpr = Math.min((window.devicePixelRatio || 1) * Math.max(1, zoom), 3);
-  const { w, h, state, timeMs } = input;
+  const { w, h } = s;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
   }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = BG;
-  ctx.fillRect(0, 0, w, h);
-
-  const hue = stageHue(state.graph.nodes);
-  const t = timeMs / 1000;
-
-  if (input.sheet) {
-    paintSheet(ctx, input, items, hue);
-    return;
-  }
-
-  paintSubstrate(ctx, state, w, h, hue, t);
-  paintLinks(ctx, input, hue, t);
-  paintProvenanceRing(ctx, state, w, h, hue);
-
-  // Shapes first, then ONE label pass over the whole board. Labels drawn
-  // per-item cannot see each other, which is how two frontier nodes ended up
-  // overwriting each other's text.
-  const reqs: LabelRequest[] = [];
-  for (const it of items) {
-    switch (it.kind) {
-      case 'anchor': paintAnchor(ctx, it, hue, t, input, reqs); break;
-      case 'frontier': paintFrontier(ctx, it, hue, t, input, reqs); break;
-      case 'stat': paintStat(ctx, it, hue, h); break;
-      case 'dotted': paintDotted(ctx, it, hue, reqs); break;
-      case 'machine': paintPill(ctx, it, hue, 'machine'); break;
-      case 'save': paintGlyph(ctx, it, hue); break;
-      default: paintPill(ctx, it, hue, 'action'); break;
-    }
-  }
-  const b = band(w, h);
-  drawLabels(ctx, placeLabels(ctx, reqs, w, h,
-    { top: statsH(h) * 0.85, bottom: b.cy + b.outer + 40 }));
-
-  paintRipples(ctx, input, hue);
+  ctx.clearRect(0, 0, w, h);
+  const t = s.timeMs / 1000;
+  substrate(ctx, s, t);
+  lines(ctx, s, t);
+  provenanceRing(ctx, s);
 }
 
-/** Where a node is RIGHT NOW: a freshly landed concept eases in from the ring
- *  slot it was discovered in, rather than snapping to its place. */
-function livePos(
-  it: SceneItem, input: BoardInput, spin: number,
-): { x: number; y: number; k: number } {
-  const id = Number(it.id.slice(1));
-  const landed = input.landings.get(id);
-  const home = { x: it.x, y: it.y };
-  if (landed === undefined) return { ...home, k: 1 };
-  const k = Math.min(1, (input.timeMs - landed.at) / LAND_MS);
-  if (k >= 1) return { ...home, k: 1 };
-  const from = frontierPos(landed.slot, input.w, input.h);
-  const e = 1 - Math.pow(1 - k, 3); // ease-out cubic
-  return { x: from.x + (home.x - from.x) * e, y: from.y + (home.y - from.y) * e, k };
-}
-
-export const LAND_MS = 850;
-
-/** Expanding rings from a tap. Cheap, and it makes the board feel answered. */
-function paintRipples(ctx: CanvasRenderingContext2D, input: BoardInput, hue: number): void {
-  for (const r of input.ripples) {
-    const k = (input.timeMs - r.at) / 520;
-    if (k < 0 || k > 1) continue;
-    ctx.strokeStyle = `hsl(${hue} 80% 70% / ${0.5 * (1 - k)})`;
-    ctx.lineWidth = 2 * (1 - k);
-    ctx.beginPath();
-    ctx.arc(r.x, r.y, 8 + k * 46, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  ctx.lineWidth = 1;
-}
-
-// ------------------------------------------------------------- graph layers --
-
-function paintSubstrate(
-  ctx: CanvasRenderingContext2D, state: GameState, w: number, h: number, hue: number, t: number,
-): void {
+/** Concept mass beyond the explicit list, as drifting dots. Never one dot per
+ *  statement — that is the whole point of keeping it an aggregate. */
+function substrate(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
+  const { state, w, h, hue } = s;
   const folded = Math.max(0, state.graph.nodes - state.forged.anchors.length);
   const dots = Math.min(folded, 90);
   const trust = displayedFidelity(state);
   const { cx, cy, core: maxR } = band(w, h);
   for (let i = 0; i < dots; i++) {
-    let s = (i * 2654435761) >>> 0;
-    s = (s ^ (s >>> 13)) >>> 0;
-    const rr = maxR * (0.3 + 0.9 * Math.sqrt((s % 1000) / 1000));
+    let n = (i * 2654435761) >>> 0;
+    n = (n ^ (n >>> 13)) >>> 0;
+    const rr = maxR * (0.3 + 0.9 * Math.sqrt((n % 1000) / 1000));
     const a = i * 2.39996 * 1.37 + t * 0.012;
-    const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr;
-    const rotted = (s % 100) / 100 > trust;
     ctx.globalAlpha = 0.3 + 0.2 * Math.sin(t * 0.5 + i * 2.1);
     ctx.beginPath();
-    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
-    ctx.fillStyle = rotted ? ROT : `hsl(${hue} 45% 42%)`;
+    ctx.arc(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = (n % 100) / 100 > trust ? ROT : `hsl(${hue} 45% 42%)`;
     ctx.fill();
   }
   ctx.globalAlpha = 1;
 }
 
-/** Lines, in three states, because the state of a line IS the game now.
- *
- *    dotted  — the dataset offers this connection and you have not drawn it.
- *              Faint, dashed, and tappable at its midpoint.
- *    filling — a slot of your attention is booked on it; the dash marches and
- *              the solid part grows from `a` toward `b`, so you watch it fill.
- *    solid   — drawn. Bright if checked; muted and thin if an unwatched agent
- *              drew it, because that one is going to rot back to dotted.
- */
-/** Each relation gets its own hue, so `has part` never looks like `is a`.
- *  Offsets, not absolutes, so the whole palette still drifts with progress. */
-function relHue(rel: number, hue: number): number {
-  return (hue + [0, 58, 96, 140, 200][rel % 5]!) % 360;
-}
-
-function paintLinks(
-  ctx: CanvasRenderingContext2D, input: BoardInput, hue: number, t: number,
-): void {
-  const { state, w, h } = input;
+/** Lines in three states, because the state of a line IS the game.
+ *    dotted  — the dataset offers it and you have not drawn it
+ *    filling — a slot is booked on it; the solid part grows from a toward b
+ *    solid   — drawn. Coloured by relation when checked; one warning colour
+ *              when not, because what matters about an unchecked line is that
+ *              it is on its way back to dotted. */
+function lines(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
+  const { state, w, h, hue } = s;
   const spin = t * 0.02;
-  const drawn = new Set(state.forged.edges.map((e) => `${e.a}:${e.b}:${e.rel}`));
-  const flight = new Map<string, number>();
-  for (const b of state.bookings) {
-    if (!b.edge) continue;
-    flight.set(`${b.edge.a}:${b.edge.b}:${b.edge.rel}`,
-      Math.max(0, Math.min(1, (state.lastTick - (b.until - CONNECT_MS)) / CONNECT_MS)));
-  }
+  const pos = positions(state.forged.anchors, w, h, spin);
+  const centre = { x: w / 2, y: h / 2 };
+  const at = (id: number): { x: number; y: number } => pos.get(id) ?? centre;
+  const key = (e: { a: number; b: number; rel: number }): string => `${e.a}:${e.b}:${e.rel}`;
+  const drawn = new Set(state.forged.edges.map(key));
 
-  // ---- dotted possibilities, one pass per relation so each keeps its colour
   ctx.save();
   ctx.setLineDash([2, 5]);
-  ctx.lineDashOffset = -t * 8; // a slow march, so potential reads as alive
+  ctx.lineDashOffset = -t * 8; // a slow march, so possibility reads as alive
   ctx.lineWidth = 1;
   const byRel = new Map<number, Array<{ a: number; b: number; rel: number }>>();
-  for (const p of input.potential) {
-    if (drawn.has(`${p.a}:${p.b}:${p.rel}`)) continue;
+  for (const p of s.potential) {
+    if (drawn.has(key(p))) continue;
     const list = byRel.get(p.rel);
     if (list) list.push(p); else byRel.set(p.rel, [p]);
   }
   for (const [rel, list] of byRel) {
-    // a non-taxonomic possibility is brighter: it is the rarer, more
-    // interesting thing to spend a slot on, and it should read that way
+    // non-taxonomic possibilities are brighter: rarer, and more interesting to
+    // spend a slot on, so they should read that way
     ctx.strokeStyle = `hsl(${relHue(rel, hue)} ${rel === 0 ? 40 : 65}% 55% / ${rel === 0 ? 0.3 : 0.5})`;
     ctx.beginPath();
     for (const p of list) {
-      const pa = anchorPos(p.a, w, h, spin), pb = anchorPos(p.b, w, h, spin);
-      ctx.moveTo(pa.x, pa.y);
-      ctx.lineTo(pb.x, pb.y);
+      const pa = at(p.a), pb = at(p.b);
+      ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
     }
     ctx.stroke();
   }
   ctx.restore();
 
-  // ---- lines currently filling, drawn as a growing solid over the dash
-  for (const [key, k] of flight) {
-    const [a, b] = key.split(':').map(Number) as [number, number];
-    const pa = anchorPos(a, w, h, spin), pb = anchorPos(b, w, h, spin);
-    ctx.strokeStyle = `hsl(${hue} 80% 68%)`;
-    ctx.lineWidth = 2;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = `hsl(${hue} 80% 68%)`;
+  for (const b of state.bookings) {
+    if (!b.edge) continue;
+    const k = Math.max(0, Math.min(1, (state.lastTick - (b.until - CONNECT_MS)) / CONNECT_MS));
+    const pa = at(b.edge.a), pb = at(b.edge.b);
     ctx.beginPath();
     ctx.moveTo(pa.x, pa.y);
     ctx.lineTo(pa.x + (pb.x - pa.x) * k, pa.y + (pb.y - pa.y) * k);
     ctx.stroke();
   }
-  ctx.lineWidth = 1;
 
-  // ---- real lines. Unchecked ones are all one warning colour regardless of
-  // relation: what matters about them is that they are going to rot.
-  ctx.strokeStyle = 'hsl(42 70% 55% / 0.45)';
   ctx.lineWidth = 1;
+  ctx.strokeStyle = 'hsl(42 70% 55% / 0.45)';
   ctx.beginPath();
   for (const e of state.forged.edges) {
     if (e.checked) continue;
-    const pa = anchorPos(e.a, w, h, spin), pb = anchorPos(e.b, w, h, spin);
-    ctx.moveTo(pa.x, pa.y);
-    ctx.lineTo(pb.x, pb.y);
+    const pa = at(e.a), pb = at(e.b);
+    ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
   }
   ctx.stroke();
 
   ctx.lineWidth = 1.6;
-  const checkedByRel = new Map<number, typeof state.forged.edges>();
+  const solid = new Map<number, Edge[]>();
   for (const e of state.forged.edges) {
     if (!e.checked) continue;
-    const list = checkedByRel.get(e.rel);
-    if (list) list.push(e); else checkedByRel.set(e.rel, [e]);
+    const list = solid.get(e.rel);
+    if (list) list.push(e); else solid.set(e.rel, [e]);
   }
-  for (const [rel, list] of checkedByRel) {
+  for (const [rel, list] of solid) {
     ctx.strokeStyle = `hsl(${relHue(rel, hue)} 65% 58% / 0.85)`;
     ctx.beginPath();
     for (const e of list) {
-      const pa = anchorPos(e.a, w, h, spin), pb = anchorPos(e.b, w, h, spin);
-      ctx.moveTo(pa.x, pa.y);
-      ctx.lineTo(pb.x, pb.y);
+      const pa = at(e.a), pb = at(e.b);
+      ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
     }
     ctx.stroke();
   }
   ctx.lineWidth = 1;
 }
 
-/** The provenance split, drawn as a ring around the graph rather than a bar in
- *  a HUD: verified / unchecked / drifted, as arcs of the world itself. */
-function paintProvenanceRing(
-  ctx: CanvasRenderingContext2D, state: GameState, w: number, h: number, hue: number,
-): void {
+/** The provenance split as a ring around the world rather than a bar in a HUD:
+ *  checked / unchecked / rotten, drawn as arcs of the thing itself. */
+function provenanceRing(ctx: CanvasRenderingContext2D, s: Scene): void {
+  const { state, w, h, hue } = s;
   const total = D(state.resources.triples).toNumber();
   if (!(total > 0)) return;
   const u = D(state.provenance.unverified).toNumber();
   const d = D(state.provenance.drifted).toNumber();
-  const v = Math.max(0, total - u - d);
   const { cx, cy, ring: r } = band(w, h);
   const segs: Array<[number, string]> = [
-    [v / total, `hsl(${hue} 70% 55%)`],
+    [Math.max(0, total - u - d) / total, `hsl(${hue} 70% 55%)`],
     [u / total, 'hsl(42 70% 52%)'],
     [d / total, ROT],
   ];
   let a0 = -Math.PI / 2;
   ctx.lineWidth = 3;
+  ctx.globalAlpha = 0.75;
   for (const [share, color] of segs) {
     if (share <= 0) continue;
     const a1 = a0 + share * Math.PI * 2;
     ctx.strokeStyle = color;
-    ctx.globalAlpha = 0.75;
     ctx.beginPath();
     ctx.arc(cx, cy, r, a0, a1);
     ctx.stroke();
@@ -297,290 +166,4 @@ function paintProvenanceRing(
   }
   ctx.globalAlpha = 1;
   ctx.lineWidth = 1;
-}
-
-// -------------------------------------------------------------- item paints --
-
-function paintAnchor(
-  ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, t: number,
-  input: BoardInput, reqs: LabelRequest[],
-): void {
-  const rotted = it.tone === 'bad';
-  const isHub = it.id === 'a0';
-  const { x, y, k } = livePos(it, input, t * 0.02);
-  const arriving = k < 1;
-  const tw = rotted
-    ? 0.45 + 0.35 * Math.abs(Math.sin(t * 5.1))
-    : 0.8 + 0.2 * Math.sin(t * 0.7 + x * 0.05);
-  // a landing concept flares and shrinks into place
-  const r = it.draw * (arriving ? 1 + 2.2 * (1 - k) : 1);
-  ctx.globalAlpha = isHub ? 1 : arriving ? 1 : tw;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = arriving ? `hsl(${hue} 85% 72%)` : tone(it.tone, hue);
-  ctx.fill();
-  if (arriving) {
-    ctx.strokeStyle = `hsl(${hue} 85% 72% / ${0.6 * (1 - k)})`;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(x, y, r + 10 + 26 * (1 - k), 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.lineWidth = 1;
-  }
-  if (isHub) {
-    ctx.beginPath();
-    ctx.arc(x, y, 3, 0, Math.PI * 2);
-    ctx.fillStyle = INK;
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-  if (!it.label) return;
-  reqs.push({
-    x, y, radius: r,
-    text: clip(it.label, 24),
-    // the root always wins its spot; a just-landed concept nearly always;
-    // ordinary anchors are the first labels dropped when the board fills up
-    priority: isHub ? 1000 : arriving ? 900 : 10,
-    color: isHub ? `hsl(${hue} 80% 82%)` : arriving ? `hsl(${hue} 85% 80%)` : `hsl(${hue} 40% 62% / 0.8)`,
-    font: isHub || arriving ? `600 12px ${FONT}` : `500 10px ${FONT}`,
-  });
-}
-
-/** A radial cooldown: a faint full circle with a bright sweep over it.
- *
- *  The track uses globalAlpha, NOT a hex suffix on the colour string. `tone()`
- *  returns `hsl(...)`, and `hsl(...)33` is invalid CSS — canvas silently ignores
- *  an invalid strokeStyle and keeps the previous one, so the faint track was
- *  drawing in the bright colour and every cooldown looked finished. */
-function paintRadial(
-  ctx: CanvasRenderingContext2D, x: number, y: number, r: number, k: number, color: string,
-): void {
-  ctx.save();
-  ctx.globalAlpha = 0.22;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = color;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + Math.max(0.02, k) * Math.PI * 2);
-  ctx.stroke();
-  ctx.lineCap = 'butt';
-  ctx.lineWidth = 1;
-}
-
-/** Guard against the same class of mistake: alpha belongs in globalAlpha or in
- *  the hsl() itself, never appended to a colour string. */
-
-function paintFrontier(
-  ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, t: number,
-  _input: BoardInput, reqs: LabelRequest[],
-): void {
-  const c = tone('good', hue);
-  paintRadial(ctx, it.x, it.y, it.draw, it.progress ?? 0, c);
-  // an unresolved core: you do not know what this is yet
-  const pulse = 0.5 + 0.5 * Math.sin(t * 2.2 + it.x * 0.05);
-  ctx.globalAlpha = 0.35 + 0.4 * pulse;
-  ctx.beginPath();
-  ctx.arc(it.x, it.y, 2.4, 0, Math.PI * 2);
-  ctx.fillStyle = c;
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  if (it.sub) {
-    reqs.push({
-      x: it.x, y: it.y, radius: it.draw + 2,
-      text: it.sub, priority: 500,
-      color: DIM, font: `9px ${MONO}`,
-    });
-  }
-}
-
-/** The dashed line IS the affordance, so this draws no chrome — it only asks
- *  for a LABEL on the non-taxonomic ones. `is a` is the backbone and is
- *  everywhere; naming all 4,095 of them would be noise. Naming `has part` and
- *  `studied in` is the entire reason for having them, and the label pass drops
- *  these first when the board is crowded (priority sits under a landing). */
-function paintDotted(
-  ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, reqs: LabelRequest[],
-): void {
-  const rel = (it.payload as { rel: number }).rel;
-  if (rel === 0 || !it.label) return;
-  reqs.push({
-    x: it.x, y: it.y, radius: 4,
-    text: it.label,
-    priority: it.enabled ? 300 : 120,
-    color: `hsl(${relHue(rel, hue)} 70% 66% / 0.9)`,
-    font: `600 9px ${MONO}`,
-  });
-}
-
-function paintStat(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, h: number): void {
-  if (it.progress !== undefined) {
-    const c = tone(it.tone, hue);
-    paintRadial(ctx, it.x, it.y, it.draw, it.progress, c);
-    ctx.textAlign = 'center';
-    ctx.font = `600 10px ${FONT}`;
-    ctx.fillStyle = c;
-    ctx.fillText(it.label, it.x, it.y + 3);
-    if (it.sub) {
-      ctx.font = `9px ${MONO}`;
-      ctx.fillStyle = DIM;
-      ctx.fillText(it.sub, it.x, it.y + it.draw + 14);
-    }
-    return;
-  }
-  ctx.textAlign = 'center';
-  // The headline stat. It was keyed to `stat-datums`, an id that stopped
-  // existing when Datums did — so the one number the whole screen is about was
-  // rendering at 17px in dim grey like a footnote.
-  const big = it.id === 'stat-statements';
-  const u = uiScale(h);
-  ctx.font = big ? `700 ${(34 * u).toFixed(1)}px ${FONT}` : `700 ${(17 * u).toFixed(1)}px ${FONT}`;
-  ctx.fillStyle = big ? INK : tone(it.tone, hue);
-  ctx.fillText(it.label, it.x, it.y);
-  if (it.sub) {
-    ctx.font = `${(10 * u).toFixed(1)}px ${FONT}`;
-    ctx.fillStyle = DIM;
-    ctx.fillText(it.sub, it.x, it.y + (big ? 18 : 15) * u);
-  }
-}
-
-function paintPill(
-  ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, style: 'machine' | 'action',
-): void {
-  const c = tone(it.tone, hue);
-  const r = it.draw;
-  ctx.beginPath();
-  ctx.arc(it.x, it.y, r, 0, Math.PI * 2);
-  ctx.fillStyle = it.enabled ? `hsl(${hue} 40% 12%)` : '#10151d';
-  ctx.fill();
-  ctx.strokeStyle = c;
-  ctx.lineWidth = it.enabled ? 1.8 : 1;
-  ctx.stroke();
-  ctx.lineWidth = 1;
-
-  ctx.textAlign = 'center';
-  if (it.value) {
-    ctx.font = `700 13px ${FONT}`;
-    ctx.fillStyle = it.enabled ? INK : DIM;
-    ctx.fillText(it.value, it.x, it.y + 4);
-  } else {
-    ctx.font = `600 ${style === 'action' ? 12 : 11}px ${FONT}`;
-    ctx.fillStyle = it.enabled ? c : DIM;
-    const words = clip(it.label, 9);
-    ctx.fillText(words, it.x, it.y + 4);
-  }
-  // label under the node, cost under that
-  ctx.font = `10px ${FONT}`;
-  ctx.fillStyle = it.enabled ? '#93a8b8' : MUTED;
-  if (it.value) ctx.fillText(clip(it.label, 17), it.x, it.y + r + 13);
-  if (it.sub) {
-    ctx.font = `9px ${MONO}`;
-    ctx.fillStyle = it.enabled ? c : MUTED;
-    ctx.fillText(it.sub, it.x, it.y + r + (it.value ? 25 : 13));
-  }
-}
-
-function paintGlyph(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number): void {
-  ctx.textAlign = 'center';
-  ctx.font = `700 18px ${FONT}`;
-  ctx.fillStyle = DIM;
-  ctx.fillText(it.label, it.x, it.y + 6);
-}
-
-function clip(s: string, n: number): string {
-  return s.length > n ? `${s.slice(0, n - 1)}…` : s;
-}
-
-// ------------------------------------------------------------------ sheets --
-
-function paintSheet(
-  ctx: CanvasRenderingContext2D, input: BoardInput, items: SceneItem[], hue: number,
-): void {
-  const { w, h, sheet } = input;
-  ctx.fillStyle = '#070a0f';
-  ctx.fillRect(0, 0, w, h);
-
-  ctx.textAlign = 'left';
-  ctx.font = `600 11px ${FONT}`;
-  ctx.fillStyle = `hsl(${hue} 60% 60%)`;
-  const title = sheet === 'review' ? 'REVIEW  ·  DOES EACH DEFINITION MATCH ITS CONCEPT?'
-    : sheet === 'vignette' ? 'DECISION' : 'SAVE';
-  ctx.fillText(title, 18, 40);
-
-  if (sheet === 'vignette' && input.vignette) {
-    const v = input.vignette;
-    ctx.font = `700 20px ${FONT}`;
-    ctx.fillStyle = v.title ? INK : '#3d5166';
-    ctx.fillText(v.title || '⟨title — owner⟩', 18, h * 0.2);
-    ctx.font = `italic 13px ${FONT}`;
-    ctx.fillStyle = v.body ? '#8fa5b3' : '#3d5166';
-    const lines = wrap(ctx, v.body || '⟨body — owner⟩', w - 36, 5);
-    lines.forEach((l, i) => ctx.fillText(l, 18, h * 0.2 + 26 + i * 19));
-  }
-
-  for (const it of items) {
-    if (it.kind === 'stat') { paintReviewRow(ctx, it, w, hue); continue; }
-    paintSheetButton(ctx, it, hue);
-  }
-}
-
-function paintReviewRow(ctx: CanvasRenderingContext2D, it: SceneItem, w: number, hue: number): void {
-  const dropped = it.tone === 'muted';
-  ctx.textAlign = 'left';
-  ctx.globalAlpha = dropped ? 0.4 : 1;
-  ctx.font = `700 16px ${FONT}`;
-  ctx.fillStyle = INK;
-  ctx.fillText(clip(it.label, 26), it.x, it.y + 20);
-  if (it.value) {
-    ctx.font = `9px ${MONO}`;
-    ctx.fillStyle = MUTED;
-    ctx.fillText(it.value, it.x, it.y + 34);
-  }
-  ctx.font = `12px ${FONT}`;
-  ctx.fillStyle = '#8fa5b3';
-  wrap(ctx, it.sub ?? '', w - 160, 4).forEach((l, i) => ctx.fillText(l, it.x, it.y + 52 + i * 16));
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = '#141c28';
-  ctx.beginPath();
-  ctx.moveTo(it.x, it.y - 4);
-  ctx.lineTo(w - 18, it.y - 4);
-  ctx.stroke();
-}
-
-function paintSheetButton(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number): void {
-  const c = tone(it.tone, hue);
-  const isWide = it.kind === 'choice' || it.kind === 'commit' || it.kind === 'save';
-  if (isWide) {
-    const bw = Math.min(340, it.r * 9);
-    roundRect(ctx, it.x - bw / 2, it.y - 26, bw, 52, 12);
-    ctx.fillStyle = it.enabled ? `hsl(${hue} 35% 11%)` : '#10151d';
-    ctx.fill();
-    ctx.strokeStyle = it.enabled ? c : MUTED;
-    ctx.stroke();
-    ctx.textAlign = 'center';
-    ctx.font = `600 14px ${FONT}`;
-    ctx.fillStyle = it.enabled ? (it.label.startsWith('⟨') ? '#3d5166' : INK) : DIM;
-    ctx.fillText(it.label, it.x, it.y + (it.sub ? -2 : 5));
-    if (it.sub) {
-      ctx.font = `9px ${MONO}`;
-      ctx.fillStyle = c;
-      ctx.fillText(it.sub, it.x, it.y + 14);
-    }
-    return;
-  }
-  ctx.beginPath();
-  ctx.arc(it.x, it.y, it.draw, 0, Math.PI * 2);
-  ctx.fillStyle = it.tone === 'muted' ? '#10151d' : `hsl(${hue} 35% 12%)`;
-  ctx.fill();
-  ctx.strokeStyle = c;
-  ctx.stroke();
-  ctx.textAlign = 'center';
-  ctx.font = `600 11px ${FONT}`;
-  ctx.fillStyle = it.tone === 'muted' ? DIM : c;
-  ctx.fillText(it.label, it.x, it.y + 4);
 }

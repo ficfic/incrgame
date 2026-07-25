@@ -816,3 +816,37 @@ live-edge coverage work.
   fix the canvas stayed 390x844 and the rest was off-screen.
   KNOWN COSMETIC: at extreme zoom the action row's caption still overlaps the
   machine row, because pill label text is not yet scaled by `uiScale`.
+
+- 2026-07-25 — **THE UI IS DOM. The canvas draws lines and nothing else.**
+  (Owner: *"the persistent gui buttons must stay as is but just look as part of
+  the graph while not being… please employ best practice, i believe you crazily
+  overengineered this… have a look at how neal does it."*)
+  They were right, and the zoom bug was a symptom rather than the disease.
+  Infinite Craft is **not open source** — only community API wrappers exist —
+  but the relevant fact is observable without the source: **it is an ordinary
+  web page.** DOM elements, CSS layout, canvas for nothing.
+  What this project had instead was a hand-written reimplementation of the
+  browser drawn onto one canvas: a layout engine (`layout()` → `SceneItem[]`), a
+  hit-tester (`hit()`), a label collision solver (`render/labels.ts`), modal
+  sheets painted by hand, and a set of pixel constants scaled to fit the
+  viewport. Every zoom bug came from that one choice, and each fix added more
+  machinery on top — culminating in `visualViewport` plumbing to work around a
+  problem that only existed because the UI was not DOM.
+  Now: a flex column — header / stage / dock. **The canvas fills the stage and
+  draws only lines, substrate and the provenance ring.** Counters, buttons,
+  machines, the supervision dial, the review desk, vignettes and the save menu
+  are ordinary elements. Concept labels are ordinary elements. Dotted-line
+  targets are `<button>`s at the line midpoint — so "what you tap is what you
+  saw" is guaranteed by the browser hit-testing the element that drew those
+  pixels, which is strictly stronger than two consumers agreeing on a list.
+  **Nothing is `position: fixed`.** That was the last piece of the trap: a fixed
+  element anchors to the layout viewport, so a zoomed page shows a magnified
+  crop with nothing to pan. Everything is in-flow or absolute within `.app`.
+  Verified: at 2.5× the page pans (visual viewport offset 0,0 → 100,200) and
+  zooms back out; `touch-action` is `auto`; zero fixed elements.
+  Node positions moved from a hash of the id to a **phyllotaxis spiral over the
+  list index**, so the disc fills evenly at any count — four concepts spread
+  out, four hundred pack in. The old hash put the first handful within ~30px of
+  the centre while the world ring sat 180px away.
+  **Net −809 lines.** `render/labels.ts` deleted. `render/board.ts` is geometry
+  only. `render/paint.ts` is lines only.
