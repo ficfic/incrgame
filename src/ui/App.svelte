@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { game, awayReport, dispatch, exportSave, flushProject, importSave, startGame } from '../shell/game';
   import { ticker } from '../shell/ticker';
-  import { generatorCost, ratePerSecond } from '../core/engine';
+  import { claimCost, generatorCost, ratePerSecond } from '../core/engine';
   import { format, formatWhole, gte } from '../core/numbers';
   import { GENERATORS, M1_ROSTER } from '../content/generators';
   import { RESOURCE_LABELS } from '../content/resources';
@@ -27,12 +27,28 @@
   let floats = $state<{ id: number; x: number }[]>([]);
   let nextFloatId = 0;
 
-  function connect() {
-    dispatch({ type: 'manualConnect' });
+  const frontierFull = $derived($game.forged.frontier.length >= 8);
+  const nextClaimCost = $derived(claimCost($game));
+
+  function survey() {
+    if (frontierFull) {
+      say('Frontier is full — connect something first');
+      return;
+    }
+    dispatch({ type: 'survey' });
     pulseKey++;
     const id = nextFloatId++;
     floats.push({ id, x: (id * 37) % 80 - 40 }); // deterministic scatter, no RNG needed
     setTimeout(() => (floats = floats.filter((f) => f.id !== id)), 700);
+  }
+
+  function claim(id: number) {
+    const affordable = gte($game.resources.data, nextClaimCost);
+    if (!affordable) {
+      say(`Connecting costs ${format(nextClaimCost)} ${RESOURCE_LABELS.data}`);
+      return;
+    }
+    dispatch({ type: 'claimNode', id });
   }
 
   function buy(id: (typeof M1_ROSTER)[number]) {
@@ -131,7 +147,13 @@
     </div>
   </section>
 
-  <GraphPanel graph={$game.graph} {pulseKey} />
+  <GraphPanel graph={$game.graph} forged={$game.forged} {pulseKey} onclaim={claim} />
+
+  {#if $game.forged.frontier.length > 0}
+    <div class="hint">
+      tap a hollow entity to connect it · {format(nextClaimCost)} {RESOURCE_LABELS.data}
+    </div>
+  {/if}
 
   {#if $ticker.length > 0}
     {@const last = $ticker[$ticker.length - 1]}
@@ -141,9 +163,9 @@
   {/if}
 
   <div class="connect-wrap">
-    <button class="connect" onclick={connect}>
-      Connect
-      <small>+1 Datum · grows the graph</small>
+    <button class="connect" onclick={survey} class:dim={frontierFull}>
+      Survey
+      <small>reveal an entity · frontier {$game.forged.frontier.length}/8</small>
     </button>
     {#each floats as f (f.id)}
       <span class="float" style="left: calc(50% + {f.x}px)">+1</span>
@@ -254,7 +276,13 @@
     gap: 2px;
   }
   .connect:active { transform: scale(0.98); }
+  .connect.dim { opacity: 0.6; }
   .connect small { font-size: 0.75rem; font-weight: 500; opacity: 0.75; }
+  .hint {
+    text-align: center;
+    font-size: 0.78rem;
+    color: #7f95a3;
+  }
   .connect-wrap { position: relative; display: flex; flex-direction: column; }
   .float {
     position: absolute;

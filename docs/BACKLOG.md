@@ -67,6 +67,9 @@ without being re-briefed. Move finished items to **Done** with a date.
 - [x] **M1.6 one-substance rework** (2026-07-25, owner fork): headline = Triples,
       graph = exact projection, buying trims the web, save v2 migration
       (data→triples). RNG retired until M3.
+- [x] **M2.0 Frontier Mining** (2026-07-25, owner core-loop fork after 3-agent
+      review): edges drip Datums, Survey + tap-to-claim on canvas, forged
+      overlay state, save v4 with old-web credit. See DECISIONS.
 - [ ] **Owner: write the first ticker-line batch** (`docs/TICKER_LINES.md`).
 - [ ] **▶ NEXT after owner's polish verdict: M3, re-scoped per agents** — (1) graph rebind: edges←triples,
       nodes←entity emergence; data = fuel only (deletes the ambient bridge);

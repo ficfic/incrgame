@@ -17,8 +17,21 @@ export const TIER_LADDER: ResourceId[] = [
 ];
 
 export interface GraphStats {
-  nodes: number; // knowledge-graph nodes (true count; renderer applies LOD)
-  edges: number; // edges — the M3 inference multiplier's input, so it lives in state
+  nodes: number; // derived display counter (bounded; renderer applies LOD)
+  edges: number; // derived display counter — NEVER a balance input (2^53 ceiling)
+}
+
+/** The hand-built layer of the web (Frontier Mining, save v4).
+ *  Explicit lists are bounded interaction/display state; the balance sheet is
+ *  `resources.triples` (every claimed connection mints one) plus foldedNodes.
+ *  Rule (logged): explicit pairs come only from player actions; machines
+ *  forge into aggregates. */
+export interface ForgedGraph {
+  nextId: number;                  // monotonic node id; never reused
+  anchors: number[];               // owned, wired-in entity ids (≤ ANCHOR_CAP)
+  links: Array<[number, number]>;  // player-forged pairs (≤ LINK_CAP; oldest fold out)
+  frontier: number[];              // surveyed, unclaimed entity ids (≤ FRONTIER_CAP)
+  foldedNodes: Dec;                // entity mass beyond the explicit lists
 }
 
 export interface GameState {
@@ -31,12 +44,15 @@ export interface GameState {
   flags: Record<string, boolean>;           // narrative/unlock/event flags
   coverage: Record<DomainId, number>;       // 0..1 per domain (persists across prestige)
   reflection: number;                       // prestige multiplier level (persists)
-  graph: GraphStats;                        // grows via connect (M1) and extraction (M3)
+  graph: GraphStats;                        // derived cache of forged + balances
+  forged: ForgedGraph;                      // the hand-built layer (Frontier Mining)
 }
 
 export type Action =
   | { type: 'tick'; dt: number; now?: number }     // dt in SECONDS; `now` (epoch ms) advances lastTick
-  | { type: 'manualConnect' }                      // M1: +1 `data` per action (+ graph growth)
+  | { type: 'survey' }                             // reveal an entity at the frontier (free; capped)
+  | { type: 'claimNode'; id: number }              // pay Datums, wire a frontier entity in: +1 triples
+  | { type: 'manualConnect' }                      // DEPRECATED (pre-v4 verb); inert no-op
   | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource
   | { type: 'refine'; from: ResourceId }           // M4: from ∈ TIER_LADDER; one tier up
   | { type: 'sell'; id: ResourceId; amount: Dec }  // M4: consumes `id`, yields `capital`

@@ -1,8 +1,22 @@
 <script lang="ts">
-  import type { GraphStats } from '../core/types';
-  import { drawGraph, type Fx, type GraphView } from '../render/minigraph';
+  import type { ForgedGraph, GraphStats } from '../core/types';
+  import {
+    drawGraph, frontierPos, toWorld,
+    FRONTIER_HIT_RADIUS,
+    type Fx, type GraphView,
+  } from '../render/minigraph';
 
-  let { graph, pulseKey = 0 }: { graph: GraphStats; pulseKey?: number } = $props();
+  let {
+    graph,
+    forged,
+    pulseKey = 0,
+    onclaim,
+  }: {
+    graph: GraphStats;
+    forged: ForgedGraph;
+    pulseKey?: number;
+    onclaim?: (id: number) => void;
+  } = $props();
 
   let canvas: HTMLCanvasElement | undefined = $state();
   let view = $state<GraphView>({ x: 0, y: 0, zoom: 1 });
@@ -21,9 +35,8 @@
     prevGraph = { nodes, edges };
   });
 
-  // A tap that crossed no threshold still gets an answer: it TOUCHES the web,
-  // and consecutive taps illuminate a different connection every time.
-  // (Runs after the diff effect above, so real births are never downgraded.)
+  // A button tap that changed nothing structural still answers: it touches the
+  // web, illuminating a different link each time.
   let touchSeq = 0;
   $effect(() => {
     if (prevPulseKey !== undefined && pulseKey !== prevPulseKey) {
@@ -33,22 +46,22 @@
     prevPulseKey = pulseKey;
   });
 
-  // One continuous render loop — the graph is never a still frame. Reads
-  // happen inside the rAF callback, so the effect itself runs exactly once.
+  // One continuous render loop — the graph is never a still frame.
   $effect(() => {
     if (!canvas) return;
     let raf = 0;
     const frame = (t: number) => {
-      drawGraph(canvas!, graph, { view, timeMs: t, fx });
+      drawGraph(canvas!, { graph, forged }, { view, timeMs: t, fx });
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
   });
 
-  // ---- pan / pinch-zoom / wheel ----
+  // ---- pan / pinch-zoom / wheel / tap-to-claim ----
   const pointers = new Map<number, { x: number; y: number }>();
   let pinchDist = 0;
+  let downAt: { x: number; y: number; t: number } | null = null;
 
   const clampView = () => {
     view.zoom = Math.min(5, Math.max(0.6, view.zoom));
@@ -57,10 +70,19 @@
     view.y = Math.min(limit, Math.max(-limit, view.y));
   };
 
+  function localXY(e: PointerEvent): { x: number; y: number } {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
   function onPointerDown(e: PointerEvent) {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.size === 2) {
+    if (pointers.size === 1) {
+      const p = localXY(e);
+      downAt = { ...p, t: performance.now() };
+    } else {
+      downAt = null;
       const [a, b] = [...pointers.values()];
       pinchDist = Math.hypot(a!.x - b!.x, a!.y - b!.y);
     }
@@ -87,6 +109,25 @@
   function onPointerUp(e: PointerEvent) {
     pointers.delete(e.pointerId);
     pinchDist = 0;
+    // a short, still press = a tap → try to claim a frontier entity under it
+    if (downAt && canvas && pointers.size === 0) {
+      const p = localXY(e);
+      const moved = Math.hypot(p.x - downAt.x, p.y - downAt.y);
+      const quick = performance.now() - downAt.t < 600;
+      if (moved < 8 && quick && onclaim) {
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        const world = toWorld(p.x, p.y, view, w, h);
+        const hitR = FRONTIER_HIT_RADIUS / view.zoom;
+        let best: { id: number; d: number } | null = null;
+        for (const id of forged.frontier) {
+          const fp = frontierPos(id, w, h);
+          const d = Math.hypot(fp.x - world.x, fp.y - world.y);
+          if (d < hitR && (!best || d < best.d)) best = { id, d };
+        }
+        if (best) onclaim(best.id);
+      }
+    }
+    downAt = null;
   }
 
   function onWheel(e: WheelEvent) {
@@ -129,7 +170,7 @@
   canvas {
     display: block;
     width: 100%;
-    height: 240px;
+    height: 260px;
     touch-action: none;
     cursor: grab;
   }

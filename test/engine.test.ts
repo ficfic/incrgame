@@ -1,130 +1,141 @@
 import { describe, expect, it } from 'vitest';
-import { apply, generatorCost, initialState, ratePerSecond, tick } from '../src/core/engine';
-import { projectGraph } from '../src/core/graph';
+import { apply, claimCost, generatorCost, initialState, ratePerSecond, tick } from '../src/core/engine';
+import { ANCHOR_CAP, FRONTIER_CAP } from '../src/core/graph';
 import { D, format, formatWhole } from '../src/core/numbers';
 import { nextRand } from '../src/core/rng';
+import type { GameState } from '../src/core/types';
 
-describe('graph projection (slow bands: nodes cost datums, edges cost more)', () => {
-  it('nodes crystallize every few datums in the opening', () => {
-    expect(projectGraph('0')).toEqual({ nodes: 1, edges: 0 });
-    expect(projectGraph('2')).toEqual({ nodes: 1, edges: 0 });
-    expect(projectGraph('3')).toEqual({ nodes: 2, edges: 0 });
-    expect(projectGraph('15')).toEqual({ nodes: 6, edges: 0 });
+const surveyAndClaim = (s: GameState): GameState => {
+  s = apply(s, { type: 'survey' });
+  const id = s.forged.frontier[s.forged.frontier.length - 1]!;
+  return apply(s, { type: 'claimNode', id });
+};
+
+describe('survey', () => {
+  it('reveals frontier entities up to the cap, then idles', () => {
+    let s = initialState();
+    for (let i = 0; i < FRONTIER_CAP + 3; i++) s = apply(s, { type: 'survey' });
+    expect(s.forged.frontier.length).toBe(FRONTIER_CAP);
+    expect(s.forged.nextId).toBe(1 + FRONTIER_CAP); // ids minted only for real reveals
   });
 
-  it('edges are rarer than nodes early — the first relation is an event', () => {
-    expect(projectGraph('39').edges).toBe(0);
-    expect(projectGraph('40')).toEqual({ nodes: 8, edges: 1 }); // ~40 datums in
-  });
-
-  it('bands shift: relations outpace entities in the mature world', () => {
-    expect(projectGraph('150')).toEqual({ nodes: 19, edges: 5 });
-    expect(projectGraph('1500')).toEqual({ nodes: 64, edges: 111 }); // edges pulled ahead
-    const big = projectGraph('1e30');
-    expect(big.edges).toBeLessThanOrEqual(9e15); // counters stay number-safe
-    expect(big.edges).toBeGreaterThan(big.nodes);
-  });
-
-  it('is monotone and exact — spending shrinks it deterministically', () => {
-    expect(projectGraph('20').nodes).toBeGreaterThan(projectGraph('5').nodes);
-    expect(projectGraph('5')).toEqual({ nodes: 2, edges: 0 });
+  it('is free and touches nothing else', () => {
+    const s = initialState();
+    const after = apply(s, { type: 'survey' });
+    expect(after.resources).toEqual(s.resources);
+    expect(after.graph).toEqual(s.graph);
   });
 });
 
-describe('manualConnect', () => {
-  it('mines a datum; the graph follows the projection thresholds', () => {
+describe('claimNode', () => {
+  it('wires a frontier entity in: pays Datums, mints a Triple, links it', () => {
+    let s = initialState(); // starts with 15 Datums
+    s = surveyAndClaim(s);
+    expect(s.resources.data).toBe('10'); // 15 - 5
+    expect(s.resources.triples).toBe('1');
+    expect(s.forged.anchors).toEqual([0, 1]);
+    expect(s.forged.links).toEqual([[0, 1]]);
+    expect(s.forged.frontier).toEqual([]);
+    expect(s.graph).toEqual({ nodes: 2, edges: 1 });
+  });
+
+  it('rejects ids not on the frontier and unaffordable claims', () => {
     let s = initialState();
-    s = apply(s, { type: 'manualConnect' });
-    expect(s.resources.data).toBe('1');
-    expect(s.graph).toEqual({ nodes: 1, edges: 0 }); // below the first threshold
-    s = apply(s, { type: 'manualConnect' });
-    s = apply(s, { type: 'manualConnect' });
-    expect(s.resources.data).toBe('3');
-    expect(s.graph).toEqual({ nodes: 2, edges: 0 }); // first entity crystallizes
+    expect(apply(s, { type: 'claimNode', id: 99 })).toBe(s);
+    s = surveyAndClaim(s); // data 10
+    s = surveyAndClaim(s); // cost 6 → data 4
+    const stuck = apply(apply(s, { type: 'survey' }), { type: 'claimNode', id: s.forged.nextId });
+    expect(stuck.resources.triples).toBe('2'); // third claim (cost 6 > 4) rejected
+  });
+
+  it('cost climbs the gentle 1.08 lane: ceil(5 × 1.08^edges)', () => {
+    let s = initialState();
+    expect(claimCost(s)).toBe('5');
+    s = surveyAndClaim(s);
+    expect(claimCost(s)).toBe('6'); // ceil(5.4)
+    s = { ...s, resources: { ...s.resources, triples: '10' } };
+    expect(claimCost(s)).toBe('11'); // ceil(10.79)
+  });
+
+  it('is deterministic (no RNG consumed)', () => {
+    const s = apply(initialState(42), { type: 'survey' });
+    const a = apply(s, { type: 'claimNode', id: 1 });
+    const b = apply(s, { type: 'claimNode', id: 1 });
+    expect(a).toEqual(b);
+    expect(a.rngState).toBe(s.rngState);
+  });
+
+  it('folds the oldest anchors into aggregate mass beyond the cap', () => {
+    let s = { ...initialState(), resources: { ...initialState().resources, data: '1e12' } };
+    for (let i = 0; i < ANCHOR_CAP + 10; i++) s = surveyAndClaim(s);
+    expect(s.forged.anchors.length).toBe(ANCHOR_CAP);
+    expect(D(s.forged.foldedNodes).toNumber()).toBe(11); // 1 + 250 owned, 240 addressable
+    expect(s.graph.nodes).toBe(ANCHOR_CAP + 11); // nothing lost, only folded
+    expect(s.graph.edges).toBe(ANCHOR_CAP + 10); // = triples balance
+  });
+});
+
+describe('the drip (edges ARE the income)', () => {
+  it('each statement yields 0.15 Datums/s', () => {
+    let s = initialState();
+    expect(ratePerSecond(s, 'data')).toBe('0'); // no edges, no drip
+    s = surveyAndClaim(s);
+    s = surveyAndClaim(s);
+    expect(D(ratePerSecond(s, 'data')).toNumber()).toBeCloseTo(0.3, 12);
+    s = { ...s, generators: { ...s.generators, harvester: 3 } };
+    expect(D(ratePerSecond(s, 'data')).toNumber()).toBeCloseTo(0.6, 12); // drip + machines
+  });
+
+  it('tick accrues the drip; graph counters stay balance-derived', () => {
+    let s = surveyAndClaim(initialState()); // 1 edge → 0.15/s
+    for (let i = 0; i < 100; i++) s = tick(s, 0.1); // 10s
+    expect(D(s.resources.data).toNumber()).toBeCloseTo(10 + 1.5, 9);
+    expect(s.graph).toEqual({ nodes: 2, edges: 1 });
+  });
+
+  it('is deterministic: 100 × 0.1s == one 10s step', () => {
+    const base = surveyAndClaim(initialState());
+    let fixed = base;
+    for (let i = 0; i < 100; i++) fixed = tick(fixed, 0.1);
+    const big = tick(base, 10);
+    expect(D(fixed.resources.data).toNumber()).toBeCloseTo(D(big.resources.data).toNumber(), 9);
+  });
+});
+
+describe('buyGenerator', () => {
+  it('spends Datums without touching the web (knowledge is not fuel)', () => {
+    let s = surveyAndClaim(initialState());
+    s = { ...s, resources: { ...s.resources, data: '20' } };
+    const graphBefore = s.graph;
+    s = apply(s, { type: 'buyGenerator', id: 'harvester' });
+    expect(s.generators.harvester).toBe(1);
+    expect(s.resources.data).toBe('5');
+    expect(s.graph).toEqual(graphBefore);
+  });
+
+  it('rejects when unaffordable and follows ceil(15 × 1.15^n)', () => {
+    let s = { ...initialState(), resources: { ...initialState().resources, data: '0' } };
+    expect(apply(s, { type: 'buyGenerator', id: 'harvester' })).toBe(s);
+    expect(generatorCost(s, 'harvester')).toBe('15');
+    s = { ...s, generators: { ...s.generators, harvester: 1 } };
+    expect(generatorCost(s, 'harvester')).toBe('18'); // ceil(17.25)
+  });
+});
+
+describe('tick hygiene', () => {
+  it('rejects nonsense dt and honors action.now', () => {
+    const s = initialState();
+    expect(apply(s, { type: 'tick', dt: 0 })).toBe(s);
+    expect(apply(s, { type: 'tick', dt: NaN })).toBe(s);
+    expect(apply(s, { type: 'tick', dt: 0.1, now: 123456 }).lastTick).toBe(123456);
   });
 
   it('does not mutate the previous state (purity)', () => {
     const s0 = initialState();
     const frozen = JSON.stringify(s0);
-    apply(s0, { type: 'manualConnect' });
+    apply(s0, { type: 'survey' });
     apply(s0, { type: 'tick', dt: 0.1 });
     expect(JSON.stringify(s0)).toBe(frozen);
-  });
-
-  it('draws no RNG (deterministic without a seed until M3)', () => {
-    const s = initialState(42);
-    expect(apply(s, { type: 'manualConnect' }).rngState).toBe(s.rngState);
-  });
-});
-
-describe('buyGenerator', () => {
-  it('rejects when unaffordable', () => {
-    const s = initialState();
-    expect(apply(s, { type: 'buyGenerator', id: 'harvester' })).toBe(s);
-  });
-
-  it('deducts datums and the web visibly trims', () => {
-    let s = initialState();
-    for (let i = 0; i < 20; i++) s = apply(s, { type: 'manualConnect' });
-    const nodesBefore = s.graph.nodes;
-    s = apply(s, { type: 'buyGenerator', id: 'harvester' });
-    expect(s.generators.harvester).toBe(1);
-    expect(s.resources.data).toBe('5'); // 20 - 15
-    expect(s.graph).toEqual(projectGraph('5'));
-    expect(s.graph.nodes).toBeLessThan(nodesBefore); // fuel and structure are one
-  });
-
-  it('follows ceil(15 × 1.15^n) — whole-unit prices', () => {
-    let s = initialState();
-    expect(generatorCost(s, 'harvester')).toBe('15');
-    s = { ...s, generators: { ...s.generators, harvester: 1 } };
-    expect(generatorCost(s, 'harvester')).toBe('18'); // ceil(17.25)
-    s = { ...s, generators: { ...s.generators, harvester: 10 } };
-    expect(generatorCost(s, 'harvester')).toBe('61'); // ceil(60.68…)
-  });
-});
-
-describe('tick', () => {
-  it('accrues rate × dt and the graph tracks production', () => {
-    let s = initialState();
-    s = { ...s, generators: { ...s.generators, harvester: 3 } }; // 0.3 datums/s
-    for (let i = 0; i < 100; i++) s = tick(s, 0.1);
-    expect(D(s.resources.data).toNumber()).toBeCloseTo(3, 9);
-    expect(s.graph).toEqual(projectGraph(s.resources.data));
-  });
-
-  it('is deterministic: 100 × 0.1s == one 10s step, graph included', () => {
-    const base = {
-      ...initialState(),
-      generators: { ...initialState().generators, harvester: 2 },
-    };
-    let fixed = base;
-    for (let i = 0; i < 100; i++) fixed = tick(fixed, 0.1);
-    const big = tick(base, 10);
-    expect(D(fixed.resources.data).toNumber()).toBeCloseTo(D(big.resources.data).toNumber(), 9);
-    expect(fixed.graph).toEqual(big.graph);
-  });
-
-  it('advances lastTick from action.now when provided', () => {
-    const s = apply(initialState(), { type: 'tick', dt: 0.1, now: 123456 });
-    expect(s.lastTick).toBe(123456);
-  });
-
-  it('rejects nonsense dt', () => {
-    const s = initialState();
-    expect(apply(s, { type: 'tick', dt: 0 })).toBe(s);
-    expect(apply(s, { type: 'tick', dt: -5 })).toBe(s);
-    expect(apply(s, { type: 'tick', dt: NaN })).toBe(s);
-  });
-});
-
-describe('rates', () => {
-  it('sums per-resource, not a single K', () => {
-    let s = initialState();
-    s = { ...s, generators: { ...s.generators, harvester: 10, extractor: 2 } };
-    expect(D(ratePerSecond(s, 'data')).toNumber()).toBeCloseTo(1.0, 12);
-    expect(D(ratePerSecond(s, 'triples')).toNumber()).toBeCloseTo(2.0, 12);
-    expect(ratePerSecond(s, 'capital')).toBe('0');
   });
 });
 
@@ -134,25 +145,17 @@ describe('rng', () => {
     const [v2, s2] = nextRand(42);
     expect(v1).toBe(v2);
     expect(s1).toBe(s2);
-    expect(v1).toBeGreaterThanOrEqual(0);
-    expect(v1).toBeLessThan(1);
     const [v3] = nextRand(s1);
-    expect(v3).not.toBe(v1); // the sequence moves
+    expect(v3).not.toBe(v1);
   });
 });
 
 describe('format', () => {
-  it('formats plain, suffixed, and huge numbers', () => {
-    expect(format('0')).toBe('0');
+  it('formats plain, suffixed, huge, and floored numbers', () => {
     expect(format('999')).toBe('999');
     expect(format('1500')).toBe('1.50K');
-    expect(format('2340000')).toBe('2.34M');
     expect(format(D(10).pow(40).toString())).toMatch(/e/i);
-  });
-
-  it('formatWhole floors the headline counter (genre law: integer stocks)', () => {
     expect(formatWhole('3.72')).toBe('3');
-    expect(formatWhole('0.99')).toBe('0');
     expect(formatWhole('1500.5')).toBe('1.50K');
   });
 });

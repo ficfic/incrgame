@@ -35,12 +35,13 @@ interface GameState {
   flags: Record<string, boolean>;          // narrative/unlock/event flags
   coverage: Record<DomainId, number>;      // 0..1 per domain (persists across prestige)
   reflection: number;                      // prestige multiplier level (persists)
-  graph: { nodes: number; edges: number }; // PROJECTION of `data` (see core/graph.ts):
-                                           // nodes crystallize every ~3→10→30→100 datums,
-                                           // edges every ~25→12→5 (rarer early, denser late).
-                                           // A cache, never independent state; bounded JS
-                                           // numbers (picture, not balance — M3 multiplier
-                                           // reads resources.triples, NOT these counters)
+  graph: { nodes: number; edges: number }; // derived cache of forged + balances; bounded JS
+                                           // numbers (picture, never a balance input — the M3
+                                           // multiplier reads resources.triples)
+  forged: ForgedGraph;                     // v4 Frontier Mining: { nextId, anchors≤240,
+                                           // links≤512 (oldest fold out), frontier≤8,
+                                           // foldedNodes: Dec }. Explicit pairs come only
+                                           // from player actions; machines forge aggregates.
 }
 ```
 
@@ -72,7 +73,9 @@ and spend on generators/compute.
 type Action =
   | { type: 'tick';  dt: number; now?: number }   // dt in SECONDS; optional `now` (epoch ms)
                                                    //   advances lastTick purely (no Date.now in core)
-  | { type: 'manualConnect' }                      // mines a Datum: +1 `data` (one-substance, v3)
+  | { type: 'survey' }                             // v4: reveal a frontier entity (free, cap 8)
+  | { type: 'claimNode'; id: number }              // v4: pay ceil(5×1.08^edges) data → +1 triples
+  | { type: 'manualConnect' }                      // DEPRECATED pre-v4 verb; inert no-op
   | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource
   | { type: 'refine'; from: ResourceId }           // from ∈ TIER_LADDER (not 'capital'); one tier up
   | { type: 'sell'; id: ResourceId; amount: Dec }  // consumes `id`, yields `capital`
@@ -154,12 +157,13 @@ interface FieldNote {
 }
 ```
 
-One-substance era (v3): Harvester = `{ id:'harvester', label:'Ingestion
-Pipeline™', baseCost:'15', costRatio:1.15, costResource:'data',
-baseRate:'0.1', produces:'data' }` — buying trims the web, the machine
-regrows it faster. At M3 the chain deepens: Extractors refine Datums→Triples
-(the refined tier returns). Content lives in `src/content/` as typed TS
-(the source of record for M1).
+Frontier Mining (v4): income = the edge drip (`0.15 × floor(triples)` Datums/s,
+in `ratePerSecond`) plus machines. Harvester = `{ id:'harvester', label:
+'Ingestion Pipeline™', baseCost:'15', costRatio:1.15, costResource:'data',
+baseRate:'0.1', produces:'data' }`. At M3 the Extractor automates claiming
+(into aggregates) and the Reasoner multiplies the drip via
+`1 + level × log10(1 + triples)/10`. Content lives in `src/content/` as typed
+TS (the source of record for M1).
 `docs/graph/game.ttl` is a **design artifact**, not yet the runtime pipeline (it
 lacks `baseRate`/`costRatio`/`costResource`).
 

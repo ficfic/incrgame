@@ -5,7 +5,7 @@
 import type { Dec, GameState } from './types';
 import { CURRENT_SAVE_VERSION, initialState } from './engine';
 import { add } from './numbers';
-import { projectGraph } from './graph';
+import { deriveGraph, projectGraph } from './graph';
 
 interface Envelope {
   version: number; // mirrors state.saveVersion; state is authoritative
@@ -34,6 +34,25 @@ export const MIGRATIONS: Migration[] = [
     resources.data = add(resources.data ?? '0', triples);
     resources.triples = '0';
     return { ...s, resources, graph: projectGraph(resources.data) };
+  },
+  // v3 → v4 — Frontier Mining: edges drip Datums; the web becomes forged
+  // overlay + balances. The pre-fork web is CREDITED, never stripped: its
+  // projected edges mint `triples` (so the drip starts at the size of the web
+  // the owner grew) and its nodes become folded machine-era mass.
+  (s) => {
+    const resources = { ...(s.resources as Record<string, Dec> | undefined) };
+    const data = resources.data ?? '0';
+    const old = projectGraph(data);
+    resources.triples = add(resources.triples ?? '0', old.edges);
+    resources.data = data;
+    const forged = {
+      nextId: 1,
+      anchors: [0],
+      links: [] as Array<[number, number]>,
+      frontier: [] as number[],
+      foldedNodes: String(Math.max(0, old.nodes - 1)),
+    };
+    return { ...s, resources, forged, graph: deriveGraph(forged, resources.triples) };
   },
 ];
 

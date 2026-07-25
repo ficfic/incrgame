@@ -7,6 +7,34 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **FRONTIER MINING (owner core-loop fork, save v4).** Owner asked
+  why a currency counter exists at all and wanted to *work the graph in the
+  GUI*. Full agent review first (Redditor: conditional FRONT PAGE MATERIAL;
+  Chad: NEEDS ANOTHER ROUND with numbers; The Graph: DRIFT DETECTED, amendment
+  required before code — this entry is that amendment). Owner picked Chad's
+  **Frontier Mining** variant over the consensus Weaver loop, controls =
+  button + canvas. The loop: **edges drip Datums** (a statement IS knowledge;
+  0.15/s each), **Survey** (big button, free, frontier cap 8) reveals entities,
+  **tapping a frontier entity on canvas** pays `ceil(5 × 1.08^edges)` Datums to
+  wire it in, minting **+1 Triples**. Machines keep the 1.15 lane; Extractor
+  (M3) automates claiming into aggregates by ~minute 9 (no-babysitting rule).
+  - **Amendment (per The Graph):** graph = forged overlay + balances. Forged
+    edges mint `triples` (Dec) — *the balance is the balance sheet*; the pair
+    list is bounded display/interaction state (anchors ≤240, links ≤512,
+    oldest fold into aggregates). Explicit pairs come only from player
+    actions; machines forge into aggregates. Supersedes "exact projection";
+    upholds "graph counters are never balance inputs."
+  - **Drip stays "Datums", never "Inference"** (Redditor + Chad, independently):
+    inference = deriving edges from edges — the Reasoner's output, not fuel.
+    Naming the drip Inference would teach players something false.
+  - **Buying no longer trims the web** — knowledge isn't spent, fuel is. The
+    earlier trim behavior died with the model that caused it.
+  - **Migration v3→v4 credits the old web**: its projected edges mint triples
+    (the drip starts at the size of the web the owner grew), nodes become
+    folded mass. Verified in-browser: 1000-Datum v3 save → 69-edge drip.
+  - manualConnect is now an inert no-op (action-surface stability).
+  - `projectGraph` band tables are FROZEN as migration fossils — used only to
+    interpret pre-v4 saves; do not retune them.
 - 2026-07-25 — **Flush button + wandering touch FX (owner playtest #3).**
   "Flush project" in the footer wipes the save and restarts — the ONE
   sanctioned death of progress, gated behind a two-tap arm/confirm (4s window)

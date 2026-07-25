@@ -9,11 +9,32 @@
 // Exact, closed-form, deterministic, O(1): no RNG, no stored counters to
 // drift, offline growth costs nothing. Counters are bounded JS numbers (the
 // picture, not the balance sheet — balances stay break_eternity Decimals).
-import type { Dec, GraphStats } from './types';
+import type { Dec, ForgedGraph, GraphStats } from './types';
 import { D } from './numbers';
 
 // number-safety ceiling for the projected counters (display/renderer only)
 const COUNTER_CAP = 9_000_000_000_000_000; // < Number.MAX_SAFE_INTEGER
+
+// Frontier Mining caps (bounded interaction state — never one entry per triple)
+export const FRONTIER_CAP = 8;
+export const ANCHOR_CAP = 240; // = render LOD budget
+export const LINK_CAP = 512;
+
+const capped = (d: ReturnType<typeof D>): number =>
+  d.gte(COUNTER_CAP) ? COUNTER_CAP : Math.max(0, d.toNumber());
+
+/** Display counters for the v4 model: edges ARE the triples balance (every
+ *  claim/machine-forge mints one); nodes = wired anchors + folded mass. */
+export function deriveGraph(forged: ForgedGraph, triples: Dec): GraphStats {
+  return {
+    nodes: Math.min(forged.anchors.length + capped(D(forged.foldedNodes).floor()), COUNTER_CAP),
+    edges: capped(D(triples).floor()),
+  };
+}
+
+export function emptyForged(): ForgedGraph {
+  return { nextId: 1, anchors: [0], links: [], frontier: [], foldedNodes: '0' };
+}
 
 // (datums span, datums per new node/edge). Tuning knobs — feel, then adjust.
 const NODE_BANDS: Array<{ upTo: number; per: number }> = [

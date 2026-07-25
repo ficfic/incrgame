@@ -5,7 +5,7 @@ import type { GameState, ResourceId } from './types';
 import { TIER_LADDER } from './types';
 import { add, mul, gt } from './numbers';
 import { ratePerSecond } from './engine';
-import { projectGraph } from './graph';
+import { deriveGraph } from './graph';
 
 export const OFFLINE_CAP_MS = 8 * 3600 * 1000; // 8h, tunable
 
@@ -32,9 +32,10 @@ export function applyOfflineProgress(state: GameState, now: number): OfflineResu
     }
   }
   return {
-    // the graph is a projection of triples, so offline growth is exact & free —
-    // you return to a visibly bigger web, not just bigger numbers
-    state: { ...state, resources, lastTick: now, graph: projectGraph(resources.data) },
+    // rates are frozen-linear over the gap, so this single step is exact; the
+    // graph counters re-derive from whatever balances grew (machine-minted
+    // triples arrive at M3 — until then offline grows Datums, not the web)
+    state: { ...state, resources, lastTick: now, graph: deriveGraph(state.forged, resources.triples) },
     elapsedMs,
     gains,
   };
