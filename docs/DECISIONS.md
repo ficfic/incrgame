@@ -7,6 +7,12 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Domains = branching tech-tree, mechanically distinct** — after
+  a general-knowledge starter, domains open as a tree; each teaches a real
+  ontology (Wikidata, Gene Ontology, FIBO, SNOMED, LKIF, DTDL) and has a real
+  twist (biology rewards reasoning, finance decays, medicine risks lawsuits, law
+  stresses consistency, IoT unlocks digital twins). Replayable + educational.
+  Rejected: linear sequence, flavor-only domains.
 - 2026-07-25 — **Self-description = escalating agency (4 stages)** — Reflection
   prestige → graph proposes its own goals → graph self-operates (incl. sell-vs-
   keep) → graph models the player/game (fourth-wall climax). The game's unique

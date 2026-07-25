@@ -16,8 +16,11 @@ without being re-briefed. Move finished items to **Done** with a date.
 - [x] Tone locked: satirical startup surface + ominous awe spine; satire wraps
       exact theory.
 - [x] Self-description designed: 4-stage escalating agency + fourth-wall climax.
+- [x] Domains designed: branching tech-tree, mechanically distinct, each mapped
+      to a real ontology.
 - [ ] Flesh out remaining open questions (balance curves, sell-vs-keep pacing,
-      sell→rent unlock, domain sizing, Field Notes format, how stages 2-4 gate).
+      sell→rent unlock, domain sizing/gating/tree shape, Field Notes format,
+      first-five-minutes, how stages 2-4 gate).
 - [ ] Design the "Field Notes" codex format (in-game explainer + learn-more
       links to real specs).
 - [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on

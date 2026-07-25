@@ -52,6 +52,18 @@ These ground the money/AI layer in the real AI industry.
 | **Build vs buy (capex/opex)** | Self-host a model (upfront capex + compute) vs pay an API per use (ongoing opex). | The AI strategic fork. | [Azure DT ontologies](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-ontologies) |
 | **Universal knowledge graph** | The long-standing ambition to encode all of human knowledge in one machine-readable graph. | The north-star goal (world coverage %). | [Wikidata](https://www.wikidata.org/) · [Cyc](https://en.wikipedia.org/wiki/Cyc) |
 
+## Domain ontologies (real, one per game domain)
+
+Each game domain nods to a real-world ontology — playing it teaches these exist.
+
+| Domain | Real ontology | Source |
+|---|---|---|
+| Biology | **Gene Ontology (GO)** — gene function vocabulary; **OBO Foundry** — shared bio-ontology library. | [Gene Ontology](https://geneontology.org/) · [OBO Foundry](https://obofoundry.org/) |
+| Finance | **FIBO** (Financial Industry Business Ontology); **XBRL** for reporting. | [FIBO](https://spec.edmcouncil.org/fibo/) |
+| Medicine | **SNOMED CT** — clinical terminology; **FHIR** — health-data exchange. | [SNOMED CT](https://www.snomed.org/) · [HL7 FHIR](https://www.hl7.org/fhir/) |
+| Law | **LKIF** — Legal Knowledge Interchange Format. | [LKIF](https://github.com/RinkeHoekstra/lkif-core) |
+| Engineering/IoT | **DTDL**, **W3C WoT Thing Description** (see digital-twin rows above). | [W3C WoT](https://www.w3.org/WoT/) |
+
 ## For players who want to go deeper
 
 - **W3C RDF 1.1 Primer** — the gentle official intro.

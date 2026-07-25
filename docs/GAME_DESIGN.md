@@ -231,6 +231,26 @@ side-grind. The sell-vs-keep decision must stay meaningful at every stage.
   **cytoscape.js**, not raw SVG/d3 for the big blooms.
 - The graph is the **reward surface**, not the source of truth for balance.
 
+## Domains (branching tech-tree, mechanically distinct)
+
+You conquer knowledge **domain by domain** toward world coverage. After a starter
+domain, domains open as a **branching tech-tree** (choose your path — replayable,
+strategic). Each domain teaches a **real ontology**, gets a **distinct mechanical
+twist** from that field's real nature, and a satirical "we're pivoting to ___"
+beat. As coverage spreads, the graph knows more of the world — feeding both the
+north star and the ominous "it's modeling everything" climax.
+
+| Domain | Real ontology | Mechanical twist | Satire beat |
+|---|---|---|---|
+| **General knowledge** *(starter)* | Wikidata, schema.org | Broad but shallow: high volume, low value/triple; gentle onboarding to triples. | "A search engine, but worse" |
+| **Biology** | Gene Ontology, OBO | Deeply hierarchical → subclass/transitivity reasoning is overpowered here; rewards the compounding engine. Buyers pay prestige, not cash. | "We're going to cure aging" |
+| **Finance** | FIBO, XBRL | Data decays fast → hoarding loses value; pushes toward the **sell** side of sell-vs-keep. Teaches freshness. | "Disrupting fintech" |
+| **Medicine** | SNOMED CT, FHIR | Regulated → premium prices, but the provenance/licensing lawsuit hazard bites hardest (patient privacy). | "Move fast, break patients" |
+| **Law** | LKIF | Rule-heavy → OWL axioms & consistency dominate; ex-falso hazard nastiest. Law-about-law foreshadows self-description. | "AI replaces lawyers (this is fine)" |
+| **Engineering / IoT** | DTDL, W3C WoT | Live-syncing → unlocks the **Digital Twin** tier; real-time data streams. | "Smart everything" |
+
+(Lineup is a first pass; domain sizing, unlock gating, and tree shape are open.)
+
 ## Deferred (not in the core design yet)
 
 - **Colleagues / team** as a managed resource (ontologists, data engineers,
