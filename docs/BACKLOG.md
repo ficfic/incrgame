@@ -38,8 +38,12 @@ without being re-briefed. Move finished items to **Done** with a date.
       links to real specs).
 - [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on
       mobile before committing.
-- [ ] Scaffold the game (TS + Vite + break_eternity + GH Pages deploy) when
-      ready to start building.
+- [x] Architecture + stack locked (see `docs/ARCHITECTURE.md`): headless pure-TS
+      engine + Svelte UI + PixiJS graph + Vite/PWA + Vitest.
+- [ ] Scaffold the skeleton: Vite + TS + Svelte + PWA, `src/core` engine stub
+      (tick/apply), break_eternity wrapper, versioned save, Vitest, GH Pages
+      deploy. Thin slice only.
+- [ ] (Later) ESLint boundary rule enforcing core-purity (no DOM in `core/`).
 
 ## Someday / maybe
 

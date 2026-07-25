@@ -7,6 +7,20 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Architecture: headless engine + swappable skins** — a pure,
+  deterministic TypeScript engine (`tick`/`apply` over plain state) that knows
+  nothing about the screen; UI and graph are swappable skins. This is the answer
+  to "portable + fast iteration + go wild": wild only touches a skin. Captured in
+  `docs/ARCHITECTURE.md`.
+- 2026-07-25 — **Stack chosen: pure-TS engine · Svelte UI · PixiJS graph · Vite +
+  PWA · Vitest** — supersedes the earlier "vanilla TS + Vite" note. Svelte
+  compiles away (mobile-lean, fast iteration); PixiJS gives creative freedom for
+  the graph; PWA enables installable iOS-vertical play; Vitest tests the engine
+  headless. User deferred the framework/renderer picks to me ("i don't know"); all
+  skins are reversible thanks to the engine split, so low-stakes.
+- 2026-07-25 — **Core-purity rule** — `core/` must not touch the DOM or import
+  UI/render; content is data; state is serializable + versioned. Protects
+  portability; candidate ESLint boundary guardrail; `the-graph` reviewer enforces.
 - 2026-07-25 — **Design-as-triples (dogfooding), scoped** — model the game's
   *structured* content (resources, generators, domains, mechanics, costs) as real
   RDF/Turtle in `docs/graph/game.ttl`; keep narrative/rationale as prose. Validated
