@@ -86,9 +86,11 @@ Each rung feeds the next:
 1. **Data** — raw; tapped or auto-harvested (the "cookie").
 2. **Triples** — subject→predicate→object *edges*; the atomic unit.
 3. **Entities** — *nodes*; emerge when enough triples reference the same thing.
-4. **Ontologies** — schemas organizing entities into typed clusters; unlocking
-   one opens a new **domain** to model.
-5. **Digital Twins** — a fully-modeled domain; a high-prestige mega-node.
+4. **Taxonomies** — *hierarchies* (is-a / subclass trees); the simpler ordering
+   step before full ontologies. (Real: a taxonomy is `rdfs:subClassOf` structure.)
+5. **Ontologies** — schemas organizing entities into typed clusters with rich
+   axioms; unlocking one opens a new **domain** to model.
+6. **Digital Twins** — a fully-modeled domain; a high-prestige mega-node.
 
 ## Generators / upgrades
 
@@ -97,7 +99,9 @@ Each rung feeds the next:
 - **★ Reasoners** — infer new Triples *from the existing graph* (the compounding
   star mechanic).
 - **Curators** — merge duplicate entities → quality multiplier.
-- **Schema engineers** — Triples → Ontologies.
+- **Schema builders** — Triples → Taxonomies → Ontologies.
+- **★ AI Agents** — produce triples *fast but error-prone* (see automation below).
+- **Orchestrators** — agents managing agents (late automation tier).
 
 ## Theory grounding (faithful but playable)
 
@@ -217,6 +221,45 @@ satirical, it's the actual current AI-data debate, and it's accurate.
 Keep pricing tied to knowledge quality so Capital never becomes a disconnected
 side-grind. The sell-vs-keep decision must stay meaningful at every stage.
 
+## Solo play, automation & AI agents (locked)
+
+**You play alone — no people management.** Managing colleagues would make this a
+tycoon game; that's a different genre. Instead your workforce is **AI agents**: a
+lone operator commanding a swarm of bots. (More on-theme anyway.)
+
+**The opening: manual, then automate.** You start with one computer, connecting
+nodes *by hand* to feel the atoms of the graph — then buy automation and graduate
+out of manual work. Classic idle arc.
+
+**AI agents + human-in-the-loop.** Agents produce triples fast but with an
+**error rate that's high early and decays** as tech matures (see
+`docs/ECONOMY_MODEL.md`). **You review batches (HITL)**; unreviewed errors poison
+quality and can trigger inconsistency → the lawsuit hazard. The tension: run bots
+dirty-and-fast, or review and stay clean. **Agent orchestration** (bots managing
+bots) is a later automation tier. This is thematically exact — it's real
+hallucination + grounding, as a mechanic.
+
+## Events — choose-your-own-adventure (locked)
+
+Branching **CYOA events** fire at milestones: a situation + 2–4 choices, some
+gated by game state, with consequences that ripple (resources, quality, lawsuits,
+narrative flags). Some events **fork into multi-step** mini-arcs. They carry the
+satirical-startup voice and the ominous spine, and are the delivery vehicle for
+the emergent motivation below.
+
+## Motivation (emergent, not up-front)
+
+Start as a **pure cash-grab startup** — cynical, funny. Then **slowly reveal**
+(through CYOA + the self-description arc) that the graph is needed to solve
+something existential. The ominous spine *becomes* the stakes. Do **not** state a
+"save the world" goal up front — it would clash with the comedy; let it emerge.
+
+## Real vs abstract
+
+**Abstract mechanics, real nods.** Numbers and mechanics stay abstract (so the
+game is balanceable and fun); names and domains nod to real ontologies. Literal
+real-world data would wreck balance and mobile performance.
+
 ## Visual reward
 
 - Each prestige unlocks a bigger, prettier graph "bloom."
@@ -251,17 +294,21 @@ north star and the ominous "it's modeling everything" climax.
 
 (Lineup is a first pass; domain sizing, unlock gating, and tree shape are open.)
 
-## Deferred (not in the core design yet)
+## Cut (deliberately not in the game)
 
-- **Colleagues / team** as a managed resource (ontologists, data engineers,
-  curators, ML engineers, each buffing a mechanic). Parked to control scope;
-  revisit once the core loop is fun.
+- **Colleagues / people management** — would make this a tycoon game (wrong
+  genre). Replaced by AI agents. You play solo.
 
 ## Open questions
 
-- Exact numeric balance / cost curves.
+- **Manual-phase minigame:** a connect-the-nodes puzzle (match-3-adjacent) for
+  the early hand-made triples — thematically apt, but puzzle+idle can clash.
+  Prototype it; keep it to the early phase only if it stays.
+- Exact numeric balance / cost curves (see `docs/ECONOMY_MODEL.md` — tune by
+  playing).
 - Pacing of the sell→rent transition (what scale unlocks renting).
 - How domains are sized and sequenced toward world coverage.
+- How much the AI-agent HITL review loop asks of the player (attention budget).
 - How self-description manifests mechanically (just a multiplier, or does the
   meta-graph unlock new play?).
 - Theme/tone: dry-academic, sci-fi-AI, or playful.

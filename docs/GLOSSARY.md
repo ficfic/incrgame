@@ -15,6 +15,7 @@ glossary deliberately and log it in `DECISIONS.md`).
 | **Triple** | Atomic statement: *subject – predicate – object*. | The core unit you produce ("Triples"). | [RDF 1.1 Primer](https://www.w3.org/TR/rdf11-primer/) |
 | **IRI** | Globally unique identifier naming a resource. | How every entity is named. | [RDF 1.1 Concepts](https://www.w3.org/TR/rdf11-concepts/) |
 | **Literal** | A data value (string/number/date); only in object position. | Leaf values on entities. | [RDF 1.1 Concepts](https://www.w3.org/TR/rdf11-concepts/) |
+| **Taxonomy** | A *hierarchical* classification (is-a / subclass tree); simpler than an ontology. | The "Taxonomies" tier (before Ontologies). | [RDF Schema 1.1](https://www.w3.org/TR/rdf-schema/) |
 | **RDFS** (RDF Schema) | Vocabulary for classes/properties: `rdf:type`, `rdfs:subClassOf`, `rdfs:domain`, `rdfs:range`. | The "Schema" tier. | [RDF Schema 1.1](https://www.w3.org/TR/rdf-schema/) |
 | **OWL** (Web Ontology Language) | Ontology language built on RDF, based on description logic; richer axioms. | The "Axioms" tier. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
 | **Ontology** | Formal, explicit specification of a shared conceptualization of a domain. | What you assemble to unlock domains. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
@@ -50,6 +51,8 @@ These ground the money/AI layer in the real AI industry.
 | **Fine-tuning** | Further-training a model on specific data to specialize it. | An upgrade for an owned model. | [OpenAI: fine-tuning](https://platform.openai.com/docs/guides/fine-tuning) |
 | **Inference cost / tokens** | The per-use compute cost of running a model (often billed per token). | Subscription (opex) drain. | [AWS: What is RAG](https://aws.amazon.com/what-is/retrieval-augmented-generation/) |
 | **Build vs buy (capex/opex)** | Self-host a model (upfront capex + compute) vs pay an API per use (ongoing opex). | The AI strategic fork. | [Azure DT ontologies](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-ontologies) |
+| **Human-in-the-loop (HITL)** | Keeping a human reviewing/correcting AI output to catch errors before they propagate. | The agent-review mechanic. | [AWS: What is RAG](https://aws.amazon.com/what-is/retrieval-augmented-generation/) |
+| **AI agents / orchestration** | Autonomous LLM-driven programs that act toward a goal; orchestration coordinates many agents. | Your automated "workforce"; the Orchestrator tier. | [Hogan et al., *Knowledge Graphs*](https://arxiv.org/abs/2003.02320) |
 | **Universal knowledge graph** | The long-standing ambition to encode all of human knowledge in one machine-readable graph. | The north-star goal (world coverage %). | [Wikidata](https://www.wikidata.org/) · [Cyc](https://en.wikipedia.org/wiki/Cyc) |
 
 ## Domain ontologies (real, one per game domain)

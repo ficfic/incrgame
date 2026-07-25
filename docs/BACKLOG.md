@@ -18,9 +18,14 @@ without being re-briefed. Move finished items to **Done** with a date.
 - [x] Self-description designed: 4-stage escalating agency + fourth-wall climax.
 - [x] Domains designed: branching tech-tree, mechanically distinct, each mapped
       to a real ontology.
-- [ ] Flesh out remaining open questions (balance curves, sell-vs-keep pacing,
-      sell→rent unlock, domain sizing/gating/tree shape, Field Notes format,
-      first-five-minutes, how stages 2-4 gate).
+- [x] Solo play + AI-agent automation + HITL error mechanic locked; colleagues cut.
+- [x] Taxonomies tier, CYOA forking events, emergent motivation, abstraction
+      stance locked.
+- [x] Economy math model drafted (`docs/ECONOMY_MODEL.md`) with borrowed numbers.
+- [ ] Design the CYOA event format/schema (situation, choices, gates, flags, forks).
+- [ ] Prototype the manual-phase connect-nodes minigame (decide keep/cut).
+- [ ] Flesh out remaining open questions (sell-vs-keep pacing, sell→rent unlock,
+      domain sizing/gating, Field Notes format, HITL attention budget).
 - [ ] Design the "Field Notes" codex format (in-game explainer + learn-more
       links to real specs).
 - [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on

@@ -7,6 +7,36 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Play solo; colleagues/people CUT** — managing people = tycoon
+  genre (wrong game). Workforce is AI agents instead. Reverses the earlier
+  "deferred"; now a deliberate cut.
+- 2026-07-25 — **Automation = AI agents with a HITL error mechanic** — agents
+  produce triples fast but error-prone; error rate high early, decays with tech;
+  the player reviews batches; unreviewed errors poison quality → lawsuit hazard.
+  Orchestration (bots managing bots) is a later tier. Ties to real hallucination
+  + grounding.
+- 2026-07-25 — **Opening: manual, then automate** — start hand-connecting nodes
+  on one computer, then buy automation. Classic idle arc; doubles as the thin-
+  slice blueprint.
+- 2026-07-25 — **Add a Taxonomies tier** — hierarchies (`rdfs:subClassOf` trees)
+  as the simpler step before full Ontologies. Accurate + extra progression.
+- 2026-07-25 — **CYOA events with forking (locked)** — branching milestone
+  events, choices with rippling consequences, some multi-step forks. Carries the
+  tone and delivers the emergent motivation.
+- 2026-07-25 — **Motivation is emergent, not up-front** — start a cynical cash-
+  grab; slowly reveal (via CYOA + self-description) an existential stake. Avoids
+  clashing with the comedy. Rejected: up-front "save the world."
+- 2026-07-25 — **Abstract mechanics, real nods** — numbers/mechanics stay
+  abstract (balanceable, performant); names/domains nod to real ontologies. No
+  literal real-world data.
+- 2026-07-25 — **Economy model borrows established idle-game math** — Cookie
+  Clicker cost `base×1.15^n`, base costs/rates, cubic prestige
+  `floor((total/T)^(1/3))`; Kongregate's exponential-cost/linear-production
+  seesaw; Exponential Idle meta-cost `b×2^(a(x-1))`. Captured in
+  `docs/ECONOMY_MODEL.md`; all numbers are tunable starting points.
+- 2026-07-25 — **Match-3 / connect-nodes minigame is an open question** — a
+  connect-the-nodes puzzle for the manual phase is thematically apt but
+  puzzle+idle can clash; prototype before committing.
 - 2026-07-25 — **Domains = branching tech-tree, mechanically distinct** — after
   a general-knowledge starter, domains open as a tree; each teaches a real
   ontology (Wikidata, Gene Ontology, FIBO, SNOMED, LKIF, DTDL) and has a real
