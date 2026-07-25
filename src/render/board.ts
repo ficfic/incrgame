@@ -14,8 +14,9 @@
 //      at least MIN_TOUCH; the drawn shape may be smaller than the target.
 import type { GameState, ReviewItem, Vignette } from '../core/types';
 import {
-  agentCost, attentionCap, attentionFree, coverage, displayedFidelity, recovered,
-  supervisedPerSecond, unsupervised, unsupervisedPerSecond, verified,
+  agentCost, attentionCap, attentionFree, coverage, displayedFidelity, DISCOVER_MS,
+  recovered, REVIEW_BOOK_MS, supervisedPerSecond, unsupervised, unsupervisedPerSecond,
+  verified,
 } from '../core/engine';
 import { D, format, formatWhole, gte } from '../core/numbers';
 import { GENERATORS, M1_ROSTER } from '../content/generators';
@@ -44,6 +45,8 @@ export interface SceneItem {
   value?: string;
   enabled: boolean;
   tone: 'core' | 'good' | 'warn' | 'bad' | 'idle' | 'muted';
+  /** 0..1 for anything on a timer — drawn as a radial sweep. */
+  progress?: number;
   payload?: unknown;
 }
 
@@ -189,16 +192,21 @@ export function layout(input: BoardInput): SceneItem[] {
     });
   }
 
-  // Discoveries in flight: a slot of your attention is booked onto each one,
-  // and it lands by itself. Not tappable — it is already working.
+  // Work in flight. A slot of your attention is booked onto each one and it
+  // finishes by itself.
+  //
+  // THE CONCEPT IS NOT NAMED UNTIL IT LANDS. Showing the label up front gave
+  // away the result and made the timer a wait rather than a wait for something.
   for (const b of state.bookings) {
     if (b.kind !== 'discover' || b.node === undefined) continue;
     const p = frontierPos(b.slot ?? 0, w, h);
-    const left = Math.max(0, (b.until - state.lastTick) / 1000);
+    const started = b.until - DISCOVER_MS;
+    const done = Math.max(0, Math.min(1, (state.lastTick - started) / DISCOVER_MS));
     push({
-      id: `f${b.node}`, kind: 'frontier', x: p.x, y: p.y, r: 0, draw: 7,
-      label: input.labelForNode(b.node) ?? '…',
-      sub: `${left.toFixed(0)}s`,
+      id: `f${b.node}`, kind: 'frontier', x: p.x, y: p.y, r: 0, draw: 9,
+      label: '', // revealed on arrival, not before
+      sub: `${Math.max(0, Math.ceil((b.until - state.lastTick) / 1000))}s`,
+      progress: done,
       enabled: true, tone: 'good', payload: b.node,
     });
   }
@@ -212,6 +220,17 @@ export function layout(input: BoardInput): SceneItem[] {
     label: 'Discover', sub: canDiscover ? '1 slot · 18s' : 'no free slot',
     enabled: canDiscover, tone: canDiscover ? 'good' : 'muted',
   });
+  const reviewBooking = state.bookings.find((b) => b.kind === 'review');
+  if (reviewBooking) {
+    const started = reviewBooking.until - REVIEW_BOOK_MS;
+    actions.push({
+      id: 'reviewing', kind: 'stat', x: 0, y: actionY, r: 0, draw: 27,
+      label: 'Reviewing',
+      sub: `${Math.max(0, Math.ceil((reviewBooking.until - state.lastTick) / 1000))}s`,
+      progress: Math.max(0, Math.min(1, (state.lastTick - started) / REVIEW_BOOK_MS)),
+      enabled: false, tone: 'warn',
+    });
+  }
   if (state.review.length > 0) {
     const ok = attentionFree(state) >= 1;
     actions.push({

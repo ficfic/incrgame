@@ -206,17 +206,23 @@
     }
   }
 
-  function resize(): void {
-    vw = window.innerWidth;
-    vh = window.innerHeight;
-  }
-
+  // Measure the CANVAS, never window.innerWidth. innerWidth reports the layout
+  // viewport, which pinch-zoom leaves behind — the board ended up drawn at a
+  // third scale in the corner. A ResizeObserver on the element itself is
+  // correct under zoom, rotation, split view and browser chrome alike.
   onMount(() => {
-    resize();
-    window.addEventListener('resize', resize);
     void startGame();
     void loadManifest();
-    return () => window.removeEventListener('resize', resize);
+    if (!canvas) return;
+    const ro = new ResizeObserver(() => {
+      if (!canvas) return;
+      vw = Math.max(1, canvas.clientWidth);
+      vh = Math.max(1, canvas.clientHeight);
+    });
+    ro.observe(canvas);
+    vw = Math.max(1, canvas.clientWidth);
+    vh = Math.max(1, canvas.clientHeight);
+    return () => ro.disconnect();
   });
 
   // Surface an away report once, as a toast, then get out of the way.
@@ -232,11 +238,7 @@
   });
 </script>
 
-<canvas
-  bind:this={canvas}
-  style="width:{vw}px;height:{vh}px"
-  onpointerup={onTap}
-></canvas>
+<canvas bind:this={canvas} onpointerup={onTap}></canvas>
 
 {#if toast}<div class="toast">{toast}</div>{/if}
 
@@ -254,7 +256,10 @@
     display: block;
     position: fixed;
     inset: 0;
-    touch-action: manipulation;
+    width: 100%;
+    height: 100%;
+    /* none, not manipulation: the browser must not claim pinch or double-tap */
+    touch-action: none;
     background: #080b11;
   }
   .toast {

@@ -256,32 +256,74 @@ function paintAnchor(
   });
 }
 
+/** A radial cooldown: a faint full circle with a bright sweep over it.
+ *
+ *  The track uses globalAlpha, NOT a hex suffix on the colour string. `tone()`
+ *  returns `hsl(...)`, and `hsl(...)33` is invalid CSS — canvas silently ignores
+ *  an invalid strokeStyle and keeps the previous one, so the faint track was
+ *  drawing in the bright colour and every cooldown looked finished. */
+function paintRadial(
+  ctx: CanvasRenderingContext2D, x: number, y: number, r: number, k: number, color: string,
+): void {
+  ctx.save();
+  ctx.globalAlpha = 0.22;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = color;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + Math.max(0.02, k) * Math.PI * 2);
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+  ctx.lineWidth = 1;
+}
+
+/** Guard against the same class of mistake: alpha belongs in globalAlpha or in
+ *  the hsl() itself, never appended to a colour string. */
+
 function paintFrontier(
   ctx: CanvasRenderingContext2D, it: SceneItem, hue: number, t: number,
   _input: BoardInput, reqs: LabelRequest[],
 ): void {
-  const breathe = 1 + 0.16 * Math.sin(t * 1.6 + it.x * 0.07);
   const c = tone('good', hue);
-  ctx.strokeStyle = c;
-  ctx.lineWidth = 1.6;
+  paintRadial(ctx, it.x, it.y, it.draw, it.progress ?? 0, c);
+  // an unresolved core: you do not know what this is yet
+  const pulse = 0.5 + 0.5 * Math.sin(t * 2.2 + it.x * 0.05);
+  ctx.globalAlpha = 0.35 + 0.4 * pulse;
   ctx.beginPath();
-  ctx.arc(it.x, it.y, it.draw * breathe, 0, Math.PI * 2);
-  ctx.stroke();
-  // a sweep showing how much of the booking is done
-  ctx.beginPath();
-  ctx.arc(it.x, it.y, 2, 0, Math.PI * 2);
+  ctx.arc(it.x, it.y, 2.4, 0, Math.PI * 2);
   ctx.fillStyle = c;
   ctx.fill();
-  ctx.lineWidth = 1;
-  reqs.push({
-    x: it.x, y: it.y, radius: it.draw + 2,
-    text: clip(it.label, 22), sub: it.sub,
-    priority: 500, // work in flight outranks settled anchors
-    color: `hsl(${hue} 80% 78%)`, subColor: DIM,
-  });
+  ctx.globalAlpha = 1;
+  if (it.sub) {
+    reqs.push({
+      x: it.x, y: it.y, radius: it.draw + 2,
+      text: it.sub, priority: 500,
+      color: DIM, font: `9px ${MONO}`,
+    });
+  }
 }
 
 function paintStat(ctx: CanvasRenderingContext2D, it: SceneItem, hue: number): void {
+  if (it.progress !== undefined) {
+    const c = tone(it.tone, hue);
+    paintRadial(ctx, it.x, it.y, it.draw, it.progress, c);
+    ctx.textAlign = 'center';
+    ctx.font = `600 10px ${FONT}`;
+    ctx.fillStyle = c;
+    ctx.fillText(it.label, it.x, it.y + 3);
+    if (it.sub) {
+      ctx.font = `9px ${MONO}`;
+      ctx.fillStyle = DIM;
+      ctx.fillText(it.sub, it.x, it.y + it.draw + 14);
+    }
+    return;
+  }
   ctx.textAlign = 'center';
   const big = it.id === 'stat-datums';
   ctx.font = big ? `700 34px ${FONT}` : `700 17px ${FONT}`;
