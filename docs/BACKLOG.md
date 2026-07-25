@@ -11,8 +11,10 @@ without being re-briefed. Move finished items to **Done** with a date.
       accuracy source of truth; mechanics teach real theory.
 - [x] Economy layer designed: core pillar, sell/exhaust, AI build-vs-buy fork,
       provenance/licensing ethics. Central tension = "sell vs keep".
-- [ ] Flesh out the design's open questions (balance curves, how self-
-      description plays, theme/tone, how "sell vs keep" paces across the game).
+- [x] North star + macro-loop locked: model all world knowledge (domain by
+      domain), endless horizon + prestige, sell-early/rent-late arc.
+- [ ] Flesh out the design's open questions (balance curves, self-description
+      play, theme/tone, sell-vs-keep pacing, sell→rent unlock, domain sizing).
 - [ ] Design the "Field Notes" codex format (in-game explainer + learn-more
       links to real specs).
 - [ ] Choose the graph-render library (sigma.js vs cytoscape.js) — spike both on
@@ -22,6 +24,8 @@ without being re-briefed. Move finished items to **Done** with a date.
 
 ## Someday / maybe
 
+- [ ] **Colleagues / team** resource (specialized: ontologist / data engineer /
+      curator / ML engineer). Deferred to control scope; revisit post-core-loop.
 - [ ] `add-ontology-content` skill — author domains/entities/edges as declarative
       data; write it once adding content is a repeated motion.
 - [ ] `save-migration` skill — scaffold a versioned save + migration step safely.

@@ -50,6 +50,7 @@ These ground the money/AI layer in the real AI industry.
 | **Fine-tuning** | Further-training a model on specific data to specialize it. | An upgrade for an owned model. | [OpenAI: fine-tuning](https://platform.openai.com/docs/guides/fine-tuning) |
 | **Inference cost / tokens** | The per-use compute cost of running a model (often billed per token). | Subscription (opex) drain. | [AWS: What is RAG](https://aws.amazon.com/what-is/retrieval-augmented-generation/) |
 | **Build vs buy (capex/opex)** | Self-host a model (upfront capex + compute) vs pay an API per use (ongoing opex). | The AI strategic fork. | [Azure DT ontologies](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-ontologies) |
+| **Universal knowledge graph** | The long-standing ambition to encode all of human knowledge in one machine-readable graph. | The north-star goal (world coverage %). | [Wikidata](https://www.wikidata.org/) · [Cyc](https://en.wikipedia.org/wiki/Cyc) |
 
 ## For players who want to go deeper
 

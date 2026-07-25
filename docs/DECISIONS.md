@@ -7,6 +7,22 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **North star: model all the world's knowledge as one graph** —
+  master progress is "world coverage %", approached **domain by domain** (each
+  domain a mini-arc unlocking the next). Grounds the game in real universal-KG
+  ambitions (Cyc, Wikidata, Google KG).
+- 2026-07-25 — **Endless horizon, not a true win** — approach 100% forever via
+  prestige resets; no finish line. Genre-standard endless play. Rejected: hard
+  win at 100%.
+- 2026-07-25 — **Monetization matures: sell early → rent late** — reconciles the
+  earlier sell/exhaust decision with "rent to companies": exhaustive selling
+  early (data vendor), recurring rent/platform income unlocked at scale
+  (infrastructure). Mirrors the real data economy.
+- 2026-07-25 — **Colleagues/team deferred** — a good future resource, parked to
+  control scope until the core loop is fun. Logged in BACKLOG "someday".
+- 2026-07-25 — **Macro-loop confirmed** — model knowledge → need resources →
+  monetize graph for resources → model more/broader/better → coverage climbs;
+  sell-vs-keep tension inside every cycle.
 - 2026-07-25 — **Economy is a core pillar, not a second act** — money and
   knowledge intertwined from the start. Richer, more to balance early; accepted.
 - 2026-07-25 — **Selling knowledge is exhaustive (sell/exhaust, not license)** —

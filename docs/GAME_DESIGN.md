@@ -12,6 +12,26 @@ model **digital twins** of domains. The reward is a large, beautiful graph that
 grows and reorganizes itself — and, eventually, **describes itself**.
 "Universal Paperclips for ontologists."
 
+## North star & macro-loop
+
+**The goal: model all the world's knowledge as one graph.** Not fiction — it's
+the real ambition behind Cyc, Wikidata, and Google's Knowledge Graph.
+
+**Master progress: "world coverage %."** Approached **domain by domain**
+(medicine → law → biology → …); each domain is a mini-arc that unlocks the next.
+This mirrors how real ontologies are actually built — one domain at a time,
+never "finished."
+
+**Endless horizon.** You approach 100% forever via prestige resets; there is no
+true finish line. Standard for the genre, endless play.
+
+**The macro-loop:**
+
+> Model knowledge → to go faster you need resources (capital, AIs, compute) →
+> get resources by monetizing the graph → resources let you model more, broader,
+> better → coverage climbs toward "all knowledge" — with the **sell-vs-keep**
+> tension inside every cycle.
+
 ## The engine (locked)
 
 **Inference is the compounding multiplier.** *Reasoners* generate new edges from
@@ -92,6 +112,16 @@ game's central tension:
 > quality, unlock ontologies, and feed your own AI (which makes future knowledge
 > cheaper). The whole game is this tug-of-war.
 
+### Monetization arc: sell early → rent late
+
+The business *matures* over the game, mirroring the real data economy:
+
+- **Early — sell/exhaust.** You're a scrappy data vendor; sell raw knowledge for
+  cash, and it's gone. Commoditized.
+- **Late — rent/platform.** Once your graph + AI are big enough, you unlock
+  **recurring rent**: companies pay for *access* (non-exhaustive). You've become
+  infrastructure. Renting is the reward for scale, not an early option.
+
 ### Buyers pay for quality (the economy rewards the theory)
 
 Price is gated by the mechanics you already have — money loops *back into* the
@@ -142,9 +172,17 @@ side-grind. The sell-vs-keep decision must stay meaningful at every stage.
   **cytoscape.js**, not raw SVG/d3 for the big blooms.
 - The graph is the **reward surface**, not the source of truth for balance.
 
+## Deferred (not in the core design yet)
+
+- **Colleagues / team** as a managed resource (ontologists, data engineers,
+  curators, ML engineers, each buffing a mechanic). Parked to control scope;
+  revisit once the core loop is fun.
+
 ## Open questions
 
 - Exact numeric balance / cost curves.
+- Pacing of the sell→rent transition (what scale unlocks renting).
+- How domains are sized and sequenced toward world coverage.
 - How self-description manifests mechanically (just a multiplier, or does the
   meta-graph unlock new play?).
 - Theme/tone: dry-academic, sci-fi-AI, or playful.
