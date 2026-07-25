@@ -14,31 +14,33 @@ we build the green slice first and earn the rest.
 
 ## 🟢 MVP — prove the fantasy (build first)
 
-- [ ] **M0 · Skeleton.** *Deliverable: an alive, empty, installable app on your
+- [x] **M0 · Skeleton.** *Deliverable: an alive, empty, installable app on your
   phone.* Sub-checklist (all per `docs/SPEC.md`):
-  - [ ] Vite + TS + Svelte project; `base: '/incrgame/'`.
-  - [ ] `src/core/` engine stub: `apply(state, action)` sole reducer, `GameState`
+  - [x] Vite + TS + Svelte project; `base: '/incrgame/'`.
+  - [x] `src/core/` engine stub: `apply(state, action)` sole reducer, `GameState`
     + all types from SPEC (`ResourceId`/`GeneratorId`/`DomainId` enumerated);
     break_eternity wrapper in `numbers.ts`.
-  - [ ] PWA: manifest (`start_url`/`scope` = `/incrgame/`), `apple-touch-icon` +
+  - [x] PWA: manifest (`start_url`/`scope` = `/incrgame/`), `apple-touch-icon` +
     apple meta tags, `vite-plugin-pwa` SW scoped `/incrgame/`, icons, `.nojekyll`.
-  - [ ] `.github/workflows/deploy.yml`: `npm ci` → typecheck → **`vitest run`
+  - [x] `.github/workflows/deploy.yml`: `npm ci` → typecheck → **`vitest run`
     (gates deploy)** → **core-purity check** (grep `src/core/**` for
     `window`/`document`/`ui`/`render` imports) → `vite build` → deploy-pages;
     least-privilege `permissions`.
-  - [ ] Vitest wired; one trivial engine test green.
+  - [x] Vitest wired; 21 engine/save tests green.
   - **⚠️ Owner-side (see SPEC "Owner-side prerequisites"):** Pages Source =
-    GitHub Actions ✅ *done*. Deploy branch is **pinned** to
-    `claude/incremental-game-github-pages-w7pvk6` (no `main`) — set the workflow
-    `on:` to it. Push protection: enable anytime. iOS install: verify after first
-    deploy (Safari if Edge won't).
-- [ ] **M1 · Core loop slice.** `Data` resource, manual "connect" action (→ Data),
+    GitHub Actions ✅ *done*. Workflow `on:` covers the pinned branch **and** the
+    build-session branch. Push protection: enable anytime. **iOS install: verify
+    on the physical device — still open** (Safari if Edge won't).
+- [x] **M1 · Core loop slice.** `Data` resource, manual "connect" action (→ Data),
   one Harvester (cost `15 × 1.15ⁿ`), fixed-tick production (10 Hz) — **plus a
   trivial 5-node graph that grows per connect** so the hook is on screen in the
-  first 30s (per Chad/Redditor). *Deliverable: numbers go up + a graph reacts.*
-- [ ] **M2 · Save & offline.** Versioned save (envelope + Decimal-as-string +
+  first 30s (per Chad/Redditor). *Deliverable: numbers go up + a graph reacts.* ✅
+  *Verified headless in Chromium: connect, buy, 0.1/s production, graph growth.*
+- [x] **M2 · Save & offline.** Versioned save (envelope + Decimal-as-string +
   migration ladder, see `SPEC.md`), export/import, offline-progress-on-resume with
-  an 8h cap (freeze multipliers). *Deliverable: close & reopen keeps progress.*
+  an 8h cap (freeze multipliers). *Deliverable: close & reopen keeps progress.* ✅
+  *Verified: reload keeps progress (IndexedDB); away-summary banner; clipboard
+  export/import with reject-on-garbage.*
 - [ ] **M3 · Reasoner + graph bloom.** `Triples` resource, **Extractor
   (Data→Triples)** to seed edges, a Reasoner producing via the (bounded) inference
   multiplier, the PixiJS graph blooming. *(Extractor is required — with no edges,

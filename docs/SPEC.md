@@ -35,6 +35,8 @@ interface GameState {
   flags: Record<string, boolean>;          // narrative/unlock/event flags
   coverage: Record<DomainId, number>;      // 0..1 per domain (persists across prestige)
   reflection: number;                      // prestige multiplier level (persists)
+  graph: { nodes: number; edges: number }; // grows per connect (M1) / extraction (M3);
+                                           // `edges` feeds the M3 inference multiplier
 }
 ```
 
@@ -64,7 +66,8 @@ and spend on generators/compute.
 
 ```ts
 type Action =
-  | { type: 'tick';  dt: number }                 // dt in SECONDS
+  | { type: 'tick';  dt: number; now?: number }   // dt in SECONDS; optional `now` (epoch ms)
+                                                   //   advances lastTick purely (no Date.now in core)
   | { type: 'manualConnect' }                      // M1: +1 `data` per action
   | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource
   | { type: 'refine'; from: ResourceId }           // from ∈ TIER_LADDER (not 'capital'); one tier up

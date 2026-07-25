@@ -52,9 +52,14 @@ without being re-briefed. Move finished items to **Done** with a date.
       engine + Svelte UI + PixiJS graph + Vite/PWA + Vitest.
 - [x] Technical spine hardened + pre-build review passed (The Graph + Auditor);
       SPEC.md is build-ready (types, reducer, save, offline, RNG, PWA, deploy).
-- [ ] **▶ NEXT: build M0** — follow the `docs/ROADMAP.md` M0 sub-checklist.
-      **Do the owner-side prerequisites first** (Pages source, deploy branch,
-      push protection, iOS device install) — see SPEC "Owner-side prerequisites".
+- [x] **M0 + M1 + M2 built** (2026-07-25, branch `claude/project-review-build-shub7f`):
+      engine + tests (21 green), Svelte HUD, canvas mini-graph, PWA, deploy
+      workflow, versioned save in IndexedDB, export/import, offline progress.
+- [ ] **▶ NEXT: owner verifies on-device** — merge/deploy, install on iOS
+      (Safari if Edge won't), confirm standalone + save survives. Then **M3**
+      (Extractor → Triples, Reasoner + bounded inference multiplier, PixiJS bloom).
+- [ ] Shake down the review agents on the new code (the-graph on `src/core/`,
+      chad-liquidity on the M1 feel, the-redditor on genre feel).
 - [ ] (Later) ESLint boundary rule enforcing core-purity (no DOM in `core/`).
 
 ## Someday / maybe

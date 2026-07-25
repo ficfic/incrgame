@@ -1,0 +1,84 @@
+// Save format & migrations (SPEC "Save format"). The blob is
+// base64(JSON({version, state})) — the SAME blob goes to IndexedDB and to the
+// clipboard export (the escape hatch). NEVER break an existing save: loading an
+// older version runs forward migrations, never a hard reset.
+import type { GameState } from './types';
+import { CURRENT_SAVE_VERSION, initialState } from './engine';
+
+interface Envelope {
+  version: number; // mirrors state.saveVersion; state is authoritative
+  state: GameState;
+}
+
+// Ordered pure steps, each vN → vN+1. On load, run every step where
+// state.saveVersion < CURRENT_SAVE_VERSION. Add steps; never edit shipped ones.
+type Migration = (s: Record<string, unknown>) => Record<string, unknown>;
+export const MIGRATIONS: Migration[] = [
+  // v1 is the first shipped version — the ladder starts empty.
+];
+
+// ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+function bytesToB64(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i]!, b = bytes[i + 1], c = bytes[i + 2];
+    const n = (a << 16) | ((b ?? 0) << 8) | (c ?? 0);
+    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]!;
+    out += b === undefined ? '=' : B64[(n >> 6) & 63]!;
+    out += c === undefined ? '=' : B64[n & 63]!;
+  }
+  return out;
+}
+
+function b64ToBytes(s: string): Uint8Array {
+  const clean = s.replace(/[\s=]/g, '');
+  const out = new Uint8Array(Math.floor((clean.length * 3) / 4));
+  let acc = 0, bits = 0, j = 0;
+  for (const ch of clean) {
+    const v = B64.indexOf(ch);
+    if (v < 0) throw new Error('invalid base64 in save blob');
+    acc = (acc << 6) | v;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      out[j++] = (acc >> bits) & 0xff;
+    }
+  }
+  return out;
+}
+
+// ---- serialize / deserialize ----
+
+export function serialize(state: GameState): string {
+  const envelope: Envelope = { version: state.saveVersion, state };
+  return bytesToB64(new TextEncoder().encode(JSON.stringify(envelope)));
+}
+
+/** Decode + migrate. Throws on garbage — callers keep the old save intact. */
+export function deserialize(blob: string): GameState {
+  const parsed: unknown = JSON.parse(new TextDecoder().decode(b64ToBytes(blob.trim())));
+  if (typeof parsed !== 'object' || parsed === null || !('state' in parsed)) {
+    throw new Error('not a save envelope');
+  }
+  let raw = (parsed as Envelope).state as unknown as Record<string, unknown>;
+  if (typeof raw !== 'object' || raw === null) throw new Error('save has no state');
+
+  let version = typeof raw.saveVersion === 'number' ? raw.saveVersion : 0;
+  if (version > CURRENT_SAVE_VERSION) {
+    throw new Error(`save is from the future (v${version} > v${CURRENT_SAVE_VERSION})`);
+  }
+  for (let v = version; v < CURRENT_SAVE_VERSION; v++) {
+    const step = MIGRATIONS[v - 1]; // step at index v-1 lifts vN → vN+1
+    if (step) raw = step(raw);
+    raw.saveVersion = v + 1;
+  }
+  // Backfill any fields added since this save was written (migrate additively).
+  const merged: GameState = {
+    ...initialState(),
+    ...(raw as unknown as Partial<GameState>),
+    saveVersion: CURRENT_SAVE_VERSION,
+  };
+  return merged;
+}

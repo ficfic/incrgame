@@ -7,6 +7,25 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **M0+M1+M2 built** (session branch `claude/project-review-build-shub7f`).
+  Build-session decisions, all additive:
+  - **`graph: {nodes, edges}` added to `GameState` v1** — M1 needs the graph to
+    grow per connect, and M3's inference multiplier consumes `edges`, so it must
+    live in state (it's source data, not computable). SPEC updated to match.
+  - **`tick` action gained optional `now` (epoch ms)** so `lastTick` advances
+    without the engine touching `Date.now()` (purity). Absent `now`, lastTick
+    advances by `dt`; tests stay deterministic.
+  - **M1 graph renderer = thin canvas-2D** (`src/render/minigraph.ts`, LOD-capped
+    at 72 drawn nodes) — "MVP stays thin"; PixiJS arrives at M3 when the bloom is
+    the deliverable. Renderer is swappable per ARCHITECTURE, so zero engine impact.
+  - **Deploy workflow triggers on the pinned branch AND the build-session branch**
+    — session branches can't push to the pinned branch without permission, and a
+    deploy that never fires can't prove M0's "installable on your phone."
+    Concurrency group `pages`, latest push wins.
+  - **TypeScript pinned to `~5.9`** — svelte-check 4 crashes on TS 7 (the native
+    rewrite). Revisit when svelte-check supports it.
+  - **Save-load backfills missing fields from `initialState`** (migrate
+    additively) — new fields never hard-reset an old save; covered by a test.
 - 2026-07-25 — **Pre-build technical review (The Graph + The Auditor) + fixes.**
   Verdicts: BUILDABLE WITH FIXES / CONDITIONS APPLY — all doc-level conditions now
   closed:

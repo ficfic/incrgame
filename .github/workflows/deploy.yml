@@ -1,0 +1,56 @@
+# Build → test → deploy to GitHub Pages (SPEC.md "Deploy" section).
+# Tests and the core-purity check GATE the deploy: red engine = no ship.
+name: deploy
+
+on:
+  push:
+    branches:
+      - claude/incremental-game-github-pages-w7pvk6 # pinned deploy branch (no main)
+      - claude/project-review-build-shub7f # build-session branch (same site; latest push wins)
+  workflow_dispatch:
+
+# Least privilege (SPEC): nothing beyond what deploy-pages needs.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx svelte-check --tsconfig ./tsconfig.json --fail-on-warnings false
+      - name: Test (gates deploy)
+        run: npx vitest run
+      - name: Core-purity check
+        # core/ must stay headless: no DOM globals, no imports from ui/ or render/.
+        run: |
+          if grep -rnE '\bwindow\b|\bdocument\b|from '\''\.\./(ui|render)|from "\.\./(ui|render)' src/core/; then
+            echo '::error::src/core must not touch the DOM or import ui/render'
+            exit 1
+          fi
+      - run: npx vite build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
