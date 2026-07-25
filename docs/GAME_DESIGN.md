@@ -74,10 +74,17 @@ me" dread as the graph grows and begins to describe itself.
 
 ## The engine (locked)
 
-**Inference is the compounding multiplier.** *Reasoners* generate new edges from
-edges you already have, so the richer the graph, the faster it grows —
-self-accelerating, super-linear. This is the core dopamine loop; the rest of the
-design serves it.
+**Inference is the compounding multiplier** *(labeled game simplification — see
+note).* *Reasoners* derive new edges from edges you already have: forward-chaining
+**materializes the deductive closure**, which is larger than what you asserted →
+a production multiplier. This is the core dopamine loop; the rest of the design
+serves it.
+
+> **Label (per our accuracy rule):** in real logic, entailment is *monotonic* and
+> the closure is *finite* — a reasoner terminates at a fixpoint; it does **not**
+> "accelerate" or run away. The game treats it as unbounded "compounding" for
+> fun and **bounds it mathematically** in `ECONOMY_MODEL.md`. The Field Notes
+> must state this so players don't learn something false.
 
 ## Resource ladder
 
@@ -147,8 +154,10 @@ so a graph describing itself is real metamodeling, and a *universal* knowledge
 graph genuinely would contain a representation of its own authors.
 
 1. **Reflection (prestige).** The graph builds an ontology *of itself* (a
-   meta-graph). Reset lower layers, keep a permanent **Reflexivity** multiplier.
-   *The joke is still funny here.*
+   meta-graph). Reset lower layers, keep a permanent **Reflection** multiplier.
+   *(Named "Reflection" — metamodeling/self-reference — deliberately NOT
+   "Reflexivity", which is the distinct `owl:ReflexiveProperty`, x-relates-to-
+   itself.) The joke is still funny here.*
 2. **It proposes its own goals.** Post-Reflection, the graph starts *suggesting*
    which domains/axioms to model next — it begins setting your objectives
    instead of you setting them. *First chill.*

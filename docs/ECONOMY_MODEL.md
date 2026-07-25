@@ -88,11 +88,12 @@ Borrowed from Cookie Clicker's cubic prestige
 ([floor((total/threshold)^(1/3))](https://cookieclicker.fandom.com/wiki/Heavenly_Chips)):
 
 ```
-reflexivityLevel = floor( (totalK_ever / T) ^ (1/3) )     # T = threshold, tune
-permanentBonus   = +1% production per level               # Cookie Clicker parity
+reflectionLevel = floor( (totalK_ever / T) ^ (1/3) )      # T = threshold, tune
+permanentBonus  = +1% production per level                # Cookie Clicker parity
 ```
 
-Reflect resets K + generators, keeps Reflexivity. Meta-upgrade costs use
+Reflect resets K + generators, keeps the Reflection multiplier. (Named
+"Reflection" = metamodeling, *not* `owl:ReflexiveProperty`.) Meta-upgrade costs use
 Exponential Idle's `b × 2^(a(x−1))`
 ([source](https://exponential-idle.fandom.com/wiki/Instructions)).
 

@@ -13,14 +13,14 @@ glossary deliberately and log it in `DECISIONS.md`).
 |---|---|---|---|
 | **RDF** (Resource Description Framework) | W3C data model representing information as *triples*, forming a directed labeled graph. | The whole board is an RDF graph. | [W3C RDF 1.1 Primer](https://www.w3.org/TR/rdf11-primer/) |
 | **Triple** | Atomic statement: *subject – predicate – object*. | The core unit you produce ("Triples"). | [RDF 1.1 Primer](https://www.w3.org/TR/rdf11-primer/) |
-| **IRI** | Globally unique identifier naming a resource. | How every entity is named. | [RDF 1.1 Concepts](https://www.w3.org/TR/rdf11-concepts/) |
+| **IRI** (Internationalized Resource Identifier) | A globally-*scoped* name for a resource; distinct IRIs may denote the same thing (that's why `owl:sameAs` exists). | How every entity is named. | [RDF 1.1 Concepts](https://www.w3.org/TR/rdf11-concepts/) |
 | **Literal** | A data value (string/number/date); only in object position. | Leaf values on entities. | [RDF 1.1 Concepts](https://www.w3.org/TR/rdf11-concepts/) |
 | **Taxonomy** | A *hierarchical* classification (is-a / subclass tree); simpler than an ontology. | The "Taxonomies" tier (before Ontologies). | [RDF Schema 1.1](https://www.w3.org/TR/rdf-schema/) |
 | **RDFS** (RDF Schema) | Vocabulary for classes/properties: `rdf:type`, `rdfs:subClassOf`, `rdfs:domain`, `rdfs:range`. | The "Schema" tier. | [RDF Schema 1.1](https://www.w3.org/TR/rdf-schema/) |
 | **OWL** (Web Ontology Language) | Ontology language built on RDF, based on description logic; richer axioms. | The "Axioms" tier. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
-| **Ontology** | Formal, explicit specification of a shared conceptualization of a domain. | What you assemble to unlock domains. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
-| **Description Logic** | Family of decidable logics underpinning OWL (subsumption, classification, consistency). | The math behind reasoning. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
-| **Entailment / inference** | Deriving triples that logically follow from asserted ones under a regime (RDFS/OWL). | **The compounding engine.** | [SPARQL 1.1 Entailment Regimes](https://www.w3.org/TR/sparql11-entailment/) |
+| **Ontology** | Formal, explicit specification of a shared conceptualization of a domain (Gruber 1993; Studer et al. 1998). | What you assemble to unlock domains. | [Gruber, *Ontology*](https://tomgruber.org/writing/ontology-definition-2007) |
+| **Description Logic** | Family of (mostly decidable) logics underpinning OWL DL (subsumption, classification, consistency). *Note: OWL Full is undecidable and not a DL.* | The math behind reasoning. | [Baader et al., *DL Handbook*](https://en.wikipedia.org/wiki/Description_logic) |
+| **Entailment / inference** | Deriving triples that logically follow from asserted ones (RDFS/OWL). Monotonic; the deductive **closure** is finite and terminates at a fixpoint. | The "compounding engine" — a **labeled game metaphor**: closure yields more triples than asserted (a production multiplier), but real inference does *not* accelerate or run away. | [SPARQL 1.1 Entailment Regimes](https://www.w3.org/TR/sparql11-entailment/) |
 | **Reasoner** | Software computing entailments / checking consistency (HermiT, ELK, RDFox). | The "Reasoner" generators. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
 | **Transitive property** | If P is transitive and `a P b`, `b P c`, then `a P c` is entailed. | An axiom upgrade that auto-spawns edges. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
 | **owl:sameAs** | Asserts two IRIs denote the same entity (entity linking). | Curators merging duplicates. | [OWL 2 Primer](https://www.w3.org/TR/owl2-primer/) |
@@ -49,10 +49,10 @@ These ground the money/AI layer in the real AI industry.
 | **Training-data market** | The real economy of buying/licensing datasets to train/ground AI models. | The buyers you sell to. | [Hogan et al., *Knowledge Graphs*](https://arxiv.org/abs/2003.02320) |
 | **Provenance / PROV-O** | Formal record of where data came from and how it was produced. | Premium-price + lawsuit-avoidance mechanic. | [PROV-O](https://www.w3.org/TR/prov-o/) |
 | **Fine-tuning** | Further-training a model on specific data to specialize it. | An upgrade for an owned model. | [OpenAI: fine-tuning](https://platform.openai.com/docs/guides/fine-tuning) |
-| **Inference cost / tokens** | The per-use compute cost of running a model (often billed per token). | Subscription (opex) drain. | [AWS: What is RAG](https://aws.amazon.com/what-is/retrieval-augmented-generation/) |
-| **Build vs buy (capex/opex)** | Self-host a model (upfront capex + compute) vs pay an API per use (ongoing opex). | The AI strategic fork. | [Azure DT ontologies](https://learn.microsoft.com/en-us/azure/digital-twins/concepts-ontologies) |
-| **Human-in-the-loop (HITL)** | Keeping a human reviewing/correcting AI output to catch errors before they propagate. | The agent-review mechanic. | [AWS: What is RAG](https://aws.amazon.com/what-is/retrieval-augmented-generation/) |
-| **AI agents / orchestration** | Autonomous LLM-driven programs that act toward a goal; orchestration coordinates many agents. | Your automated "workforce"; the Orchestrator tier. | [Hogan et al., *Knowledge Graphs*](https://arxiv.org/abs/2003.02320) |
+| **Inference cost / tokens** | The per-use compute cost of running a model (often billed per token). | Subscription (opex) drain. | *(industry term — no single spec)* |
+| **Build vs buy (capex/opex)** | Self-host a model (upfront capex + compute) vs pay an API per use (ongoing opex). | The AI strategic fork. | *(general infra economics)* |
+| **Human-in-the-loop (HITL)** | Keeping a human reviewing/correcting AI output to catch errors before they propagate. | The agent-review mechanic. | *(industry term — no single spec)* |
+| **AI agents / orchestration** | Autonomous LLM-driven programs that act toward a goal; orchestration coordinates many agents. | Your automated "workforce"; the Orchestrator tier. | *(emerging term — no single spec)* |
 | **Universal knowledge graph** | The long-standing ambition to encode all of human knowledge in one machine-readable graph. | The north-star goal (world coverage %). | [Wikidata](https://www.wikidata.org/) · [Cyc](https://en.wikipedia.org/wiki/Cyc) |
 
 ## Domain ontologies (real, one per game domain)

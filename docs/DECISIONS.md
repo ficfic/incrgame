@@ -7,6 +7,15 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Applied prof-veritas theory-accuracy audit (verdict: MINOR
+  ISSUES → fixed).** Corrections: (1) inference reframed as bounded
+  materialization/closure, not "super-linear" — labeled per our own rule
+  (supersedes the earlier "self-accelerating" phrasing); (2) Ontology definition
+  re-cited to Gruber 1993 / Studer 1998; (3) Description Logic re-cited to Baader
+  et al.; (4) prestige multiplier renamed **Reflexivity → Reflection** (reflexivity
+  is `owl:ReflexiveProperty`, a different thing); (5) IRI = globally-*scoped*, not
+  "unique"; (6) decorative citations in the AI table dropped to honest
+  "no-single-spec" labels. The review agent worked — real errors, honest verdict.
 - 2026-07-25 — **Four in-character independent review agents** built in
   `.claude/agents/`: prof-veritas (theory accuracy), chad-liquidity (design +
   economy balance), the-graph (consistency + code), the-auditor (security/
