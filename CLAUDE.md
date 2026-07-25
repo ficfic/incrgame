@@ -55,6 +55,9 @@ voice. Invoke them before shipping meaningful work:
 - **the-graph** — internal consistency (vs `docs/DECISIONS.md`) + code review.
 - **the-auditor** — security/compliance for the public repo (secrets, licensing,
   guardrails).
+- **the-redditor** (u/entropy_farmer) — genre authenticity + community
+  credibility; a jaded r/incremental_games veteran allergic to AI hype. Checks it
+  plays like a real idle game and that the AI theme is earned satire, not pandering.
 
 Each is bound by the same rule as the house voice: **character on top, accurate
 verdict underneath.** A funny reviewer that lies is worthless.
@@ -86,17 +89,13 @@ verdict underneath.** A funny reviewer that lies is worthless.
   learn something false. If glossary and mechanic conflict, the glossary wins
   unless we change it deliberately and log it in `docs/DECISIONS.md`.
 
-## Planned stack (not built yet — changeable)
+## Stack (see `docs/ARCHITECTURE.md` — the source of truth)
 
-- **Vanilla TypeScript + Vite** — minimal build, easy to debug from mobile.
-- **[break_eternity.js](https://github.com/Patashu/break_eternity.js)** for big
-  numbers (idle games blow past `1e308` fast).
-- **localStorage** saves, with an export/import-to-clipboard escape hatch
-  (mobile browsers can clear storage).
-- **GitHub Pages** deploy via a GitHub Action.
-- Game content (resources, generators, upgrades, costs, formulas) kept as
-  **declarative data** so it's safe and easy to extend from a phone; the engine
-  (tick loop, save/load, number formatting) stays small and stable.
+Locked stack: **pure-TS headless engine** (+ break_eternity) · **Svelte** UI ·
+**PixiJS** graph · **Vite + PWA** · **Vitest**. GitHub Pages deploy via Action.
+Game content is **declarative data** (derivable from `docs/graph/game.ttl`); the
+engine stays pure and framework-free. Full rationale + layout + rules in
+`docs/ARCHITECTURE.md`.
 
 ## Commit conventions
 

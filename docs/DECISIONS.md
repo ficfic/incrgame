@@ -7,6 +7,13 @@ session knows *why* things are the way they are. Format:
 
 ---
 
+- 2026-07-25 — **Fifth review agent: the-redditor (u/entropy_farmer)** — a jaded
+  r/incremental_games veteran allergic to AI hype; reviews genre authenticity +
+  community credibility (does it play like a real idle game; is the AI theme
+  earned satire or pandering). Same rule: snark on top, honest genre judgment
+  underneath.
+- 2026-07-25 — **CLAUDE.md stack section updated** to point at ARCHITECTURE.md
+  (was stale "vanilla TS + Vite"; the-auditor flagged the contradiction).
 - 2026-07-25 — **Game title: _Semantic Drift_** — a real term (meaning shifting
   over time; ontology evolution / concept drift). Ominous, accurate, and
   thematically perfect (the graph rewrites meaning as it wakes). Repo stays
