@@ -49,9 +49,13 @@ const read = async () => {
   const head = await page.$eval('.headline b', (e) => e.textContent.trim());
   const nodes = await page.$$eval('.node', (n) => n.length);
   const dotted = await page.$$eval('.line', (n) => n.length);
+  // Agent affordability is the repricing done-criterion, so the probe watches
+  // for it. It does NOT buy one — buying changes the run it is measuring.
+  const agents = await page.$$eval('.mach', (bs) => bs
+    .map((b) => (b.disabled ? '-' : '+') + (b.querySelector('em')?.textContent?.trim() ?? '')));
   return { t: 0, statements: head, passages: cells.passages, recovered: cells.recovered,
            context: cells.context, checked: cells.checked, agreeing: cells.agreeing,
-           attention: cells.attention, nodes, dotted };
+           attention: cells.attention, nodes, dotted, agents: agents.join(' ') };
 };
 
 const log = [];
@@ -68,7 +72,11 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
   // then keep the ladder fed.
   const dot = page.locator('button.line:not([disabled])').first();
   if (await dot.count() && await dot.isEnabled().catch(() => false)) {
-    await dot.click().catch(() => {});
+    // force + short timeout: the graph is a live force simulation, so Playwright's
+    // default "wait for the element to stop moving" never succeeds and each click
+    // burned its full 8s timeout. A 600s run spent 400 of them retrying one
+    // wobbling button, and logged it as a frozen economy.
+    await dot.click({ force: true, timeout: 1500 }).catch(() => {});
     await page.waitForTimeout(150);
     continue;
   }
@@ -78,6 +86,24 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
     await page.waitForTimeout(150);
     continue;
   }
+  // REVIEW. The desk is how unverified statements become checked, and checked
+  // is the only currency that buys anything. A probe that never reviews reports
+  // a deadlock that is really just a player refusing to play — this one did,
+  // and the "frozen economy" it found at t=120 was partly its own fault.
+  const review = page.locator('button.act', { hasText: 'Review' });
+  if (await review.count() && await review.isEnabled().catch(() => false)) {
+    await review.click().catch(() => {});
+    await page.waitForTimeout(250);
+    const commit = page.locator('.sheet-foot button.primary');
+    if (await commit.count() && await commit.isEnabled().catch(() => false)) {
+      await commit.click().catch(() => {});
+    } else {
+      await page.locator('.sheet-foot button', { hasText: 'back' }).click().catch(() => {});
+    }
+    await page.waitForTimeout(200);
+    continue;
+  }
+
   // Growing the context window comes before extracting: a full window blocks
   // discovery outright, so a player who could afford it and did not would be
   // measuring a stall they chose.
@@ -94,13 +120,13 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
 }
 log.push({ ...(await read()), t: Math.floor((Date.now() - t0) / 1000) });
 
-console.log('t    stmts psg  rec  context chk   agree att   nodes dotted');
+console.log('t    stmts psg  rec  context chk   agree att   nodes dot  agents');
 for (const r of log) {
   console.log(
     String(r.t).padEnd(4), String(r.statements).padEnd(5), String(r.passages).padEnd(4),
     String(r.recovered).padEnd(4), String(r.context).padEnd(7), String(r.checked).padEnd(5),
     String(r.agreeing).padEnd(5), String(r.attention).padEnd(5),
-    String(r.nodes).padEnd(5), r.dotted);
+    String(r.nodes).padEnd(5), String(r.dotted).padEnd(4), r.agents);
 }
 if (errors.length) console.log('ERRORS', errors);
 await page.screenshot({ path: process.argv[2] ?? 'play.png' });

@@ -23,20 +23,20 @@ things every time:
 
 ---
 
-## 1. Reprice the ladder
+## 1. `tokenTail` is a dead number on screen
 
-Statement volume fell ~50× when extraction started minting real edges
-(2026-07-26). The roster still costs 40 and 90 *checked*, priced against the old
-flow, so first automation is a long way out.
+The salvage toggle shows "12% rare". **Nothing reads it.** The v14 rebuild
+replaced the clean/dirty extraction split with real candidate edges, and
+`tokenTail` lost its only mechanic — it is now written, migrated, displayed, and
+never consumed. Exactly the dead-resource disease `readouts.ts` exists to stop,
+one layer down: the number is real, the meaning is gone.
 
-**Measured 2026-07-26 after the context window shipped:** play stalls at 20/20
-concepts around t=105s. Growing the window costs checked statements, checked
-income is ~19 statements per 150s, and the second step costs 17 — so the loop
-runs once and then waits. Context growth is now a third claim on the same
-currency as the agent roster, and all three want repricing together.
+The fork itself still works, differently: ruins sample head concepts, archives
+sample the rim, and that decides which relations are proposable. That is the
+mechanic; `% rare` is not reporting it.
 
-**Done when:** `play-probe` shows the first agent affordable inside 10 minutes of
-ordinary play, and the source fork still favours archives for verified material.
+**Done when:** the readout reports something a mechanic actually consumes, or it
+is removed — and a test fails if it goes dead again.
 
 ## 2. Prove the four gates go red, in writing
 

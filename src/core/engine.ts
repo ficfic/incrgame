@@ -60,8 +60,12 @@ const EXTRACT_BATCH = 20;
  *  the board still has to draw on a phone. */
 const CONTEXT_START = 16;
 const CONTEXT_STEP = 4;          // concepts bought per purchase
-const CONTEXT_BASE_COST = 12;    // checked statements for the first one
-const CONTEXT_COST_RATIO = 1.35;
+// Repriced 2026-07-26 with the agent roster: context growth and machines draw
+// on the SAME checked statements, and at 12 x1.35 the window ate everything —
+// measured, the second step cost 17 against ~7 checked in the bank, so play
+// froze at 20/20 for three minutes with all attention idle.
+const CONTEXT_BASE_COST = 8;
+const CONTEXT_COST_RATIO = 1.22;
 
 /** How many salvaged passages you may hold. A save is not an accumulator, and
  *  an unbounded array in state is a save-size bug waiting for a long session. */

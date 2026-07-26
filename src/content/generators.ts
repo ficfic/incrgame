@@ -31,8 +31,14 @@ export const GENERATORS: Record<GeneratorId, Generator> = {
     baseRate: '0.4',
     produces: 'triples',
     // volume machine: cheap to start, and the ratio is what stops you owning ten
-    agentBase: '40',
-    agentRatio: 1.30,
+    //
+    // REPRICED 2026-07-26. 40 was set when extraction minted integers and a
+    // tapping player made ~1,150 statements in 150s. Extraction now mints real
+    // edges and the same 150s makes ~19, so 40 checked was ~25 minutes of play
+    // for the FIRST machine, competing with the context window for the same
+    // currency. Measured, not guessed: see docs/ECONOMY.md.
+    agentBase: '14',
+    agentRatio: 1.25,
   },
   // Subsumption reasoning — turns trusted statements back into recovered
   // concepts. Its rate is multiplied by FIDELITY, so rot stalls it.
@@ -47,8 +53,9 @@ export const GENERATORS: Record<GeneratorId, Generator> = {
     // The machine that actually wins the run, so it is not priced identically to
     // the one that only makes volume. Steeper too: recovery is the scarce thing,
     // and buying your way out of the fidelity gate should stay expensive.
-    agentBase: '90',
-    agentRatio: 1.32,
+    // Repriced with the Extractor, keeping the ~2.6x gap between them.
+    agentBase: '36',
+    agentRatio: 1.28,
   },
   aiAgent: {
     id: 'aiAgent',
