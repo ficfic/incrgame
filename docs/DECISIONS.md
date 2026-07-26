@@ -1622,3 +1622,21 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   framing off; concepts then drifted off the edges as the graph grew, for a
   reason no player could connect to the button they pressed. Caught by looking at
   a screenshot from `play-probe`, not by any test.
+
+---
+
+## 2026-07-26 — WAYS OF WORKING RESET
+
+Entries above this line are long because the one-line rule did not exist yet.
+**From here, one line per decision.**
+
+- 2026-07-26 — **Process reset, owner-directed, researched rather than invented.**
+  Evidence: 29 commits in one day, 5 of them player-visible; 50,000 words of docs
+  against 5,000 lines of code; three features shipped and rebuilt the same day.
+  Five rules now in CLAUDE.md — WIP=1 from `docs/NEXT.md`, no ship without a check
+  you ran and evidence you pasted, smallest playable build before any design doc,
+  every check verified RED first, stop at done. Sources: Anthropic's Claude Code
+  best practices (which names "the kitchen sink session", "the trust-then-verify
+  gap" and "the over-specified CLAUDE.md" as our exact failures, and warns that
+  reviewers asked to find gaps always will), Kanban WIP limits (they exist to
+  reduce rework), and solo-indie practice (vertical slice, core loop first).

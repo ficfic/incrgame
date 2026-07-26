@@ -1,125 +1,114 @@
 # incrgame — project rules & ways of working
 
-A solo incremental/idle game, built to run on **GitHub Pages** and played
-mainly by the owner in **iOS Edge**. Developed **entirely through Claude Code
-on mobile/web**, where each session starts in a fresh, ephemeral container and
-context may be summarized mid-session.
+A solo incremental/idle game on **GitHub Pages**, played by the owner in **iOS
+Edge**, built entirely through Claude Code on mobile. Sessions are ephemeral:
+anything that must outlive one lives in a committed file.
 
-**Read this first every session, then skim `docs/DECISIONS.md` and
-`docs/BACKLOG.md`.** Those three files are the project's durable memory — they
-survive when a session's context does not.
-
-**Starting to BUILD?** Read, in order: `docs/ROADMAP.md` (do **M0** first — it has
-a full sub-checklist), `docs/SPEC.md` (the engine/save/PWA/deploy contract — the
-source of record for types and shapes), and `docs/ARCHITECTURE.md` (the
-engine/skin split). `docs/ECONOMY_MODEL.md` has the numbers. Do the **owner-side
-prerequisites** in SPEC before expecting a deploy to work.
+**Read `docs/NEXT.md` first. It decides what you work on. Nothing else does.**
 
 ---
 
-## The one constraint that shapes everything
+## How we work — the five rules
 
-Sessions are **ephemeral and mobile**. Anything that must outlive a session
-lives in a **committed file**, never in Claude's memory or the chat scrollback.
-That is why the decision log and backlog exist and must be kept current.
+These replaced a way of working that measurably did not function. On 2026-07-26
+one session produced 29 commits, of which **5 added something a player can do**;
+the rest were fixes to that session's own breakage, infrastructure, and
+documents. Three features were shipped and rebuilt the same day.
+
+**1. WIP = 1.** One item from `docs/NEXT.md` per session. A defect you find
+mid-item goes to the bottom of `BACKLOG.md` as one line — not into this session —
+unless it blocks the item. New ideas go to the backlog, never into today.
+*(Kanban WIP limits exist specifically to reduce rework.)*
+
+**2. Nothing ships without a check you ran and evidence you pasted.** The check
+for anything player-facing is `npm run play` **plus looking at the screenshot**.
+"Typechecks and tests pass" is not evidence that a game works. If you cannot
+verify it, do not ship it. Report the output, not the conclusion.
+
+**3. Build the smallest playable version, then look at it, then decide.** Do not
+write a design document first. This project has ~50,000 words of docs against
+~5,000 lines of code, and the docs did not catch the mistakes: two revisions,
+three agent reviews and a headless simulation all missed that Extraction minted
+integers and called them statements. One question from the owner caught it, and
+150 seconds of play caught the attention-cap inflation.
+Write a spec only when the decision is genuinely irreversible — save format,
+licensing, data pipeline.
+
+**4. Verify a check goes RED before trusting it.** Every guard in this repo has
+been vacuous at least once: a browser gate that "passed" in 11 seconds without
+running, a migration test that passed with the migration deleted, a purity grep
+that matched a word inside a comment. Break the code on purpose, watch the check
+fail, put it back.
+
+**5. Stop at done.** Ship the item, report it, stop. Do not start the next thing,
+do not refactor something you noticed, do not build a guard for a bug you just
+fixed unless the item called for it. Meta-work breeds meta-work.
+
+### Review agents (`.claude/agents/`)
+
+`prof-veritas` (theory), `chad-liquidity` (balance), `the-graph` (consistency),
+`the-auditor` (security/licensing), `the-redditor` (genre credibility). Fresh
+context, so they cannot rubber-stamp their own work.
+
+**One review round per item, and only findings that affect correctness or the
+stated requirement.** A reviewer asked to find gaps will always find some; acting
+on all of them is how eight content ideas became a vocabulary module, a check
+script, and tests for the check script. Character on top, accurate verdict
+underneath — a funny reviewer that lies is worthless.
+
+### Talking to the owner
+
+- **Chips, not prose.** Use `AskUserQuestion` for any real choice. Output is read
+  on a phone: lead with the answer, keep it tight.
+- **Build, then review.** Reserve up-front plans for large or irreversible work.
+- **Log decisions as ONE LINE** in `docs/DECISIONS.md` — date, decision, why.
+  That file is 17,500 words because this rule was ignored.
+- **Voice: full wacky, honesty underneath.** Satirical-startup-with-an-ominous-
+  spine. But status, verdicts, test results and bad news stay plainly honest. A
+  wacky reply that misleads is a failure.
 
 ---
 
-## Ways of working
-
-- **Confirm decisions with chips.** Whenever there's a genuine choice (design,
-  scope, tradeoffs, "A or B"), use the `AskUserQuestion` tool (tappable option
-  chips) rather than a wall of prose. Up to 4 questions per prompt, 2–4 options
-  each, plus free-text. This is the owner's preferred way to decide on mobile.
-  Don't use it for trivial calls with an obvious default — just proceed and say
-  what you did.
-- **Default mode: build, then review.** For most changes, make the change and
-  present the result for review — the owner reviews after. Reserve up-front
-  plans for genuinely large or hard-to-reverse work.
-- **Log every real decision.** After any non-trivial choice, append a one-line
-  entry to `docs/DECISIONS.md` (date, decision, one-line why). Skip trivia.
-- **Keep the backlog live.** When work is finished or new work appears, update
-  `docs/BACKLOG.md` so the next session knows the state without being re-told.
-- **Be brief.** Output is read on a phone. Lead with the answer; keep prose
-  tight; prefer chips and short lists over long paragraphs.
-- **Voice: full wacky, honesty underneath.** Operate in the game's satirical-
-  startup-with-an-ominous-spine register — be a bit theatrical, have fun, play
-  in character. BUT the persona is a hat, never a mask: **status reports,
-  verdicts, whether something actually works, test results, and any bad news
-  stay plainly honest and clear.** A wacky reply that misleads is a failure. If
-  in doubt, drop the bit and state the truth. Same principle as the game itself:
-  satire wraps exact substance.
-
-## Independent review agents
-
-Custom subagents in `.claude/agents/` run in fresh context (so they can't rubber-
-stamp their own work) and each own a real review dimension behind an in-character
-voice. Invoke them before shipping meaningful work:
-
-- **prof-veritas** — theory accuracy vs `docs/GLOSSARY.md`.
-- **chad-liquidity** — game-design fun + economy balance vs `docs/ECONOMY_MODEL.md`.
-- **the-graph** — internal consistency (vs `docs/DECISIONS.md`) + code review.
-- **the-auditor** — security/compliance for the public repo (secrets, licensing,
-  guardrails).
-- **the-redditor** (u/entropy_farmer) — genre authenticity + community
-  credibility; a jaded r/incremental_games veteran allergic to AI hype. Checks it
-  plays like a real idle game and that the AI theme is earned satire, not pandering.
-
-Each is bound by the same rule as the house voice: **character on top, accurate
-verdict underneath.** A funny reviewer that lies is worthless.
-
-## Guardrails (some are enforced, not just asked)
+## Guardrails (enforced, not requested)
 
 - **Destructive git is hard-blocked** by `.claude/hooks/guardrails.sh`:
-  `push --force` (use `--force-with-lease` if truly needed), `reset --hard`,
-  `clean -f`, `checkout/switch --force`, `branch -D`. If one is genuinely
-  necessary, explain why and get explicit confirmation first.
-- **This repo is PUBLIC. Never commit secrets.** The same hook scans staged
-  commits for common key shapes and blocks them. Secrets belong in GitHub
-  Actions secrets or an untracked, gitignored env file — never in the repo.
-- **Develop on branch `claude/knowledge-recovery-ontology-game-g0f9q0`**, and
-  deploy by fast-forwarding `claude/incremental-game-github-pages-w7pvk6` onto
-  it (the Pages Action watches that branch). Commit with clear messages; push
-  with `git push -u origin <branch>`. Don't push to
-  other branches without explicit permission. Don't open a PR unless asked.
-- **Never break an existing save.** The owner plays their own save long-term;
-  corrupting it loses real progress. Rules: every save carries a `version`;
-  loading an older version runs a **forward migration**, never a hard reset;
-  never rename/remove a saved field without a migration that preserves it; and
-  always keep the **export/import-to-clipboard** escape hatch working. When in
-  doubt, migrate additively.
-- **Respect the mobile performance budget** (see `docs/GAME_DESIGN.md`):
-  simulate in numbers, render only a *representative* graph with level-of-detail
-  and a WebGL renderer. Don't render one node per triple.
-- **Stay theory-faithful (this game is educational).** Every in-game concept
-  must match its real definition in `docs/GLOSSARY.md`; when a mechanic
-  simplifies real theory, **label the simplification in-game** so players never
-  learn something false. If glossary and mechanic conflict, the glossary wins
-  unless we change it deliberately and log it in `docs/DECISIONS.md`.
-- **★ All player-facing PROSE is human-written.** Event text, jokes, Field
-  Notes, flavor, UI copy — a human writes every sentence a player reads. The
-  `game.ttl`/content pipeline generates **structured data only** (costs, gates,
-  node graphs, numbers), **never sentences.** This game's whole thesis is mocking
-  AI slop; shipping AI-generated prose would make it the hypocrisy it satirizes —
-  an instant, deserved, unrecoverable failure. As load-bearing as "never break a
-  save."
-- **HITL review is never mandatory.** The AI-agent review loop must be *buyable
-  out of* (Orchestrators auto-review at a quality/cost tradeoff); manual review is
-  an optional min-max lever for tryhards, never a required attention tax. An idle
-  game that demands babysitting isn't an idle game.
+  `push --force`, `reset --hard`, `clean -f`, `checkout --force`, `branch -D`.
+- **This repo is PUBLIC. Never commit secrets.** The hook scans staged commits.
+- **Develop on `claude/knowledge-recovery-ontology-game-g0f9q0`**; deploy by
+  fast-forwarding `claude/incremental-game-github-pages-w7pvk6` onto it. Push
+  with `-u origin <branch>`. No PRs unless asked.
+- **★ All player-facing PROSE is human-written.** Event text, jokes, Field Notes,
+  flavour, UI copy. The content pipeline generates **structured data only** —
+  costs, gates, graphs, numbers — **never sentences.** This game's thesis is
+  mocking AI slop; shipping AI-written prose would make it the hypocrisy it
+  satirises. As load-bearing as "never break a save."
+  *(WordNet glosses shown verbatim are DATA, not prose, and are fine.)*
+- **Never break an existing save.** Every save carries a `version`; older
+  versions run a forward migration, never a reset; never rename or remove a
+  saved field without a migration that preserves it; keep export/import working.
+  When in doubt, migrate additively.
+- **Stay theory-faithful — this game is educational.** Every in-game concept
+  matches its real definition in `docs/GLOSSARY.md`. Where a mechanic simplifies
+  real theory, label the simplification in-game (`docs/SIMPLIFICATIONS.md`). The
+  glossary wins unless we change it deliberately and log it.
+- **One word, one quantity.** Every player-facing number is declared in
+  `src/core/readouts.ts`; `scripts/check-vocabulary.mjs` enforces it. The board
+  once said "25 nodes" beside a HUD saying "3 recovered", both correct.
+- **HITL review is never mandatory.** Manual review is an optional min-max lever,
+  never an attention tax. An idle game that demands babysitting isn't one.
+- **Respect the mobile performance budget** (`docs/GAME_DESIGN.md`): simulate in
+  numbers, render a representative graph with level-of-detail.
 
-## Stack (see `docs/ARCHITECTURE.md` — the source of truth)
+## Stack
 
-Locked stack: **pure-TS headless engine** (+ break_eternity) · **Svelte** UI ·
-**DOM + CSS** for anything with text or a tap target · **canvas 2D** for the
-graph's lines and atmosphere · **Vite + PWA** · **Vitest**. (PixiJS was named
-here for months and was never a dependency; a WebGL renderer is not needed to
-draw a few hundred lines.) GitHub Pages deploy via Action.
-Game content is **declarative data** (derivable from `docs/graph/game.ttl`); the
-engine stays pure and framework-free. Full rationale + layout + rules in
+Pure-TS headless engine (`apply(state, action) => state`, no DOM/clock/RNG) +
+break_eternity · **Svelte 5 runes** UI · **DOM + CSS** for anything with text or
+a tap target · **canvas 2D** for the graph's lines · **d3-force** for layout ·
+Vite + PWA · Vitest. Content is declarative data. Full rationale in
 `docs/ARCHITECTURE.md`.
 
-## Commit conventions
+Reference docs, read only when the item needs them: `SPEC.md` (types, save,
+deploy contract), `VISION.md` (why), `GLOSSARY.md` + `SIMPLIFICATIONS.md`
+(accuracy), `ECONOMY.md` (the ladder), `HANDOVER.md` (current state).
 
-- Small, focused commits with a clear subject line (imperative mood).
-- Never commit secrets or large build artifacts (see `.gitignore`).
+Commits: small, focused, imperative subject line.
