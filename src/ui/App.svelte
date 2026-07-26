@@ -19,6 +19,7 @@
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
     DISCOVER_MS, extractCost, extractionYield, hasTrust, pendingVignette, recovered,
     REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS, salvageRate, sourceAgreement, extractCapacity,
+    canGrowContext, contextCost, contextFull, contextStep, contextUsed, contextWindow,
     unsupervised, verified,
   } from '../core/engine';
   import { FRONTIER_CAP } from '../core/graph';
@@ -107,6 +108,11 @@
     dispatch({ type: 'extract', candidates });
     if (candidates.length === 0) say('That batch supported nothing new');
   }
+
+  /** Diameter of the drawn window. It tracks the FRAMED extent of the graph, so
+   *  the ring reads as the boundary the concepts live inside rather than as a
+   *  decoration floating at a fixed size. */
+  const contextRing = $derived(Math.max(120, Math.min(w, h) * 0.86));
 
   const activeVignette = $derived.by(() => {
     const id = pendingVignette($game);
@@ -340,7 +346,8 @@
   // and the honest one gates the claim.
   const nothingLeftToFind = $derived($game.forged.nextId >= CONCEPT_BUDGET);
   const worldDone = $derived(recovered($game) >= CONCEPT_BUDGET);
-  const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP && $game.lastTick > 0 && !nothingLeftToFind);
+  const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP
+    && $game.lastTick > 0 && !nothingLeftToFind && !contextFull($game));
 
   // ---- PINCH AND PAN ----------------------------------------------------
   //
@@ -670,6 +677,9 @@
     <div class="stats">
       <div><b class:good={$game.pool.length >= EXTRACT_BATCH}>{$game.pool.length}</b><span>passages</span></div>
       <div><b class="good">{recovered($game)}</b><span>recovered</span></div>
+      <!-- THE CONTEXT WINDOW. Was ANCHOR_CAP = 240: invisible, unnamed, and it
+           silently folded a concept away the moment you exceeded it. -->
+      <div><b class:warn={contextFull($game)}>{contextUsed($game)}/{contextWindow($game)}</b><span>context</span></div>
       <!-- "—" not "100%": a new save has zero statements and the ratio returns
            1, which read as a perfect score over an empty graph. -->
       <div><b class:good={hasTrust($game) && trust > 0.66}
@@ -697,6 +707,12 @@
     onwheel={onWheel}
   >
     <canvas bind:this={canvas} style="width:{w}px;height:{h}px"></canvas>
+
+    <!-- THE CONTEXT WINDOW, drawn. Everything you hold lives inside it; the ring
+         tightens as it fills and turns amber when it is full, so "why can I not
+         discover anything" has an answer you can see before you read it. -->
+    <div class="window" class:full={contextFull($game)}
+         style="--d:{contextRing}px;--fill:{contextUsed($game) / Math.max(1, contextWindow($game))}"></div>
 
     {#if !follow}
       <button class="reset" onclick={resetView} aria-label="reset view">
@@ -791,7 +807,7 @@
 
       <button class="act primary" disabled={!canDiscover} onclick={discover}>
         <b>Discover</b>
-        <span>{worldDone ? 'world recovered' : nothingLeftToFind ? '⟨nothing left to find — owner⟩' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
+        <span>{worldDone ? 'world recovered' : nothingLeftToFind ? '⟨nothing left to find — owner⟩' : contextFull($game) ? 'context full' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
       </button>
 
       {#if filling.length > 0}
@@ -814,6 +830,17 @@
 
       {#if activeVignette}
         <button class="act core" onclick={() => (sheet = 'vignette')}><b>Decide</b><span>pending</span></button>
+      {/if}
+
+      <!-- The one way to grow it. Priced in CHECKED statements — the sink the
+           ladder never had, and the one currency you cannot mint by tapping. -->
+      {#if contextFull($game) || canGrowContext($game)}
+        <button class="act core" disabled={!canGrowContext($game)}
+          onclick={() => (canGrowContext($game)
+            ? dispatch({ type: 'growContext' })
+            : say(`Need ${format(contextCost($game))} checked`))}>
+          <b>Grow context</b><span>+{contextStep()} · {format(contextCost($game))} checked</span>
+        </button>
       {/if}
 
       {#if recovered($game) >= REFLECT_MIN_CONCEPTS}
@@ -1105,6 +1132,20 @@
     background: none; border: 1px solid #1b2533; border-radius: 6px;
     color: #5d7385; font-size: 15px; line-height: 1;
   }
+
+  /* THE CONTEXT WINDOW. A ring, not a fill: the concepts are the content and
+     this is the boundary they live inside. It brightens as it fills and goes
+     amber when full, so the disabled Discover button has a visible cause. */
+  .window {
+    position: absolute; left: 50%; top: 50%; z-index: 0; pointer-events: none;
+    width: var(--d); height: var(--d);
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 1px solid hsl(var(--hue) 45% 45% / calc(0.10 + var(--fill) * 0.30));
+    box-shadow: 0 0 0 1px hsl(var(--hue) 45% 40% / 0.05) inset;
+    transition: border-color 400ms linear;
+  }
+  .window.full { border-color: hsl(42 75% 60% / 0.55); border-style: dashed; }
 
   .ticker {
     display: flex; flex-direction: column; align-items: center;

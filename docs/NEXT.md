@@ -23,31 +23,22 @@ things every time:
 
 ---
 
-## 1. The context window
-
-Owner's idea, 2026-07-26. `ANCHOR_CAP = 240` already caps how many concepts you
-can hold and silently folds one away when you exceed it. It is named nothing,
-drawn nowhere, and cannot be grown — the single most confusing thing in the game.
-
-Name it the **context window**, draw it as the circle, make growing it the
-progression.
-
-**Done when:** the cap is visible on the board, exceeding it reads as a concept
-going dark rather than vanishing, there is one way to grow it, and a
-`play-probe` screenshot shows all three.
-
-**Not in scope:** repricing the agent roster, checkpoints, prestige changes.
-
-## 2. Reprice the ladder
+## 1. Reprice the ladder
 
 Statement volume fell ~50× when extraction started minting real edges
 (2026-07-26). The roster still costs 40 and 90 *checked*, priced against the old
 flow, so first automation is a long way out.
 
+**Measured 2026-07-26 after the context window shipped:** play stalls at 20/20
+concepts around t=105s. Growing the window costs checked statements, checked
+income is ~19 statements per 150s, and the second step costs 17 — so the loop
+runs once and then waits. Context growth is now a third claim on the same
+currency as the agent roster, and all three want repricing together.
+
 **Done when:** `play-probe` shows the first agent affordable inside 10 minutes of
 ordinary play, and the source fork still favours archives for verified material.
 
-## 3. Prove the four gates go red, in writing
+## 2. Prove the four gates go red, in writing
 
 `the-process` audit, 2026-07-26: **0 of 4** gates (`check:align`, `check:core`,
 `check:vocab`, `play`) has a durable record of being confirmed red. Two of the
@@ -61,7 +52,7 @@ in chat does not count: the record has to outlive the session.
 that makes it fail and the observed output, and `DECISIONS.md` has one line
 recording it.
 
-## 4. `OWNER_LINES` — the eight ticker milestones
+## 3. `OWNER_LINES` — the eight ticker milestones
 
 Wired, reachable, 100% reach, still empty. Owner writes them; nothing else here
 is blocked on anything.

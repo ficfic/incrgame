@@ -37,14 +37,21 @@ await page.goto('http://localhost:4173/incrgame/', { waitUntil: 'load' });
 await page.waitForSelector('.hud');
 await page.waitForTimeout(1500);
 
+// Read HUD cells BY LABEL, never by index. The first version indexed into
+// `.stats div`, so inserting one cell silently shifted every column and the
+// probe reported context under the heading "checked" — the same
+// one-word-two-quantities bug src/core/readouts.ts exists to prevent, in the
+// tool built to catch it.
 const read = async () => {
-  const cells = await page.$$eval('.stats div', (ds) =>
-    ds.map((d) => d.querySelector('b')?.textContent?.trim()));
+  const cells = await page.$$eval('.stats div', (ds) => Object.fromEntries(
+    ds.map((d) => [d.querySelector('span')?.textContent?.trim() ?? '?',
+                   d.querySelector('b')?.textContent?.trim() ?? '?'])));
   const head = await page.$eval('.headline b', (e) => e.textContent.trim());
   const nodes = await page.$$eval('.node', (n) => n.length);
   const dotted = await page.$$eval('.line', (n) => n.length);
-  return { t: 0, statements: head, tokens: cells[0], recovered: cells[1],
-           checked: cells[2], agreeing: cells[3], attention: cells[4], nodes, dotted };
+  return { t: 0, statements: head, passages: cells.passages, recovered: cells.recovered,
+           context: cells.context, checked: cells.checked, agreeing: cells.agreeing,
+           attention: cells.attention, nodes, dotted };
 };
 
 const log = [];
@@ -71,6 +78,15 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
     await page.waitForTimeout(150);
     continue;
   }
+  // Growing the context window comes before extracting: a full window blocks
+  // discovery outright, so a player who could afford it and did not would be
+  // measuring a stall they chose.
+  const grow = page.locator('button.act', { hasText: 'Grow context' });
+  if (await grow.count() && await grow.isEnabled().catch(() => false)) {
+    await grow.click().catch(() => {});
+    await page.waitForTimeout(150);
+    continue;
+  }
   const ex = page.locator('button.act', { hasText: 'Extract' });
   if (await ex.isEnabled().catch(() => false)) { await ex.click().catch(() => {}); }
   else await page.locator('button.act', { hasText: 'Salvage' }).click().catch(() => {});
@@ -78,12 +94,13 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
 }
 log.push({ ...(await read()), t: Math.floor((Date.now() - t0) / 1000) });
 
-console.log('t    stmts tok  rec  chk   agree att   nodes dotted');
+console.log('t    stmts psg  rec  context chk   agree att   nodes dotted');
 for (const r of log) {
   console.log(
-    String(r.t).padEnd(4), String(r.statements).padEnd(5), String(r.tokens).padEnd(4),
-    String(r.recovered).padEnd(4), String(r.checked).padEnd(5), String(r.agreeing).padEnd(5),
-    String(r.attention).padEnd(5), String(r.nodes).padEnd(5), r.dotted);
+    String(r.t).padEnd(4), String(r.statements).padEnd(5), String(r.passages).padEnd(4),
+    String(r.recovered).padEnd(4), String(r.context).padEnd(7), String(r.checked).padEnd(5),
+    String(r.agreeing).padEnd(5), String(r.attention).padEnd(5),
+    String(r.nodes).padEnd(5), r.dotted);
 }
 if (errors.length) console.log('ERRORS', errors);
 await page.screenshot({ path: process.argv[2] ?? 'play.png' });

@@ -240,6 +240,14 @@ export interface GameState {
    *  relation you actually hold text about — which is what relation extraction
    *  IS. Bounded, because a save is not a place to accumulate forever. */
   pool: number[];
+  /** THE CONTEXT WINDOW — how many concepts you can hold at once.
+   *
+   *  This was `ANCHOR_CAP = 240`: a hard cap that silently folded a concept away
+   *  the moment you exceeded it, named nothing and drawn nowhere. It was the
+   *  single most confusing rule in the game — concepts vanished and nothing told
+   *  you why. Now it is the thing you are playing to grow, and a real term: a
+   *  model's context window is exactly how much it can hold at once. */
+  contextWindow: number;
   /** 0..1 — the share of the CURRENT token stock that came from deep archives.
    *
    *  ⚠️ This is a COMPOSITION SUMMARY, not identity. `docs/ECONOMY.md` states as
@@ -287,7 +295,8 @@ export type Action =
    *  passages about, already yield-limited by the shell. They arrive UNCHECKED:
    *  an extractor proposes, it does not verify. */
   | { type: 'extract'; candidates: Edge[] }
-  | { type: 'setSource'; source: SalvageSource };  // where Salvage draws from
+  | { type: 'setSource'; source: SalvageSource }
+  | { type: 'growContext' };                       // spend checked statements for headroom  // where Salvage draws from
 
 // ---- content data types (SPEC "Content data types") ----
 

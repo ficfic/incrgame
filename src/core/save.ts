@@ -167,6 +167,16 @@ export const MIGRATIONS: Migration[] = [
   // one tap. `resources.data` is left exactly as it was, per the standing rule
   // that a saved field is never removed.
   (s) => ({ ...s, pool: [] }),
+  // v14 → v15 — ANCHOR_CAP becomes the CONTEXT WINDOW: visible, and something
+  // you grow. An existing save keeps every concept it is holding, because the
+  // window is seeded to whatever it already had. Shrinking it would evict
+  // concepts the player earned, which is the one thing this file exists to
+  // prevent.
+  (s) => {
+    const forged = (s.forged ?? {}) as { anchors?: number[] };
+    const held = forged.anchors?.length ?? 0;
+    return { ...s, contextWindow: Math.max(16, held) };
+  },
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

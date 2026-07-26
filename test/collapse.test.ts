@@ -6,7 +6,7 @@ import {
   apply, coverage, driftPerSecond, fidelity, initialState, lit, recovered,
   displayedFidelity, recoveryPerSecond, REFLECT_MIN_CONCEPTS, reviewQueue, reviewWeight,
   tick, verified, DISCOVER_MS, CONNECT_MS, attentionFree, pendingVignette,
-  attentionCap, extractionPerSecond,
+  attentionCap, extractionPerSecond, contextWindow, contextFull,
 } from '../src/core/engine';
 import { applyOfflineProgress } from '../src/core/offline';
 import { deserialize, serialize } from '../src/core/save';
@@ -199,10 +199,12 @@ describe('the world can no longer be finished by hand alone', () => {
       t += 1000;
       s = apply(s, { type: 'tick', dt: 1, now: t });
     }
-    // dozens of concepts found — and note the cap never grew past its base 4,
-    // because attention capacity is fed by lifetimeVerified and discovery no
-    // longer mints any. Connecting is what earns you room to think.
-    expect(s.forged.anchors.length).toBeGreaterThan(50);
+    // v15: this used to assert "more than 50 concepts found". The CONTEXT
+    // WINDOW now stops hand-discovery at its ceiling long before that, which
+    // makes this test's own claim — the world cannot be finished by hand —
+    // true by construction rather than by exhaustion. Assert the stronger fact.
+    expect(s.forged.anchors.length).toBe(contextWindow(s));
+    expect(contextFull(s)).toBe(true);
     // ...and none of them recovered, because nothing was ever connected
     expect(s.forged.edges).toHaveLength(0);
     expect(recovered(s)).toBe(0);
@@ -215,7 +217,12 @@ describe('the world can no longer be finished by hand alone', () => {
     // 240-anchor cap that made pure Discover-spam worth 3,856 / 4,096 coverage
     // with zero lines drawn and zero lit concepts — the same 2h34m hand-only
     // completion v11 exists to close, relocated one window along.
-    let s: GameState = { ...initialState(), lastTick: 1_000, lifetimeVerified: '1e6' };
+    // The window is opened to the render ceiling on purpose: this test is about
+    // what a FOLD credits, so the fold path has to be reachable at all.
+    let s: GameState = {
+      ...initialState(), lastTick: 1_000, lifetimeVerified: '1e6',
+      contextWindow: ANCHOR_CAP,
+    };
     let t = 1_000;
     for (let step = 0; step < 40_000 && s.forged.anchors.length <= ANCHOR_CAP + 30; step++) {
       for (let k = 0; k < 24; k++) {
@@ -585,6 +592,11 @@ describe('discovering past the anchor cap', () => {
     const edges = anchors.slice(1).map((id) => ({ a: id, b: 0, rel: 0, checked: true, fake: false }));
     return {
       ...s, lastTick: 1_000_000,
+      // v15: the cap under test is now the CONTEXT WINDOW, not the hardcoded
+      // ANCHOR_CAP. This board is deliberately at the window's ceiling so the
+      // eviction path still runs — without this the window is 16 and landing
+      // one concept on a 240-anchor board evicts 225 of them.
+      contextWindow: ANCHOR_CAP,
       forged: { ...s.forged, anchors, edges, links: [], nextId: ANCHOR_CAP, foldedNodes: '0' },
       bookings: [{ kind: 'discover' as const, until: 1_000_000 + DISCOVER_MS, node: ANCHOR_CAP, slot: 0 }],
     };
@@ -630,14 +642,28 @@ describe('discovering past the anchor cap', () => {
     // only dark anchors: there is never a lit victim, the fallback folds a dark
     // one, and dark folds are uncredited. Before v11, this exact loop reached
     // 3,856 / 4,096 with zero lines drawn.
+    //
+    // ⚠️ REWRITTEN AT v15. This loop used to be `while (attentionFree(s) > 0)`
+    // and it HUNG FOREVER the moment the context window shipped: a full window
+    // makes Discover a no-op, so attention never drains and the loop never
+    // ends. That is not a test bug — it is the test discovering that the
+    // exploit it guards against is now structurally impossible rather than
+    // merely unprofitable. The assertion is strengthened to say so.
     let s: GameState = { ...initialState(3), lastTick: 1_000_000 };
-    // 2,500 ticks: with no verified statements the cap stays at 4 and each
-    // discovery is 18s, so this is the pace a spammer actually achieves.
     for (let i = 0; i < 2500; i++) {
-      while (attentionFree(s) > 0) s = apply(s, { type: 'discover' });
+      // bounded: a full window returns the same state, and spinning on that is
+      // how this test hung
+      for (let n = 0; n < 64 && attentionFree(s) > 0; n++) {
+        const next = apply(s, { type: 'discover' });
+        if (next === s) break;
+        s = next;
+      }
       s = tick(s, 1);
     }
-    expect(s.forged.nextId).toBeGreaterThan(ANCHOR_CAP * 1.5); // it really did spam
+    // The spammer is stopped BY THE WINDOW, not by the old 240-anchor fold.
+    expect(s.forged.nextId).toBeLessThanOrEqual(contextWindow(s));
+    expect(contextFull(s)).toBe(true);
+    // ...and the point of the original test still holds: none of it counts.
     expect(Number(s.forged.foldedNodes)).toBe(0);
     expect(recovered(s)).toBe(0);
   });

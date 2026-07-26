@@ -432,3 +432,5 @@ inherit them by assumption.
       claimed 107,519 concepts (we ship 4,096) and 45 domains (we ship 26 — the
       curated build takes nouns only, and WordNet's 45 count includes verbs and
       adjectives a player can never encounter here).
+
+- [ ] Toast overlaps the source toggle when both are visible (seen 2026-07-26 in ctx2 probe shot).

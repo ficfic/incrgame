@@ -22,7 +22,7 @@ import { CONCEPT_BUDGET } from '../content/ontologyMeta';
 import { VIGNETTES } from '../content/vignettes';
 import { nextRand } from './rng';
 
-export const CURRENT_SAVE_VERSION = 14;
+export const CURRENT_SAVE_VERSION = 15;
 
 // Frontier Mining knobs (Chad's term sheet; tune by playing)
 const START_DATA = '15';        // enough to wire the first ~2 entities
@@ -52,6 +52,16 @@ const SALVAGE: Record<SalvageSource, { passages: number; tail: number }> = {
 /** Passages consumed by one Extraction. A fixed batch, so the yield percentage
  *  is legible: 20 in, ~9 out, and you can watch the 45% become 52%. */
 const EXTRACT_BATCH = 20;
+
+/** ---- THE CONTEXT WINDOW ------------------------------------------------
+ *
+ *  Starts small enough that you meet it in the first few minutes. `ANCHOR_CAP`
+ *  (240) stays as the RENDER budget — the window may never exceed it, because
+ *  the board still has to draw on a phone. */
+const CONTEXT_START = 16;
+const CONTEXT_STEP = 4;          // concepts bought per purchase
+const CONTEXT_BASE_COST = 12;    // checked statements for the first one
+const CONTEXT_COST_RATIO = 1.35;
 
 /** How many salvaged passages you may hold. A save is not an accumulator, and
  *  an unbounded array in state is a save-size bug waiting for a long session. */
@@ -216,6 +226,40 @@ export function attentionCap(state: GameState): number {
   return Math.max(1, Math.floor(earned * mod(state, 'capacity')));
 }
 
+/** How many concepts fit on the board. Never above the render budget: the
+ *  window is a game rule, ANCHOR_CAP is a phone's drawing limit, and the phone
+ *  wins. */
+export function contextWindow(state: GameState): number {
+  return Math.max(1, Math.min(ANCHOR_CAP, Math.floor(state.contextWindow)));
+}
+
+/** Concepts currently occupying the window — held ones plus work in flight, so
+ *  booking four discoveries into three free slots is impossible rather than
+ *  merely disappointing. */
+export function contextUsed(state: GameState): number {
+  return state.forged.anchors.length
+    + state.bookings.filter((b) => b.kind === 'discover').length;
+}
+
+export function contextFull(state: GameState): boolean {
+  return contextUsed(state) >= contextWindow(state);
+}
+
+/** Cost of the next +CONTEXT_STEP, in CHECKED statements.
+ *
+ *  Checked, not total: this is the sink the ladder never had, and pricing it in
+ *  the one thing you cannot mint by tapping keeps it a decision. */
+export function contextCost(state: GameState): string {
+  const bought = Math.max(0, Math.round((state.contextWindow - CONTEXT_START) / CONTEXT_STEP));
+  return scaleCost(String(CONTEXT_BASE_COST), CONTEXT_COST_RATIO, bought);
+}
+
+export const contextStep = (): number => CONTEXT_STEP;
+
+export function canGrowContext(state: GameState): boolean {
+  return contextWindow(state) < ANCHOR_CAP && gte(verified(state), contextCost(state));
+}
+
 /** Slots not reserved for supervision and not currently booked on work. */
 export function attentionFree(state: GameState): number {
   return Math.max(0, attentionCap(state) - state.supervised - state.bookings.length);
@@ -278,6 +322,7 @@ export function initialState(seed = 1): GameState {
     source: 'common',
     tokenTail: SALVAGE.common.tail,
     pool: [],
+    contextWindow: CONTEXT_START,
     coverage: { general: 0 },
     reflection: 0,
     graph: deriveGraph(forged, '0'), // one lonely anchor, zero statements
@@ -822,7 +867,7 @@ export function apply(state: GameState, action: Action): GameState {
           // edge here for free is what made the world hand-completable in 2h34m
           // without ever buying a machine.
           anchors = [...anchors, b.node];
-          while (anchors.length > ANCHOR_CAP) {
+          while (anchors.length > contextWindow(state)) {
             // EVICT THE DARK FIRST, and never the root.
             //
             // Folding by age alone did two bad things. It threw away the
@@ -950,6 +995,11 @@ export function apply(state: GameState, action: Action): GameState {
       // +1 anchor and +1 VERIFIED statement for nodes with nothing behind them —
       // an infinite faucet of the one thing the game says is scarce.
       if (state.forged.nextId >= CONCEPT_BUDGET) return state;
+      // THE CONTEXT WINDOW. A full window blocks discovery outright instead of
+      // quietly folding a concept away the moment the next one lands. The old
+      // silent eviction is why concepts vanished with nothing on screen to
+      // explain it; a wall you can see and pay to move is a mechanic.
+      if (contextFull(state)) return state;
       const node = state.forged.nextId;
       // take the lowest free ring slot so discoveries never share a position
       const taken = new Set(state.bookings.map((b) => b.slot));
@@ -1132,6 +1182,22 @@ export function apply(state: GameState, action: Action): GameState {
         modifiers,
         flags: choice.flag ? { ...state.flags, [choice.flag]: true } : state.flags,
         vignette: { active: null, seen: [...state.vignette.seen, v.id] },
+      };
+    }
+
+    case 'growContext': {
+      if (!canGrowContext(state)) return state;
+      const cost = contextCost(state);
+      // Paid out of UNVERIFIED first would be free money; the price is checked
+      // work, so it comes off the verified pool by adding to `unverified`,
+      // leaving the statements on the board and their trust spent.
+      return {
+        ...state,
+        contextWindow: Math.min(ANCHOR_CAP, state.contextWindow + CONTEXT_STEP),
+        provenance: {
+          ...state.provenance,
+          unverified: add(state.provenance.unverified, cost),
+        },
       };
     }
 
