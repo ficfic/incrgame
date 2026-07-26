@@ -437,7 +437,16 @@
   .app {
     position: relative;
     display: flex; flex-direction: column;
-    height: 100dvh;
+    /* MIN-height, not height. A fixed 100dvh column is fine until the page is
+       zoomed — and zoom persists per-site on iOS, so the owner arrived already
+       zoomed from a previous session. A fixed-height column cannot reflow, so
+       zooming turned the UI into an unreachable crop with scrollbars on both
+       axes. With min-height the page simply gets taller than the window and you
+       scroll it, which is what every other website does. */
+    min-height: 100dvh;
+    /* header at the top, controls at the bottom, graph between — so leftover
+       height never opens a gap under the credit */
+    justify-content: space-between;
     color: #cfe0e8;
     font: 400 14px/1.3 ui-sans-serif, system-ui, -apple-system, sans-serif;
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
@@ -457,7 +466,18 @@
   .bad { color: #b0566b; }
 
   /* ---- stage: the graph fills whatever is left ---- */
-  .stage { flex: 1 1 auto; position: relative; min-height: 0; overflow: hidden; }
+  /* The graph needs a real size of its own rather than "whatever is left",
+     because "whatever is left" is nothing once the page can scroll. Square-ish
+     and bounded: big enough to read, never so tall that the dock falls off. */
+  .stage {
+    flex: 1 1 auto; position: relative; overflow: hidden;
+    /* The graph is a CIRCLE, so its useful size is bounded by the narrower
+       dimension. Letting the stage absorb every spare pixel left a 440-wide
+       ring floating in an 1150-tall box with dead bands above and below. Bound
+       it to roughly square and give the slack back to the column. */
+    min-height: min(52vh, 92vw);
+    max-height: min(72vh, 118vw);
+  }
   canvas { position: absolute; inset: 0; display: block; }
 
   .node, .line, .finding { position: absolute; left: 0; top: 0; will-change: transform; }
@@ -511,6 +531,8 @@
 
   /* ---- dock ---- */
   .dock { flex: 0 0 auto; padding: 4px 8px 6px; }
+  /* clear of the mobile browser's bottom chrome, which was cutting the credit */
+  .credit { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
   .ticker {
     display: flex; flex-direction: column; align-items: center;
     gap: 1px; margin-bottom: 5px; min-height: 1.1em;

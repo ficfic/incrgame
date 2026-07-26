@@ -945,3 +945,22 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
 ~74 are reachable inside a 240-anchor window. Re-slice for edge density, target
 ≈2,500 global non-is-a edges; ConceptNet's measured 547 at the current slice is
 ~5× short, so the re-slice comes first.
+
+- 2026-07-25 — **The app is a PAGE, not a fixed-height column.** Owner
+  screenshots showed the UI scrolled into the middle of itself — scrollbars on
+  both axes, headline clipped at the top, Discover clipped at the bottom,
+  "…096 recovered" cut off at the left. It did not reproduce at 390×844 in a
+  headless browser, and the reason is that **zoom persists per-site on iOS**: the
+  owner arrived still zoomed from an earlier session. A `height: 100dvh` column
+  cannot reflow, so a zoomed page becomes an unreachable crop — the same failure
+  as the `position: fixed` trap, one level up.
+  `min-height: 100dvh` instead, with `justify-content: space-between`, and the
+  stage bounded to roughly square (`min-height: min(52vh, 92vw)`,
+  `max-height: min(72vh, 118vw)`) rather than absorbing every spare pixel — a
+  440-wide ring was floating in an 1150-tall box with dead bands above and below.
+  `band()`'s inset now clears a LABEL rather than a dot: at −22 a concept on the
+  rim had its name clipped by the stage edge and the ring touched both screen
+  edges. The ring sits inside the node radius, so nothing is drawn outside the
+  box.
+  Verified with no horizontal overflow and no clipped labels at 440×956
+  (the owner's device), 320×568 and 844×390 landscape.

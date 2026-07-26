@@ -19,8 +19,14 @@ export interface Band { cx: number; cy: number; core: number; outer: number; rin
  *  flexbox handed us between the header and the dock — so this can never
  *  disagree with the layout the way a hardcoded `h - 168` did. */
 export function band(w: number, h: number): Band {
-  const outer = Math.max(40, Math.min(w, h) / 2 - 22);
-  return { cx: w / 2, cy: h / 2, outer, core: outer * 0.86, ring: outer + 10 };
+  // The inset has to clear a LABEL, not just a dot. At `-22` a concept on the
+  // rim had its name clipped by the stage edge — "physical entity" is ~90px
+  // wide — and the ring itself touched both sides of the screen. The ring sits
+  // INSIDE the node radius now, so nothing is drawn outside the box.
+  const inset = Math.min(56, Math.max(26, Math.min(w, h) * 0.14));
+  const ring = Math.max(40, Math.min(w, h) / 2 - inset * 0.5);
+  const outer = ring - inset * 0.5;
+  return { cx: w / 2, cy: h / 2, outer, core: outer * 0.9, ring };
 }
 
 function jitter(i: number, salt: number): number {
