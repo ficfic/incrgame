@@ -1137,3 +1137,38 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   us; a Reset ("⤢ fit") control is on screen whenever the view has been moved.
   Easing moved from screen space to WORLD space, so zoom is instant (it is only
   a transform) and only real movement is animated.
+- 2026-07-26 — **The graph's physics is d3-force now; we stopped inventing.**
+  Owner: "i want us to use some proper existing library to render graphs instead
+  of this. it works, but i don't think we should invent stuff… i want things to
+  move around and wiggle like obsidian does it." Correct call — placement had
+  been hand-rolled twice (golden-angle spiral, then radial taxonomy with sibling
+  sectors), ~200 lines of bespoke geometry for a solved problem.
+  Chosen by chips, all three as recommended: **d3-force for the simulation while
+  we keep our own renderer**; **free-floating** layout like Obsidian; **drag
+  enabled**. d3-force is ISC, ~12KB, no DOM, no framework.
+  Explicitly NOT force-graph/sigma/cytoscape: they render LABELS ON CANVAS, and
+  canvas text is precisely what broke this game before (overlapping words, tap
+  targets drifting from what you can see). Labels stay DOM, lines stay canvas,
+  the camera stays ours. `layout.ts` deleted; `sim.ts` + `detail.ts` replace it.
+  **Bug worth remembering: forces were first tuned against a unit-radius world.**
+  d3's magnitudes assume pixel-scale coordinates — a charge of −26 against a
+  link distance of 0.12 is repulsion ~200× stronger than the springs. The graph
+  flew to infinity, every node was culled off-screen, and the board rendered
+  EMPTY with no error in the console. The sim now runs in `SIM_UNITS` (~300) and
+  normalises on the way out, and `test/sim.test.ts` asserts positions stay
+  finite and within a sane radius.
+- 2026-07-26 — **Labels are decluttered in screen space, not by formula.** Three
+  formulas shipped overlapping text in a row: one constant for every label; then
+  each label's own width; then arc length at the node's ring (which flattered
+  inner rings by MAX_DEPTH/depth). Now: sort by weight, place a label only if its
+  box misses every box already placed — the standard map-label approach. A rule
+  that compares boxes cannot overlap boxes. The box hangs from the dot's EDGE,
+  not its centre, because `top: 100%` in the CSS means the radius counts.
+- 2026-07-26 — **The alignment check's "root at the stage centre" assertion was
+  retired, not fixed.** It was exactly right for the radial layout, where the
+  root WAS the world origin. Under a free-floating simulation `entity` is pulled
+  around like everything else and has no claim on the middle, so the assertion
+  outlived its layout and failed correct code by 7px. Replaced with the property
+  that does hold: `forceCenter` keeps the board's CENTROID at the origin.
+  Measured after: centroid within 0.5px, board spanning 64–71% of the short side.
+  Both rewritten assertions verified to go red before committing.

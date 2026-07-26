@@ -69,10 +69,12 @@ the single most useful thing on this page.
   header / stage / dock.
 - **`src/render/paint.ts`** draws ONLY lines, the drifting substrate and the
   provenance ring, into a canvas that fills the stage.
-- **`src/render/layout.ts`** decides WHERE a concept goes and WHETHER it is
-  drawn: radial taxonomy placement (radius = depth, angle inherited from the
-  parent) plus level-of-detail. Pure functions over an injected `parentOf`, and
-  unit-tested against the real dataset in `test/layout.test.ts`.
+- **`src/render/sim.ts`** wraps **d3-force** — the graph's physics. Free-floating
+  layout, drag support, reheats when a concept lands, stops when settled.
+  Tuned in its own ~300-unit space and normalised out (`test/sim.test.ts`).
+- **`src/render/detail.ts`** decides whether you can SEE a concept: weight from
+  taxonomic generality, a per-zoom budget, roll-up counts, and greedy
+  screen-space label decluttering. Pure (`test/detail.test.ts`).
 - **`src/render/board.ts`** is pure geometry and holds **the camera** —
   `cameraFor` (box + zoom + pan), `toScreen`/`toWorld`, `frontierPos`,
   `isRotted`, `stageHue`, `relHue`. No DOM, no state. Everything with a place on

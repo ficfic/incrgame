@@ -69,33 +69,34 @@ survived six pivots and is the thing to check new code against:
    where the camera put it. That check would fail a correct board and send the
    next session tuning offsets into a system that has none.
 
-6. **POSITION MEANS SOMETHING, AND ZOOM MEANS SOMETHING.** Nodes used to sit at
-   `radius = √(i/n)`, `angle = i × goldenAngle` — position by DISCOVERY ORDER,
-   which is to say position meant nothing: neighbours were unrelated and zooming
-   magnified a random scatter. At 21 concepts the labels already collided; the
-   dataset holds 4,096.
-   `src/render/layout.ts` now places concepts by the taxonomy the dataset
-   already ships (`p` = parent index, a tree rooted at `entity`):
-   **radius is depth**, **angle is inherited** — a concept owns a sector of its
-   parent's sector, so a subtree is a wedge you can zoom into and find only
-   related things — and **weight is the width of that sector**, i.e. measured
-   taxonomic generality, which drives both dot size and whether a node is drawn.
-   Siblings split their parent's wedge EQUALLY. Proportional-to-subtree-size was
-   written first and a test caught the cost: one new leaf changes its parent's
-   size, its grandparent's share, and re-divides the whole circle — every
-   discovery moving all 240 nodes, the exact complaint the spiral was replaced
-   to fix. Equal shares confine movement to the branch that actually changed.
-   `levelOfDetail` culls by the rim a concept owns at the current scale, rolls
-   the rest up into their nearest VISIBLE ancestor with a count (a superclass
-   standing in for its members is what a superclass means), and decides labels
-   against each label's OWN width — one shared constant made "set" and
-   "psychological feature" ask for identical room, so the long ones overlapped.
-   Measured on the shipped dataset at the 240-anchor cap: 32 dots and 18 labels
-   at rest, 187 dots at 5×, everything by 18×.
-   Layout and LOD are pure functions over an injected `parentOf`, so this is the
-   first time placement has been unit-testable at all — including against the
-   real 4,096-concept tree, which no browser test can reach at 18s per
-   discovery.
+6. **THE GRAPH'S PHYSICS IS A LIBRARY, NOT OURS.** Placement was hand-rolled
+   twice — a golden-angle spiral, then a radial taxonomy with sectors divided
+   among siblings — roughly 200 lines of bespoke geometry solving a problem that
+   has a standard solution. It is **d3-force** now (ISC, ~12KB, no DOM, no
+   framework), wrapped in `src/render/sim.ts`: many-body repulsion, links as
+   springs, collision, centring. The layout is FREE-FLOATING, like Obsidian's —
+   position means "what is connected to what" and nothing else, clusters emerge
+   from the links, and you can drag a concept and watch its neighbours follow.
+   **The library does not render.** That is why this wraps d3-force rather than
+   adopting a batteries-included graph package: those draw labels on canvas, and
+   canvas text is what broke this game before. Labels stay DOM, lines stay
+   canvas, the camera stays ours. d3-force is asked one thing: where the nodes
+   are.
+   Forces are tuned in the library's own regime (`SIM_UNITS`, a ~300-unit
+   world) and normalised on the way out. Configured against a unit-radius world
+   instead — the first attempt — a charge of −26 against a link distance of 0.12
+   is repulsion two hundred times stronger than the springs: the graph flew to
+   infinity, every node was culled off-screen, and the board rendered EMPTY.
+   `src/render/detail.ts` keeps what physics cannot supply: **weight is
+   taxonomic generality**, straight from the dataset's parent tree, so size and
+   visibility mean something real rather than reflecting when you happened to
+   discover a concept. Hidden concepts roll up into their nearest visible
+   ancestor with a count. Labels are placed by **greedy screen-space
+   decluttering** — heaviest first, drawn only if the box misses every box
+   already placed. That is how map renderers do it, and it is here because three
+   successive attempts to decide labels by formula (one constant for all; then
+   each word's own width; then arc length at the node's ring) each shipped
+   overlapping text. A rule that compares boxes cannot overlap boxes.
 
 7. **THE PLAYER CAN ALWAYS GET BACK.** Pinch-zoom inside this page has trapped
    its player twice, so the rules are written down, not felt out: the stage is

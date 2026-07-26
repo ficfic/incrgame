@@ -33,7 +33,8 @@
   import {
     cameraFor, clampZoom, frontierPos, isRotted, relHue, stageHue, toScreen, toWorld,
   } from '../render/board';
-  import { dotRadius, layout, levelOfDetail } from '../render/layout';
+  import { detail, dotRadius, weigh } from '../render/detail';
+  import { GraphSim } from '../render/sim';
   import { paintGraph } from '../render/paint';
   import { ticker } from '../shell/ticker';
 
@@ -91,114 +92,107 @@
   let panY = $state(0);
   let follow = $state(true);
 
-  // Where every anchor belongs in the WORLD, from the taxonomy. This module
-  // does no geometry of its own — that was the disease.
-  const placed = $derived.by(() => {
+  // ---- THE GRAPH ---------------------------------------------------------
+  //
+  // d3-force decides where nodes are (see render/sim.ts). This module does no
+  // geometry of its own — that was the disease, twice: a golden-angle spiral,
+  // then a hand-rolled radial taxonomy. Both worked; both were bespoke answers
+  // to a problem with a standard one.
+  //
+  // WEIGHT still comes from the taxonomy, because position no longer can: the
+  // layout is free-floating, so how central a node looks is an outcome of the
+  // physics, not a statement about the concept.
+  const weights = $derived.by(() => {
     void $ontologyRevision;
-    return layout($game.forged.anchors, (id) => conceptAt(id)?.parent ?? -1);
+    return weigh($game.forged.anchors, (id) => conceptAt(id)?.parent ?? -1);
   });
 
-  /** In follow mode, frame the rings that actually have something on them.
-   *  Early on the board only reaches ring 2 of 5, and showing the empty outer
-   *  60% of the world would make eight concepts look like a rounding error. */
+  /** The springs. Every concept is pulled toward the ancestor it was recovered
+   *  through, plus every line you have actually drawn — so clusters are made of
+   *  real relationships, and drawing a connection visibly tightens the graph. */
+  const springs = $derived.by(() => {
+    const out: Array<{ a: number; b: number }> = [];
+    const seen = new Set<string>();
+    for (const [id, n] of weights) {
+      if (n.parent >= 0) { out.push({ a: id, b: n.parent }); seen.add(`${id}:${n.parent}`); }
+    }
+    for (const e of $game.forged.edges) {
+      const k = `${e.a}:${e.b}`;
+      if (!seen.has(k) && !seen.has(`${e.b}:${e.a}`)) { out.push({ a: e.a, b: e.b }); seen.add(k); }
+    }
+    return out;
+  });
+
+  const sim = new GraphSim();
+  let simTick = $state(0); // bumped while the simulation is still moving
+
+  $effect(() => {
+    sim.sync({
+      nodes: [...weights.values()].map((n) => ({ id: n.id, weight: n.weight })),
+      links: springs,
+    });
+  });
+
+  /** In follow mode the board frames itself: zoom so the furthest concept sits
+   *  near the edge of the stage. A force layout has no fixed extent — eight
+   *  concepts settle into a cluster a few dozen units across while two hundred
+   *  spread right out — so a fixed zoom leaves a small graph as a speck in an
+   *  empty box. Measured before this: 16% of the short side.
+   *
+   *  It re-fits continuously, which for a settling simulation reads as the
+   *  board arranging itself and then holding still. That is only tolerable
+   *  because the simulation converges; a camera chasing something that never
+   *  settles would breathe forever. */
   const followZoom = $derived.by(() => {
+    void simTick;
     let far = 0;
-    for (const p of placed.values()) far = Math.max(far, Math.hypot(p.x, p.y));
-    return clampZoom(1 / Math.max(0.28, far * 1.12));
+    for (const p of sim.positions().values()) far = Math.max(far, Math.hypot(p.x, p.y));
+    return clampZoom(1.06 / Math.max(0.1, far));
   });
 
   const cam = $derived(follow
     ? cameraFor(w, h, followZoom, 0, 0)
     : cameraFor(w, h, zoom, panX, panY));
 
-  /** Roughly how wide a concept's name renders, in px. The labels are 0.62rem
-   *  in the system UI font; ~5.4px per character is close enough to decide
-   *  whether the word fits, and it costs nothing — measuring 240 labels per
-   *  frame with `getBoundingClientRect` would force a layout every frame. */
-  const labelPx = (id: number): number => {
+  /** Screen positions — the ONE map the DOM node layer, the line buttons and
+   *  the canvas painter all read. */
+  const screenPos = $derived.by(() => {
+    void simTick;
+    const out = new Map<number, { x: number; y: number }>();
+    for (const [id, p] of sim.positions()) out.set(id, toScreen(cam, p));
+    return out;
+  });
+
+  /** Roughly how wide a concept's name renders, in px. Labels are 0.62rem in
+   *  the system UI font; ~5.4px per character is close enough to place them,
+   *  and it costs nothing — measuring 240 labels a frame with
+   *  `getBoundingClientRect` would force a layout every frame. */
+  const labelPx = (id: number, folded: number): number => {
     const label = conceptForNode(id)?.label;
-    return label ? label.length * 5.4 + 6 : 40;
+    if (!label) return 40;
+    return (label.length + (folded > 0 ? String(folded).length + 2 : 0)) * 5.4 + 6;
   };
 
   /** What survives at this zoom, and what is folded into what. */
   const lod = $derived.by(() => {
-    void $ontologyRevision;
-    return levelOfDetail(placed, cam.scale, labelPx);
+    void $ontologyRevision; void simTick;
+    return detail(weights, {
+      zoom: follow ? followZoom : zoom, screen: screenPos, w, h, labelWidth: labelPx,
+    });
   });
   const rolledUp = $derived(lod.rolled);
 
-  // ---- EASED POSITIONS, IN WORLD SPACE ----------------------------------
+  // No hand-rolled easing any more. There used to be a `live` map eased toward
+  // a computed target every frame, with its own frame-rate-independent curve
+  // and its own settle threshold — a small physics engine, written here,
+  // because placement was a formula and something had to animate the jump
+  // between one formula's answer and the next.
   //
-  // `live` holds WORLD coordinates and eases toward the taxonomy's answer; the
-  // camera is applied afterwards, at render. That split matters: easing used to
-  // run on screen pixels, which meant a pinch had to be chased frame by frame
-  // and zooming felt like dragging the board through treacle. Now zoom is
-  // instant (it is only a transform) and only real MOVEMENT — a concept landing,
-  // a wedge re-dividing to make room for a sibling — is animated.
-  //
-  // Eased here rather than with a CSS transition because the canvas lines and
-  // the DOM nodes must agree to the pixel every frame, and a CSS transition
-  // would animate only half of them. A newly landed concept enters from the ring
-  // slot its discovery timer occupied, so it flies in from where you watched it
-  // being found.
-  const live = new Map<number, { x: number; y: number }>();
-  const slotOf = new Map<number, number>();
-  let settled = $state(0); // bumped only while something is still moving
-
-  $effect(() => {
-    for (const b of $game.bookings) {
-      if (b.kind === 'discover' && b.node !== undefined) slotOf.set(b.node, b.slot ?? 0);
-    }
-  });
-
-  /** Move `live` a step toward the layout. Returns true if anything moved — the
-   *  caller stops re-rendering once nothing does, so a settled board costs
-   *  nothing per frame. */
-  function ease(dt: number): boolean {
-    // Frame-rate independent: `remaining = BASE^seconds`, so the curve is the
-    // same at 30fps and 120fps. BASE 0.05 settles ~88% in 0.7s — slow enough to
-    // read as movement, fast enough not to feel laggy.
-    const k = 1 - Math.pow(0.05, Math.min(0.05, dt));
-    // world units; the disc is radius 1, so this is well under a pixel
-    const EPS = 0.0008;
-    let moving = false;
-    for (const [id, t] of placed) {
-      let cur = live.get(id);
-      if (!cur) {
-        // first sight: enter from the discovery ring slot we watched it in,
-        // or from its final place for anything that simply exists (a loaded save)
-        const slot = slotOf.get(id);
-        cur = slot === undefined
-          ? { x: t.x, y: t.y }
-          : toWorld(cam, frontierPos(slot, w, h));
-        live.set(id, cur);
-      }
-      const dx = t.x - cur.x, dy = t.y - cur.y;
-      if (Math.abs(dx) < EPS && Math.abs(dy) < EPS) { cur.x = t.x; cur.y = t.y; continue; }
-      cur.x += dx * k; cur.y += dy * k;
-      moving = true;
-    }
-    for (const id of live.keys()) if (!placed.has(id)) live.delete(id);
-    return moving;
-  }
-
-  /** Screen positions for everything on the board — the ONE map both the DOM
-   *  node layer and the canvas painter read. */
-  const screenPos = $derived.by(() => {
-    void settled;
-    const out = new Map<number, { x: number; y: number }>();
-    for (const [id, p] of placed) out.set(id, toScreen(cam, live.get(id) ?? p));
-    return out;
-  });
-
-  /** 0 when a node is home, →1 the further it still has to travel. Drives the
-   *  arrival flare, so a concept visibly lands rather than appearing. */
-  function arrivalOf(id: number): number {
-    const t = placed.get(id), p = live.get(id);
-    if (!t || !p) return 0;
-    const d = Math.hypot(t.x - p.x, t.y - p.y);
-    return d < 0.004 ? 0 : Math.min(1, d / 0.5);
-  }
+  // The simulation IS the animation now. d3-force integrates velocities, so
+  // nodes drift, overshoot slightly and settle on their own; the graph reacts
+  // to a new concept instead of teleporting to a new arrangement. `step()`
+  // reports whether anything is still moving, so a settled board stops
+  // repainting and a phone stops burning battery holding a picture still.
 
   /** Off-screen is not worth a DOM node. Zoomed in, most of the board is
    *  outside the stage, and Svelte was still writing a transform for every one
@@ -208,21 +202,24 @@
     p.x > -80 && p.x < w + 80 && p.y > -40 && p.y < h + 40;
 
   const nodes = $derived.by(() => {
-    void $ontologyRevision; void settled;
-    return lod.shown.filter((n) => inView(screenPos.get(n.id) ?? { x: -999, y: -999 })).map((n) => {
-      const p = screenPos.get(n.id) ?? { x: w / 2, y: h / 2 };
-      const folded = rolledUp.get(n.id) ?? 0;
-      return {
-        id: n.id, x: p.x, y: p.y,
-        r: dotRadius(n),
-        label: lod.labelled.has(n.id) ? conceptForNode(n.id)?.label ?? '' : '',
+    void $ontologyRevision; void simTick;
+    const out = [];
+    for (const id of lod.shown) {
+      const p = screenPos.get(id);
+      if (!p || !inView(p)) continue;
+      const folded = rolledUp.get(id) ?? 0;
+      out.push({
+        id, x: p.x, y: p.y,
+        r: dotRadius(weights.get(id)?.weight ?? 0.2, id === 0),
+        label: lod.labelled.has(id)
+          ? (conceptForNode(id)?.label ?? '') + (folded > 0 ? ` ·${folded}` : '')
+          : '',
         folded,
-        root: n.id === 0,
-        rotted: isRotted(n.id, trust),
-        // still travelling: a landing concept flares until it settles
-        arriving: arrivalOf(n.id),
-      };
-    });
+        root: id === 0,
+        rotted: isRotted(id, trust),
+      });
+    }
+    return out;
   });
 
   // Tappable midpoints for the dotted lines. Real buttons, so they hit-test
@@ -238,7 +235,7 @@
    *  level has folded away has nowhere to land, and drawing it anyway is how
    *  you get the hairball in the screenshot — every edge crossing the middle,
    *  because both ends were plotted regardless of whether you could see them. */
-  const onScreen = $derived(new Set(lod.shown.map((n) => n.id)));
+  const onScreen = $derived(new Set(lod.shown));
 
   const dotted = $derived.by(() => {
     const drawn = new Set($game.forged.edges.map((e) => `${e.a}:${e.b}:${e.rel}`));
@@ -247,7 +244,7 @@
   });
 
   const openLines = $derived.by(() => {
-    void settled;
+    void simTick;
     const flight = new Set($game.bookings.filter((b) => b.edge)
       .map((b) => `${b.edge!.a}:${b.edge!.b}:${b.edge!.rel}`));
     const c = { x: w / 2, y: h / 2 };
@@ -332,10 +329,23 @@
     return { x, y, dist: b ? Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY) : 0 };
   };
 
+  /** How close a finger has to land to count as aiming at a node. A fingertip
+   *  is ~44px across, but a grab radius that generous would swallow every pan
+   *  on a crowded board, so this is the dot plus a little. */
+  const GRAB_PX = 22;
+
   function onTouchStart(e: TouchEvent): void {
     if (!grabbing) return;
     takeControl();
     grip = centreOf(e.touches);
+    // One finger landing ON a concept grabs it; anything else pans. Two fingers
+    // are always a pinch, never a drag — you cannot aim a pinch at one node.
+    if (e.touches.length === 1 && stage) {
+      const box = stage.getBoundingClientRect();
+      const at = toWorld(cam, { x: grip.x - box.left, y: grip.y - box.top });
+      const hit = sim.pick(at.x, at.y, GRAB_PX / cam.scale);
+      if (hit !== null) sim.grab(hit);
+    }
   }
 
   function onTouchMove(e: TouchEvent): void {
@@ -343,6 +353,16 @@
     e.preventDefault(); // we own this gesture; rule 3 above decided that already
     const now = centreOf(e.touches);
     const box = stage.getBoundingClientRect();
+
+    // Dragging a concept: move it, leave the camera alone. Its neighbours come
+    // along on their springs, which is most of what makes the graph feel alive.
+    if (sim.isDragging && now.dist === 0) {
+      const at = toWorld(cam, { x: now.x - box.left, y: now.y - box.top });
+      sim.dragTo(at.x, at.y);
+      grip = now;
+      return;
+    }
+    if (sim.isDragging) sim.release(); // a second finger arrived: it is a pinch now
 
     if (now.dist > 0 && grip.dist > 0) {
       // Pinch. Keep the point between the fingers pinned: convert it to world
@@ -361,8 +381,28 @@
   }
 
   function onTouchEnd(e: TouchEvent): void {
+    if (e.touches.length === 0) sim.release();
     grip = e.touches.length > 0 ? centreOf(e.touches) : null;
   }
+
+  // Mouse equivalents, so the drag is exercisable in a browser test without
+  // synthesising a touch sequence — and so it works on a desktop at all.
+  let mouseDown = false;
+  function onMouseDown(e: MouseEvent): void {
+    if (!stage) return;
+    takeControl();
+    const box = stage.getBoundingClientRect();
+    const at = toWorld(cam, { x: e.clientX - box.left, y: e.clientY - box.top });
+    const hit = sim.pick(at.x, at.y, GRAB_PX / cam.scale);
+    if (hit !== null) { sim.grab(hit); mouseDown = true; }
+  }
+  function onMouseMove(e: MouseEvent): void {
+    if (!mouseDown || !stage || !sim.isDragging) return;
+    const box = stage.getBoundingClientRect();
+    const at = toWorld(cam, { x: e.clientX - box.left, y: e.clientY - box.top });
+    sim.dragTo(at.x, at.y);
+  }
+  function onMouseUp(): void { mouseDown = false; sim.release(); }
 
   /** Desktop and, more importantly, a testable path that does not need a
    *  synthetic multi-touch sequence. */
@@ -417,10 +457,9 @@
     let last = 0;
     const frame = (t: number): void => {
       now = t;
-      const dt = last ? (t - last) / 1000 : 0;
-      last = t;
-      // ease first, so the canvas and the DOM read the same positions this frame
-      if (ease(dt)) settled++;
+      // step the simulation first, so the canvas and the DOM read the same
+      // positions this frame
+      if (sim.step()) simTick++;
       if (canvas && w > 0 && h > 0) {
         paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, dotted, pos: screenPos, cam });
       }
@@ -508,6 +547,8 @@
     class="stage" class:grabbing bind:this={stage}
     ontouchstart={onTouchStart} ontouchmove={onTouchMove}
     ontouchend={onTouchEnd} ontouchcancel={onTouchEnd}
+    onmousedown={onMouseDown} onmousemove={onMouseMove}
+    onmouseup={onMouseUp} onmouseleave={onMouseUp}
     onwheel={onWheel}
   >
     <canvas bind:this={canvas} style="width:{w}px;height:{h}px"></canvas>
@@ -539,9 +580,8 @@
          what the player actually owns. -->
     {#each nodes as n (n.id)}
       <div class="node" class:root={n.root} class:rotted={n.rotted}
-           class:arriving={n.arriving > 0} class:holding={n.folded > 0}
-           style="transform:translate({n.x}px,{n.y}px) translate(-50%,-50%);--in:{n.arriving};--r:{n.r}px">
-        {#if n.folded > 0}<i>{n.folded}</i>{/if}
+       class:holding={n.folded > 0}
+           style="transform:translate({n.x}px,{n.y}px) translate(-50%,-50%);--r:{n.r}px">
         {#if n.label}<span>{n.label}</span>{/if}
       </div>
     {/each}
@@ -801,17 +841,11 @@
   /* Holding folded concepts: a ring, so a superclass standing in for its
      members looks fuller than a bare one. */
   .node.holding { box-shadow: 0 0 0 1.5px hsl(var(--hue) 55% 40%); }
-  .node i {
-    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-    margin-bottom: 2px; font-style: normal; font-size: 0.54rem; font-weight: 700;
-    color: hsl(var(--hue) 45% 58%); text-shadow: 0 1px 3px #080b11;
-  }
+  /* No separate count badge. It used to be its own element above the dot — a
+     second piece of text that nothing measured, so it landed on the
+     neighbouring label. The count rides inside the label instead, where the
+     level-of-detail width check already covers it. */
   .node.rotted { background: #b0566b; }
-  /* An arriving concept flares and shrinks into place. `--in` is 1 when it is
-     furthest from home and 0 when it settles, so this is driven by the same
-     eased position the canvas is drawing to — not by a duplicate timer. */
-  .node.arriving { box-shadow: 0 0 calc(var(--in) * 22px) hsl(var(--hue) 85% 70%); }
-  .node.arriving span { opacity: calc(1 - var(--in)); }
   /* absolutely positioned, so it cannot influence where the dot sits */
   .node span {
     position: absolute; top: 100%; left: 50%; transform: translateX(-50%);

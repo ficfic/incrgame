@@ -176,17 +176,17 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
   // days while the graph sat 30px left of centre and used 49% of the width,
   // because a faithfully-rendered wrong coordinate is still faithful. Agreement
   // is not correctness; this half checks the coordinates themselves.
-  // Three properties, each true at EVERY node count — which rules out the
-  // tempting-but-wrong test of "is the node cloud's bounding box centred".
-  // It is not, and should not be: five points of a golden-angle spiral have
-  // not reached their own extremes yet, so their box is lopsided by ~30px
-  // while every one of them is exactly where the camera put it. Asserting
-  // that would have failed a correct board and sent the next session tuning
-  // offsets into a system that had none. What the camera actually promises is
-  // below: origin at centre, rim on screen, nothing clipped.
+  // Three properties, each true at every node count.
+  //
+  // This used to assert "the ROOT sits at the stage centre", which was exactly
+  // right for the radial taxonomy layout — the root WAS the world origin. The
+  // layout is a d3-force simulation now and free-floating by design: `entity`
+  // is pulled around by the same springs as everything else and has no claim on
+  // the middle. That assertion outlived its layout and failed correct code by
+  // 7px. What holds instead is that `forceCenter` keeps the board's CENTROID at
+  // the origin, so that is what gets checked.
   const dots = rows.filter((r) => r.node);
-  const root = dots.find((r) => String(r.label).trim() === 'entity') ?? dots[0];
-  if (dots.length < 3 || !root) {
+  if (dots.length < 3) {
     // an empty board means the game never ran here, not that the layout is
     // wrong — a skip, loudly, not a red gate
     skipped.push(`${tag}: only ${dots.length} nodes on the board`);
@@ -194,17 +194,21 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
     const cx = stage.w / 2, cy = stage.h / 2;
     const shorter = Math.min(stage.w, stage.h);
 
-    // 1. the world origin is the stage centre. The root concept lives there,
-    //    so this is checkable without importing the camera.
-    const offX = root.wantX - cx, offY = root.wantY - cy;
-    if (Math.abs(offX) > TOLERANCE || Math.abs(offY) > TOLERANCE) {
-      failures.push(`  ${tag} · root sits (${offX.toFixed(1)}, ${offY.toFixed(1)}) from the stage centre`);
+    // 1. the board as a whole is centred. `forceCenter` pulls the centroid to
+    //    the origin, and the camera puts the origin at the stage centre.
+    const meanX = dots.reduce((a, r) => a + r.wantX, 0) / dots.length;
+    const meanY = dots.reduce((a, r) => a + r.wantY, 0) / dots.length;
+    const offX = meanX - cx, offY = meanY - cy;
+    // a settling simulation is never exactly balanced; 12% of the box is loose
+    // enough for that and far tighter than a board drifting into a corner
+    if (Math.abs(offX) > stage.w * 0.12 || Math.abs(offY) > stage.h * 0.12) {
+      failures.push(`  ${tag} · board centre is (${offX.toFixed(1)}, ${offY.toFixed(1)}) from the stage centre`);
     }
 
-    // 2. the world rim is on screen and worth looking at. The spiral always
-    //    puts its last node at world radius 1, so the widest node distance is
-    //    the camera's scale — if the board only nibbles at its box, the camera
-    //    is being bypassed by something computing its own pixels again.
+    // 2. the board fills its box. Follow mode zooms to fit the simulation's
+    //    current extent, so a small graph must still use the stage rather than
+    //    sitting in the middle as a speck — measured at 16% before follow-mode
+    //    framing was restored.
     const maxR = Math.max(...dots.map((r) => Math.hypot(r.wantX - cx, r.wantY - cy)));
     const fill = (maxR * 2) / shorter;
     if (fill < 0.5) {
@@ -222,7 +226,7 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
 
     checked++;
     console.log(
-      `${tag.padEnd(6)} ${width}x${height}: ${rows.length} placed · root off by `
+      `${tag.padEnd(6)} ${width}x${height}: ${rows.length} placed · centre off by `
       + `(${offX.toFixed(1)}, ${offY.toFixed(1)}) · spans ${(fill * 100).toFixed(0)}% of the short side`,
     );
   }
