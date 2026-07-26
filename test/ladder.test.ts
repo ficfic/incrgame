@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   apply, canExtract, extractCost, extractionYield, initialState, salvageRate,
-  sourceAgreement, verified, CURRENT_SAVE_VERSION,
+  sourceAgreement, verified, attentionCap, CURRENT_SAVE_VERSION,
 } from '../src/core/engine';
 import { deserialize, MIGRATIONS, serialize } from '../src/core/save';
 import { D } from '../src/core/numbers';
@@ -92,12 +92,27 @@ describe('extract — rung 1 → 2', () => {
       .toBeGreaterThan(D(verified(fromRuins)).toNumber());
   });
 
-  it('checked-on-arrival material feeds the permanent ratchet', () => {
+  it('must NOT feed the permanent ratchet, however clean the material', () => {
+    // `lifetimeVerified` drives the attention cap and the yield multiplier and
+    // survives prestige; its contract is "statements a HUMAN checked".
+    // Extraction is bulk conversion. When it did credit the ratchet, 150s of
+    // tapping moved the attention cap from 4 to 13 — a fourfold inflation of
+    // the game's designed bottleneck, from its most spammable verb.
     const base = initialState(1);
-    const s = { ...base, resources: { ...base.resources, data: '100' }, tokenTail: 1 };
-    const after = apply(s, { type: 'extract' });
-    expect(D(after.lifetimeVerified).toNumber())
-      .toBeGreaterThan(D(s.lifetimeVerified).toNumber());
+    for (const tail of [0, 0.5, 1]) {
+      const s = { ...base, resources: { ...base.resources, data: '100' }, tokenTail: tail };
+      const after = apply(s, { type: 'extract' });
+      expect(after.lifetimeVerified, `tail=${tail}`).toBe(s.lifetimeVerified);
+    }
+  });
+
+  it('does not inflate the attention cap, at any volume', () => {
+    const base = initialState(1);
+    let s = { ...base, resources: { ...base.resources, data: '1e6' }, tokenTail: 1 };
+    const before = attentionCap(s);
+    for (let i = 0; i < 400; i++) s = apply(s, { type: 'extract' });
+    expect(D(s.resources.triples).toNumber()).toBeGreaterThan(3000); // it really ran
+    expect(attentionCap(s)).toBe(before);
   });
 });
 

@@ -1152,9 +1152,20 @@ export function apply(state: GameState, action: Action): GameState {
           ...state.provenance,
           unverified: add(state.provenance.unverified, String(dirty)),
         },
-        // Checked-on-arrival statements are real human-verified material, so
-        // they feed the one permanent multiplier exactly as review does.
-        lifetimeVerified: add(state.lifetimeVerified, String(clean)),
+        // ⚠️ EXTRACTION DOES NOT FEED `lifetimeVerified`, AND IT USED TO.
+        //
+        // That field is the game's ONE permanent ratchet: it drives the
+        // attention cap and the yield multiplier, it survives prestige, and its
+        // contract (types.ts) is "statements a HUMAN checked". Extraction is
+        // bulk conversion, not a person reading a statement.
+        //
+        // Measured before this was removed: 150 seconds of tapping produced
+        // 1,150 statements and moved the attention cap from 4 to 13. Attention
+        // is the designed bottleneck of the entire game, and rung 1 — the
+        // cheapest, most spammable verb — was inflating it fourfold in two
+        // minutes. Archive material still arrives CHECKED, so the source fork
+        // keeps its teeth; what it no longer does is buy permanent capacity
+        // that the human verbs are supposed to earn.
       };
     }
 

@@ -15,7 +15,8 @@
     "ontology": "node scripts/build-ontology.mjs",
     "check:align": "node scripts/check-alignment.mjs",
     "check:core": "node scripts/check-core-purity.mjs",
-    "check:vocab": "node scripts/check-vocabulary.mjs"
+    "check:vocab": "node scripts/check-vocabulary.mjs",
+    "play": "node scripts/play-probe.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.2.0",

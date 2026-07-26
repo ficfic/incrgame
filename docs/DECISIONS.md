@@ -1577,3 +1577,22 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   cost a session of chasing bugs already fixed on the server. Save version sits
   beside it because a stale app and an unmigrated save look identical from the
   outside and are fixed completely differently.
+- 2026-07-26 — **Extraction must NOT credit `lifetimeVerified`, and it did for
+  four hours.** That field is the game's only permanent ratchet: it drives the
+  attention cap and the yield multiplier and survives prestige, and its stated
+  contract is "statements a HUMAN checked". Extraction is bulk conversion.
+  Measured in a real browser: 150 seconds of tapping produced 1,150 statements
+  and moved the attention cap **4 → 13** — a fourfold inflation of the game's
+  designed bottleneck, driven by its cheapest and most spammable verb. Removed;
+  the cap now grows 4 → 10 over the same session, entirely from connect and
+  review. Archive material still arrives CHECKED, so the rung-1 fork keeps its
+  teeth (archives remain ~2.7× better verified-per-tap); what it no longer buys
+  is permanent capacity the human verbs are supposed to earn.
+- 2026-07-26 — **`scripts/play-probe.mjs` — the project can now LOOK at itself.**
+  Every UI change for weeks was built, typechecked, tested, deployed and never
+  once viewed; the owner kept finding things in screenshots that nobody here had
+  seen. The probe drives the real build in a real browser at phone size, taps
+  the verbs in a plausible order, and prints what each HUD number did over time.
+  It found the ratchet bug on its first run — a defect no unit test could catch,
+  because every individual piece behaved exactly as written. **Look at the game
+  before saying it works.**
