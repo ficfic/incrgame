@@ -356,3 +356,63 @@ Plus: **simulate the yield curve and the terminal state at hour 12.**
 is `'15'` at start, read nowhere in play, and a new id is fresh backfill surface on
 a save-integrity rule that cost a day to fix. The id is internal; only the label is
 player-facing.
+
+---
+
+## BUILT, 2026-07-26 — rungs 1 and 2 are real
+
+Status above says "nothing here is built". That is no longer true for the bottom
+of the ladder. Shipped in save **v13**:
+
+- **Tokens** — `resources.data`, reused exactly as this document advised.
+- **Salvage** — rung 1's faucet. Not attention-gated: attention is the rung-3
+  allocator, and making the bottom rung compete for it would starve the top.
+- **The source fork** — common ruins (12 tokens, 12% rare) vs deep archives
+  (5 tokens, 78% rare). **Reversible**, and composition is a stock-weighted
+  average, so switching dilutes what you are holding rather than flipping it.
+- **Extraction** — 20 tokens → statements at a **yield shown as a percentage**
+  (45% base, capped at 92%, never a subtraction).
+- **The second number** — `sourceAgreement()`: the share of your drawn lines
+  that are not invented. **It needed no new state**: `Edge.fake` has been on
+  every edge since v11, so the number was always computable and simply never
+  shown. It is on the HUD from minute one, small and unremarked, exactly as
+  this document requires.
+
+### Where the fork pays off
+
+Archive tokens arrive **checked** — text you dug out yourself is text you have
+read. Ruins tokens arrive unverified, drift, and cost attention later. So the
+axis is volume against agreement, which is the axis the two numbers must pull
+along.
+
+### Measured against the real reducer, not a model of it
+
+60 taps, alternating salvage/extract as tokens allow:
+
+| source | statements | verified | checked | taps to afford the first Extractor (40 verified) |
+|---|---|---|---|---|
+| common ruins | 198 | 22 | 11% | ~110 |
+| deep archives | 108 | 80 | 74% | ~30 |
+
+Half the volume, nearly four times the verified. The trade is legible and
+neither side is dominated: machines are bought with **verified** statements, so
+the archives are the route to automation, and the ruins are the route to bulk.
+
+### Two things this slice does NOT do, said plainly
+
+- **`tokenTail` is a composition SUMMARY, not identity.** Honest for rung 1,
+  where tokens really are undifferentiated text. It must **not** be the pattern
+  copied upward — the hard constraint above still stands for Verified and
+  Batches, and the category histogram is still a prerequisite.
+- **Salvage is an uncapped tap.** Tedium is the only limiter. It is not the
+  degenerate it looks like, because agents cost **verified** statements and
+  ruins-spam produces almost none — but it is un-idle, and automating rung 1 is
+  the first thing that should fix it rather than a cooldown.
+
+### One first-impression risk, flagged not tuned
+
+On the default source, the first Extraction drops **checked to 11%, in red,
+about twenty seconds in.** The number is true and the player has two immediate
+levers (switch source, or review). But it is the first feedback a new player
+gets and it reads as failure. Worth watching on a real device before deciding
+whether it is tension or a wall.

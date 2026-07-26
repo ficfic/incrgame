@@ -16,8 +16,9 @@
   import { onMount } from 'svelte';
   import { game, awayReport, dispatch, exportSave, flushProject, importSave, startGame } from '../shell/game';
   import {
-    agentCost, attentionCap, attentionFree, CONNECT_MS, displayedFidelity,
-    DISCOVER_MS, hasTrust, pendingVignette, recovered, REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS,
+    agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
+    DISCOVER_MS, extractCost, extractionYield, hasTrust, pendingVignette, recovered,
+    REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS, salvageRate, sourceAgreement,
     unsupervised, verified,
   } from '../core/engine';
   import { FRONTIER_CAP } from '../core/graph';
@@ -51,7 +52,10 @@
   const credit = $derived.by(() => { void $ontologyRevision; return ontologyCredit(); });
   const hue = $derived(stageHue($game.graph.nodes));
   const trust = $derived(displayedFidelity($game));
+  /** The second number: how much of what you have drawn matches the source. */
+  const agreeing = $derived(sourceAgreement($game));
   const free = $derived(attentionFree($game));
+  const EXTRACT_BATCH = extractCost();
 
   const activeVignette = $derived.by(() => {
     const id = pendingVignette($game);
@@ -588,23 +592,29 @@
       <b>{formatWhole($game.resources.triples)}</b>
       <span>statements</span>
     </div>
+    <!-- EVERY CELL IS A NOUN. The owner could not name two of the three numbers
+         that used to be here: "of 4096" was a bare denominator and "free of 2"
+         never said free WHAT. So each cell now carries the value and the word
+         for the value, and nothing else. The dataset size left the HUD with the
+         same reasoning — 0.02% at minute one is a number with no meaning yet,
+         and there is no room to caption it honestly at this size. -->
     <div class="stats">
-      <!-- The denominator is the size of the shipped dataset. At minute one it
-           read "1 of 4096", i.e. 0.02% — a number with no meaning yet, sitting
-           in the most prominent row on the screen, and the owner asked what it
-           was. It appears once it is something you are measurably eating into;
-           before that the count alone is the honest reading. -->
-      <div><b class="good">{recovered($game)}</b>
-        <span>{recovered($game) >= 100 ? `of ${CONCEPT_BUDGET} recovered` : 'concepts recovered'}</span></div>
+      <div><b class:good={D($game.resources.data).gte(EXTRACT_BATCH)}>{formatWhole($game.resources.data)}</b><span>tokens</span></div>
+      <div><b class="good">{recovered($game)}</b><span>recovered</span></div>
       <!-- "—" not "100%": a new save has zero statements and the ratio returns
            1, which read as a perfect score over an empty graph. -->
       <div><b class:good={hasTrust($game) && trust > 0.66}
               class:warn={hasTrust($game) && trust <= 0.66 && trust > 0.33}
               class:bad={hasTrust($game) && trust <= 0.33}
         >{hasTrust($game) ? `${(trust * 100).toFixed(0)}%` : '—'}</b><span>checked</span></div>
-      <!-- Was "free of 2", which never said free WHAT. Attention is the only
-           thing the early game actually rations, so the word has to be on it. -->
-      <div><b class:good={free > 0} class:warn={free === 0}>{free}</b><span>of {attentionCap($game)} attention</span></div>
+      <!-- THE SECOND NUMBER. On screen from minute one, small and unremarked,
+           because a late reveal would rescore the player's own progress
+           downward and they would be right to call that a lie (ECONOMY.md).
+           It is never explained here. It does not need to be — it is true, it
+           is small, and one day it stops matching the number beside it. -->
+      <div><b class:warn={agreeing < 1 && agreeing > 0.8} class:bad={agreeing <= 0.8}
+        >{$game.forged.edges.length > 0 ? `${(agreeing * 100).toFixed(0)}%` : '—'}</b><span>agreeing</span></div>
+      <div><b class:good={free > 0} class:warn={free === 0}>{free}/{attentionCap($game)}</b><span>attention</span></div>
     </div>
   </header>
 
@@ -694,7 +704,22 @@
       </div>
     {/if}
 
+    <!-- RUNG 1 → RUNG 2. Before this the opening was one button: Discover, wait
+         18s, repeat. Salvage and Extract are the loop that runs underneath
+         everything else, they cost no attention, and they give the first minute
+         something to actually do. -->
     <div class="actions">
+      <button class="act" onclick={() => dispatch({ type: 'salvage' })}>
+        <b>Salvage</b><span>+{salvageRate($game).tokens} tokens</span>
+      </button>
+
+      <!-- The yield is a PERCENTAGE YOU RAISE, never a subtraction. Same
+           arithmetic as "lost 11 of 20", opposite feeling (ECONOMY.md). -->
+      <button class="act primary" disabled={!canExtract($game)}
+        onclick={() => (canExtract($game) ? dispatch({ type: 'extract' }) : say(`Need ${EXTRACT_BATCH} tokens`))}>
+        <b>Extract</b><span>{EXTRACT_BATCH} tokens · {(extractionYield($game) * 100).toFixed(0)}%</span>
+      </button>
+
       <button class="act primary" disabled={!canDiscover} onclick={discover}>
         <b>Discover</b>
         <span>{worldDone ? 'world recovered' : nothingLeftToFind ? '⟨nothing left to find — owner⟩' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
@@ -727,6 +752,20 @@
           <b>Retrain</b><span>gen {$game.reflection + 2}</span>
         </button>
       {/if}
+    </div>
+
+    <!-- WHERE YOU SALVAGE FROM decides what you get: volume, or the rare
+         material nothing else supplies. Reversible on purpose — it is a
+         standing question whose answer moves as the corpus does, not a door
+         that shuts behind you. The composition readout is the honest one: it
+         is the share of the stock you are HOLDING, so switching sources
+         visibly dilutes rather than flipping. -->
+    <div class="source">
+      <button class:on={$game.source === 'common'}
+        onclick={() => dispatch({ type: 'setSource', source: 'common' })}>common ruins</button>
+      <button class:on={$game.source === 'archive'}
+        onclick={() => dispatch({ type: 'setSource', source: 'archive' })}>deep archives</button>
+      <i>{(($game.tokenTail ?? 0) * 100).toFixed(0)}% rare</i>
     </div>
 
     {#if $game.generators.extractor > 0}
@@ -1018,6 +1057,21 @@
   .act.warn { border-color: hsl(42 75% 60%); color: hsl(42 75% 60%); background: hsl(42 40% 12%); }
   .act.bad { border-color: #b0566b; color: #b0566b; background: #2416197a; }
   .act.core { border-color: hsl(var(--hue) 90% 78%); color: hsl(var(--hue) 90% 78%); }
+
+  /* The rung-1 fork. Deliberately quiet chrome, not a headline act: it is a
+     standing preference you flip, so it should read like a setting you own
+     rather than a decision the game is nagging you about. */
+  .source { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 6px; }
+  .source button {
+    padding: 4px 10px; border-radius: 999px; cursor: pointer;
+    font: 0.66rem ui-sans-serif, system-ui, sans-serif;
+    background: none; border: 1px solid #1b2533; color: #5d7385;
+  }
+  .source button.on {
+    border-color: hsl(var(--hue) 50% 45%); color: hsl(var(--hue) 60% 62%);
+    background: hsl(var(--hue) 40% 10%);
+  }
+  .source i { font: 0.58rem ui-monospace, monospace; color: #5d7385; font-style: normal; }
 
   .dial { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 6px; }
   .dial button {

@@ -146,6 +146,15 @@ export const MIGRATIONS: Migration[] = [
       },
     };
   },
+  // v12 → v13 — the bottom of the refinement ladder exists. `data` becomes
+  // Tokens (it was already in every save, holding whatever it started with and
+  // read by nothing), and Salvage gains a source.
+  //
+  // Strictly additive: no field is renamed, removed or reinterpreted downward.
+  // An existing save keeps its token balance and arrives at the common ruins
+  // with a matching composition — which is the honest description of a stock
+  // that was never sorted, not a guess about where it came from.
+  (s) => ({ ...s, source: 'common', tokenTail: 0.12 }),
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

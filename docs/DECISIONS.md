@@ -1521,3 +1521,25 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   attention". "1 of 4096 recovered" showed the dataset size as a 0.02%
   denominator at minute one → the count alone reads "concepts recovered" until
   100 are in, after which the denominator means something.
+- 2026-07-26 — **The bottom of the refinement ladder is BUILT (save v13)**,
+  chosen by the owner over the full ladder after the audit above. Tokens reuse
+  `resources.data`; Salvage is uncapped and attention-free; Extraction converts a
+  fixed 20-token batch at a yield shown as a PERCENTAGE (45% base, hard cap 92%)
+  because "lost 11 of 20" and "45% yield" are the same arithmetic and opposite
+  games. The source fork is **reversible** and composition is stock-weighted, so
+  switching dilutes rather than flips.
+- 2026-07-26 — **The second number needed no new state.** `sourceAgreement()` is
+  the share of drawn edges that are not `fake`, and `Edge.fake` has existed since
+  v11 — so the number ECONOMY.md called for was always computable and merely
+  never displayed. It is on the HUD from minute one, small and unexplained, per
+  the logged decision that a late reveal rescores the player's progress downward.
+- 2026-07-26 — **Archive-sourced tokens extract as CHECKED statements**, ruins
+  tokens as unverified. This is what gives the rung-1 fork teeth: measured
+  against the real reducer at 60 taps, ruins give 198 statements / 22 verified
+  and archives 108 / 80. Machines cost verified, so archives buy automation and
+  ruins buy bulk, and neither is dominated.
+- 2026-07-26 — **HUD rebuilt so every cell is a noun.** The owner could not name
+  two of the three numbers on their own first screen. Five labelled cells now:
+  tokens · recovered · checked · agreeing · attention. The 4,096 dataset size
+  left the HUD — at minute one it is a 0.02% denominator with no room for an
+  honest caption, and the concept count alone is the truthful reading.

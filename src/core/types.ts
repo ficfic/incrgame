@@ -221,7 +221,26 @@ export interface GameState {
    *  then judged a fourth draw nobody had seen. The desk looked finished and
    *  was not connected to anything. A batch is a decision the game makes ONCE. */
   review: ReviewItem[];
+  // ---- v13: the bottom of the refinement ladder (docs/ECONOMY.md) ----
+  /** Where Salvage draws from. Common ruins are fast and head-heavy; deep
+   *  archives are slow and tail-heavy. Switchable at any time — this is an
+   *  ongoing speed-versus-breadth decision, not a one-time fork you can regret
+   *  permanently. */
+  source: SalvageSource;
+  /** 0..1 — the share of the CURRENT token stock that came from deep archives.
+   *
+   *  ⚠️ This is a COMPOSITION SUMMARY, not identity. `docs/ECONOMY.md` states as
+   *  a hard constraint that rungs 3 and 4 (Verified, Batches) must carry a real
+   *  per-concept distribution, because "you lost 30%" and "you lost these
+   *  specific rare concepts" are different games. This scalar is honest for
+   *  rung 1, where tokens genuinely are an undifferentiated mass of text — and
+   *  it must NOT be the pattern copied upward when Verified is built. */
+  tokenTail: number;
 }
+
+/** Rung 1's fork. Real corpus types, generically named: naming a specific real
+ *  product would invite a licensing conversation this project does not need. */
+export type SalvageSource = 'common' | 'archive';
 
 export type Action =
   | { type: 'tick'; dt: number; now?: number }     // dt in SECONDS; `now` (epoch ms) advances lastTick
@@ -245,7 +264,11 @@ export type Action =
   | { type: 'reviewBatch'; keep: boolean[] }       // HITL — accept/reject the queue
   | { type: 'absorb' }                             // take banked away-work into the graph
   | { type: 'chooseOption'; eventId: string; choiceId: string }
-  | { type: 'reflect' };                           // prestige = retrain on yourself
+  | { type: 'reflect' }                            // prestige = retrain on yourself
+  // ---- v13: the bottom of the ladder ----
+  | { type: 'salvage' }                            // rung 1 faucet: raw text → tokens
+  | { type: 'extract' }                            // rung 1 → 2: tokens → statements, at a YIELD
+  | { type: 'setSource'; source: SalvageSource };  // where Salvage draws from
 
 // ---- content data types (SPEC "Content data types") ----
 

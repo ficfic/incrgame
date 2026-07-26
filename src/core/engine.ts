@@ -12,7 +12,7 @@
 // falls until recovery stops. You prestige because you stalled, and what you
 // inherit is your own machine output, which drifts faster. The stated goal is
 // unreachable by construction, and gets further away every generation.
-import type { Action, Edge, GameState, GeneratorId, ResourceId, ReviewItem } from './types';
+import type { Action, Edge, GameState, GeneratorId, ResourceId, ReviewItem, SalvageSource } from './types';
 import { TIER_LADDER } from './types';
 import { add, sub, gte, mul, scaleCost, D } from './numbers';
 import Decimal from 'break_eternity.js';
@@ -22,10 +22,43 @@ import { CONCEPT_BUDGET } from '../content/ontologyMeta';
 import { VIGNETTES } from '../content/vignettes';
 import { nextRand } from './rng';
 
-export const CURRENT_SAVE_VERSION = 12;
+export const CURRENT_SAVE_VERSION = 13;
 
 // Frontier Mining knobs (Chad's term sheet; tune by playing)
 const START_DATA = '15';        // enough to wire the first ~2 entities
+
+/** ---- v13: rung 1 → rung 2, the bottom of docs/ECONOMY.md ----------------
+ *
+ *  The economy had ONE live resource. Five of the seven `ResourceId`s were
+ *  written once in `initialState` and never read again, `ratePerSecond` was a
+ *  stub returning '0', and the ladder in ECONOMY.md had zero lines of
+ *  implementation. This is the bottom two rungs of it, built for real.
+ *
+ *  `data` is reused as Tokens on ECONOMY.md's own advice: it already exists in
+ *  every save, is read nowhere in play, and inventing a new id would be fresh
+ *  backfill surface on a save-integrity rule that has already cost a day. The
+ *  id is internal; only the label is player-facing.
+ *
+ *  THE RULE THIS OBEYS: yield is a PERCENTAGE YOU RAISE, never a subtraction.
+ *  `extraction 45%` is a stat to optimise; `lost 4,300` is a punishment. Same
+ *  arithmetic, opposite game. */
+const SALVAGE: Record<SalvageSource, { tokens: number; tail: number }> = {
+  // Head-heavy: plentiful, common, and it is the same common things over again.
+  common: { tokens: 12, tail: 0.12 },
+  // Tail-heavy: less of it, and it is the rare material nothing else supplies.
+  archive: { tokens: 5, tail: 0.78 },
+};
+
+/** Tokens consumed by one Extraction. A fixed batch, so the yield percentage
+ *  is legible: 20 in, ~9 out, and you can watch the 45% become 52%. */
+const EXTRACT_BATCH = 20;
+
+/** Base share of a token batch that survives extraction as a statement.
+ *
+ *  Capped strictly below 1 by `EXTRACT_YIELD_CAP`: the climb is the fun and the
+ *  ceiling is the tension. A yield that reaches 100% ends the mechanic. */
+const EXTRACT_YIELD_BASE = 0.45;
+const EXTRACT_YIELD_CAP = 0.92;
 const EDGE_BASE_COST = 5;
 const EDGE_COST_RATIO = 1.08;   // gentle lane; machines keep the 1.15 wall
 
@@ -235,6 +268,11 @@ export function initialState(seed = 1): GameState {
     lifetimeCapital: '0',
     generators: { harvester: 0, extractor: 0, reasoner: 0, aiAgent: 0, orchestrator: 0 },
     flags: {},
+    // Rung 1 starts at the common ruins: the fast, plentiful, head-heavy
+    // default. Choosing the archives is the first real decision in the game,
+    // and a decision you have already been made for is not one.
+    source: 'common',
+    tokenTail: SALVAGE.common.tail,
     coverage: { general: 0 },
     reflection: 0,
     graph: deriveGraph(forged, '0'), // one lonely anchor, zero statements
@@ -335,6 +373,55 @@ export function unchecked(state: GameState): number {
 
 export function coverage(state: GameState): number {
   return recovered(state) / CONCEPT_BUDGET;
+}
+
+/** ---- THE SECOND NUMBER --------------------------------------------------
+ *
+ *  Coverage measures your graph against YOUR OWN corpus: it counts what you
+ *  claim to have recovered. This counts how much of that claim matches the
+ *  source — the share of your lines that describe a relation the real dataset
+ *  actually contains.
+ *
+ *  It needs no new state. `Edge.fake` has been on every edge since v11: agents
+ *  running unsupervised invent links, and an invented link is precisely a
+ *  disagreement with the source. So the number was always computable and was
+ *  simply never shown.
+ *
+ *  ECONOMY.md is emphatic that this must be on screen FROM MINUTE ONE, small
+ *  and unremarked, rather than revealed late. A late reveal rescores the
+ *  player's progress downward — "94% was fake, you're actually at 31%" — and
+ *  they would be right to call that a lie, because the optimal play before and
+ *  after such a reveal are opposites. Shown from the start, nobody was lied to:
+ *  the number was always there, and the reveal becomes the player working out
+ *  what they have been looking at the whole time.
+ *
+ *  Vacuously 1 on an empty graph, so `hasTrust` gates the display exactly as it
+ *  does for the first number. */
+export function sourceAgreement(state: GameState): number {
+  const edges = state.forged.edges;
+  if (edges.length === 0) return 1;
+  let real = 0;
+  for (const e of edges) if (!e.fake) real++;
+  return real / edges.length;
+}
+
+/** Share of a token batch that survives Extraction, as a fraction of 1.
+ *  Attributable by construction: it is the base, times whatever the player has
+ *  bought or chosen, held strictly under the cap. */
+export function extractionYield(state: GameState): number {
+  const y = EXTRACT_YIELD_BASE * mod(state, 'extraction');
+  return Math.max(0, Math.min(EXTRACT_YIELD_CAP, y));
+}
+
+/** Tokens one Salvage brings in, and how tail-rich they are. */
+export function salvageRate(state: GameState): { tokens: number; tail: number } {
+  return SALVAGE[state.source] ?? SALVAGE.common;
+}
+
+/** Tokens consumed per Extraction, and whether there are enough. */
+export const extractCost = (): number => EXTRACT_BATCH;
+export function canExtract(state: GameState): boolean {
+  return D(state.resources.data).gte(EXTRACT_BATCH);
 }
 
 const mod = (state: GameState, key: string): number => state.modifiers[key] ?? 1;
@@ -1004,6 +1091,70 @@ export function apply(state: GameState, action: Action): GameState {
         modifiers,
         flags: choice.flag ? { ...state.flags, [choice.flag]: true } : state.flags,
         vignette: { active: null, seen: [...state.vignette.seen, v.id] },
+      };
+    }
+
+    case 'setSource': {
+      // Reversible on purpose. ECONOMY.md frames this as "speed versus
+      // breadth", which is a standing question the answer to which changes as
+      // the corpus does — not a door that shuts behind you.
+      if (action.source !== 'common' && action.source !== 'archive') return state;
+      return { ...state, source: action.source };
+    }
+
+    case 'salvage': {
+      // Rung 1's faucet. Deliberately NOT attention-gated: attention is the
+      // rung-3 allocator (ECONOMY.md, "where the loss actually bites"), and
+      // making the bottom of the ladder compete for it would starve the top.
+      const { tokens, tail } = salvageRate(state);
+      const have = D(state.resources.data);
+      const after = have.add(tokens);
+      // Composition is a stock-weighted average, so hauling common ruins on top
+      // of an archive stock genuinely dilutes it. Guarded against the empty
+      // stock, where the incoming batch simply IS the composition.
+      const mix = after.lte(0)
+        ? tail
+        : have.mul(state.tokenTail).add(D(tokens).mul(tail)).div(after).toNumber();
+      return {
+        ...state,
+        resources: { ...state.resources, data: after.toString() },
+        tokenTail: Number.isFinite(mix) ? Math.max(0, Math.min(1, mix)) : tail,
+      };
+    }
+
+    case 'extract': {
+      // Rung 1 → rung 2. A fixed batch in, a YIELD PERCENTAGE out.
+      if (!canExtract(state)) return state;
+      const yieldPct = extractionYield(state);
+      const minted = Math.floor(EXTRACT_BATCH * yieldPct);
+      if (minted <= 0) return state;
+
+      // WHERE THE FORK PAYS OFF, and why the archives are worth being slow for.
+      //
+      // Text you dug out of a deep archive you have effectively read: those
+      // statements arrive CHECKED. Common-ruins text is bulk — it arrives
+      // unverified, so it drifts, and clearing it costs attention later.
+      //
+      // So the choice is volume against agreement, which is exactly the axis
+      // ECONOMY.md says the two numbers must pull along: training needs volume,
+      // coverage needs source-faithful material, and neither is skippable.
+      const clean = Math.round(minted * state.tokenTail);
+      const dirty = minted - clean;
+
+      return {
+        ...state,
+        resources: {
+          ...state.resources,
+          data: D(state.resources.data).sub(EXTRACT_BATCH).toString(),
+          triples: add(state.resources.triples, String(minted)),
+        },
+        provenance: {
+          ...state.provenance,
+          unverified: add(state.provenance.unverified, String(dirty)),
+        },
+        // Checked-on-arrival statements are real human-verified material, so
+        // they feed the one permanent multiplier exactly as review does.
+        lifetimeVerified: add(state.lifetimeVerified, String(clean)),
       };
     }
 
