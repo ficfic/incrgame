@@ -623,9 +623,16 @@ export function apply(state: GameState, action: Action): GameState {
             if (next.some((x) => x.a === e.a && x.b === e.b && x.rel === e.rel)) continue;
             next.push(e);
           }
-          const trimmed = trimEdges(next);
-          next.length = 0; next.push(...trimmed);
-          forged = { ...forged, edges: next };
+          // ALIASING. `trimEdges` returns its ARGUMENT unchanged when the list
+          // is under `EDGE_CAP`, so `trimmed` and `next` were the same array.
+          // The old two-liner — `next.length = 0; next.push(...trimmed)` —
+          // therefore emptied the array and then spread the array it had just
+          // emptied, destroying EVERY edge on the board. It fired the first
+          // time a machine drew a line with fewer than 512 edges present, which
+          // is essentially every player with an unwatched Extractor: the whole
+          // hand-drawn graph vanished in one tick, coverage with it.
+          // Just assign the result. Never mutate an array a helper may alias.
+          forged = { ...forged, edges: trimEdges(next) };
           touched = true;
         }
       }

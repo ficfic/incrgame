@@ -635,3 +635,58 @@ describe('discovering past the anchor cap', () => {
     expect(recovered(after)).toBe(0);
   });
 });
+
+// ── machine lines must not destroy the player's graph ──────────────────────
+//
+// `trimEdges` returns its ARGUMENT when the list is under EDGE_CAP, so the old
+// `next.length = 0; next.push(...trimmed)` emptied the array and then spread
+// the array it had just emptied. Every edge on the board was destroyed the
+// first time a machine drew a line — for any player with an unwatched
+// Extractor and fewer than 512 edges, i.e. essentially all of them.
+describe('a machine drawing a line', () => {
+  const boardWithHandLines = (): GameState => {
+    const s = initialState();
+    return {
+      ...s,
+      lastTick: 1_000_000,
+      forged: {
+        ...s.forged, nextId: 3, anchors: [0, 1, 2],
+        edges: [
+          { a: 1, b: 0, rel: 0, checked: true, fake: false },
+          { a: 2, b: 0, rel: 0, checked: true, fake: false },
+        ],
+      },
+      generators: { ...s.generators, extractor: 30 },
+      supervised: 0,
+      lineDebt: 0.99, // the next tick pushes it over 1, so a line gets drawn
+    };
+  };
+
+  it('does not wipe the lines the player drew by hand', () => {
+    const before = boardWithHandLines();
+    const after = tick(before, 0.1);
+    for (const e of before.forged.edges) {
+      expect(after.forged.edges).toContainEqual(e);
+    }
+  });
+
+  it('does not silently erase the coverage those lines were holding up', () => {
+    const before = boardWithHandLines();
+    const after = tick(before, 0.1);
+    expect(lit(after)).toBeGreaterThanOrEqual(lit(before));
+    expect(recovered(after)).toBeGreaterThanOrEqual(recovered(before));
+  });
+
+  it('still adds its own lines, and they are unchecked inventions', () => {
+    // Several ticks, not one: with only three anchors the machine can draw
+    // a === b and skip, so a single tick is seed-dependent. What must hold is
+    // that machine lines DO appear and are never checked.
+    let s = boardWithHandLines();
+    for (let i = 0; i < 20; i++) s = tick(s, 0.2);
+    const machine = s.forged.edges.filter((e) => e.fake);
+    expect(machine.length).toBeGreaterThan(0);
+    for (const e of machine) expect(e.checked).toBe(false);
+    // and the hand-drawn lines are STILL there after twenty ticks of it
+    expect(s.forged.edges.filter((e) => e.checked && !e.fake).length).toBe(2);
+  });
+});

@@ -1216,3 +1216,20 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   when you connect the new arrival, not when an old one folds. Recorded because
   the first version of the test asserted an increase and failed against correct
   code.
+- 2026-07-26 — **THE WORST BUG YET: a machine line deleted the player's entire
+  graph.** Found by an agent's repro during the story review, confirmed by test.
+  `trimEdges` returns its ARGUMENT unchanged when the list is under `EDGE_CAP`,
+  so in the machine-line block `trimmed` and `next` were **the same array**. The
+  code then did `next.length = 0; next.push(...trimmed)` — emptying the array
+  and immediately spreading the array it had just emptied. Result: `forged.edges`
+  became `[]`. Measured: a board with two hand-drawn checked lines dropped to
+  zero edges in a single 0.1s tick.
+  It fired whenever a machine drew a line with fewer than 512 edges present —
+  i.e. for **every player running an unwatched Extractor**, permanently
+  destroying every line they had drawn by hand and the coverage those lines
+  held up. Fixed by assigning `trimEdges(next)` instead of mutating an array a
+  helper may alias. Three regression tests, all verified red against the old
+  two-liner.
+  **Rule worth keeping: never mutate an array a helper may have returned to you.**
+  `trimEdges`'s fast path returning its input is reasonable on its own; the
+  caller assuming it got a fresh array is what made it lethal.
