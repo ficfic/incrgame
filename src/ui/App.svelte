@@ -74,9 +74,10 @@
   // could see. The canvas still animates — the dash march, the substrate drift
   // and the filling lines all key off `timeMs` inside the painter, which is
   // where per-frame work belongs.
-  const spin = 0;
 
-  const target = $derived(positions($game.forged.anchors, w, h, spin));
+  // Where every anchor belongs on screen, via the one camera (render/board.ts).
+  // This module does no geometry of its own — that was the disease.
+  const target = $derived(positions($game.forged.anchors, w, h));
 
   // ---- EASED POSITIONS -------------------------------------------------
   //
@@ -544,11 +545,13 @@
   .stage {
     flex: 1 1 auto; position: relative; overflow: hidden;
     /* The graph is a CIRCLE, so its useful size is bounded by the narrower
-       dimension. Letting the stage absorb every spare pixel left a 440-wide
-       ring floating in an 1150-tall box with dead bands above and below. Bound
-       it to roughly square and give the slack back to the column. */
+       dimension — height past the stage's own width buys the board nothing and
+       just pools as empty space AROUND the graph, which reads as the graph
+       being small and lost rather than as page margin. So cap the stage near
+       square and give the slack back to the column, where `space-between`
+       spends it as margin between the header, the board and the dock. */
     min-height: min(52vh, 92vw);
-    max-height: min(72vh, 118vw);
+    max-height: min(72vh, 104vw);
   }
   canvas { position: absolute; inset: 0; display: block; }
 

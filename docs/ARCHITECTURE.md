@@ -39,6 +39,36 @@ survived six pivots and is the thing to check new code against:
    centre equals it. It is verified to go RED when the rule is broken — a check
    that cannot fail is worse than no check.
 
+5. **ONE WORLD, ONE CAMERA.** Rule 4 makes the DOM agree with the model. It says
+   nothing about whether the model is *right*, and for a while it was not: every
+   piece of the board computed its own pixels from `w` and `h` — the spiral had
+   one formula, the provenance ring another, the frontier slots a third — so the
+   graph sat 30px left of the ring it was supposedly inside, filled 49% of the
+   width, and no test could object because each formula rendered faithfully.
+   Agreement is not correctness.
+   So: **everything with a place is authored in WORLD units and put on screen by
+   the single camera in `src/render/board.ts`.** Nothing else converts to pixels.
+   The world is a fixed disc — root at 0, concepts out to radius 1, provenance
+   ring at 1.06, frontier at `WORLD_RIM` — and `cameraFor(w, h)` fits that disc
+   into the stage box.
+   The camera is **a pure function of the box, deliberately not of the graph.** A
+   fit-to-current-bounds camera re-fits on every discovery, so landing one
+   concept nudges all two hundred others — that is the "everything pops and the
+   graph restructures" complaint, and a camera that ignores node count cannot
+   produce it. Because the spiral always puts its outermost node at radius
+   exactly 1, a fixed camera still fills the box at 4 concepts and at 240.
+   Only POSITIONS are scaled. Dot radii, label text and line widths stay in
+   screen px — a legible tap target is a screen-space fact.
+   `check-alignment.mjs` asserts the three things the camera promises, each true
+   at any node count: the world origin is the stage centre, the rim is on screen
+   and the board spans ≥50% of the short side, and nothing (including a label,
+   including an in-flight badge on the rim) hangs off the stage. All three are
+   verified to go red. It does **not** assert that the node cloud's bounding box
+   is centred — five points of a golden-angle spiral have not reached their own
+   extremes, so their box is lopsided by ~30px while every point is exactly
+   where the camera put it. That check would fail a correct board and send the
+   next session tuning offsets into a system that has none.
+
 Rules 1 and 2 have never slipped, and they are why the UI could be rewritten
 twice at zero cost to the engine. Rule 3 is new only as *writing*: it is the
 lesson of the all-canvas experiment, stated so it does not have to be relearned.

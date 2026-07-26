@@ -69,8 +69,12 @@ the single most useful thing on this page.
   header / stage / dock.
 - **`src/render/paint.ts`** draws ONLY lines, the drifting substrate and the
   provenance ring, into a canvas that fills the stage.
-- **`src/render/board.ts`** is pure geometry: `band`, `positions`,
-  `frontierPos`, `isRotted`, `stageHue`, `relHue`. No DOM, no state.
+- **`src/render/board.ts`** is pure geometry and holds **the camera** —
+  `cameraFor`, `toScreen`, `worldPos`, `onRim`, `positions`, `frontierPos`,
+  `isRotted`, `stageHue`, `relHue`. No DOM, no state. Everything with a place on
+  the board is authored in world units and converted here and nowhere else; if
+  you find yourself writing `w / 2` in another file, that is the bug returning
+  (technical vision item 5).
 - **Nothing is `position: fixed`.** A fixed element anchors to the layout
   viewport, so a zoomed page becomes a magnified crop with nothing to pan — that
   is what trapped the owner inside the game with no controls and no way out.

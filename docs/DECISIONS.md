@@ -1011,3 +1011,44 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   The lesson worth keeping: **the engine was never wrong, which is why 92 green
   tests said nothing.** Geometry that only exists after CSS has run can only be
   checked by running CSS.
+
+- 2026-07-26 — **ONE WORLD, ONE CAMERA (technical vision item 5).** The
+  "everything is still misaligned" reports that survived the anchoring fix were
+  a second, separate bug: the anchoring rule made the DOM agree with the model,
+  but *every part of the board computed its own pixels from `w`/`h`* — the
+  spiral had one formula, `band()`'s provenance ring another, the frontier slots
+  a third. Measured: cluster 30px left of the stage centre, filling 49% of the
+  width and 38% of the height. Not a tuning problem; there was no shared centre
+  to tune toward. **Fix:** one world (a fixed disc — root at 0, concepts to
+  radius 1, provenance ring at 1.06, frontier at `WORLD_RIM` 1.18) and one
+  `cameraFor(w, h)` in `render/board.ts` that both the DOM layer and the painter
+  use. `band()` deleted. The camera is **a pure function of the box, not of the
+  graph**: a fit-to-bounds camera re-fits on every discovery and nudges all
+  other nodes, which is the "things pop and the graph restructures" complaint —
+  so that complaint is now impossible by construction rather than eased over.
+  Because the spiral's outermost node is always at radius exactly 1, a fixed
+  camera still fills the box at any node count.
+  Measured after, at three viewports: root within 0.2px of the stage centre,
+  board spanning 60–67% of the short side, nothing clipped.
+- 2026-07-26 — **`check-alignment.mjs` now checks the MODEL, not just the
+  render.** Its first half only ever proved the DOM agreed with the coordinates
+  it was given, which stayed green for days while the coordinates were wrong —
+  a faithfully-rendered wrong position is still faithful. Added the three
+  properties the camera promises, all node-count-independent: origin at stage
+  centre, rim on screen and board ≥50% of the short side, nothing clipped
+  (labels unioned in by hand since they are absolutely positioned, and rim
+  badges sampled MID-FLIGHT because the widest thing on the board is gone by the
+  time it settles). Each verified to go red before committing. Explicitly NOT
+  asserted: "the node cloud's bounding box is centred" — a five-point
+  golden-angle spiral is genuinely lopsided by ~30px while being exactly
+  correct, so that check would have failed a good board and sent the next
+  session tuning a system with no offsets in it. Third viewport added (390×664,
+  a real iPhone in Edge with browser chrome subtracted).
+- 2026-07-26 — **Stage capped nearer square (`max-height: min(72vh, 104vw)`) and
+  `WORLD_RIM` cut 1.3 → 1.18.** The disc is bounded by the narrower dimension,
+  so stage height past its own width bought the board nothing and pooled as
+  empty space *around* the graph — which reads as the graph being small and lost
+  rather than as page margin. The rim reserve was separately charging the
+  concepts 23% of the board for empty ring; 1.18 still leaves ~26px between a
+  settled concept and a discovery hovering outside it. Together: 49% → 67% of
+  the short side at 440px, 64% at 390px.

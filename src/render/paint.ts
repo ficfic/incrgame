@@ -6,7 +6,7 @@
 // reimplementations of things the browser already does correctly, and they were
 // what broke under zoom.
 import type { Edge, GameState } from '../core/types';
-import { band, relHue } from './board';
+import { type Camera, cameraFor, relHue, toScreen } from './board';
 import { CONNECT_MS, displayedFidelity } from '../core/engine';
 import { D } from '../core/numbers';
 
@@ -50,6 +50,10 @@ export function paintGraph(canvas: HTMLCanvasElement, s: Scene): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   const { w, h } = s;
+  // the SAME camera the DOM node layer uses, from the same box — the atmosphere
+  // used to be laid out by its own pixel formula, which is how a ring ended up
+  // centred somewhere the graph inside it was not
+  const cam = cameraFor(w, h);
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
     canvas.width = Math.round(w * dpr);
@@ -58,27 +62,28 @@ export function paintGraph(canvas: HTMLCanvasElement, s: Scene): void {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
   const t = s.timeMs / 1000;
-  substrate(ctx, s, t);
+  substrate(ctx, s, cam, t);
   lines(ctx, s, t);
-  provenanceRing(ctx, s);
+  provenanceRing(ctx, s, cam);
 }
 
 /** Concept mass beyond the explicit list, as drifting dots. Never one dot per
  *  statement — that is the whole point of keeping it an aggregate. */
-function substrate(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
-  const { state, w, h, hue } = s;
+function substrate(ctx: CanvasRenderingContext2D, s: Scene, cam: Camera, t: number): void {
+  const { state, hue } = s;
   const folded = Math.max(0, D(state.forged.foldedNodes).toNumber() || 0);
   const dots = Math.min(folded, 90);
   const trust = displayedFidelity(state);
-  const { cx, cy, core: maxR } = band(w, h);
   for (let i = 0; i < dots; i++) {
     let n = (i * 2654435761) >>> 0;
     n = (n ^ (n >>> 13)) >>> 0;
-    const rr = maxR * (0.3 + 0.9 * Math.sqrt((n % 1000) / 1000));
+    // world units: the haze occupies the same disc the named concepts do
+    const rr = 0.28 + 0.74 * Math.sqrt((n % 1000) / 1000);
     const a = i * 2.39996 * 1.37 + t * 0.012;
+    const p = toScreen(cam, { x: Math.cos(a) * rr, y: Math.sin(a) * rr });
     ctx.globalAlpha = 0.3 + 0.2 * Math.sin(t * 0.5 + i * 2.1);
     ctx.beginPath();
-    ctx.arc(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 1.5, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2);
     ctx.fillStyle = (n % 100) / 100 > trust ? ROT : `hsl(${hue} 45% 42%)`;
     ctx.fill();
   }
@@ -169,13 +174,14 @@ function lines(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
 
 /** The provenance split as a ring around the world rather than a bar in a HUD:
  *  checked / unchecked / rotten, drawn as arcs of the thing itself. */
-function provenanceRing(ctx: CanvasRenderingContext2D, s: Scene): void {
-  const { state, w, h, hue } = s;
+function provenanceRing(ctx: CanvasRenderingContext2D, s: Scene, cam: Camera): void {
+  const { state, hue } = s;
   const total = D(state.resources.triples).toNumber();
   if (!(total > 0)) return;
   const u = D(state.provenance.unverified).toNumber();
   const d = D(state.provenance.drifted).toNumber();
-  const { cx, cy, ring: r } = band(w, h);
+  // world radius 1.06 — just outside the outermost concept, inside the frontier
+  const cx = cam.tx, cy = cam.ty, r = 1.06 * cam.scale;
   const segs: Array<[number, string]> = [
     [Math.max(0, total - u - d) / total, `hsl(${hue} 70% 55%)`],
     [u / total, 'hsl(42 70% 52%)'],
