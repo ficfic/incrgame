@@ -159,6 +159,17 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
 
 ## ⛔ PROGRESSION IS BEING REPLACED (owner, 2026-07-26)
 
+**The replacement now has a shape: `docs/ECONOMY.md` — the refinement ladder.**
+Datums return as raw salvaged text (they mean something now), five lossy rungs
+up to a trained checkpoint, and the AI automates the rung it was trained on so
+automation always arrives with rot attached. Tail loss is rendered rather than
+described: batches are sampled, so the low-weight periphery of the graph goes
+wrong while the core stays crisp. The twist is requirement (d) at last — the
+model's benchmark is your own corpus, and the real dataset is shipped, so
+"agreement with the source" is a number that genuinely exists.
+**Nothing is built and no number is balanced. Simulate before believing.**
+
+
 **Do not spend a session tuning the current economy.** The owner has said the
 whole of progression is going to change, so every balance item below is on hold
 until the new shape exists: the attention-cap curve, the cap-2 proposal, the

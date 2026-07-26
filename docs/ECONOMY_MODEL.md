@@ -1,3 +1,10 @@
+> # ⛔ SUPERSEDED by `docs/ECONOMY.md` (2026-07-26)
+>
+> The owner chose a new economy — the refinement ladder — after this game's
+> economy was found not to meaningfully exist. `ECONOMY.md` is the source of
+> truth for the design; this file was already self-flagged stale below and
+> describes a third, older game again. Kept only for the M4 sell/rent sketch.
+
 > # ⚠️ STALE — this document describes a different game (flagged 2026-07-25)
 >
 > It predates the speed-versus-truth loop. Flatly contradicted by the code:

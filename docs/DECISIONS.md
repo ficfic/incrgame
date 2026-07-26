@@ -1286,3 +1286,39 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   than pending work, the vignette door scaling a structurally-zero lever, the
   story trigger reachable only in a state the HUD warns against, and the false
   "world recovered" label.
+- 2026-07-26 — **New economy chosen: THE REFINEMENT LADDER (`docs/ECONOMY.md`).**
+  Owner, on the old one: "i think the economy stopped existing… we'd need to
+  think of a resource we have, how we get it, how we spend it, the resource
+  ladder, etc. also we need to start weaving in the story into all of that."
+  Correct: what existed was one substance that only bought agents, plus a
+  capacity. Four shapes were proposed (refinement ladder / capability-not-
+  currency / ground-truth-vs-weight / quota chapters); the owner picked the
+  ladder.
+  Shape: Datums (raw salvaged text) → Statements → Verified → Batches →
+  Checkpoints, every conversion lossy, and a trained checkpoint automates the
+  rung it was trained on — so automation always arrives with rot attached and
+  the damage propagates UP the ladder you just built.
+  **Datums are un-deleted, and legitimately.** v9 killed them because "every
+  price was denominated in a thing the subject matter does not have"; raw
+  salvaged text is a thing it does have.
+  **Tail loss is now rendered, not captioned.** Batches are SAMPLED from
+  verified statements, so the model learns the head of the distribution and
+  fumbles the tail — and rarity is already `weight` in `render/detail.ts`, which
+  already drives node size and LOD. Collapse shows up as the rim of the graph
+  going dark while the core stays bright. Shumailov's named mitigation (retain
+  original human data) becomes a real strategic option: hold statements back
+  from curation and keep your tails, at the cost of training slower.
+  **The twist is arithmetic, not text.** Coverage measures agreement with your
+  own corpus; the model's benchmark is what you fed it. Because the REAL dataset
+  ships in `public/ontology/`, "agreement with the source" is a second number
+  that genuinely exists and can be shown at any moment. Same trick as
+  `displayedFidelity` vs `fidelity`, which was built and then stranded because
+  the dominant strategy never triggered it — here it is the spine.
+  **Story is the ladder.** Each checkpoint is a chapter, because training
+  changes what the game IS. That is narrative as the reward for a rule-rewriting
+  milestone (Antimatter Dimensions' Celestials), never an interrupt and never a
+  gate — which is the fix for the story audit's finding that the only vignette
+  was gated behind a state the HUD paints red.
+  Prerequisite already in place: the nested save backfill fixed earlier today,
+  without which a new `ResourceId` arrives `undefined` and becomes `NaN`.
+  ⚠️ Nothing is built; no number is balanced. Simulate headless before believing.
