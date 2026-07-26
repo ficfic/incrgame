@@ -1073,3 +1073,19 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   instead of a green tick.
   **Standing lesson: a green tick from a check that did not execute is worse
   than no check, and "I pushed" is not "it shipped" — verify the run.**
+- 2026-07-26 — **The browser gate must fail LOUD, skip LOUD, and never hang.**
+  Removing `continue-on-error` exposed the opposite failure: the alignment step
+  sat `in_progress` for **nine minutes** and held the deploy behind it. Two
+  causes, both fixed: `npx wait-on` (wait-on is not a dependency, so npx went to
+  the registry mid-job — replaced with a node fetch-poll needing nothing), and
+  Playwright's **30s-per-action default** across a dozen actions. Now
+  `setDefaultTimeout(8000)`, a 20s `goto`, a 6s click, and `timeout-minutes: 6`
+  on the step as a backstop.
+  The script now separates the two outcomes that were being conflated:
+  **assertion failed → exit 1 and block the deploy**; **could not RUN (no
+  browser, preview down, board never populated) → `::warning:: SKIPPED` and exit
+  0**. And it counts viewports actually measured: with everything skipped it
+  prints `⊘ alignment NOT VERIFIED`, never the ✓ — "no failures" is vacuously
+  true when nothing ran, and that vacuous tick is what let a dead gate look
+  alive. All four paths (green / assertion-red / dead-port / no-browser) run and
+  verified before committing.

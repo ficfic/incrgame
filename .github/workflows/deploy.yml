@@ -49,10 +49,24 @@ jobs:
       # than a single viewport spends waiting. The script now finds a browser
       # or announces that it SKIPPED; either way it stops claiming to have run.
       - name: Alignment invariant (real browser)
+        # `timeout-minutes` because this step once sat in_progress for nine
+        # minutes and blocked the deploy behind it. `npx wait-on` was the likely
+        # culprit — wait-on is not a dependency, so npx went to the registry for
+        # it mid-job; the poll below needs nothing but node.
+        timeout-minutes: 6
         run: |
           npm run build
-          npx vite preview --port 4321 --strictPort &
-          npx wait-on -t 30000 http://localhost:4321/incrgame/ || sleep 8
+          npx vite preview --port 4321 --strictPort > /tmp/preview.log 2>&1 &
+          node -e '
+            const t0 = Date.now();
+            (async () => {
+              while (Date.now() - t0 < 60000) {
+                try { if ((await fetch("http://localhost:4321/incrgame/")).ok) { console.log("preview up"); return; } } catch {}
+                await new Promise((r) => setTimeout(r, 500));
+              }
+              console.log("::warning::preview server never came up");
+            })();
+          '
           node scripts/check-alignment.mjs 4321
       - name: Core-purity check
         # core/ must stay headless: no DOM globals, no clock, no RNG, no imports

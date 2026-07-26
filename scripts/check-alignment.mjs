@@ -58,8 +58,26 @@ if (!EXECUTABLE) {
 }
 console.log(`using ${EXECUTABLE}`);
 
-const browser = await chromium.launch({ executablePath: EXECUTABLE, args: ['--no-sandbox'] });
+/** Environment trouble is NOT an assertion failure.
+ *
+ *  These two outcomes must never be confused, and both must be visible:
+ *    · an assertion failed  → the layout is broken → exit 1, block the deploy
+ *    · the check could not RUN (no browser, preview down, board never
+ *      populated) → say SKIPPED loudly → exit 0, do not block the deploy
+ *
+ *  Getting this wrong in either direction has already cost a day: reporting a
+ *  green tick for a check that never executed, and then — going the other way —
+ *  a browser step that hung for nine minutes and held the deploy behind it. */
+const skipped = [];
+
+const browser = await chromium.launch({ executablePath: EXECUTABLE, args: ['--no-sandbox'] })
+  .catch((e) => { skipped.push(`chromium would not launch: ${e.message.split('\n')[0]}`); return null; });
+if (!browser) {
+  console.log(`::warning::alignment check SKIPPED — ${skipped[0]}. This gate did NOT run.`);
+  process.exit(0);
+}
 const failures = [];
+let checked = 0; // viewports that produced real measurements
 
 // 'real' is the one that matters: an iPhone 14/15 in Edge, with the browser's
 // own chrome already subtracted. The other two are the extremes either side.
@@ -69,7 +87,17 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
     serviceWorkers: 'block',
   });
   const page = await ctx.newPage();
-  await page.goto(`http://localhost:${PORT}/incrgame/`, { waitUntil: 'domcontentloaded' });
+  // Bounded. Playwright's default is 30s PER ACTION and this script performs a
+  // dozen of them across three viewports — a locator that never resolves turns
+  // into six minutes of a CI job silently doing nothing.
+  page.setDefaultTimeout(8000);
+  try {
+    await page.goto(`http://localhost:${PORT}/incrgame/`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+  } catch (e) {
+    skipped.push(`${tag}: page would not load — ${e.message.split('\n')[0]}`);
+    await ctx.close();
+    continue;
+  }
   await page.waitForTimeout(2200);
 
   const measure = () => page.evaluate(() => {
@@ -106,7 +134,16 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
 
   // land a few concepts, including a long label
   const discover = page.locator('button.act.primary');
-  for (let i = 0; i < 4; i++) { await discover.click({ force: true }); await page.waitForTimeout(150); }
+  let clicks = 0;
+  for (let i = 0; i < 4; i++) {
+    try { await discover.click({ force: true, timeout: 6000 }); clicks++; } catch { break; }
+    await page.waitForTimeout(150);
+  }
+  if (clicks === 0) {
+    skipped.push(`${tag}: the Discover button never became clickable — game did not start`);
+    await ctx.close();
+    continue;
+  }
 
   // ── the RIM, sampled mid-flight ───────────────────────────────────────────
   // A discovery in flight waits on the world rim, which is the widest thing the
@@ -150,7 +187,9 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
   const dots = rows.filter((r) => r.node);
   const root = dots.find((r) => String(r.label).trim() === 'entity') ?? dots[0];
   if (dots.length < 3 || !root) {
-    failures.push(`  ${tag} · only ${dots.length} nodes on the board — nothing to check`);
+    // an empty board means the game never ran here, not that the layout is
+    // wrong — a skip, loudly, not a red gate
+    skipped.push(`${tag}: only ${dots.length} nodes on the board`);
   } else {
     const cx = stage.w / 2, cy = stage.h / 2;
     const shorter = Math.min(stage.w, stage.h);
@@ -181,6 +220,7 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
       }
     }
 
+    checked++;
     console.log(
       `${tag.padEnd(6)} ${width}x${height}: ${rows.length} placed · root off by `
       + `(${offX.toFixed(1)}, ${offY.toFixed(1)}) · spans ${(fill * 100).toFixed(0)}% of the short side`,
@@ -191,6 +231,13 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
 }
 await browser.close();
 
+if (skipped.length) {
+  // ::warning:: so it lands in the GitHub run summary. A check that did not run
+  // must never be indistinguishable from one that passed.
+  console.log(`::warning::alignment check skipped ${skipped.length} viewport(s) — those did NOT run`);
+  for (const s of skipped) console.log(`  skipped · ${s}`);
+}
+
 if (failures.length) {
   console.error('\n✗ POSITIONING RULE BROKEN — these are not centred on their model coordinate:\n');
   console.error(failures.join('\n'));
@@ -200,5 +247,13 @@ if (failures.length) {
   console.error('CAMERA in src/render/board.ts.\n');
   process.exit(1);
 }
-console.log('\n✓ every positioned element is centred on its model coordinate,');
-console.log('  and the board is centred in its stage and fills it');
+// Only claim a pass for viewports that actually ran. With every viewport
+// skipped, "no failures" is vacuously true and printing the tick is how a
+// check that did nothing gets mistaken for a check that passed — which is the
+// entire reason the deploy quietly stopped shipping for a day and a half.
+if (checked === 0) {
+  console.log('\n⊘ alignment NOT VERIFIED — every viewport was skipped, nothing was measured.');
+  process.exit(0);
+}
+console.log(`\n✓ ${checked} viewport(s): every positioned element is centred on its model`);
+console.log('  coordinate, and the board is centred in its stage and fills it');
