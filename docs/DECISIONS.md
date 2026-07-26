@@ -1233,3 +1233,44 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   **Rule worth keeping: never mutate an array a helper may have returned to you.**
   `trimEdges`'s fast path returning its input is reasonable on its own; the
   caller assuming it got a fresh array is what made it lethal.
+- 2026-07-26 — **Folding banks FINISHED work, not pending work — the real fix
+  for the 240 wall.** The eviction preference was "evict the DARK first", but a
+  concept is dark from discovery until you connect it, so dark is not junk, it
+  is the player's in-tray. At the cap every new discovery ate one pending
+  connection, and since only LIT folds are credited, nothing was banked either.
+  Measured over two simulated hours of perfect hand play: `recovered` frozen at
+  241 while Discover burned through 2,311 of 4,096 concepts. Inverted: fold the
+  oldest LIT anchor and bank it, touch dark ones only when there is nothing
+  else. Measured after: 380 @20min, 1,148 @60min, **4,096 (100%) @240min**.
+  The v11 exploit stays closed by the same rule as before — credit follows LIT.
+  Discover-spam produces only dark anchors, so a spammer has nothing to bank;
+  tested over 2,500 ticks past the cap, `foldedNodes` stays exactly 0.
+  ⚠️ **Balance consequence for the owner:** hand play can now reach 100% in ~4h
+  of perfect tapping, which makes VISION's "unreachable by construction" false
+  by a different route. That is a tuning decision, not a bug — flagged in VISION.
+- 2026-07-26 — **The story layer now reaches the player, and every door does
+  something.** Three fixes to the only vignette in the game:
+  (a) **Trigger moved off `minDrifted: 5`.** That requires an UNSUPERVISED
+  extractor — the one state the HUD paints red — so the game steered players
+  away from its only piece of story, and the dominant line (never buy a machine)
+  kept `drifted` at exactly 0 and never saw it at all. Now `minTriples: 40`: the
+  moment the first Extractor becomes affordable, so the fork comes BEFORE the
+  decision rather than as a postmortem of it.
+  (b) **`buy-review`'s dead lever replaced.** `review: 1.6` scales
+  `autoReviewPerSecond`, a pure function of the off-roster Orchestrator count —
+  1.6 × 0, forever — while charging a real 10% extraction penalty. An option
+  whose upside is arithmetically incapable of existing, offered beside a real
+  cost, is a lie told to the player by arithmetic. Repointed at a new `capacity`
+  modifier that multiplies the attention cap, making the three doors
+  speed / truth / capacity. `known-defects.test.ts` flipped from pinning the
+  defect to guarding the rule: no choice may scale a structurally-zero lever.
+  (c) **Flags survive prestige.** Modifiers reset on purpose (the same fork on
+  worse terms IS the story); the FLAG is the memory of the choice and was being
+  dropped by `...fresh`, so the record died at the retrain that makes it matter.
+- 2026-07-26 — **"world recovered" was shown at 6% coverage.** `worldDone` was
+  `nextId >= CONCEPT_BUDGET`, and a discovery consumes an id whether or not the
+  concept survives — so the button claimed the world was recovered when the
+  player had merely run out of things to find. Split into `nothingLeftToFind`
+  (gates the button) and `worldDone` (`recovered >= CONCEPT_BUDGET`, gates the
+  claim). The new state uses the established `⟨… — owner⟩` placeholder rather
+  than inventing player-facing prose.

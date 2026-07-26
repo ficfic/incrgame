@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import {
   apply, coverage, driftPerSecond, fidelity, initialState, lit, recovered,
   displayedFidelity, recoveryPerSecond, REFLECT_MIN_CONCEPTS, reviewQueue, reviewWeight,
-  tick, verified, DISCOVER_MS, CONNECT_MS,
+  tick, verified, DISCOVER_MS, CONNECT_MS, attentionFree, pendingVignette,
+  attentionCap, extractionPerSecond,
 } from '../src/core/engine';
 import { applyOfflineProgress } from '../src/core/offline';
 import { deserialize, serialize } from '../src/core/save';
@@ -621,7 +622,25 @@ describe('discovering past the anchor cap', () => {
     expect(recovered(connected)).toBeGreaterThan(recovered(landed));
   });
 
-  it('still refuses to credit a DARK fold — the v11 exploit stays closed', () => {
+  it('DISCOVER-SPAM still earns nothing — the v11 exploit stays closed', () => {
+    // The load-bearing one. Folding now banks LIT concepts, so it must be
+    // impossible to bank anything without drawing lines. A spammer produces
+    // only dark anchors: there is never a lit victim, the fallback folds a dark
+    // one, and dark folds are uncredited. Before v11, this exact loop reached
+    // 3,856 / 4,096 with zero lines drawn.
+    let s: GameState = { ...initialState(3), lastTick: 1_000_000 };
+    // 2,500 ticks: with no verified statements the cap stays at 4 and each
+    // discovery is 18s, so this is the pace a spammer actually achieves.
+    for (let i = 0; i < 2500; i++) {
+      while (attentionFree(s) > 0) s = apply(s, { type: 'discover' });
+      s = tick(s, 1);
+    }
+    expect(s.forged.nextId).toBeGreaterThan(ANCHOR_CAP * 1.5); // it really did spam
+    expect(Number(s.forged.foldedNodes)).toBe(0);
+    expect(recovered(s)).toBe(0);
+  });
+
+  it('still refuses to credit a DARK fold directly', () => {
     // a board of dark anchors: Discover-spam must never buy coverage
     const s = initialState(1);
     const anchors = Array.from({ length: ANCHOR_CAP }, (_, i) => i);
@@ -688,5 +707,47 @@ describe('a machine drawing a line', () => {
     for (const e of machine) expect(e.checked).toBe(false);
     // and the hand-drawn lines are STILL there after twenty ticks of it
     expect(s.forged.edges.filter((e) => e.checked && !e.fake).length).toBe(2);
+  });
+});
+
+// ── the story layer actually reaches the player ────────────────────────────
+describe('vignettes reach the player and their doors all do something', () => {
+  it('fires for a player who never touches a machine', () => {
+    // It used to trigger on `minDrifted: 5`, which needs an UNSUPERVISED
+    // extractor — the one state the HUD paints red. The dominant line (never
+    // buy a machine) kept `drifted` at exactly 0, so the only story in the game
+    // was unreachable for a competent player.
+    let s: GameState = { ...initialState(5), lastTick: 1_000_000 };
+    expect(pendingVignette(s)).toBeNull();
+    s = { ...s, resources: { ...s.resources, triples: '40' } };
+    expect(Number(s.provenance.drifted)).toBe(0); // no machine ever ran
+    expect(pendingVignette(s)).toBe('first-drift');
+  });
+
+  it('gives every door a lever that moves something', () => {
+    // A choice whose upside is arithmetically incapable of existing, offered
+    // beside a real cost, is a lie told to the player by arithmetic.
+    const base: GameState = { ...initialState(5), lastTick: 1_000_000, resources: { ...initialState(5).resources, triples: '40' } };
+    for (const choice of VIGNETTES[0]!.choices) {
+      const after = apply(base, { type: 'chooseOption', eventId: 'first-drift', choiceId: choice.id });
+      const moved = attentionCap(after) !== attentionCap(base)
+        || extractionPerSecond({ ...after, generators: { ...after.generators, extractor: 1 } })
+           !== extractionPerSecond({ ...base, generators: { ...base.generators, extractor: 1 } })
+        || driftPerSecond({ ...after, resources: { ...after.resources, triples: '1000' }, provenance: { unverified: '10', drifted: '0' } })
+           !== driftPerSecond({ ...base, resources: { ...base.resources, triples: '1000' }, provenance: { unverified: '10', drifted: '0' } });
+      expect(moved, `choice "${choice.id}" changes nothing`).toBe(true);
+    }
+  });
+
+  it('remembers which door you took through a retrain', () => {
+    // Modifiers reset on purpose — the same fork on worse terms IS the story.
+    // The FLAG is the memory of the choice, and it was being dropped by the
+    // `...fresh` spread, so nothing could ever reference it later.
+    const base: GameState = { ...initialState(5), lastTick: 1_000_000, resources: { ...initialState(5).resources, triples: '40' } };
+    const chosen = apply(base, { type: 'chooseOption', eventId: 'first-drift', choiceId: 'ship-it' });
+    expect(Object.keys(chosen.flags).length).toBeGreaterThan(0);
+    const retrained = apply({ ...chosen, forged: { ...chosen.forged, foldedNodes: '5000' } }, { type: 'reflect' });
+    expect(retrained.flags).toEqual(chosen.flags);
+    expect(retrained.modifiers).toEqual({}); // the bargain resets, the memory does not
   });
 });

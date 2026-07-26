@@ -70,6 +70,26 @@ scope, however good it is.
 9. **Narrative, as branching choose-your-own-adventure vignettes.**
 10. **Lots of graphs, connecting and moving** — because it's good to look at.
 
+> ## ⚠️ MEASURED FALSE — re-measure before trusting the numbers below
+>
+> Flagged 2026-07-26 after two agent audits and a headless simulation of the
+> shipped engine. Three claims in this document were false about the build:
+>
+> - **"the plateau FLOORS around 36–50% fidelity"** — with zero Extractors,
+>   `unverified` is identically 0, so `drift × 0 = 0` and fidelity is exactly
+>   1.000 forever. There was no floor because there was no fall.
+> - **"the RECESSION is real and structural: 100% → 67% / 22% / 2%"** — those
+>   curves cannot be reproduced. Every strategy that included a machine was
+>   hitting an array-aliasing bug in `trimEdges` that deleted the player's
+>   entire graph, so the fast branch did not exist to decay.
+> - **"100% is unreachable by construction"** — unreachability came only from
+>   the asymptotic `(1 − coverage) × f` term, not from collapse. Hand play now
+>   reaches 100% in ~4 hours of perfect tapping (measured, post-fix).
+>
+> The `trimEdges` and anchor-eviction bugs are fixed and the economy has NOT
+> been re-measured against them. **These numbers are stale until it is.** The
+> documents were not lying; they described a game a bug had removed.
+
 ## The economy: one resource, allocated
 
 **There is no currency.** Two things exist:

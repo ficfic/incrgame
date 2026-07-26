@@ -77,10 +77,14 @@ describe('KNOWN DEFECT — content that can never fire', () => {
     expect(GENERATORS.orchestrator).toBeDefined(); // still in the save shape
   });
 
-  it("a vignette choice multiplies a lever that was deleted at v9", () => {
-    // `review: 1.6` scales autoReviewPerSecond, which is 1.6 x 0 forever.
+  // FIXED 2026-07-26: was `review: 1.6` on `buy-review`, scaling
+  // autoReviewPerSecond — a pure function of the off-roster Orchestrator, so
+  // 1.6 x 0 forever, offered beside a real 10% extraction cost. Repointed at
+  // `capacity`, which multiplies the attention cap. This test now guards the
+  // rule rather than pinning the defect.
+  it('NO vignette choice may scale a lever that is structurally zero', () => {
     const dead = VIGNETTES.flatMap((v) => v.choices)
       .filter((c) => c.effects.review !== undefined);
-    expect(dead.length).toBeGreaterThan(0);
+    expect(dead).toEqual([]);
   });
 });

@@ -273,8 +273,14 @@
   const reviewBooking = $derived($game.bookings.find((b) => b.kind === 'review'));
   const filling = $derived($game.bookings.filter((b) => b.kind === 'connect'));
   const banked = $derived(D($game.pending).add(D($game.pendingClean)));
-  const worldDone = $derived($game.forged.nextId >= CONCEPT_BUDGET);
-  const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP && $game.lastTick > 0 && !worldDone);
+  // TWO different endings, and they were conflated. `nextId` running out means
+  // there is nothing left to FIND; it does not mean the world was recovered,
+  // and the button said "world recovered" at 6% coverage because a discovery
+  // consumed an id whether or not the concept survived. Now they are separate,
+  // and the honest one gates the claim.
+  const nothingLeftToFind = $derived($game.forged.nextId >= CONCEPT_BUDGET);
+  const worldDone = $derived(recovered($game) >= CONCEPT_BUDGET);
+  const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP && $game.lastTick > 0 && !nothingLeftToFind);
 
   // ---- PINCH AND PAN ----------------------------------------------------
   //
@@ -426,7 +432,7 @@
   }
 
   function discover(): void {
-    if (!canDiscover) { say(worldDone ? 'The world is recovered' : 'No free attention'); return; }
+    if (!canDiscover) { say(nothingLeftToFind ? '⟨nothing left to find — owner⟩' : 'No free attention'); return; }
     dispatch({ type: 'discover' });
   }
 
@@ -613,7 +619,7 @@
     <div class="actions">
       <button class="act primary" disabled={!canDiscover} onclick={discover}>
         <b>Discover</b>
-        <span>{worldDone ? 'world recovered' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
+        <span>{worldDone ? 'world recovered' : nothingLeftToFind ? '⟨nothing left to find — owner⟩' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
       </button>
 
       {#if filling.length > 0}

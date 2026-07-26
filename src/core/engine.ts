@@ -168,7 +168,15 @@ function decades(v: string): number {
 /** Total slots. Grows with lifetime verified knowledge: the more of the world
  *  you have actually checked, the more of it you can hold in your head. */
 export function attentionCap(state: GameState): number {
-  return ATTENTION_BASE + Math.floor(ATTENTION_PER_DECADE * decades(state.lifetimeVerified));
+  const earned = ATTENTION_BASE + ATTENTION_PER_DECADE * decades(state.lifetimeVerified);
+  // `capacity` is a vignette lever: a choice may trade throughput for headroom.
+  // It exists because the third door of the only fork in the game used to scale
+  // `review`, which multiplies the Orchestrator count, which is permanently
+  // zero — so that option advertised a benefit arithmetically incapable of
+  // existing while charging a real 10% extraction penalty. A choice needs a
+  // lever that moves something, and capacity is the one thing this economy is
+  // actually made of.
+  return Math.max(1, Math.floor(earned * mod(state, 'capacity')));
 }
 
 /** Slots not reserved for supervision and not currently booked on work. */
@@ -717,13 +725,40 @@ export function apply(state: GameState, action: Action): GameState {
             // available, `victim < 0` was unreachable and the credit below was
             // dead code. Excluding the new arrival is what makes the fallback
             // reachable, which is what makes folding credit anything at all.
+            // FOLD FINISHED WORK, NOT PENDING WORK.
+            //
+            // This preference used to be the other way round — evict the DARK
+            // first — and that quietly capped the game. A concept is dark from
+            // the moment you discover it until you connect it, so "dark" is not
+            // junk, it is the player's in-tray. At the cap, every new discovery
+            // ate one pending connection, and because only LIT folds are
+            // credited, nothing was banked either. Measured over two simulated
+            // hours of perfect hand play: `recovered` frozen at 241 while
+            // Discover burned through 2,311 of the 4,096 concepts. The board
+            // churned; the score did not move.
+            //
+            // A LIT concept is finished: its line is drawn, it has been counted,
+            // and folding it into the aggregate loses nothing — that is exactly
+            // what `foldedNodes` is for. So fold the oldest lit anchor and bank
+            // it; touch the dark ones only when there is nothing else to give.
+            //
+            // The v11 exploit stays closed, and by the same rule as before:
+            // credit follows LIT, never dark. Discover-spam produces only dark
+            // anchors, so a spammer has nothing to bank and simply fills their
+            // own board with unfinished work.
+            //
+            // (The old comment argued dark-first "preserves the spine" for the
+            // taxonomy layout. That layout is gone — the board is a force
+            // simulation now and position no longer encodes hypernymy, so the
+            // spine argument retired with it.)
             let victim = -1;
             for (let i = 1; i < anchors.length; i++) {
               const id = anchors[i]!;
               if (id === b.node) continue;
-              if (!edges.some((e) => e.a === id || e.b === id)) { victim = i; break; }
+              if (edges.some((e) => e.a === id || e.b === id)) { victim = i; break; }
             }
-            // everything else is lit: fold the oldest that is not the arrival
+            // nothing finished to bank: fall back to the oldest that is not the
+            // arrival, which folds uncredited exactly as a dark concept should
             if (victim < 0) victim = anchors.findIndex((id, i) => i >= 1 && id !== b.node);
             if (victim < 0) break; // nothing left that may be folded
             const folded = anchors.splice(victim, 1)[0]!;
@@ -1003,6 +1038,12 @@ export function apply(state: GameState, action: Action): GameState {
         // Vignettes re-arm each generation: the same fork, offered again on worse
         // terms, IS the story. Modifiers reset with them so the choice is real.
         vignette: { active: null, seen: [] },
+        // FLAGS SURVIVE. Modifiers are this generation's bargain and reset with
+        // it; flags are the memory of what you chose, and a fork that cannot be
+        // referenced two beats later is not a fork. They were being dropped by
+        // `...fresh`, so the record of every choice died at the retrain that
+        // makes the choice matter.
+        flags: state.flags,
         graph: deriveGraph(forged, resources.triples),
       };
     }

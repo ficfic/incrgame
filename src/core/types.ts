@@ -288,7 +288,7 @@ export interface VignetteChoice {
   label: string;   // ← owner
   /** Multiplicative modifiers applied on choice; 1 = no change. Shown to the
    *  player as generated NUMBERS, which is data, not prose. */
-  effects: { drift?: number; extraction?: number; review?: number };
+  effects: { drift?: number; extraction?: number; capacity?: number; review?: number };
   flag?: string;
 }
 
