@@ -589,14 +589,22 @@
       <span>statements</span>
     </div>
     <div class="stats">
-      <div><b class="good">{recovered($game)}</b><span>of {CONCEPT_BUDGET} recovered</span></div>
+      <!-- The denominator is the size of the shipped dataset. At minute one it
+           read "1 of 4096", i.e. 0.02% — a number with no meaning yet, sitting
+           in the most prominent row on the screen, and the owner asked what it
+           was. It appears once it is something you are measurably eating into;
+           before that the count alone is the honest reading. -->
+      <div><b class="good">{recovered($game)}</b>
+        <span>{recovered($game) >= 100 ? `of ${CONCEPT_BUDGET} recovered` : 'concepts recovered'}</span></div>
       <!-- "—" not "100%": a new save has zero statements and the ratio returns
            1, which read as a perfect score over an empty graph. -->
       <div><b class:good={hasTrust($game) && trust > 0.66}
               class:warn={hasTrust($game) && trust <= 0.66 && trust > 0.33}
               class:bad={hasTrust($game) && trust <= 0.33}
         >{hasTrust($game) ? `${(trust * 100).toFixed(0)}%` : '—'}</b><span>checked</span></div>
-      <div><b class:good={free > 0} class:warn={free === 0}>{free}</b><span>free of {attentionCap($game)}</span></div>
+      <!-- Was "free of 2", which never said free WHAT. Attention is the only
+           thing the early game actually rations, so the word has to be on it. -->
+      <div><b class:good={free > 0} class:warn={free === 0}>{free}</b><span>of {attentionCap($game)} attention</span></div>
     </div>
   </header>
 

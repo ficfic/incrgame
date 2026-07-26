@@ -1506,3 +1506,18 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   is player-facing prose: the owner must either adopt the existing
   SIMPLIFICATIONS lines as authored or write them fresh. Shipping an empty codex
   would be shipping the violation with a UI on top.
+- 2026-07-26 — **Audit answering "where is the economy": there is one live
+  resource.** Of the seven `ResourceId`s, `entities`, `taxonomies`, `ontologies`,
+  `twins` and `capital` are written once in `initialState()` and **never read or
+  written again anywhere in `src/`** — permanent zeros. `data` is likewise dead
+  (`ratePerSecond` is a stub returning `'0'`, with a comment saying so). Only
+  `triples` (shown as "statements") moves, plus attention and generator counts.
+  The ECONOMY.md refinement ladder (Tokens → Statements → Verified → Batches →
+  Checkpoints) is **designed and entirely unimplemented** — zero lines in
+  `engine.ts`. Recording this plainly because two documents describe ladders the
+  code does not have, which is exactly the trap HANDOVER.md fell into before.
+- 2026-07-26 — **HUD legibility pass, prompted by the owner not being able to
+  read their own first screen.** "free of 2" never said free *what* → "of 2
+  attention". "1 of 4096 recovered" showed the dataset size as a 0.02%
+  denominator at minute one → the count alone reads "concepts recovered" until
+  100 are in, after which the denominator means something.
