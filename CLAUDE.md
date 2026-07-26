@@ -67,8 +67,15 @@ tests for the check script.
 
 ### Talking to the owner
 
-- **Chips, not prose.** Use `AskUserQuestion` for any real choice. Output is read
-  on a phone: lead with the answer, keep it tight.
+- **★ SHORT. The owner has said so explicitly.** Hard limit: **150 words per
+  reply**, short sentences, no preamble. Lead with the verdict. Use a table or a
+  list, never paragraphs. Detail goes in the commit message and the docs — that
+  is what they are for. If it truly needs more, ask first.
+- **Chips, not prose.** Use `AskUserQuestion` for any real choice. One question,
+  not four.
+- **Hold the line for both of us.** If the owner asks for something that is not
+  the top item in `docs/NEXT.md`, say so in one sentence and ask: now, or queue
+  it? Do not silently switch. That is the rule they are relying on you to keep.
 - **Build, then review.** Reserve up-front plans for large or irreversible work.
 - **Log decisions as ONE LINE** in `docs/DECISIONS.md` — date, decision, why.
   That file is 17,500 words because this rule was ignored.

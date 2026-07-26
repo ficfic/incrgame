@@ -1633,3 +1633,5 @@ Entries above this line are long because the one-line rule did not exist yet.
 - 2026-07-26 — **Process reset**: five rules in CLAUDE.md, `docs/NEXT.md` is the queue, WIP=1. Researched, not invented (Claude Code best practices + Kanban WIP limits). Because 25.6% of 82 commits were player-visible.
 - 2026-07-26 — **`the-process` agent added**: audits ways of working by counting, never opining, and may not propose new process.
 - 2026-07-26 — **First audit, baseline set**: 82 commits, 25.6% player-visible, 8 subsystems rebuilt within 48h, 14 save versions, evidence in 1 of 21 player-visible commits, 0 of 4 gates with a durable red-verification record. Beat it.
+- 2026-07-26 — **Replies capped at 150 words**, short sentences, tables not paragraphs. Owner cannot read long output on a phone. Detail lives in commits and docs.
+- 2026-07-26 — **Claude holds the queue line**: work off `NEXT.md` gets flagged in one sentence and queued, never silently swapped.
