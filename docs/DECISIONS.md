@@ -1274,3 +1274,15 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   (gates the button) and `worldDone` (`recovered >= CONCEPT_BUDGET`, gates the
   claim). The new state uses the established `⟨… — owner⟩` placeholder rather
   than inventing player-facing prose.
+- 2026-07-26 — **Progression is being replaced wholesale; balance work stopped.**
+  Owner: "we are going to change the entirety of progression anyways. there's no
+  point in iterating on it too much." Correct call — the attention-cap curve, the
+  cap-2 proposal, the agent ladder and the review/supervision crossover were all
+  about to be tuned against a system that is being discarded. BACKLOG's balance
+  items are marked on hold and VISION's re-measure note now says to re-derive
+  from the new design rather than repair the old numbers.
+  Kept as design-independent (these break ANY progression): save integrity, the
+  aliasing bug that deleted the drawn graph, eviction banking finished rather
+  than pending work, the vignette door scaling a structurally-zero lever, the
+  story trigger reachable only in a state the HUD warns against, and the false
+  "world recovered" label.

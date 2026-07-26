@@ -157,6 +157,28 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       banked statements instead of a currency that no longer exists; label
       placement is capped at 32 candidates (it was ~230k rectangle tests/frame).
 
+## ⛔ PROGRESSION IS BEING REPLACED (owner, 2026-07-26)
+
+**Do not spend a session tuning the current economy.** The owner has said the
+whole of progression is going to change, so every balance item below is on hold
+until the new shape exists: the attention-cap curve, the cap-2 proposal, the
+agent ladder, the review/supervision crossover, the 4h hand-play completion
+time, and the "re-measure the economy" call-to-action added to VISION today.
+They describe a system that is about to be discarded.
+
+**What is NOT on hold**, because it is design-independent — these break any
+progression, not just this one:
+- save integrity (per-key backfill; a new resource must not brick a save)
+- the array-aliasing bug that deleted the player's drawn graph
+- eviction banking finished work instead of pending work
+- a vignette door that scales a structurally-zero lever
+- a story trigger only reachable in a state the HUD warns against
+- "world recovered" shown at 6% coverage
+
+When the new progression lands, re-read VISION's ⚠️ box: three of its claims
+were measured false against the OLD engine, and the new design should not
+inherit them by assumption.
+
 ## ▶ Next — in order
 
 - [x] **★ EDGES THAT MEAN SOMETHING — BUILT 2026-07-25 (save v11).** Dotted

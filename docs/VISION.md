@@ -87,8 +87,12 @@ scope, however good it is.
 >   reaches 100% in ~4 hours of perfect tapping (measured, post-fix).
 >
 > The `trimEdges` and anchor-eviction bugs are fixed and the economy has NOT
-> been re-measured against them. **These numbers are stale until it is.** The
-> documents were not lying; they described a game a bug had removed.
+> been re-measured against them. **These numbers are stale.** The documents were
+> not lying; they described a game a bug had removed.
+>
+> **Do not re-measure the old economy to repair them** — the owner has said
+> progression is being replaced wholesale (2026-07-26). These claims should be
+> re-derived from the NEW design, not patched back onto the old one.
 
 ## The economy: one resource, allocated
 
