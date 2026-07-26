@@ -340,17 +340,52 @@
    *  on a crowded board, so this is the dot plus a little. */
   const GRAB_PX = 22;
 
+  /** A press that never travels this far (SCREEN px) was a tap, not a drag.
+   *  Fingers wobble, so zero would mean no tap ever lands on a touchscreen. */
+  const TAP_PX = 8;
+
+  /** The node a press landed on, and where the press started, held until the
+   *  pointer either travels (→ it was a drag, forget it) or lifts (→ inspect).
+   *  Every press on a node also `grab`s it, so this rides alongside the drag
+   *  rather than competing with it: a tap is just a drag that went nowhere. */
+  let tapCandidate: { id: number; x: number; y: number } | null = null;
+
+  /** Which concept's card is open. Not a `sheet` — the card is non-modal on
+   *  purpose, so reading a definition never stops the simulation or the game. */
+  let inspecting = $state<number | null>(null);
+
+  /** Null while the concept's chunk is still in flight, so the card simply does
+   *  not appear rather than flashing an empty box. */
+  const inspected = $derived.by(() => {
+    void $ontologyRevision;
+    return inspecting === null ? null : conceptForNode(inspecting);
+  });
+
+  /** Called on every pointer move with SCREEN coords: once a press has
+   *  travelled, it is a drag and can no longer become a tap. */
+  function travelled(x: number, y: number): void {
+    if (tapCandidate && Math.hypot(x - tapCandidate.x, y - tapCandidate.y) > TAP_PX) {
+      tapCandidate = null;
+    }
+  }
+
   function onTouchStart(e: TouchEvent): void {
     if (!grabbing) return;
     takeControl();
     grip = centreOf(e.touches);
+    tapCandidate = null;
     // One finger landing ON a concept grabs it; anything else pans. Two fingers
     // are always a pinch, never a drag — you cannot aim a pinch at one node.
     if (e.touches.length === 1 && stage) {
       const box = stage.getBoundingClientRect();
       const at = toWorld(cam, { x: grip.x - box.left, y: grip.y - box.top });
       const hit = sim.pick(at.x, at.y, GRAB_PX / cam.scale);
-      if (hit !== null) sim.grab(hit);
+      if (hit !== null) {
+        sim.grab(hit);
+        tapCandidate = { id: hit, x: grip.x, y: grip.y };
+      } else {
+        inspecting = null; // tapping the void dismisses, like any map app
+      }
     }
   }
 
@@ -358,6 +393,7 @@
     if (!grabbing || !grip || !stage) return;
     e.preventDefault(); // we own this gesture; rule 3 above decided that already
     const now = centreOf(e.touches);
+    travelled(now.x, now.y);
     const box = stage.getBoundingClientRect();
 
     // Dragging a concept: move it, leave the camera alone. Its neighbours come
@@ -387,7 +423,11 @@
   }
 
   function onTouchEnd(e: TouchEvent): void {
-    if (e.touches.length === 0) sim.release();
+    if (e.touches.length === 0) {
+      sim.release();
+      if (tapCandidate) inspecting = tapCandidate.id;
+      tapCandidate = null;
+    }
     grip = e.touches.length > 0 ? centreOf(e.touches) : null;
   }
 
@@ -400,15 +440,27 @@
     const box = stage.getBoundingClientRect();
     const at = toWorld(cam, { x: e.clientX - box.left, y: e.clientY - box.top });
     const hit = sim.pick(at.x, at.y, GRAB_PX / cam.scale);
-    if (hit !== null) { sim.grab(hit); mouseDown = true; }
+    if (hit !== null) {
+      sim.grab(hit); mouseDown = true;
+      tapCandidate = { id: hit, x: e.clientX, y: e.clientY };
+    } else {
+      tapCandidate = null;
+      inspecting = null;
+    }
   }
   function onMouseMove(e: MouseEvent): void {
     if (!mouseDown || !stage || !sim.isDragging) return;
+    travelled(e.clientX, e.clientY);
     const box = stage.getBoundingClientRect();
     const at = toWorld(cam, { x: e.clientX - box.left, y: e.clientY - box.top });
     sim.dragTo(at.x, at.y);
   }
-  function onMouseUp(): void { mouseDown = false; sim.release(); }
+  function onMouseUp(): void {
+    mouseDown = false;
+    sim.release();
+    if (tapCandidate) inspecting = tapCandidate.id;
+    tapCandidate = null;
+  }
 
   /** Desktop and, more importantly, a testable path that does not need a
    *  synthetic multi-touch sequence. */
@@ -602,6 +654,24 @@
         <span>{f.left}s</span>
       </div>
     {/each}
+
+    <!-- Tap a concept, read its definition. DECISIONS records that the gloss is
+         the REWARD for recovering a concept, and until now the only place a
+         gloss appeared was the review desk — where it is the instrument you use
+         to spot a corrupt item, i.e. a chore. This is the payoff surface.
+
+         The text is WordNet's own definition, verbatim (CC BY 4.0, credited in
+         the dock). It is DATA, not prose: no sentence here is written by anyone
+         on this project, so the human-written-prose rule is not in play. -->
+    {#if inspected}
+      <aside class="card">
+        <div class="txt">
+          <b>{inspected.label}</b><em>{inspected.category}</em>
+          <p>{inspected.gloss}</p>
+        </div>
+        <button aria-label="close" onclick={() => (inspecting = null)}>×</button>
+      </aside>
+    {/if}
   </div>
 
   <footer class="dock">
@@ -895,6 +965,24 @@
   .dock { flex: 0 0 auto; padding: 4px 8px 6px; }
   /* clear of the mobile browser's bottom chrome, which was cutting the credit */
   .credit { padding-bottom: calc(6px + env(safe-area-inset-bottom)); }
+  /* The inspect card. Bottom-anchored and NON-modal: it sits over the board
+     without covering the dock, so reading a definition never costs a turn and
+     never hides the buttons. `pointer-events` stays on — it has a close button
+     — but it is the only overlay in the stage that does. */
+  .card {
+    position: absolute; z-index: 4;
+    left: 10px; right: 10px; bottom: 10px;
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 12px;
+    background: #080b11f2; border: 1px solid #1b2533; border-radius: 10px;
+    color: #cfe0e8; font: 400 14px/1.35 ui-sans-serif, system-ui, sans-serif;
+  }
+  .card button {
+    flex: 0 0 auto; width: 28px; height: 28px; padding: 0;
+    background: none; border: 1px solid #1b2533; border-radius: 6px;
+    color: #5d7385; font-size: 15px; line-height: 1;
+  }
+
   .ticker {
     display: flex; flex-direction: column; align-items: center;
     gap: 1px; margin-bottom: 5px; min-height: 1.1em;

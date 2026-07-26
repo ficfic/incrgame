@@ -192,6 +192,42 @@ inherit them by assumption.
 
 ## ▶ Next — in order
 
+- [x] **Content batch reviewed twice and folded in (2026-07-26).** Eight ideas
+      through theory review and genre review; verdicts and kills live in
+      `docs/CONTENT_IDEAS.md` so they are not re-proposed. Two claims were
+      checked in source rather than taken on the reviewer's word: `corrupt()` is
+      non-monotone in `strength` (✔ confirmed, it would strobe) and idea 7 is
+      already shipped (✔ confirmed at `board.ts:131` + the eviction loop).
+- [x] **Tap a concept → read its WordNet gloss (2026-07-26).** Non-modal card,
+      100% reach, no new state, no prose. The gloss had only ever been shown at
+      the review desk, i.e. attached to a chore, while DECISIONS says
+      definitions are the *reward* for recovery.
+
+- [ ] **★ THE CATEGORY HISTOGRAM — blocks three content items at once.**
+      26 per-lexname counters of recovered concepts, additive save migration.
+      `state.coverage` holds one key (`general`) and `foldedNodes` is an
+      identity-free `Decimal`, so the game currently knows how much it has
+      recovered and nothing about what. Per-category evaluation, visible concept
+      death, and the model card's disaggregated section are all waiting on it.
+      Ship `noun.Tops` excluded and denominators captioned as *within the shipped
+      slice* (see DECISIONS — a low `noun.plant` is curation, not tail loss).
+
+- [ ] **The away report → shift handover.** Currently a 2200ms toast that nulls
+      its own data; genre review rates this the most-read surface in the genre.
+      Report the **supervision split** (`pendingClean` vs `pending`), NOT "cost
+      in agreement" — nothing rots while away. Blocked on one owner sentence.
+
+- [ ] **⚠️ OWNER DECISION — Field Notes is a standing rule violation.**
+      `FieldNote` is fully specified at `types.ts:296-304` with zero references
+      in `src/`. SIMPLIFICATIONS.md specifies 15 rows; the house rule says each
+      is surfaced before its mechanic ships; S9–S15 have all shipped. Blocked on
+      prose: does the owner adopt the existing SIMPLIFICATIONS truth-lines as
+      authored, or write them fresh? An empty codex is the violation with a UI.
+
+- [ ] **`OWNER_LINES = {}`** — the eight `nodes:*` milestones, written as one
+      curdling voice. Wired, reachable, 100% reach, still empty. Per
+      `docs/CONTENT.md` this is the single highest-value writing hour available.
+
 - [x] **★ EDGES THAT MEAN SOMETHING — BUILT 2026-07-25 (save v11).** Dotted
       lines for every connection the dataset offers; spend a slot to fill one
       in. A concept counts only while a line supports it, unchecked lines rot

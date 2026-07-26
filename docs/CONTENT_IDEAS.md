@@ -222,6 +222,147 @@ bound on accuracy, not accuracy.
 
 ---
 
+## Verdicts — genre review, 2026-07-26
+
+Second reviewer, different axis: does it play like a real idle game, and is the
+AI theme earned. It **agreed with none of the theory review's rankings** and
+disagreed with this file's own. Where the two conflicted, source was checked;
+findings below are marked ✔ verified or ✘ overstated.
+
+### The ranking was upside down
+
+- **Idea 8 (away report)** — **best of the eight**; this file ranked it last.
+  The away moment is the most-read screen in the genre and here it is a 2200ms
+  toast that then nulls its own data. It also cannot report "what it cost in
+  agreement" as proposed, because **nothing rots while away**. What it *can*
+  report, and what is actually interesting, is the **supervision split** —
+  `pendingClean` vs `pending`: what the machines did unwatched.
+- **Idea 1 (labels rot)** — already killed on theory; killed twice over on
+  craft. ✔ **Verified in source:** `corrupt()` is **not monotone in
+  `strength`** — a surviving character consumes one `next()`, a corrupted one
+  consumes two (`ontology.ts:55-56`), so the RNG stream desynchronises and
+  raising `strength` slightly re-rolls *which* characters break. Driven from a
+  render loop it would **strobe**. The proposed call was also
+  `corrupt(label, id, 1 - fidelity)` — a **global** scalar, i.e. `isRotted()`
+  with extra glyphs, carrying no per-concept information at all.
+- **Idea 7 (`entity` never rots)** — ✔ **verified already shipped, twice**:
+  `board.ts:131` (`id === 0` returns false) and the eviction loop starting at
+  `i = 1`, so the root can never be folded either. Not an idea. **KILLED as
+  redundant.**
+- **Idea 4 (real corpora)** — **KILL**, seconded. It adds three strings and is
+  empty against the shipped slice, which S8 says *is* the head.
+- **Idea 3 (per-category)** — ship, and its "cost: a grouping over data already
+  loaded" line is **false**. `foldedNodes` is an identity-free `Decimal`; by
+  ~60min ≥79% of coverage has no identity to group *by*. This idea is the
+  forcing function for the HARD CONSTRAINT already logged in ECONOMY.md.
+- **Idea 5 (proposals)** — ship, with two non-negotiables: an ignored proposal
+  must **auto-resolve at the slider default** (otherwise it is an attention tax
+  and breaks the HITL guardrail), and it must not become a **second desk**.
+- **Idea 6 (concepts die)** — ship, minus "then it goes" (VISION: concepts go
+  dark, never off the board). Additional catch: **eviction/folding already
+  removes concepts from the board and means the OPPOSITE — success.** Death and
+  banking must not look alike.
+- **Idea 2 (model card)** — ship, but it must **not** be where the second number
+  debuts; that re-opens the late-reveal hole ECONOMY.md closed. Blocked anyway:
+  checkpoints do not exist yet.
+
+### The finding that mattered
+
+Ideas 1, 3 and 6 are blocked on **the same missing thing**: per-concept identity
+in the recovered set. Everything expressive is waiting on one small data
+structure — see batch 2, item 1.
+
+And the surfaces with the highest reach are **already specified and still
+empty**:
+
+- ✔ **`FieldNote` is worse than "missing".** It is a fully-specified interface
+  at `types.ts:296-304` with **zero references anywhere in `src/`** — declared,
+  never populated, never rendered. SIMPLIFICATIONS.md specifies 15 rows and the
+  house rule says each must be surfaced before its mechanic ships; S9–S15 have
+  all shipped. **The game is in standing violation of its own accuracy rule.**
+- ✘ **"The gloss is never shown" — overstated.** It *is* rendered, at
+  `App.svelte:690`. But only at the review desk, where it is the instrument you
+  read to catch a corrupt item — a chore. It was never the reward for recovery,
+  and there was no tap-to-inspect. **Fixed in this batch** (batch 2, item 2).
+- `OWNER_LINES = {}`. Still eight sentences from solving the tone problem.
+
+Stated bluntly, and worth keeping because it is fair: proposing a ninth
+mechanism is easier than writing the eight sentences, and this batch did the
+easy thing.
+
+---
+
+## Batch 2 — informed by both reviews
+
+Three items. Two are unblocks, not inventions, because that is what the reviews
+said the project needs. Ranked by what they release downstream.
+
+### 1. The category histogram — **the unblock**
+
+`state.coverage` is `Record<DomainId, number>` holding exactly one key,
+`{ general: 0 }`. `foldedNodes` is a bare `Decimal`. Between them the game
+knows *how much* it has recovered and **nothing about what**.
+
+**Proposal:** count recovered concepts **per WordNet lexname** — 26 integers,
+incremented where concepts are already banked and folded. Additive save
+migration, no new content, no prose.
+
+This single structure is what ideas 3, 6 and the model card's disaggregated
+section are all waiting on. It is also the only honest way to render the
+second number, because "which part of the world you lost" is not derivable from
+a scalar. **Do this before any of the three ship.**
+
+- **Caveat that must ship with it:** denominators are *within the shipped
+  slice*, and must be said to be. Per the theory review, a low `noun.plant` is
+  **the curator's selection showing through** (11 concepts exist), not
+  distributional loss. Exclude `noun.Tops` — structural, would read ~100%
+  forever.
+
+### 2. Tap a concept, read its definition — **shipped in this batch**
+
+The one item here that needed no new state, no prose, and no owner decision, so
+it was built rather than proposed.
+
+A press that travels less than 8 screen px is a tap rather than a drag; it opens
+a non-modal card over the board with the concept's label, category and its
+**WordNet gloss, verbatim**. Tapping the void dismisses it. Dragging is
+untouched — a tap is just a drag that went nowhere.
+
+- **Reach:** 100%, zero gating.
+- **Why it is not a prose violation:** every sentence is WordNet's, verbatim,
+  CC BY 4.0, already credited in the dock. It is data.
+- **Why it matters:** DECISIONS records that definitions are the reward for
+  recovery. The reward existed in the codebase and was only ever shown at the
+  desk, attached to a chore. Now the thing you recovered says what it means.
+
+### 3. The away report is the shift handover — **promoted to top of queue**
+
+Adopted from idea 8 with the reviewer's correction. Not "what it cost in
+agreement" (nothing rots while away) but **the supervision split**: how much the
+machines minted, and how much of it nobody watched (`pendingClean` vs
+`pending`). That is a real number the game already tracks, it is exactly the
+feeling the away screen should produce, and it is the most-read surface in the
+genre currently spending 2200ms on a toast before nulling itself.
+
+- **Blocked on prose** (one owner sentence), not on mechanism.
+
+### Deliberately NOT proposed
+
+No fourth mechanism. The two highest-reach surfaces in the project — the Field
+Notes codex and the eight `nodes:*` ticker lines — are specified, wired, and
+empty. Adding a ninth idea in front of them would repeat exactly the mistake
+both reviews named.
+
+**Field Notes is the one that is not merely unwritten but a rule violation**, and
+it needs an owner call before it can be built: its `oneLineTruth` column is
+player-facing prose, and the 15 candidate lines currently live in
+SIMPLIFICATIONS.md as documentation. Either the owner adopts those lines as
+authored, or writes them fresh. **The surface cannot ship until that is
+decided** — building an empty codex would be shipping the violation with a UI on
+top.
+
+---
+
 ## The pattern worth keeping
 
 **This batch systematically rendered degradation as visible damage TO an item,

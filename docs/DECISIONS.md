@@ -1468,3 +1468,41 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   themselves — they never lose their spelling.*
   Three glossary rows added to close the anchors this exposed: **model card**
   (Mitchell et al. 2019), **calibration** (Guo et al. 2017), **corpus**.
+- 2026-07-26 — **`corrupt()` is broken as well as wrong, verified in source.** A
+  surviving character consumes one `next()` and a corrupted one consumes two
+  (`ontology.ts:55-56`), so the RNG stream desynchronises and the function is
+  NOT monotone in `strength`: nudging strength re-rolls which characters break.
+  Driven from a render loop it strobes. Idea 1 was already killed on theory; this
+  closes any "but it is cheap" appeal. The function keeps its single honest use
+  (OCR damage on scanned-book salvage) and stays at zero call sites until then.
+- 2026-07-26 — **Idea 7 (`entity` never rots) is already shipped and is retired
+  as a proposal**, verified at `board.ts:131` (root returns false from
+  `isRotted`) and in the eviction loop, which starts at `i = 1` so the root can
+  never be folded either. Immunity holds on both the render and the engine side.
+- 2026-07-26 — **The category histogram is a prerequisite, not a feature.**
+  `state.coverage` holds one key and `foldedNodes` is an identity-free `Decimal`,
+  so by ~60min most of coverage has no identity. Per-category evaluation, visible
+  concept death, and the model card's disaggregated section are all blocked on the
+  same thing: 26 per-lexname counters, added by additive migration. Nothing in that
+  family ships before it.
+- 2026-07-26 — **The gloss is now the reward for recovery: tap-to-inspect ships.**
+  A press travelling under 8 screen px is a tap, not a drag, and opens a non-modal
+  card with the concept's label, category and verbatim WordNet gloss. Previously
+  the gloss appeared ONLY at the review desk, where it is the instrument for
+  spotting a corrupt item — so the game's stated reward was attached exclusively
+  to a chore. No prose rule is engaged: every sentence is WordNet's own, CC BY 4.0,
+  already credited.
+- 2026-07-26 — **The away report is promoted to the top of the content queue, and
+  its proposed payload was wrong.** It cannot report "what it cost in agreement"
+  because nothing rots while away; it reports the SUPERVISION SPLIT
+  (`pendingClean` vs `pending`) — how much the machines minted unwatched. Genre
+  review rates the away screen the most-read surface in an idle game; ours spends
+  2200ms on a toast and then nulls its own data.
+- 2026-07-26 — **Field Notes is a standing violation of our own accuracy rule, and
+  is blocked on an owner decision.** `FieldNote` is fully specified at
+  `types.ts:296-304` with ZERO references in `src/`; SIMPLIFICATIONS.md specifies
+  15 rows and the house rule requires each be surfaced before its mechanic ships —
+  S9 through S15 have all shipped. It cannot be built yet because `oneLineTruth`
+  is player-facing prose: the owner must either adopt the existing
+  SIMPLIFICATIONS lines as authored or write them fresh. Shipping an empty codex
+  would be shipping the violation with a UI on top.
