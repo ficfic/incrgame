@@ -1191,3 +1191,28 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   **This is why it mattered now: adding a second resource would have been the
   first change to trip it.** No migration or version bump needed — the fix is in
   the merge itself and applies to every save on load.
+- 2026-07-26 — **The 240-anchor wall: Discover was a no-op after ~10 minutes.**
+  Found by agent review while answering "where are we with the economy". The
+  newly discovered concept is appended to `anchors` BEFORE the eviction scan and
+  is dark by definition (its edge cannot exist yet), so under "evict the dark
+  first" it always won its own scan and deleted itself. **Proven by test:** on a
+  fully-lit board at `ANCHOR_CAP`, an 18-second Discover left `anchors` at 240,
+  the new concept absent, `foldedNodes` at 0 and `recovered` unchanged. Hand play
+  hard-walled at 240/4096 = **5.9% forever**, with the player still tapping a
+  button that did nothing, and in-flight connects then failed their
+  both-endpoints-present guard so those 7-second slots vanished silently too.
+  Consequence worth keeping: because a dark victim was ALWAYS available,
+  `victim < 0` was unreachable, so the `if (wasLit) foldedNodes += 1` credit was
+  dead code. Excluding the new arrival is what makes the fallback reachable,
+  which is what makes folding credit anything at all.
+  Fixed by holding the just-arrived node out of the victim search. Four tests
+  added, all verified red against the old eviction. The v11 exploit stays
+  closed — a DARK fold still credits nothing, and that is tested.
+  **Two agents disagreed about this code and the test settled it:** one claimed
+  fake machine lines mint permanent coverage through the fallback; the fallback
+  could not fire at all. Do not take either reading on trust — run it.
+- 2026-07-26 — **Folding is count-PRESERVING, not count-increasing.** A lit
+  concept leaves the board and becomes one unit of aggregate; coverage grows
+  when you connect the new arrival, not when an old one folds. Recorded because
+  the first version of the test asserted an increase and failed against correct
+  code.

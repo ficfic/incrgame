@@ -693,12 +693,32 @@ export function apply(state: GameState, action: Action): GameState {
             // instead of a hierarchy. And it fed the coverage lie below.
             // Keeping lit concepts preserves the spine, because a lit concept
             // is one something is hanging off.
+            // NEVER EVICT THE CONCEPT THAT JUST ARRIVED.
+            //
+            // It is dark by definition — it was appended one line above and its
+            // edge cannot exist yet — so under "evict the dark first" it always
+            // won its own scan and deleted itself. Measured: on a fully-lit
+            // board at the cap, an 18-second Discover appended the concept,
+            // evicted it in the same tick, credited nothing, and left
+            // `recovered` unchanged. Hand play therefore hard-walled at
+            // 240/4096 = 5.9% forever, at roughly ten minutes in, with the
+            // player still tapping a button that did nothing. In-flight
+            // connects then failed their both-endpoints-present guard too, so
+            // the 7-second slots vanished silently as well.
+            //
+            // A consequence worth stating: because a dark victim was always
+            // available, `victim < 0` was unreachable and the credit below was
+            // dead code. Excluding the new arrival is what makes the fallback
+            // reachable, which is what makes folding credit anything at all.
             let victim = -1;
             for (let i = 1; i < anchors.length; i++) {
               const id = anchors[i]!;
+              if (id === b.node) continue;
               if (!edges.some((e) => e.a === id || e.b === id)) { victim = i; break; }
             }
-            if (victim < 0) victim = 1; // everything is lit: fall back to oldest
+            // everything else is lit: fold the oldest that is not the arrival
+            if (victim < 0) victim = anchors.findIndex((id, i) => i >= 1 && id !== b.node);
+            if (victim < 0) break; // nothing left that may be folded
             const folded = anchors.splice(victim, 1)[0]!;
             const wasLit = edges.some((e) => e.a === folded || e.b === folded);
             links = links.filter(([x, y]) => x !== folded && y !== folded);

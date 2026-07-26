@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   apply, coverage, driftPerSecond, fidelity, initialState, lit, recovered,
   displayedFidelity, recoveryPerSecond, REFLECT_MIN_CONCEPTS, reviewQueue, reviewWeight,
-  tick, verified,
+  tick, verified, DISCOVER_MS, CONNECT_MS,
 } from '../src/core/engine';
 import { applyOfflineProgress } from '../src/core/offline';
 import { deserialize, serialize } from '../src/core/save';
@@ -564,5 +564,74 @@ describe('a line reads as a sentence', () => {
     expect(back.forged.edges[0]).toMatchObject({ a: 1, b: 0, rel: 0 }); // swapped
     expect(back.forged.edges[1]).toMatchObject({ a: 1, b: 2, rel: 1 }); // untouched
     expect(lit(back)).toBe(3); // and nobody lost a concept
+  });
+});
+
+// ── the 240-anchor wall ────────────────────────────────────────────────────
+//
+// The newly discovered concept is appended to `anchors` BEFORE the eviction
+// scan, and it is dark by definition (its edge cannot exist yet). Under
+// "evict the dark first" it therefore always won its own scan and deleted
+// itself: on a fully-lit board at the cap, an 18s Discover produced nothing,
+// credited nothing, and left `recovered` unchanged — a permanent hard wall at
+// 240/4096 = 5.9%, reached at ~10 minutes.
+describe('discovering past the anchor cap', () => {
+  const litBoard = (): GameState => {
+    const s = initialState(1);
+    const anchors = Array.from({ length: ANCHOR_CAP }, (_, i) => i);
+    const edges = anchors.slice(1).map((id) => ({ a: id, b: 0, rel: 0, checked: true, fake: false }));
+    return {
+      ...s, lastTick: 1_000_000,
+      forged: { ...s.forged, anchors, edges, links: [], nextId: ANCHOR_CAP, foldedNodes: '0' },
+      bookings: [{ kind: 'discover' as const, until: 1_000_000 + DISCOVER_MS, node: ANCHOR_CAP, slot: 0 }],
+    };
+  };
+  //  takes a DELTA IN SECONDS, not an absolute time — passing `now`
+  // silently advanced nothing and the booking never completed.
+  const land = (s: GameState): GameState => tick(s, DISCOVER_MS / 1000 + 0.1);
+
+  it('puts the new concept on the board instead of evicting it immediately', () => {
+    const after = land(litBoard());
+    expect(after.forged.anchors).toContain(ANCHOR_CAP);
+    expect(after.forged.anchors.length).toBe(ANCHOR_CAP);
+  });
+
+  it('credits the LIT concept it folded away, so nothing is lost in the swap', () => {
+    // Folding is count-PRESERVING, not count-increasing: a lit concept leaves
+    // the board and becomes one unit of aggregate. Coverage grows when you
+    // connect the new arrival, not when an old one folds. (Asserting an
+    // increase here failed against correct code — the fold is a swap.)
+    const before = litBoard();
+    const after = land(before);
+    expect(Number(after.forged.foldedNodes)).toBe(1);
+    expect(recovered(after)).toBe(recovered(before));
+  });
+
+  it('lets recovery actually grow again once the new arrival is connected', () => {
+    // This is the property the wall destroyed: past the cap, there was no new
+    // arrival to connect, so `recovered` could never move again.
+    const landed = land(litBoard());
+    const connected = tick({
+      ...landed,
+      bookings: [{
+        kind: 'connect' as const, until: landed.lastTick + CONNECT_MS,
+        edge: { a: ANCHOR_CAP, b: 0, rel: 0, checked: true, fake: false },
+      }],
+    }, CONNECT_MS / 1000 + 0.1);
+    expect(recovered(connected)).toBeGreaterThan(recovered(landed));
+  });
+
+  it('still refuses to credit a DARK fold — the v11 exploit stays closed', () => {
+    // a board of dark anchors: Discover-spam must never buy coverage
+    const s = initialState(1);
+    const anchors = Array.from({ length: ANCHOR_CAP }, (_, i) => i);
+    const dark: GameState = {
+      ...s, lastTick: 1_000_000,
+      forged: { ...s.forged, anchors, edges: [], links: [], nextId: ANCHOR_CAP, foldedNodes: '0' },
+      bookings: [{ kind: 'discover' as const, until: 1_000_000 + DISCOVER_MS, node: ANCHOR_CAP, slot: 0 }],
+    };
+    const after = land(dark);
+    expect(Number(after.forged.foldedNodes)).toBe(0);
+    expect(recovered(after)).toBe(0);
   });
 });
