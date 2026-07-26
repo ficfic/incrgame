@@ -68,6 +68,22 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       agents → integer costs/display, node/edge decoupling (crosslinks), ambient
       graph life, LOD densification past cap, pan/zoom, progress-driven palette,
       locked next-generator teaser. See DECISIONS.
+- [x] **The board became legible** (2026-07-26) — four rounds, all deployed:
+      (1) ONE WORLD, ONE CAMERA — every part of the board had been computing its
+      own pixels from `w`/`h`, so the graph sat 30px off centre and used 49% of
+      the width; (2) semantic zoom — position carried the taxonomy, level of
+      detail by weight; (3) **d3-force replaced hand-rolled placement** (owner:
+      "we should not invent stuff") — free-floating, wiggly, draggable, with
+      `sim.ts` + `detail.ts` replacing `layout.ts`; (4) labels decluttered in
+      screen space, which finally makes overlap impossible rather than unlikely.
+      See DECISIONS 2026-07-26 and ARCHITECTURE items 5–7.
+- [x] **The deploy was silently broken for a day and a half** (2026-07-26): the
+      core-purity gate grepped raw text for `\bwindow\b` and matched the word in
+      a COMMENT, so build+publish were skipped while every push reported success.
+      Fixed, plus: the browser check was reporting green WITHOUT RUNNING (11s for
+      a 90s job), and then hung 9 minutes and blocked the deploy. Now a separate
+      `visual` job that cannot take the site down. **"I pushed" is not "it
+      shipped" — read the run.**
 - [x] **Polish round** (2026-07-25, owner-picked over M3-first): Datums rename,
       event ticker (mechanical lines; owner writes flavor — `docs/TICKER_LINES.md`),
       +1 float on Connect, graph pulse on buy.
@@ -286,11 +302,19 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       first; the endgame should make recovering `benthos`/`kickshaw` feel like
       the last lights coming back on. Needs a mechanic, not just ordering.
 - [ ] **Owner: write the first ticker-line batch** (`docs/TICKER_LINES.md`).
+- [ ] **Owner: judge the FEEL of the force layout.** Repulsion strength, spring
+      length and damping in `src/render/sim.ts` are a first guess at
+      "Obsidian-ish". Too springy / too stiff / settles too fast are all
+      one-constant fixes; it is a taste call, not a correctness one.
+- [ ] **Owner: drag-test on a real fingertip.** Verified only with a synthetic
+      mouse drag. Grab radius is 22px; on a crowded board a thumb covers several
+      nodes, so it may grab the wrong concept or steal a pan you meant.
 - [ ] **▶ NEXT after owner's polish verdict: M3, re-scoped per agents** — (1) graph rebind: edges←triples,
       nodes←entity emergence; data = fuel only (deletes the ambient bridge);
       (2) Extractor + Reasoner, multiplier consumes `resources.triples` and is
-      SHOWN on screen ("Inference ×1.34"); (3) PixiJS bloom w/ production-driven
-      motion (no production = still graph), pan/zoom carried over; (4) event
+      SHOWN on screen ("Inference ×1.34"); (3) production-driven motion (no
+      production = still graph) — note PixiJS is NOT a dependency and pan/zoom
+      already shipped 2026-07-26, so this reduces to atmosphere; (4) event
       ticker (Paperclips-style) — NEEDS OWNER-WRITTEN LINES (prose guardrail).
       Then M4 fast (sell = graph visibly shrinks — the payoff).
 - [ ] Owner: on-device iOS install check (Safari if Edge won't) — still open.
