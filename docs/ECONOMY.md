@@ -312,6 +312,35 @@ not one player-facing sentence.
    there is risk-free rate rather than risk — and a decision with no downside is
    not a decision.
 
+## Measured, 2026-07-26 — `node scripts/sim-economy.mjs`
+
+A headless probe of this shape now exists. **Every constant in it is a guess**;
+what it tests is the STRUCTURE. Results at 12h across four strategies:
+
+| question | verdict |
+|---|---|
+| Does automating ever become correct? | **YES** — hand-only reaches 0%, automated 100% |
+| Is the endgame board dark? | **NO** — a well-played board keeps its tail |
+| Do the two numbers diverge on play? | **YES** — greed opens a 33.7% gap, care closes it to 0% |
+
+**The probe immediately found a hole in this document.** Its first run reported
+Q1 as FATAL — pure hand play reached 100% and "never automate" was dominant for
+the third economy running. The cause was that the GATE described above was
+written here and not modelled: coverage grew from verified volume alone, so the
+player could hand-restore the world. With the gate in (restoration is done by the
+MODEL, which is the stated goal taken literally) the dominant strategy inverts
+and automation becomes necessary rather than optional. **The design was right and
+the model was wrong — which is the cheapest possible place for that to be true.**
+
+Two caveats the probe also surfaces, both about numbers rather than structure:
+
+- **Everything reaches 100% by ~6h.** Far too fast, and it contradicts
+  "unreachable by construction". The asymptote and the costs need real tuning.
+- **Coverage sits at 0% until the first checkpoint (~20 min).** The ladder's
+  lower stocks move throughout, so the screen is not dead — but the HEADLINE
+  number does not move for twenty minutes, which is a genuine retention risk and
+  the first thing to check against a real player.
+
 ## Before anything is built
 
 Simulate headless. The harness exists and proved the old economy's wall in minutes
