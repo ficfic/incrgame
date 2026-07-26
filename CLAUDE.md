@@ -26,13 +26,22 @@ for anything player-facing is `npm run play` **plus looking at the screenshot**.
 verify it, do not ship it. Report the output, not the conclusion.
 
 **3. Build the smallest playable version, then look at it, then decide.** Do not
-write a design document first. This project has ~50,000 words of docs against
+write a design DOCUMENT first. This project has ~50,000 words of docs against
 ~5,000 lines of code, and the docs did not catch the mistakes: two revisions,
 three agent reviews and a headless simulation all missed that Extraction minted
 integers and called them statements. One question from the owner caught it, and
 150 seconds of play caught the attention-cap inflation.
 Write a spec only when the decision is genuinely irreversible — save format,
 licensing, data pipeline.
+*This bans speculative documents, NOT thinking.* Explore and plan before touching
+a multi-file change or unfamiliar code — that is standard practice and it is
+cheap. If you could describe the diff in one sentence, skip straight to the diff.
+
+**3b. One item, one session.** When the item ships, stop and start the next one
+fresh. Context degrades as it fills, and a session that has already done three
+things makes more mistakes on the fourth — which is how today happened. Send
+wide investigations to a **subagent** so exploring the codebase does not eat the
+context you need for building it.
 
 **4. Verify a check goes RED before trusting it.** Every guard in this repo has
 been vacuous at least once: a browser gate that "passed" in 11 seconds without
@@ -47,14 +56,14 @@ fixed unless the item called for it. Meta-work breeds meta-work.
 ### Review agents (`.claude/agents/`)
 
 `prof-veritas` (theory), `chad-liquidity` (balance), `the-graph` (consistency),
-`the-auditor` (security/licensing), `the-redditor` (genre credibility). Fresh
-context, so they cannot rubber-stamp their own work.
+`the-auditor` (security/licensing), `the-redditor` (genre credibility),
+`the-process` (are we actually following these rules — it counts, it does not
+opine). Fresh context, so they cannot rubber-stamp their own work.
 
 **One review round per item, and only findings that affect correctness or the
 stated requirement.** A reviewer asked to find gaps will always find some; acting
-on all of them is how eight content ideas became a vocabulary module, a check
-script, and tests for the check script. Character on top, accurate verdict
-underneath — a funny reviewer that lies is worthless.
+on all of them is how eight content ideas became a module, a check script, and
+tests for the check script.
 
 ### Talking to the owner
 
@@ -102,13 +111,10 @@ underneath — a funny reviewer that lies is worthless.
 ## Stack
 
 Pure-TS headless engine (`apply(state, action) => state`, no DOM/clock/RNG) +
-break_eternity · **Svelte 5 runes** UI · **DOM + CSS** for anything with text or
-a tap target · **canvas 2D** for the graph's lines · **d3-force** for layout ·
-Vite + PWA · Vitest. Content is declarative data. Full rationale in
-`docs/ARCHITECTURE.md`.
+break_eternity · **Svelte 5 runes** · **DOM + CSS** for anything with text or a
+tap target · **canvas 2D** for the graph's lines · **d3-force** for layout ·
+Vite + PWA · Vitest. Content is declarative data.
 
-Reference docs, read only when the item needs them: `SPEC.md` (types, save,
-deploy contract), `VISION.md` (why), `GLOSSARY.md` + `SIMPLIFICATIONS.md`
-(accuracy), `ECONOMY.md` (the ladder), `HANDOVER.md` (current state).
-
-Commits: small, focused, imperative subject line.
+Reference docs, read only when the item needs them: `ARCHITECTURE.md` (why this
+stack), `SPEC.md` (types, save, deploy), `VISION.md`, `GLOSSARY.md` +
+`SIMPLIFICATIONS.md` (accuracy), `ECONOMY.md`, `HANDOVER.md` (current state).
