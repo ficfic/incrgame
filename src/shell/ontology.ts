@@ -17,9 +17,32 @@ export interface Concept {
   parent: number;   // index of the concept it was recovered through (-1 = the root)
 }
 
-/** Deterministic character-level corruption of a REAL string — a visual glitch
- *  effect on licensed text, not generated text. Used to show what a drifted
- *  statement looks like: the definition you had, decaying. */
+/** Deterministic character-level damage to a REAL string — a glitch effect on
+ *  licensed text, never generated text.
+ *
+ *  ⚠️ THIS IS NOT WHAT COLLAPSE LOOKS LIKE, AND THIS COMMENT USED TO SAY IT WAS.
+ *
+ *  It previously read "used to show what a drifted statement looks like: the
+ *  definition you had, decaying". That is false, and because this function has
+ *  ZERO call sites the comment was the only thing anyone read — it went on to
+ *  talk a later session into proposing that concept labels visibly rot on the
+ *  board. `dog` → `d▒g` looks superb and teaches the single most harmful
+ *  misconception in this subject: that degraded machine output can be spotted
+ *  by looking at it. The defining property of collapsed and hallucinated output
+ *  is that it stays FLUENT.
+ *
+ *  The project already had this right, in `core/types.ts`: "A corrupt item is
+ *  NOT a garbled string — it is a real concept shown with *another real
+ *  concept's definition*… spotting rot requires reading the gloss rather than
+ *  looking for damage." Character damage depicts BIT ROT — storage noise, a
+ *  different failure from a different field.
+ *
+ *  Real collapse is ABSENCE: rare things stop being there. That is rendered
+ *  correctly already — the rim of the graph goes dark while the core stays
+ *  bright (`render/detail.ts` weight + LOD).
+ *
+ *  The one honest use for this function is OCR damage on scanned-book salvage,
+ *  where character-level garbage is exactly what really happens. */
 export function corrupt(text: string, seed: number, strength: number): string {
   const GLYPHS = '▒▓░#§¤∎⌁≠∅';
   let s = seed >>> 0;

@@ -1421,3 +1421,50 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   prose for content that can never fire. Removed, and recorded rather than
   silently deleted. The stale "+N Datums" fallback went with it; the bottom rung
   is tokens now.
+- 2026-07-26 — **Theory review KILLED the content idea I rated highest, and it was
+  right.** Proposed: concept labels visibly rotting on the board (`dog` → `d▒g`)
+  via the existing `corrupt()`. Verdict FALSE, and the objection is worth keeping:
+  character-level corruption depicts **bit rot** — storage noise, a different
+  failure from a different field. Model collapse is **distribution collapse**;
+  neither phase damages an individual item. The lesson a player would take is
+  *"degraded machine output can be spotted by looking at it"* — the single most
+  harmful misconception in this subject, since the defining property of collapsed
+  and hallucinated output is that it stays FLUENT. It would have taught the
+  inverse of the game's own thesis.
+  **The project already had this right and the proposal reversed it unnoticed.**
+  `core/types.ts`: "A corrupt item is NOT a garbled string — it is a real concept
+  shown with another real concept's definition… spotting rot requires reading the
+  gloss rather than looking for damage."
+  **Root cause: `corrupt()` has ZERO call sites, so its docstring was the only
+  thing anyone read — and the docstring was wrong** ("the definition you had,
+  decaying"). A stale comment on dead code talked a later session into a
+  falsehood. The comment now carries the objection so the function cannot
+  mis-sell itself again, and names its one honest use: OCR damage on
+  scanned-book salvage, where character garbage really is what happens.
+  Also caught: the proposal argued `corrupt()` was "already theory-safe (real
+  string, never invented)". Not inventing text passes the LICENSING audit and
+  says nothing about whether a depiction is TRUE. Borrowing a passed audit to
+  skip a failed one is a move to watch for.
+- 2026-07-26 — **"Unsure" → "unverified": the game has no uncertainty estimate.**
+  A grep for `confidence|uncertain|probab` finds nothing in `src/`; there is an
+  RNG. Calling machine-proposed edges "unsure" asserts a self-estimate of
+  correctness AND implies it is well-calibrated — the property real extraction
+  models notably lack. Not a simplification of a real thing, so not labellable.
+  Renamed to **unverified proposal**, which is literally true and maps onto the
+  `unverified` provenance already in `types.ts`. The mechanic survives intact;
+  only the word died.
+- 2026-07-26 — **Per-category scoring must not be captioned as tail loss.**
+  Grouping by WordNet lexname is legitimate practice, but SIMPLIFICATIONS S8 is
+  explicit that the shipped slice is breadth-first from `entity` — it IS the head
+  and has no rare tail to lose. `noun.plant` reading low is the curator's
+  selection showing through; it has ELEVEN concepts in it. Captioning a curation
+  artifact as distributional loss teaches a false causal story. Denominators are
+  within the shipped slice and said to be so, and `noun.Tops` is excluded as
+  structural rather than semantic.
+- 2026-07-26 — **The pattern behind all three errors, worth more than any of
+  them: this batch kept rendering degradation as visible damage TO an item, when
+  real collapse is ABSENCE.** One sentence from this repo's own source kills the
+  whole class: *degraded concepts lose their edges, their weight, and eventually
+  themselves — they never lose their spelling.*
+  Three glossary rows added to close the anchors this exposed: **model card**
+  (Mitchell et al. 2019), **calibration** (Guo et al. 2017), **corpus**.
