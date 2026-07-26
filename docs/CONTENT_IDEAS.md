@@ -349,7 +349,7 @@ genre currently spending 2200ms on a toast before nulling itself.
 ### Deliberately NOT proposed
 
 No fourth mechanism. The two highest-reach surfaces in the project — the Field
-Notes codex and the eight `nodes:*` ticker lines — are specified, wired, and
+Notes codex and the eight `recovered:*` ticker lines — are specified, wired, and
 empty. Adding a ninth idea in front of them would repeat exactly the mistake
 both reviews named.
 

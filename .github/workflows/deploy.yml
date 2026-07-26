@@ -47,6 +47,12 @@ jobs:
         # from outside is indistinguishable from a deploy. Now a script that
         # strips comments and strings first, with its red path tested.
         run: node scripts/check-core-purity.mjs
+      - name: Player-facing vocabulary is single-sourced
+        # The dock said "graph: 25 nodes" while the HUD said "3 recovered" — two
+        # different quantities wearing one word, because each surface reached
+        # into raw state and picked its own. src/core/readouts.ts is the single
+        # place a player-facing number is named; this keeps surfaces on it.
+        run: node scripts/check-vocabulary.mjs
       - name: Ontology data present and self-describing
         # The committed build output is the game's content; a deploy without it
         # ships a world with no concepts in it.

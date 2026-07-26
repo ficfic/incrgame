@@ -1543,3 +1543,37 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   tokens · recovered · checked · agreeing · attention. The 4,096 dataset size
   left the HUD — at minute one it is a 0.02% denominator with no room for an
   honest caption, and the concept count alone is the truthful reading.
+- 2026-07-26 — **"25 nodes" vs "3 recovered" was a VOCABULARY bug, and it now has
+  a structural fix.** The dock and the HUD each reached into raw state and picked
+  their own word: `state.graph.nodes` counts concepts PLACED (dark ones too) while
+  `recovered()` counts only LIT ones, and `state.graph.edges` is the statement
+  BALANCE while the HUD calls that number "statements". One quantity with two
+  nouns, and one noun covering two quantities. Nobody wrote a bug — there was no
+  place where "what the player calls this" was decided. `src/core/readouts.ts` is
+  now that place: one noun, one function, uniqueness asserted by test, and
+  `scripts/check-vocabulary.mjs` fails the build if a surface reads the legacy
+  `graph` cache. Ticker milestone ids changed with it (`nodes:*` → `recovered:*`,
+  `edges:*` → `lines:*`); safe precisely because `OWNER_LINES` is still empty, so
+  no written prose was orphaned. `docs/TICKER_LINES.md` and `docs/CONTENT.md`
+  updated to match.
+- 2026-07-26 — **Line milestones capped at 500 because `EDGE_CAP` is 512.** The
+  old list ended at 1,000 drawn edges, which cannot happen — a beat nobody can
+  reach, which CONTENT.md reachability rule 3 already forbade.
+- 2026-07-26 — **The ticker was append-only and therefore permanently stuck.**
+  The dock rendered `slice(-2)` of a list that only grew, so the last two lines
+  sat under the board forever; the owner's screenshot still showed "graph: 25
+  nodes" long after it was news. Lines now carry a timestamp and expire after 45s,
+  clocked off `state.lastTick` rather than wall time so the derivation actually
+  re-evaluates.
+- 2026-07-26 — **THE DELIVERY BUG, and it was the other half of "nothing changes
+  for me".** `registerSW({ immediate: true })` checks for a new build only at page
+  load; on iOS the tab suspends and resumes without a navigation for days, so a
+  green deploy could sit on the server unread. The first cause found (a dead CI
+  gate) was real but was not the whole story, and the owner was still on a build
+  two deploys old hours later. Now the worker also checks on `visibilitychange`
+  (the iOS case — the app is resumed, not loaded) and on a 10-minute timer.
+- 2026-07-26 — **A build stamp ships in the save sheet** (`build <sha> · save
+  vN`). "Is the thing on my phone the thing I just deployed?" was unanswerable and
+  cost a session of chasing bugs already fixed on the server. Save version sits
+  beside it because a stale app and an unmigrated save look identical from the
+  outside and are fixed completely differently.

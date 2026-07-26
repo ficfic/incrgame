@@ -9,12 +9,25 @@ import { writable, type Readable } from 'svelte/store';
 import type { GameState } from '../core/types';
 import { GENERATORS } from '../content/generators';
 import { formatWhole } from '../core/numbers';
+import { READOUTS, type ReadoutId } from '../core/readouts';
 import { RESOURCE_LABELS } from '../content/resources';
 
 export interface TickerLine {
   id: number;
   text: string;
+  /** Epoch ms, on the same clock as `state.lastTick`. Lines EXPIRE.
+   *
+   *  Without this the dock rendered `slice(-2)` of an append-only list, so the
+   *  last two lines sat under the board forever — "graph: 25 nodes" was still
+   *  on screen long after it stopped being news, which reads as a frozen UI
+   *  rather than as a drip. A ticker that never clears is not a ticker. */
+  at: number;
 }
+
+/** How long a line stays on screen. Long enough to read on a phone without
+ *  looking at it immediately; short enough that a quiet dock means nothing has
+ *  happened, rather than that something happened once. */
+export const TICKER_TTL_MS = 45_000;
 
 // Owner-written lines slot in here, keyed by trigger id (see docs/TICKER_LINES.md).
 // Empty until the owner writes them — mechanical fallbacks carry the ticker.
@@ -25,8 +38,21 @@ const OWNER_LINES: Record<string, string> = {};
  *  without shipping one. Exported as the same object, never written in play. */
 export const OWNER_LINES_FOR_TEST = OWNER_LINES;
 
-const NODE_MILESTONES = [10, 25, 50, 100, 250, 500, 1000, 2500];
-const EDGE_MILESTONES = [1, 10, 50, 250, 1000];
+/** Concepts RECOVERED — the same quantity the HUD shows under the same word.
+ *  These used to fire on `state.graph.nodes`, which counts every concept
+ *  placed including dark ones, so the dock announced "25 nodes" beside a HUD
+ *  reading "3 recovered". Both numbers were right; only one of them was the
+ *  thing the player is playing for. */
+const RECOVERED_MILESTONES = [10, 25, 50, 100, 250, 500, 1000, 2500];
+
+/** Lines DRAWN. These used to fire on `state.graph.edges`, which is the
+ *  statement balance — a different quantity that the HUD already calls
+ *  "statements" — so "graph: first edge" announced the first STATEMENT, while
+ *  lines had been on the board for a while.
+ *
+ *  Capped below EDGE_CAP (512): a milestone on a mechanic that cannot happen is
+ *  a beat nobody will ever read (docs/CONTENT.md, reachability rule 3). */
+const LINE_MILESTONES = [1, 10, 50, 250, 500];
 
 const lines = writable<TickerLine[]>([]);
 export const ticker: Readable<TickerLine[]> = lines;
@@ -44,7 +70,7 @@ let nextId = 1;
 export function say(triggerId: string, mechanical: string): void {
   const generic = triggerId.replace(/:\d+$/, '');
   const text = OWNER_LINES[triggerId] ?? OWNER_LINES[generic] ?? mechanical;
-  lines.update((l) => [...l.slice(-30), { id: nextId++, text }]);
+  lines.update((l) => [...l.slice(-30), { id: nextId++, text, at: Date.now() }]);
 }
 
 /** Diff two states and emit ticker lines for what just happened. */
@@ -56,15 +82,26 @@ export function observeTransition(prev: GameState, next: GameState): void {
       say(`buy:${g.id}:${after}`, `${g.label} #${after} online`);
     }
   }
-  for (const m of NODE_MILESTONES) {
-    if (prev.graph.nodes < m && next.graph.nodes >= m) {
-      say(`nodes:${m}`, `graph: ${m} nodes`);
-    }
-  }
-  for (const m of EDGE_MILESTONES) {
-    if (prev.graph.edges < m && next.graph.edges >= m) {
-      say(`edges:${m}`, m === 1 ? 'graph: first edge' : `graph: ${m} edges`);
-    }
+  // Milestones read READOUTS, so the number in the line is by construction the
+  // number under the same word in the HUD. That equality is asserted by a test.
+  crossings(prev, next, 'recovered', RECOVERED_MILESTONES, (m) =>
+    `${m} concepts ${READOUTS.recovered.noun}`);
+  crossings(prev, next, 'lines', LINE_MILESTONES, (m) =>
+    m === 1 ? `first line drawn` : `${m} ${READOUTS.lines.noun} drawn`);
+}
+
+/** Fire once per threshold the given readout has just crossed upward. */
+function crossings(
+  prev: GameState,
+  next: GameState,
+  id: ReadoutId,
+  thresholds: number[],
+  mechanical: (m: number) => string,
+): void {
+  const before = READOUTS[id].count(prev);
+  const after = READOUTS[id].count(next);
+  for (const m of thresholds) {
+    if (before.lt(m) && after.gte(m)) say(`${id}:${m}`, mechanical(m));
   }
 }
 

@@ -22,6 +22,7 @@
     unsupervised, verified,
   } from '../core/engine';
   import { FRONTIER_CAP } from '../core/graph';
+  import { READOUTS } from '../core/readouts';
   import { D, format, formatWhole, gte } from '../core/numbers';
   import { GENERATORS, M1_ROSTER } from '../content/generators';
   import { CONCEPT_BUDGET } from '../content/ontologyMeta';
@@ -37,7 +38,7 @@
   import { detail, dotRadius, weigh } from '../render/detail';
   import { GraphSim } from '../render/sim';
   import { paintGraph } from '../render/paint';
-  import { ticker } from '../shell/ticker';
+  import { ticker, TICKER_TTL_MS } from '../shell/ticker';
 
   let canvas = $state<HTMLCanvasElement>();
   let stage = $state<HTMLDivElement>();
@@ -50,12 +51,30 @@
   let now = $state(0);
 
   const credit = $derived.by(() => { void $ontologyRevision; return ontologyCredit(); });
-  const hue = $derived(stageHue($game.graph.nodes));
+  // The palette drifts with progress. It used to drift with `graph.nodes` —
+  // concepts PLACED, dark ones included — so the world changed colour for work
+  // the player had not finished. Same readout as the HUD now.
+  const hue = $derived(stageHue(READOUTS.recovered.count($game).toNumber()));
   const trust = $derived(displayedFidelity($game));
   /** The second number: how much of what you have drawn matches the source. */
   const agreeing = $derived(sourceAgreement($game));
   const free = $derived(attentionFree($game));
   const EXTRACT_BATCH = extractCost();
+
+  /** Ticker lines that have not yet expired.
+   *
+   *  This used to be `$ticker.slice(-2)` — an append-only list rendered from
+   *  the end, so the last two lines stayed under the board indefinitely. The
+   *  owner's screenshot had "graph: 25 nodes" still sitting there, which reads
+   *  as a frozen element rather than as news.
+   *
+   *  The clock is `$game.lastTick`, not `Date.now()`: the game store ticks at
+   *  10 Hz, so referencing it is what makes this re-evaluate at all. A
+   *  wall-clock read here would compute once and never update. */
+  const liveTicker = $derived.by(() => {
+    const clock = $game.lastTick || Date.now();
+    return $ticker.filter((l) => clock - l.at < TICKER_TTL_MS).slice(-2);
+  });
 
   const activeVignette = $derived.by(() => {
     const id = pendingVignette($game);
@@ -698,9 +717,9 @@
          sentences at all outside UI chrome. Mechanical lines ship now; the
          owner's flavour lines slot into OWNER_LINES (docs/TICKER_LINES.md)
          without touching this. -->
-    {#if $ticker.length > 0}
+    {#if liveTicker.length > 0}
       <div class="ticker">
-        {#each $ticker.slice(-2) as l (l.id)}<span>{l.text}</span>{/each}
+        {#each liveTicker as l (l.id)}<span>{l.text}</span>{/each}
       </div>
     {/if}
 
@@ -836,6 +855,13 @@
   {:else if sheet === 'save'}
     <div class="sheet">
       <h2>Save</h2>
+      <!-- The build stamp. "Is the thing on my phone the thing I just
+           deployed?" was unanswerable, and a whole session went into chasing
+           bugs that had already been fixed on the server. This is the short
+           commit sha in CI and "dev" locally. Save version sits beside it
+           because a stale app and an unmigrated save look identical from the
+           outside and are fixed completely differently. -->
+      <p class="stamp">build {__BUILD_ID__} · save v{$game.saveVersion}</p>
       <div class="sheet-foot col">
         <button onclick={() => saveAction('export')}>Export save</button>
         <button onclick={() => saveAction('import')}>Import save</button>
@@ -1107,6 +1133,7 @@
     display: flex; flex-direction: column; gap: 10px;
     color: #cfe0e8; font: 400 14px/1.35 ui-sans-serif, system-ui, sans-serif;
   }
+  .stamp { margin: 0; font: 0.62rem ui-monospace, monospace; color: #5d7385; }
   .sheet h2 { margin: 0; font-size: 1rem; color: #eaf6f2; }
   .sheet .body { margin: 0; color: #93a8b8; }
   .rows { display: flex; flex-direction: column; gap: 10px; }

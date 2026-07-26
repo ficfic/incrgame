@@ -55,14 +55,14 @@ is the tonal arc, pre-numbered and pre-wired:
 
 | trigger | beat | note |
 |---|---|---|
-| `nodes:10` | startup comedy | the joke is still funny here |
-| `nodes:25` | — | |
-| `nodes:50` | — | |
-| `nodes:100` | — | |
-| `nodes:250` | the turn | GAME_DESIGN puts the curdle here |
-| `nodes:500` | — | |
-| `nodes:1000` | — | |
-| `nodes:2500` | not funny any more | |
+| `recovered:10` | startup comedy | the joke is still funny here |
+| `recovered:25` | — | |
+| `recovered:50` | — | |
+| `recovered:100` | — | |
+| `recovered:250` | the turn | GAME_DESIGN puts the curdle here |
+| `recovered:500` | — | |
+| `recovered:1000` | — | |
+| `recovered:2500` | not funny any more | |
 
 If the owner writes these eight lines and nothing else, the game's tone problem
 is solved.
@@ -135,7 +135,7 @@ structural zero.
 
 ## The one-hour brief, if there is only one hour
 
-1. **0:00–0:25** — the eight `nodes:*` milestones, as one voice that curdles.
+1. **0:00–0:25** — the eight `recovered:*` milestones, as one voice that curdles.
 2. **0:25–0:40** — the cold open, ≤50 words.
 3. **0:40–0:55** — one sentence for the review desk.
 4. **0:55–1:00** — stop.

@@ -224,7 +224,7 @@ inherit them by assumption.
       prose: does the owner adopt the existing SIMPLIFICATIONS truth-lines as
       authored, or write them fresh? An empty codex is the violation with a UI.
 
-- [ ] **`OWNER_LINES = {}`** — the eight `nodes:*` milestones, written as one
+- [ ] **`OWNER_LINES = {}`** — the eight `recovered:*` milestones, written as one
       curdling voice. Wired, reachable, 100% reach, still empty. Per
       `docs/CONTENT.md` this is the single highest-value writing hour available.
 

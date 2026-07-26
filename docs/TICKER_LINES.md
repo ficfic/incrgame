@@ -24,14 +24,14 @@ This is the tonal arc, pre-numbered and pre-wired. The instruction that matters:
 
 | Trigger id | Fires when | Mechanical fallback | Your line |
 |---|---|---|---|
-| `nodes:10` | 10 concepts on the board | "graph: 10 nodes" | |
-| `nodes:25` | 25 | "graph: 25 nodes" | |
-| `nodes:50` | 50 | "graph: 50 nodes" | |
-| `nodes:100` | 100 | "graph: 100 nodes" | |
-| `nodes:250` | 250 — **the turn.** GAME_DESIGN puts the curdle here | "graph: 250 nodes" | |
-| `nodes:500` | 500 | "graph: 500 nodes" | |
-| `nodes:1000` | 1,000 | "graph: 1000 nodes" | |
-| `nodes:2500` | 2,500 — should not be funny | "graph: 2500 nodes" | |
+| `recovered:10` | 10 concepts on the board | "10 concepts recovered" | |
+| `recovered:25` | 25 | "25 concepts recovered" | |
+| `recovered:50` | 50 | "50 concepts recovered" | |
+| `recovered:100` | 100 | "100 concepts recovered" | |
+| `recovered:250` | 250 — **the turn.** GAME_DESIGN puts the curdle here | "250 concepts recovered" | |
+| `recovered:500` | 500 | "500 concepts recovered" | |
+| `recovered:1000` | 1,000 | "1000 concepts recovered" | |
+| `recovered:2500` | 2,500 — should not be funny | "2500 concepts recovered" | |
 
 ## Other live triggers
 

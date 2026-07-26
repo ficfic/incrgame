@@ -3,10 +3,18 @@ import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { VitePWA } from 'vite-plugin-pwa';
 
+/** A build STAMP the player can read.
+ *
+ *  "Is the thing on my phone the thing I just deployed?" was unanswerable, and
+ *  it cost a whole session of chasing bugs that had already been fixed on the
+ *  server. CI supplies the commit; a local build says so. Never a guess again. */
+const BUILD_ID = (process.env.GITHUB_SHA ?? '').slice(0, 7) || 'dev';
+
 // SPEC.md: base MUST be '/incrgame/' (project Pages subpath); manifest
 // start_url/scope MUST equal it or the installed app boots to a 404.
 export default defineConfig({
   base: '/incrgame/',
+  define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
   plugins: [
     svelte(),
     VitePWA({
