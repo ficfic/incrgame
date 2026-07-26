@@ -134,3 +134,57 @@ describe('offline progress', () => {
     expect(fresh.elapsedMs).toBe(0);
   });
 });
+
+// ── nested backfill ────────────────────────────────────────────────────────
+//
+// The backfill test above deletes a TOP-LEVEL field, and that is the only
+// reason `deserialize`'s one-level spread looked correct for twelve save
+// versions. A key missing INSIDE `resources` or `generators` was left
+// `undefined`, which turns into NaN the first time it is incremented and into
+// `null` the first time it is saved. These delete keys one level down.
+describe('backfilling keys inside records (a new resource must not brick a save)', () => {
+  const roundTrip = (mutate: (blob: any) => void): any => {
+    const blob = JSON.parse(Buffer.from(serialize(initialState(1)), 'base64').toString('utf8'));
+    mutate(blob);
+    return deserialize(Buffer.from(JSON.stringify(blob), 'utf8').toString('base64'));
+  };
+
+  it('restores a missing generator key rather than leaving it undefined', () => {
+    const s = roundTrip((b) => delete b.state.generators.extractor);
+    expect(s.generators.extractor).toBe(0);
+  });
+
+  it('never lets a missing generator key become NaN when bought', () => {
+    const s = roundTrip((b) => {
+      delete b.state.generators.extractor;
+      b.state.resources.triples = '1e9';
+      b.state.lifetimeVerified = '1e9';
+    });
+    const after = apply(s, { type: 'buyGenerator', id: 'extractor' });
+    expect(Number.isNaN(after.generators.extractor)).toBe(false);
+    expect(after.generators.extractor).toBeGreaterThan(0);
+    // and it must survive a save/load, which is where NaN turns into null
+    expect(deserialize(serialize(after)).generators.extractor).toBe(after.generators.extractor);
+  });
+
+  it('restores a missing resource key', () => {
+    const s = roundTrip((b) => delete b.state.resources.triples);
+    expect(s.resources.triples).toBe(initialState(1).resources.triples);
+  });
+
+  it('restores missing provenance, coverage and forged sub-fields', () => {
+    const s = roundTrip((b) => {
+      delete b.state.provenance.drifted;
+      delete b.state.coverage.general;
+      delete b.state.forged.anchors;
+    });
+    expect(s.provenance.drifted).toBe(initialState(1).provenance.drifted);
+    expect(s.coverage.general).toBe(initialState(1).coverage.general);
+    expect(Array.isArray(s.forged.anchors)).toBe(true);
+  });
+
+  it('keeps real values — backfill must not overwrite what the save DID carry', () => {
+    const s = roundTrip((b) => { b.state.generators.reasoner = 7; });
+    expect(s.generators.reasoner).toBe(7);
+  });
+});

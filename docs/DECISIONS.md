@@ -1172,3 +1172,22 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   that does hold: `forceCenter` keeps the board's CENTROID at the origin.
   Measured after: centroid within 0.5px, board spanning 64–71% of the short side.
   Both rewritten assertions verified to go red before committing.
+- 2026-07-26 — **Save backfill was only one level deep — a live corruption path,
+  found while reviewing the "maybe we need another resource" proposal.**
+  `deserialize` spread `{...initialState(), ...raw}`, so the promise "missing
+  fields are backfilled additively" held for TOP-LEVEL fields only. `raw.resources`
+  replaced the whole record, so a newly-added `ResourceId` or `GeneratorId`
+  arrived `undefined` on every existing save. Measured, not theorised:
+  `generators.extractor === undefined` → `buyGenerator` does `undefined + 1` →
+  **NaN** → `JSON.stringify(NaN)` = `null` → the counter is bricked on reload.
+  Resources fail more quietly: `D(undefined)` returns ZERO rather than throwing,
+  so an old save would silently start a new resource at 0 while a fresh save
+  gets its seed. The existing backfill test deleted a top-level field, which is
+  exactly why this survived twelve save versions.
+  Fixed by merging `resources`, `generators`, `coverage`, `flags`, `modifiers`,
+  `provenance`, `vignette` and `forged` PER KEY. Five tests added that delete
+  keys one level down; all four new assertions verified to go red against the
+  old spread before committing.
+  **This is why it mattered now: adding a second resource would have been the
+  first change to trip it.** No migration or version bump needed — the fix is in
+  the merge itself and applies to every save on load.

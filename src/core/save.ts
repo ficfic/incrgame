@@ -206,9 +206,38 @@ export function deserialize(blob: string): GameState {
     raw.saveVersion = v + 1;
   }
   // Backfill any fields added since this save was written (migrate additively).
+  //
+  // PER-KEY, not just top-level. The spread used to be one level deep, which
+  // made "we backfill missing fields from `initialState`" true only of the
+  // OUTER object: `raw.resources` replaced the whole record, so a
+  // newly-added `ResourceId` or `GeneratorId` arrived as `undefined` on every
+  // existing save. That is not a hypothetical — it is a corruption path with a
+  // measured shape:
+  //
+  //   generators.extractor === undefined      (silently, no error)
+  //   buyGenerator → undefined + 1  ===  NaN
+  //   JSON.stringify(NaN) === "null"          (the save is now bricked)
+  //
+  // Resources fail more quietly still: `D(undefined)` yields ZERO rather than
+  // throwing, so an old save would simply start a new resource at 0 while a
+  // fresh save gets whatever `initialState` seeds — a silent downgrade nobody
+  // would ever see reported.
+  //
+  // The existing backfill test deleted a TOP-LEVEL field and passed, which is
+  // why this survived. `test/save.test.ts` now deletes keys inside each record.
+  const base = initialState();
+  const r = raw as unknown as Partial<GameState>;
   const merged: GameState = {
-    ...initialState(),
-    ...(raw as unknown as Partial<GameState>),
+    ...base,
+    ...r,
+    resources: { ...base.resources, ...(r.resources ?? {}) },
+    generators: { ...base.generators, ...(r.generators ?? {}) },
+    coverage: { ...base.coverage, ...(r.coverage ?? {}) },
+    flags: { ...base.flags, ...(r.flags ?? {}) },
+    modifiers: { ...base.modifiers, ...(r.modifiers ?? {}) },
+    provenance: { ...base.provenance, ...(r.provenance ?? {}) },
+    vignette: { ...base.vignette, ...(r.vignette ?? {}) },
+    forged: { ...base.forged, ...(r.forged ?? {}) },
     saveVersion: CURRENT_SAVE_VERSION,
   };
   return merged;
