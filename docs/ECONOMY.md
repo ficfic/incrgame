@@ -49,7 +49,7 @@ Five rungs. Every conversion is **lossy**, and the loss is the game.
 | # | Resource | Faucet (how you get it) | Sink (what it buys) |
 |---|---|---|---|
 | 1 | **Tokens** — raw salvaged text, unstructured, worthless alone | Salvage. The idle faucet; the first thing you automate | Extraction |
-| 2 | **Statements** — a subject–predicate–object triple extracted from datums | Extraction, by hand or by machine | Verification |
+| 2 | **Statements** — a subject–predicate–object triple extracted from tokens | Extraction, by hand or by machine | Verification |
 | 3 | **Verified** — a statement checked against the graph | Connect / Review / supervised agents | Curation, and agent costs |
 | 4 | **Batches** — a curated training set | Curation: consumes verified statements, **drops the tails** | Training runs |
 | 5 | **Checkpoints** — a trained model | Training runs consume batches | Automating a rung; unlocking verbs |
