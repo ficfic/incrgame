@@ -1322,3 +1322,17 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   Prerequisite already in place: the nested save backfill fixed earlier today,
   without which a new `ResourceId` arrives `undefined` and becomes `NaN`.
   ⚠️ Nothing is built; no number is balanced. Simulate headless before believing.
+- 2026-07-26 — **No invented vocabulary: the bottom rung is TOKENS, not "Datums".**
+  Owner: "i don't like to invent words, datums is stupid af." Right, and worse
+  than ugly — "datums" is a coinage on top of a grammatical error, since the
+  plural of *datum* is *data*. It was a placeholder carried across three pivots
+  and I reintroduced it without questioning it.
+  **Tokens** is the literal unit a model is trained on and the unit the industry
+  bills for, per million. It counts naturally, needs no explanation, and sharpens
+  the satire rather than softening it: the player accumulates exactly the thing
+  the real industry sells. Rungs 2–5 were already real words — Statements is
+  RDF's own term for a triple, Batches and Checkpoints are what practitioners
+  say — so rung 1 was the only invention in the ladder.
+  Standing rule this establishes: **in a game whose charter is that every
+  in-game concept matches its real definition, a coined resource name is a
+  theory violation, not a flavour choice.**

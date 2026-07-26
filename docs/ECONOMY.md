@@ -27,9 +27,18 @@ That is the missing requirement (d) — "the end goal turns out not to be the re
 goal" — which an audit found existed nowhere in the code. It is not a text
 reveal. It is the structure.
 
-It also lets **Datums return legitimately.** They were deleted at v9 because
-"every price in the game was denominated in a thing the subject matter does not
-have." Raw salvaged text is a thing this subject matter unambiguously has.
+**Every rung is a real word.** Statements is RDF's own term for a triple;
+batches and checkpoints are what practitioners actually say; and rung 1 is
+**tokens** — the literal unit a model is trained on, and the unit the industry
+bills for, per million. Nothing here is coined.
+
+That last point killed the previous attempt at this rung. It was called
+"Datums", which is an invented word on top of a grammatical error (the plural of
+*datum* is *data*), and it was a placeholder carried across three pivots. The v9
+deletion note gave the real reason it never worked: "every price in the game was
+denominated in a thing the subject matter does not have." Tokens are a thing
+this subject matter unambiguously has, and naming them honestly also sharpens
+the satire — the player accumulates precisely the unit the real industry sells.
 
 ---
 
@@ -39,7 +48,7 @@ Five rungs. Every conversion is **lossy**, and the loss is the game.
 
 | # | Resource | Faucet (how you get it) | Sink (what it buys) |
 |---|---|---|---|
-| 1 | **Datums** — raw text pulled from the ruins, unstructured, worthless alone | Salvage. The idle faucet; the first thing you automate | Extraction |
+| 1 | **Tokens** — raw salvaged text, unstructured, worthless alone | Salvage. The idle faucet; the first thing you automate | Extraction |
 | 2 | **Statements** — a subject–predicate–object triple extracted from datums | Extraction, by hand or by machine | Verification |
 | 3 | **Verified** — a statement checked against the graph | Connect / Review / supervised agents | Curation, and agent costs |
 | 4 | **Batches** — a curated training set | Curation: consumes verified statements, **drops the tails** | Training runs |
@@ -51,8 +60,8 @@ capacity you allocate, never a wallet you drain. That decision is locked
 
 ## The loop, stated plainly
 
-1. Salvage datums (cheap, endless, boring — so you automate it first).
-2. Extract statements from datums. Extraction **misreads** a share of them.
+1. Salvage tokens (cheap, endless, boring — so you automate it first).
+2. Extract statements from tokens. Extraction **misreads** a share of them.
 3. Verify statements against the graph. Verification is **sampling**, so a share
    of the bad ones survive.
 4. Curate a batch. Curation **drops the tails** — see below.
@@ -143,9 +152,10 @@ never-break-a-save; the real dataset and its licence chain.
   `undefined` and turn into `NaN` on first increment. That fix is a
   prerequisite for this design and it is already in.
 - `resources` already contains `data` (inert since v9) and four other dead tier
-  fields. Decide whether Datums reuse `data` — the field exists, is `'15'` at
-  start, and is read nowhere — or land as a new id. Reuse is cheaper and the
-  shape never shrinks either way.
+  fields. Decide whether tokens reuse the `data` id — the field exists, is `'15'`
+  at start, and is read nowhere — or land as a new one. Reuse is cheaper and the
+  save shape never shrinks either way. Note the id is internal; only the LABEL
+  is player-facing, so reuse costs nothing in vocabulary.
 - The `TIER_LADDER` loop and `ratePerSecond` (hard-returns `'0'`) are dead code
   that this design would actually give a job.
 - The current `recovered()` / coverage definition needs revisiting: under this

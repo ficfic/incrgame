@@ -160,7 +160,7 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
 ## ⛔ PROGRESSION IS BEING REPLACED (owner, 2026-07-26)
 
 **The replacement now has a shape: `docs/ECONOMY.md` — the refinement ladder.**
-Datums return as raw salvaged text (they mean something now), five lossy rungs
+Tokens are the bottom rung (raw salvaged text), five lossy rungs
 up to a trained checkpoint, and the AI automates the rung it was trained on so
 automation always arrives with rot attached. Tail loss is rendered rather than
 described: batches are sampled, so the low-weight periphery of the graph goes
