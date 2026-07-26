@@ -964,3 +964,26 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   box.
   Verified with no horizontal overflow and no clipped labels at 440×956
   (the owner's device), 320×568 and 844×390 landscape.
+
+- 2026-07-25 — **Positions are eased in JS, not snapped, and not with CSS.**
+  Owner: *"when you discover stuff it happens too suddenly, things just pop and
+  graph restructures, we either need animations or predictable placement so that
+  it doesn't jerk all over."* Both halves of that were real:
+  - `positions()` places nodes on a spiral at `core * sqrt(i / n)`, so **every
+    discovery increments `n` and every existing node's radius shrinks.** The
+    motion is at least coherent — it is a uniform contraction, not independent
+    drift — but applied instantly it reads as the graph lurching.
+  - A newly landed concept appeared at its final spot with no transition at all.
+    The landing animation existed before the DOM rewrite and was lost in it.
+  Eased **in JS, in one place**, rather than with a CSS transition: the canvas
+  lines and the DOM nodes have to agree to the pixel every frame, and a CSS
+  transition would animate only the DOM half — lines would detach from their
+  dots for the length of every animation. A new node now enters from the ring
+  slot its discovery timer occupied, so it arrives from where you watched it
+  being found, flaring and settling.
+  Curve is `remaining = 0.05^seconds`, frame-rate independent, ~88% settled in
+  0.7s. At 0.0025 it was 85% done in 200 ms and still read as a jump; measured
+  again after the change, 55% at 200 ms with the rest easing after.
+  The rAF loop only marks the board dirty **while something is actually
+  moving**, so a settled graph costs nothing per frame — which is the property
+  that made turning the spin off worth doing in the first place.

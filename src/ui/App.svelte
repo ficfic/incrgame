@@ -76,17 +76,82 @@
   // where per-frame work belongs.
   const spin = 0;
 
-  const pos = $derived(positions($game.forged.anchors, w, h, spin));
+  const target = $derived(positions($game.forged.anchors, w, h, spin));
+
+  // ---- EASED POSITIONS -------------------------------------------------
+  //
+  // Nodes are placed by a spiral over the LIST INDEX at radius
+  // `core * sqrt(i / n)`, so every discovery increments `n` and every existing
+  // node's radius shrinks. Applied instantly that reads as the whole graph
+  // lurching sideways each time something lands — which it did. And a new node
+  // simply appeared at its final spot, because the landing animation was lost
+  // in the DOM rewrite and never put back.
+  //
+  // So positions are eased HERE, in one place, rather than with a CSS
+  // transition: the canvas lines and the DOM nodes must agree to the pixel
+  // every frame, and a CSS transition would animate only half of them. A newly
+  // landed concept enters from the ring slot its discovery timer occupied, so
+  // it flies in from where you watched it being found.
+  const live = new Map<number, { x: number; y: number }>();
+  const slotOf = new Map<number, number>();
+  let settled = $state(0); // bumped only while something is still moving
+
+  $effect(() => {
+    for (const b of $game.bookings) {
+      if (b.kind === 'discover' && b.node !== undefined) slotOf.set(b.node, b.slot ?? 0);
+    }
+  });
+
+  /** Move `live` a step toward `target`. Returns true if anything moved — the
+   *  caller stops re-rendering once nothing does, so a settled board costs
+   *  nothing per frame. */
+  function ease(dt: number): boolean {
+    // Frame-rate independent: `remaining = BASE^seconds`, so the curve is the
+    // same at 30fps and 120fps. BASE 0.05 settles ~88% in 0.7s — slow enough to
+    // read as movement, fast enough not to feel laggy. At 0.0025 it was 85%
+    // done in 200ms, which still read as a jump.
+    const k = 1 - Math.pow(0.05, Math.min(0.05, dt));
+    let moving = false;
+    for (const [id, t] of target) {
+      let cur = live.get(id);
+      if (!cur) {
+        // first sight: enter from the discovery ring slot we watched it in,
+        // or from the centre for anything that simply exists (a loaded save)
+        const slot = slotOf.get(id);
+        cur = slot === undefined
+          ? { x: t.x, y: t.y }
+          : { ...frontierPos(slot, w, h) };
+        live.set(id, cur);
+      }
+      const dx = t.x - cur.x, dy = t.y - cur.y;
+      if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) { cur.x = t.x; cur.y = t.y; continue; }
+      cur.x += dx * k; cur.y += dy * k;
+      moving = true;
+    }
+    for (const id of live.keys()) if (!target.has(id)) live.delete(id);
+    return moving;
+  }
+
+  /** 0 when a node is home, →1 the further it still has to travel. Drives the
+   *  arrival flare, so a concept visibly lands rather than appearing. */
+  function arrivalOf(id: number, p: { x: number; y: number }): number {
+    const t = target.get(id);
+    if (!t) return 0;
+    const d = Math.hypot(t.x - p.x, t.y - p.y);
+    return d < 1 ? 0 : Math.min(1, d / 120);
+  }
 
   const nodes = $derived.by(() => {
-    void $ontologyRevision;
+    void $ontologyRevision; void settled;
     return $game.forged.anchors.map((id) => {
-      const p = pos.get(id) ?? { x: w / 2, y: h / 2 };
+      const p = live.get(id) ?? target.get(id) ?? { x: w / 2, y: h / 2 };
       return {
         id, x: p.x, y: p.y,
         label: conceptForNode(id)?.label ?? '',
         root: id === 0,
         rotted: isRotted(id, trust),
+        // still travelling: a landing concept flares until it settles
+        arriving: arrivalOf(id, p),
       };
     });
   });
@@ -106,11 +171,12 @@
   });
 
   const openLines = $derived.by(() => {
+    void settled;
     const flight = new Set($game.bookings.filter((b) => b.edge)
       .map((b) => `${b.edge!.a}:${b.edge!.b}:${b.edge!.rel}`));
     const c = { x: w / 2, y: h / 2 };
     return dotted.map((p) => {
-      const pa = pos.get(p.a) ?? c, pb = pos.get(p.b) ?? c;
+      const pa = live.get(p.a) ?? c, pb = live.get(p.b) ?? c;
       return {
         ...p,
         x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2,
@@ -172,10 +238,15 @@
   // job — they re-render from `nodes`, which depends on `now`.
   $effect(() => {
     let raf = 0;
+    let last = 0;
     const frame = (t: number): void => {
       now = t;
+      const dt = last ? (t - last) / 1000 : 0;
+      last = t;
+      // ease first, so the canvas and the DOM read the same positions this frame
+      if (ease(dt)) settled++;
       if (canvas && w > 0 && h > 0) {
-        paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, dotted, pos });
+        paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, dotted, pos: live });
       }
       raf = requestAnimationFrame(frame);
     };
@@ -274,7 +345,8 @@
 
     {#each nodes as n (n.id)}
       <div class="node" class:root={n.root} class:rotted={n.rotted}
-           style="transform:translate({n.x}px,{n.y}px)">
+           class:arriving={n.arriving > 0}
+           style="transform:translate({n.x}px,{n.y}px);--in:{n.arriving}">
         <i></i>{#if n.label}<span>{n.label}</span>{/if}
       </div>
     {/each}
@@ -491,6 +563,14 @@
   }
   .node.root i { width: 13px; height: 13px; background: hsl(var(--hue) 90% 78%); box-shadow: 0 0 12px hsl(var(--hue) 90% 60% / 0.6); }
   .node.rotted i { background: #b0566b; }
+  /* An arriving concept flares and shrinks into place. `--in` is 1 when it is
+     furthest from home and 0 when it settles, so this is driven by the same
+     eased position the canvas is drawing to — not by a duplicate timer. */
+  .node.arriving i {
+    transform: scale(calc(1 + var(--in) * 1.8));
+    box-shadow: 0 0 calc(var(--in) * 22px) hsl(var(--hue) 85% 65%);
+  }
+  .node.arriving span { opacity: calc(1 - var(--in)); }
   .node span {
     margin-top: 2px; font-size: 0.62rem; white-space: nowrap;
     color: hsl(var(--hue) 40% 68%); text-shadow: 0 1px 3px #080b11, 0 0 6px #080b11;
