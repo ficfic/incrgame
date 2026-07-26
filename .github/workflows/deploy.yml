@@ -43,24 +43,25 @@ jobs:
       # it is to run CSS. This caught nothing for days while `.node` rendered
       # its dot half a label-width away from its model coordinate and every
       # unit test stayed green.
+      # NOT `continue-on-error`. It was, and on the runner the hard-coded
+      # browser path did not exist, so the launch threw, the error was
+      # swallowed, and the step reported SUCCESS in eleven seconds — less time
+      # than a single viewport spends waiting. The script now finds a browser
+      # or announces that it SKIPPED; either way it stops claiming to have run.
       - name: Alignment invariant (real browser)
         run: |
           npm run build
           npx vite preview --port 4321 --strictPort &
           npx wait-on -t 30000 http://localhost:4321/incrgame/ || sleep 8
           node scripts/check-alignment.mjs 4321
-        env:
-          CHROMIUM_PATH: /opt/pw-browsers/chromium/chrome
-        continue-on-error: true
       - name: Core-purity check
-        # core/ must stay headless: no DOM globals, no imports from ui/render/shell.
-        # shell/ is browser-facing (fetch, storage, the ontology loader), so an
-        # import from core into shell breaks the engine's portability too.
-        run: |
-          if grep -rnE '\bwindow\b|\bdocument\b|\bfetch\b|from '\''\.\./(ui|render|shell)|from "\.\./(ui|render|shell)' src/core/; then
-            echo '::error::src/core must not touch the DOM/network or import ui/render/shell'
-            exit 1
-          fi
+        # core/ must stay headless: no DOM globals, no clock, no RNG, no imports
+        # from ui/render/shell. Was an inline grep over raw text, which flagged
+        # the WORD "window" in a comment and silently blocked every deploy for a
+        # day and a half — the build and deploy steps just get skipped, which
+        # from outside is indistinguishable from a deploy. Now a script that
+        # strips comments and strings first, with its red path tested.
+        run: node scripts/check-core-purity.mjs
       - name: Ontology data present and self-describing
         # The committed build output is the game's content; a deploy without it
         # ships a world with no concepts in it.

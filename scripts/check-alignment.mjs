@@ -17,11 +17,46 @@
 //   node scripts/check-alignment.mjs 4321
 //
 // Exits non-zero with a table of offenders.
+import { existsSync, readdirSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
 const PORT = process.argv[2] ?? '4321';
-const EXECUTABLE = process.env.CHROMIUM_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const TOLERANCE = 1.5; // css px; sub-pixel rounding only
+
+/** Find a Chromium. `playwright-core` deliberately ships no browser, so the one
+ *  we get depends on where this runs — this container, a GitHub runner, a
+ *  laptop. Previously the path was a single hard-coded container-specific
+ *  constant and CI had `continue-on-error: true`, so on the runner the launch
+ *  threw, the error was swallowed, and the step reported SUCCESS in eleven
+ *  seconds — less time than one viewport spends waiting. A check that cannot
+ *  run must SAY SO, loudly; it must never report green. */
+function findChromium() {
+  const named = process.env.CHROMIUM_PATH;
+  if (named && existsSync(named)) return named;
+  const globbed = [];
+  try {
+    for (const d of readdirSync('/opt/pw-browsers')) {
+      if (d.startsWith('chromium')) globbed.push(`/opt/pw-browsers/${d}/chrome-linux/chrome`);
+    }
+  } catch { /* not this machine */ }
+  const candidates = [
+    '/opt/pw-browsers/chromium/chrome',
+    ...globbed,
+    '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium', '/usr/bin/chromium-browser',
+  ];
+  return candidates.find((p) => existsSync(p)) ?? null;
+}
+
+const EXECUTABLE = findChromium();
+if (!EXECUTABLE) {
+  // Exit 0 so a machine with no browser does not block a deploy — but say it
+  // in a way that shows up in the run summary rather than reading as a pass.
+  console.log('::warning::alignment check SKIPPED — no Chromium found. This gate did NOT run.');
+  console.log('Set CHROMIUM_PATH to a Chrome/Chromium binary to enable it.');
+  process.exit(0);
+}
+console.log(`using ${EXECUTABLE}`);
 
 const browser = await chromium.launch({ executablePath: EXECUTABLE, args: ['--no-sandbox'] });
 const failures = [];

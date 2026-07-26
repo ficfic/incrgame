@@ -1052,3 +1052,24 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   concepts 23% of the board for empty ring; 1.18 still leaves ~26px between a
   settled concept and a discovery hovering outside it. Together: 49% → 67% of
   the short side at 440px, 64% at 390px.
+- 2026-07-26 — **The deploy had been failing on every push since 2026-07-25, and
+  "pushed" was being reported as "deployed".** Cause: the inline core-purity
+  gate grepped raw text for `\bwindow\b`, and a COMMENT in `engine.ts` read
+  "relocated one window along". The step went red, which SKIPS the build and
+  publish steps — and a skipped publish is indistinguishable from a publish
+  unless you read the run. Four commits of real work never reached the site.
+  **Fixes, all with their red path tested before committing:**
+  (a) `scripts/check-core-purity.mjs` replaces the grep — strips comments and
+  string literals first, so it gates the engine rather than the vocabulary.
+  Rules widened to the actual ARCHITECTURE-1 contract: no `window`/`document`/
+  `fetch`/storage, **no `Math.random`, no `Date.now`**, no ui/render/shell
+  import. Module specifiers are extracted and tested as PATHS, because the
+  one-regex version anchored on `../ui/` and waved `../../src/ui/App` through.
+  (b) The alignment step is no longer `continue-on-error`. It had a hard-coded
+  container browser path that does not exist on a GitHub runner, so the launch
+  threw, the error was swallowed, and the step reported SUCCESS in 11 seconds —
+  less than one viewport spends waiting. It now probes for a browser and, if
+  there genuinely is none, prints `::warning:: SKIPPED — this gate did NOT run`
+  instead of a green tick.
+  **Standing lesson: a green tick from a check that did not execute is worse
+  than no check, and "I pushed" is not "it shipped" — verify the run.**

@@ -13,7 +13,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "icons": "node scripts/gen-icons.mjs",
     "ontology": "node scripts/build-ontology.mjs",
-    "check:align": "node scripts/check-alignment.mjs"
+    "check:align": "node scripts/check-alignment.mjs",
+    "check:core": "node scripts/check-core-purity.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
