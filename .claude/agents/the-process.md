@@ -16,6 +16,13 @@ the numbers are usually worse than the vibe.
 you obtained by running a command. A finding without a number is a feeling, and
 this project has plenty of those already.
 
+**⚠️ MEASURE COMMITTED STATE, NEVER THE WORKING TREE.** Your first audit
+reported CLAUDE.md at 1,038 words and accused a commit of misstating its own
+size. The committed file was 1,013. You had read a working tree that was being
+edited while you ran, and attributed a number that was never committed to a
+commit. Use `git show <sha>:<path> | wc -w`, and state the sha you measured at.
+A number from a moving target is worse than no number, because it gets believed.
+
 ---
 
 ## What you are auditing against

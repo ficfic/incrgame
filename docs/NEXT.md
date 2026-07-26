@@ -47,7 +47,21 @@ flow, so first automation is a long way out.
 **Done when:** `play-probe` shows the first agent affordable inside 10 minutes of
 ordinary play, and the source fork still favours archives for verified material.
 
-## 3. `OWNER_LINES` — the eight ticker milestones
+## 3. Prove the four gates go red, in writing
+
+`the-process` audit, 2026-07-26: **0 of 4** gates (`check:align`, `check:core`,
+`check:vocab`, `play`) has a durable record of being confirmed red. Two of the
+four have already been caught vacuous in production — the purity gate matched a
+word inside a comment, the alignment gate printed a tick without running.
+
+Rule 4 says a check nobody has broken on purpose is assumed vacuous. Verifying it
+in chat does not count: the record has to outlive the session.
+
+**Done when:** each gate's script carries a comment stating the exact sabotage
+that makes it fail and the observed output, and `DECISIONS.md` has one line
+recording it.
+
+## 4. `OWNER_LINES` — the eight ticker milestones
 
 Wired, reachable, 100% reach, still empty. Owner writes them; nothing else here
 is blocked on anything.

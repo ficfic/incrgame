@@ -1630,13 +1630,6 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
 Entries above this line are long because the one-line rule did not exist yet.
 **From here, one line per decision.**
 
-- 2026-07-26 — **Process reset, owner-directed, researched rather than invented.**
-  Evidence: 29 commits in one day, 5 of them player-visible; 50,000 words of docs
-  against 5,000 lines of code; three features shipped and rebuilt the same day.
-  Five rules now in CLAUDE.md — WIP=1 from `docs/NEXT.md`, no ship without a check
-  you ran and evidence you pasted, smallest playable build before any design doc,
-  every check verified RED first, stop at done. Sources: Anthropic's Claude Code
-  best practices (which names "the kitchen sink session", "the trust-then-verify
-  gap" and "the over-specified CLAUDE.md" as our exact failures, and warns that
-  reviewers asked to find gaps always will), Kanban WIP limits (they exist to
-  reduce rework), and solo-indie practice (vertical slice, core loop first).
+- 2026-07-26 — **Process reset**: five rules in CLAUDE.md, `docs/NEXT.md` is the queue, WIP=1. Researched, not invented (Claude Code best practices + Kanban WIP limits). Because 25.6% of 82 commits were player-visible.
+- 2026-07-26 — **`the-process` agent added**: audits ways of working by counting, never opining, and may not propose new process.
+- 2026-07-26 — **First audit, baseline set**: 82 commits, 25.6% player-visible, 8 subsystems rebuilt within 48h, 14 save versions, evidence in 1 of 21 player-visible commits, 0 of 4 gates with a durable red-verification record. Beat it.
