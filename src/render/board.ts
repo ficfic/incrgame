@@ -11,8 +11,6 @@
 // whatever box CSS gives it, which means there are no magic constants left to
 // get wrong on a short screen, and no viewport plumbing: a zoomed page is just
 // a zoomed page, the way it is on every other website.
-const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
-
 /** Deterministic ±0.5 from an integer. Same id, same nudge, every session —
  *  positions must be reproducible or the board would reshuffle on reload. */
 function jitter(i: number, salt: number): number {
@@ -30,11 +28,11 @@ function jitter(i: number, salt: number): number {
  *
  *  The world is a disc of radius `WORLD_RIM` centred on the origin:
  *
- *      0.0        the root concept
- *      0…1.0      the node spiral (index i of n sits at radius √(i/(n-1)),
- *                 so the outermost node is ALWAYS at exactly 1.0)
+ *      0.0        the root concept, `entity`
+ *      0…1.0      the taxonomy, one ring per level of depth — see
+ *                 `render/layout.ts`, which owns where a concept goes
  *      1.06       the provenance ring
- *      WORLD_RIM  the frontier — where a discovery in flight waits
+ *      WORLD_RIM  spare margin, so the outermost ring is not flush to the edge
  *
  *  The camera fits that FIXED disc, not the current node bounds. That is the
  *  important part and it is why this replaced three separate pixel formulas:
@@ -73,53 +71,58 @@ export const WORLD_RIM = 1.18;
 const PAD_X = 46;
 const PAD_Y = 24;
 
-/** World position of the node at list index `i`, in a golden-angle spiral. The
- *  root sits at the origin and index `n-1` sits at radius exactly 1. */
-export function worldPos(i: number, n: number): { x: number; y: number } {
-  if (i === 0) return { x: 0, y: 0 };
-  const r = Math.sqrt(i / Math.max(1, n - 1));
-  const a = i * GOLDEN_ANGLE;
-  return { x: Math.cos(a) * r + jitter(i, 1) * 0.02, y: Math.sin(a) * r + jitter(i, 2) * 0.02 };
-}
-
-/** The camera for a stage of `w × h`. A pure function of the BOX — it does not
- *  take the graph, deliberately (see above). */
-export function cameraFor(w: number, h: number): Camera {
+/** Scale at which the whole world disc exactly fills the box — zoom 1. */
+export function baseScale(w: number, h: number): number {
   const usableW = Math.max(40, w - PAD_X * 2);
   const usableH = Math.max(40, h - PAD_Y * 2);
   // uniform scale: the world is a disc, so squashing it to the box's aspect
   // would turn every ring into an ellipse and every relation into a lie
-  return { scale: Math.min(usableW, usableH) / (2 * WORLD_RIM), tx: w / 2, ty: h / 2 };
+  return Math.min(usableW, usableH) / (2 * WORLD_RIM);
 }
+
+/** How far the player may zoom. The ceiling is high because the deepest ring
+ *  holds thousands of concepts and reading one means magnifying a lot; the
+ *  floor is below 1 so you can always pull back and see the whole world. */
+export const MIN_ZOOM = 0.6;
+export const MAX_ZOOM = 60;
+
+export const clampZoom = (z: number): number => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+
+/** The camera for a stage of `w × h` at a given zoom and pan.
+ *
+ *  Still a pure function of the box and the player's view — never of the graph.
+ *  A camera that fits itself to the current node bounds re-fits on every
+ *  discovery and nudges all two hundred other nodes, which is the "everything
+ *  pops and the graph restructures" complaint promoted to an invariant. */
+export function cameraFor(w: number, h: number, zoom = 1, panX = 0, panY = 0): Camera {
+  return { scale: baseScale(w, h) * clampZoom(zoom), tx: w / 2 + panX, ty: h / 2 + panY };
+}
+
+/** Inverse of `toScreen` — needed so a pinch can keep the point under the
+ *  player's fingers pinned while the scale changes, which is the difference
+ *  between zooming and lurching. */
+export const toWorld = (
+  c: Camera, p: { x: number; y: number },
+): { x: number; y: number } => ({ x: (p.x - c.tx) / c.scale, y: (p.y - c.ty) / c.scale });
 
 export const toScreen = (
   c: Camera, p: { x: number; y: number },
 ): { x: number; y: number } => ({ x: p.x * c.scale + c.tx, y: p.y * c.scale + c.ty });
 
-/** A point on a world circle of radius `r`, `turn` of the way round from top. */
-export function onRim(c: Camera, r: number, turn: number): { x: number; y: number } {
-  const a = -Math.PI / 2 + turn * Math.PI * 2;
-  return toScreen(c, { x: Math.cos(a) * r, y: Math.sin(a) * r });
-}
-
-/** Screen positions for every anchor. Both the DOM node layer and the canvas
- *  painter read this same map — they never re-derive it. */
-export function positions(
-  anchors: readonly number[], w: number, h: number,
-): Map<number, { x: number; y: number }> {
-  const n = anchors.length;
-  const c = cameraFor(w, h);
-  const out = new Map<number, { x: number; y: number }>();
-  anchors.forEach((id, i) => out.set(id, toScreen(c, worldPos(i, n))));
-  return out;
-}
-
 export const FRONTIER_SLOTS = 8;
 
-/** Evenly spaced around the rim by SLOT, not by hash, so N discoveries in
- *  flight are always N apart and never land on top of each other. */
+/** Evenly spaced around the stage rim by SLOT, not by hash, so N discoveries in
+ *  flight are always N apart and never land on top of each other.
+ *
+ *  SCREEN space, deliberately not world space: a discovery in flight is a
+ *  progress indicator, not a place in the taxonomy — it has no coordinates yet,
+ *  that is the whole point of it being in flight. Pinning it to the world would
+ *  send it sailing off the edge the moment the player zoomed in. */
 export function frontierPos(slot: number, w: number, h: number): { x: number; y: number } {
-  return onRim(cameraFor(w, h), WORLD_RIM, slot / FRONTIER_SLOTS);
+  const a = -Math.PI / 2 + (slot / FRONTIER_SLOTS) * Math.PI * 2;
+  const rx = Math.max(20, w / 2 - 34);
+  const ry = Math.max(20, h / 2 - 26);
+  return { x: w / 2 + Math.cos(a) * rx, y: h / 2 + Math.sin(a) * ry };
 }
 
 /** Representative rot: provenance is an aggregate, so a stable share of nodes

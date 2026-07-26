@@ -30,7 +30,10 @@
     conceptAt, conceptForNode, loadManifest, ontologyCredit, ontologyRevision,
     potentialEdges, warm,
   } from '../shell/ontology';
-  import { frontierPos, isRotted, positions, relHue, stageHue } from '../render/board';
+  import {
+    cameraFor, clampZoom, frontierPos, isRotted, relHue, stageHue, toScreen, toWorld,
+  } from '../render/board';
+  import { dotRadius, layout, levelOfDetail } from '../render/layout';
   import { paintGraph } from '../render/paint';
   import { ticker } from '../shell/ticker';
 
@@ -75,24 +78,69 @@
   // and the filling lines all key off `timeMs` inside the painter, which is
   // where per-frame work belongs.
 
-  // Where every anchor belongs on screen, via the one camera (render/board.ts).
-  // This module does no geometry of its own — that was the disease.
-  const target = $derived(positions($game.forged.anchors, w, h));
+  // ---- THE VIEW ---------------------------------------------------------
+  //
+  // Zoom and pan live here and nowhere else; `render/board.ts` turns them into
+  // the one camera. `follow` means the player has not taken control yet, so the
+  // board frames itself; the first pinch or drag switches it off and Reset
+  // switches it back on. That last part is load-bearing: pinch-zoom inside a
+  // page has trapped this game twice, so there is always one tap back to a
+  // known-good view.
+  let zoom = $state(1);
+  let panX = $state(0);
+  let panY = $state(0);
+  let follow = $state(true);
 
-  // ---- EASED POSITIONS -------------------------------------------------
+  // Where every anchor belongs in the WORLD, from the taxonomy. This module
+  // does no geometry of its own — that was the disease.
+  const placed = $derived.by(() => {
+    void $ontologyRevision;
+    return layout($game.forged.anchors, (id) => conceptAt(id)?.parent ?? -1);
+  });
+
+  /** In follow mode, frame the rings that actually have something on them.
+   *  Early on the board only reaches ring 2 of 5, and showing the empty outer
+   *  60% of the world would make eight concepts look like a rounding error. */
+  const followZoom = $derived.by(() => {
+    let far = 0;
+    for (const p of placed.values()) far = Math.max(far, Math.hypot(p.x, p.y));
+    return clampZoom(1 / Math.max(0.28, far * 1.12));
+  });
+
+  const cam = $derived(follow
+    ? cameraFor(w, h, followZoom, 0, 0)
+    : cameraFor(w, h, zoom, panX, panY));
+
+  /** Roughly how wide a concept's name renders, in px. The labels are 0.62rem
+   *  in the system UI font; ~5.4px per character is close enough to decide
+   *  whether the word fits, and it costs nothing — measuring 240 labels per
+   *  frame with `getBoundingClientRect` would force a layout every frame. */
+  const labelPx = (id: number): number => {
+    const label = conceptForNode(id)?.label;
+    return label ? label.length * 5.4 + 6 : 40;
+  };
+
+  /** What survives at this zoom, and what is folded into what. */
+  const lod = $derived.by(() => {
+    void $ontologyRevision;
+    return levelOfDetail(placed, cam.scale, labelPx);
+  });
+  const rolledUp = $derived(lod.rolled);
+
+  // ---- EASED POSITIONS, IN WORLD SPACE ----------------------------------
   //
-  // Nodes are placed by a spiral over the LIST INDEX at radius
-  // `core * sqrt(i / n)`, so every discovery increments `n` and every existing
-  // node's radius shrinks. Applied instantly that reads as the whole graph
-  // lurching sideways each time something lands — which it did. And a new node
-  // simply appeared at its final spot, because the landing animation was lost
-  // in the DOM rewrite and never put back.
+  // `live` holds WORLD coordinates and eases toward the taxonomy's answer; the
+  // camera is applied afterwards, at render. That split matters: easing used to
+  // run on screen pixels, which meant a pinch had to be chased frame by frame
+  // and zooming felt like dragging the board through treacle. Now zoom is
+  // instant (it is only a transform) and only real MOVEMENT — a concept landing,
+  // a wedge re-dividing to make room for a sibling — is animated.
   //
-  // So positions are eased HERE, in one place, rather than with a CSS
-  // transition: the canvas lines and the DOM nodes must agree to the pixel
-  // every frame, and a CSS transition would animate only half of them. A newly
-  // landed concept enters from the ring slot its discovery timer occupied, so
-  // it flies in from where you watched it being found.
+  // Eased here rather than with a CSS transition because the canvas lines and
+  // the DOM nodes must agree to the pixel every frame, and a CSS transition
+  // would animate only half of them. A newly landed concept enters from the ring
+  // slot its discovery timer occupied, so it flies in from where you watched it
+  // being found.
   const live = new Map<number, { x: number; y: number }>();
   const slotOf = new Map<number, number>();
   let settled = $state(0); // bumped only while something is still moving
@@ -103,56 +151,76 @@
     }
   });
 
-  /** Move `live` a step toward `target`. Returns true if anything moved — the
+  /** Move `live` a step toward the layout. Returns true if anything moved — the
    *  caller stops re-rendering once nothing does, so a settled board costs
    *  nothing per frame. */
   function ease(dt: number): boolean {
     // Frame-rate independent: `remaining = BASE^seconds`, so the curve is the
     // same at 30fps and 120fps. BASE 0.05 settles ~88% in 0.7s — slow enough to
-    // read as movement, fast enough not to feel laggy. At 0.0025 it was 85%
-    // done in 200ms, which still read as a jump.
+    // read as movement, fast enough not to feel laggy.
     const k = 1 - Math.pow(0.05, Math.min(0.05, dt));
+    // world units; the disc is radius 1, so this is well under a pixel
+    const EPS = 0.0008;
     let moving = false;
-    for (const [id, t] of target) {
+    for (const [id, t] of placed) {
       let cur = live.get(id);
       if (!cur) {
         // first sight: enter from the discovery ring slot we watched it in,
-        // or from the centre for anything that simply exists (a loaded save)
+        // or from its final place for anything that simply exists (a loaded save)
         const slot = slotOf.get(id);
         cur = slot === undefined
           ? { x: t.x, y: t.y }
-          : { ...frontierPos(slot, w, h) };
+          : toWorld(cam, frontierPos(slot, w, h));
         live.set(id, cur);
       }
       const dx = t.x - cur.x, dy = t.y - cur.y;
-      if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) { cur.x = t.x; cur.y = t.y; continue; }
+      if (Math.abs(dx) < EPS && Math.abs(dy) < EPS) { cur.x = t.x; cur.y = t.y; continue; }
       cur.x += dx * k; cur.y += dy * k;
       moving = true;
     }
-    for (const id of live.keys()) if (!target.has(id)) live.delete(id);
+    for (const id of live.keys()) if (!placed.has(id)) live.delete(id);
     return moving;
   }
 
+  /** Screen positions for everything on the board — the ONE map both the DOM
+   *  node layer and the canvas painter read. */
+  const screenPos = $derived.by(() => {
+    void settled;
+    const out = new Map<number, { x: number; y: number }>();
+    for (const [id, p] of placed) out.set(id, toScreen(cam, live.get(id) ?? p));
+    return out;
+  });
+
   /** 0 when a node is home, →1 the further it still has to travel. Drives the
    *  arrival flare, so a concept visibly lands rather than appearing. */
-  function arrivalOf(id: number, p: { x: number; y: number }): number {
-    const t = target.get(id);
-    if (!t) return 0;
+  function arrivalOf(id: number): number {
+    const t = placed.get(id), p = live.get(id);
+    if (!t || !p) return 0;
     const d = Math.hypot(t.x - p.x, t.y - p.y);
-    return d < 1 ? 0 : Math.min(1, d / 120);
+    return d < 0.004 ? 0 : Math.min(1, d / 0.5);
   }
+
+  /** Off-screen is not worth a DOM node. Zoomed in, most of the board is
+   *  outside the stage, and Svelte was still writing a transform for every one
+   *  of them every frame — 240 elements to show five. The margin is generous
+   *  so a label whose dot is just past the edge still renders its half. */
+  const inView = (p: { x: number; y: number }): boolean =>
+    p.x > -80 && p.x < w + 80 && p.y > -40 && p.y < h + 40;
 
   const nodes = $derived.by(() => {
     void $ontologyRevision; void settled;
-    return $game.forged.anchors.map((id) => {
-      const p = live.get(id) ?? target.get(id) ?? { x: w / 2, y: h / 2 };
+    return lod.shown.filter((n) => inView(screenPos.get(n.id) ?? { x: -999, y: -999 })).map((n) => {
+      const p = screenPos.get(n.id) ?? { x: w / 2, y: h / 2 };
+      const folded = rolledUp.get(n.id) ?? 0;
       return {
-        id, x: p.x, y: p.y,
-        label: conceptForNode(id)?.label ?? '',
-        root: id === 0,
-        rotted: isRotted(id, trust),
+        id: n.id, x: p.x, y: p.y,
+        r: dotRadius(n),
+        label: lod.labelled.has(n.id) ? conceptForNode(n.id)?.label ?? '' : '',
+        folded,
+        root: n.id === 0,
+        rotted: isRotted(n.id, trust),
         // still travelling: a landing concept flares until it settles
-        arriving: arrivalOf(id, p),
+        arriving: arrivalOf(n.id),
       };
     });
   });
@@ -166,9 +234,16 @@
    *  went DOM claimed that beat "two consumers agreeing on a list"; for the
    *  buttons it does, because the browser hit-tests the element. For the LINES
    *  it did not — it was still two consumers agreeing, by copy-paste. */
+  /** Only between nodes that are actually drawn. A line to a concept the zoom
+   *  level has folded away has nowhere to land, and drawing it anyway is how
+   *  you get the hairball in the screenshot — every edge crossing the middle,
+   *  because both ends were plotted regardless of whether you could see them. */
+  const onScreen = $derived(new Set(lod.shown.map((n) => n.id)));
+
   const dotted = $derived.by(() => {
     const drawn = new Set($game.forged.edges.map((e) => `${e.a}:${e.b}:${e.rel}`));
-    return potential.filter((p) => !drawn.has(`${p.a}:${p.b}:${p.rel}`));
+    return potential.filter((p) => !drawn.has(`${p.a}:${p.b}:${p.rel}`)
+      && onScreen.has(p.a) && onScreen.has(p.b));
   });
 
   const openLines = $derived.by(() => {
@@ -177,14 +252,14 @@
       .map((b) => `${b.edge!.a}:${b.edge!.b}:${b.edge!.rel}`));
     const c = { x: w / 2, y: h / 2 };
     return dotted.map((p) => {
-      const pa = live.get(p.a) ?? c, pb = live.get(p.b) ?? c;
+      const pa = screenPos.get(p.a) ?? c, pb = screenPos.get(p.b) ?? c;
       return {
         ...p,
         x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2,
         busy: flight.has(`${p.a}:${p.b}:${p.rel}`),
         name: REL_NAMES[p.rel] ?? '',
       };
-    });
+    }).filter((l) => inView(l));
   });
 
   const inFlight = $derived($game.bookings
@@ -203,6 +278,106 @@
   const banked = $derived(D($game.pending).add(D($game.pendingClean)));
   const worldDone = $derived($game.forged.nextId >= CONCEPT_BUDGET);
   const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP && $game.lastTick > 0 && !worldDone);
+
+  // ---- PINCH AND PAN ----------------------------------------------------
+  //
+  // This game has trapped its player inside a zoomed page twice, so the rules
+  // are written down rather than felt out:
+  //
+  //  1. The stage is NOT `position: fixed` and never will be. That was the
+  //     actual trap — a fixed element anchors to the layout viewport, so a
+  //     pinched page became a magnified crop with the controls off-screen.
+  //  2. Gestures are captured on the stage ELEMENT only. The header and the
+  //     dock stay ordinary page, so the browser's own scroll and zoom always
+  //     have somewhere to start from.
+  //  3. If the BROWSER is already zoomed, we let go completely — `touch-action`
+  //     goes back to `auto` and we handle nothing. A player fighting their way
+  //     out of an accidental page zoom must never also be fighting us.
+  //  4. Reset is always on screen while the view is moved.
+  let browserZoom = $state(1);
+  const grabbing = $derived(browserZoom <= 1.05);
+
+  $effect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const read = (): void => { browserZoom = vv.scale; };
+    read();
+    vv.addEventListener('resize', read);
+    return () => vv.removeEventListener('resize', read);
+  });
+
+  function resetView(): void {
+    follow = true;
+    zoom = 1; panX = 0; panY = 0;
+  }
+
+  /** Take the current follow-mode framing as the starting point for manual
+   *  control, so the first pinch continues from what you were looking at
+   *  instead of snapping to zoom 1. */
+  function takeControl(): void {
+    if (!follow) return;
+    zoom = followZoom;
+    panX = 0; panY = 0;
+    follow = false;
+  }
+
+  interface Touching { x: number; y: number; dist: number }
+  let grip: Touching | null = null;
+
+  const centreOf = (t: TouchList): Touching => {
+    const a = t[0]!;
+    const b = t.length > 1 ? t[1]! : null;
+    const x = b ? (a.clientX + b.clientX) / 2 : a.clientX;
+    const y = b ? (a.clientY + b.clientY) / 2 : a.clientY;
+    return { x, y, dist: b ? Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY) : 0 };
+  };
+
+  function onTouchStart(e: TouchEvent): void {
+    if (!grabbing) return;
+    takeControl();
+    grip = centreOf(e.touches);
+  }
+
+  function onTouchMove(e: TouchEvent): void {
+    if (!grabbing || !grip || !stage) return;
+    e.preventDefault(); // we own this gesture; rule 3 above decided that already
+    const now = centreOf(e.touches);
+    const box = stage.getBoundingClientRect();
+
+    if (now.dist > 0 && grip.dist > 0) {
+      // Pinch. Keep the point between the fingers pinned: convert it to world
+      // BEFORE changing the scale, then move the pan so it lands back under
+      // them afterwards. Without this the board slides away as you zoom.
+      const at = { x: grip.x - box.left, y: grip.y - box.top };
+      const anchor = toWorld(cameraFor(w, h, zoom, panX, panY), at);
+      zoom = clampZoom(zoom * (now.dist / grip.dist));
+      const after = toScreen(cameraFor(w, h, zoom, panX, panY), anchor);
+      panX += at.x - after.x;
+      panY += at.y - after.y;
+    }
+    panX += now.x - grip.x;
+    panY += now.y - grip.y;
+    grip = now;
+  }
+
+  function onTouchEnd(e: TouchEvent): void {
+    grip = e.touches.length > 0 ? centreOf(e.touches) : null;
+  }
+
+  /** Desktop and, more importantly, a testable path that does not need a
+   *  synthetic multi-touch sequence. */
+  function onWheel(e: WheelEvent): void {
+    if (!stage) return;
+    e.preventDefault();
+    takeControl();
+    const box = stage.getBoundingClientRect();
+    const at = { x: e.clientX - box.left, y: e.clientY - box.top };
+    const anchor = toWorld(cameraFor(w, h, zoom, panX, panY), at);
+    zoom = clampZoom(zoom * Math.exp(-e.deltaY / 320));
+    const after = toScreen(cameraFor(w, h, zoom, panX, panY), anchor);
+    panX += at.x - after.x;
+    panY += at.y - after.y;
+  }
 
   function say(msg: string): void {
     toast = msg;
@@ -247,7 +422,7 @@
       // ease first, so the canvas and the DOM read the same positions this frame
       if (ease(dt)) settled++;
       if (canvas && w > 0 && h > 0) {
-        paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, dotted, pos: live });
+        paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, dotted, pos: screenPos, cam });
       }
       raf = requestAnimationFrame(frame);
     };
@@ -328,8 +503,20 @@
     </div>
   </header>
 
-  <div class="stage" bind:this={stage}>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="stage" class:grabbing bind:this={stage}
+    ontouchstart={onTouchStart} ontouchmove={onTouchMove}
+    ontouchend={onTouchEnd} ontouchcancel={onTouchEnd}
+    onwheel={onWheel}
+  >
     <canvas bind:this={canvas} style="width:{w}px;height:{h}px"></canvas>
+
+    {#if !follow}
+      <button class="reset" onclick={resetView} aria-label="reset view">
+        ⤢ fit
+      </button>
+    {/if}
 
     <!-- Dotted-line targets. Real buttons: the browser hit-tests them, so what
          you tap is what you saw, by construction rather than by a shared list. -->
@@ -344,10 +531,17 @@
       >{#if l.rel !== 0}<i>{l.name}</i>{/if}</button>
     {/each}
 
+    <!-- Size carries WEIGHT (taxonomic generality), set as a CSS variable so the
+         box stays square and centred on its coordinate no matter what — see THE
+         ONE POSITIONING RULE below. `--n` is the count of concepts folded into
+         this one at the current zoom; a superclass standing in for its members
+         is what a superclass means, and it keeps the board from under-reporting
+         what the player actually owns. -->
     {#each nodes as n (n.id)}
       <div class="node" class:root={n.root} class:rotted={n.rotted}
-           class:arriving={n.arriving > 0}
-           style="transform:translate({n.x}px,{n.y}px) translate(-50%,-50%);--in:{n.arriving}">
+           class:arriving={n.arriving > 0} class:holding={n.folded > 0}
+           style="transform:translate({n.x}px,{n.y}px) translate(-50%,-50%);--in:{n.arriving};--r:{n.r}px">
+        {#if n.folded > 0}<i>{n.folded}</i>{/if}
         {#if n.label}<span>{n.label}</span>{/if}
       </div>
     {/each}
@@ -553,7 +747,21 @@
     min-height: min(52vh, 92vw);
     max-height: min(72vh, 104vw);
   }
+  /* Only while WE own the gesture. When the browser is zoomed, `grabbing` goes
+     false and this reverts to `auto`, handing every touch straight back — a
+     player fighting out of an accidental page zoom must not also fight us. */
+  .stage.grabbing { touch-action: none; }
   canvas { position: absolute; inset: 0; display: block; }
+
+  /* Always reachable while the view is moved. This is the way back, and it is
+     the reason pinch-to-zoom is allowed to exist here at all. */
+  .reset {
+    position: absolute; right: 8px; top: 8px; z-index: 3;
+    padding: 7px 11px; border-radius: 11px; cursor: pointer;
+    font: 600 0.68rem ui-sans-serif, system-ui, sans-serif;
+    background: hsl(var(--hue) 40% 12% / 0.92); color: hsl(var(--hue) 60% 72%);
+    border: 1px solid hsl(var(--hue) 50% 40%);
+  }
 
   /* ══ THE ONE POSITIONING RULE ═════════════════════════════════════════
      Anything placed at a model coordinate is centred on it with
@@ -574,8 +782,14 @@
     will-change: transform;
   }
   /* the node element IS the dot — never the label */
+  /* `--r` is the dot's radius, from the concept's WEIGHT. It is set per node
+     and both dimensions read from it, so the box stays square and centred on
+     its coordinate at every size — the positioning rule survives the addition
+     of variable sizing, which is exactly the sort of change that broke it
+     before. */
   .node {
-    width: 7px; height: 7px; pointer-events: none;
+    width: calc(var(--r, 3.5px) * 2); height: calc(var(--r, 3.5px) * 2);
+    pointer-events: none;
     border-radius: 50%;
     background: hsl(var(--hue) 40% 46%);
   }
@@ -583,6 +797,14 @@
     width: 13px; height: 13px;
     background: hsl(var(--hue) 90% 78%);
     box-shadow: 0 0 12px hsl(var(--hue) 90% 60% / 0.6);
+  }
+  /* Holding folded concepts: a ring, so a superclass standing in for its
+     members looks fuller than a bare one. */
+  .node.holding { box-shadow: 0 0 0 1.5px hsl(var(--hue) 55% 40%); }
+  .node i {
+    position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+    margin-bottom: 2px; font-style: normal; font-size: 0.54rem; font-weight: 700;
+    color: hsl(var(--hue) 45% 58%); text-shadow: 0 1px 3px #080b11;
   }
   .node.rotted { background: #b0566b; }
   /* An arriving concept flares and shrinks into place. `--in` is 1 when it is

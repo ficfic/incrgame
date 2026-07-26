@@ -69,6 +69,43 @@ survived six pivots and is the thing to check new code against:
    where the camera put it. That check would fail a correct board and send the
    next session tuning offsets into a system that has none.
 
+6. **POSITION MEANS SOMETHING, AND ZOOM MEANS SOMETHING.** Nodes used to sit at
+   `radius = √(i/n)`, `angle = i × goldenAngle` — position by DISCOVERY ORDER,
+   which is to say position meant nothing: neighbours were unrelated and zooming
+   magnified a random scatter. At 21 concepts the labels already collided; the
+   dataset holds 4,096.
+   `src/render/layout.ts` now places concepts by the taxonomy the dataset
+   already ships (`p` = parent index, a tree rooted at `entity`):
+   **radius is depth**, **angle is inherited** — a concept owns a sector of its
+   parent's sector, so a subtree is a wedge you can zoom into and find only
+   related things — and **weight is the width of that sector**, i.e. measured
+   taxonomic generality, which drives both dot size and whether a node is drawn.
+   Siblings split their parent's wedge EQUALLY. Proportional-to-subtree-size was
+   written first and a test caught the cost: one new leaf changes its parent's
+   size, its grandparent's share, and re-divides the whole circle — every
+   discovery moving all 240 nodes, the exact complaint the spiral was replaced
+   to fix. Equal shares confine movement to the branch that actually changed.
+   `levelOfDetail` culls by the rim a concept owns at the current scale, rolls
+   the rest up into their nearest VISIBLE ancestor with a count (a superclass
+   standing in for its members is what a superclass means), and decides labels
+   against each label's OWN width — one shared constant made "set" and
+   "psychological feature" ask for identical room, so the long ones overlapped.
+   Measured on the shipped dataset at the 240-anchor cap: 32 dots and 18 labels
+   at rest, 187 dots at 5×, everything by 18×.
+   Layout and LOD are pure functions over an injected `parentOf`, so this is the
+   first time placement has been unit-testable at all — including against the
+   real 4,096-concept tree, which no browser test can reach at 18s per
+   discovery.
+
+7. **THE PLAYER CAN ALWAYS GET BACK.** Pinch-zoom inside this page has trapped
+   its player twice, so the rules are written down, not felt out: the stage is
+   never `position: fixed`; gestures are captured on the stage ELEMENT only, so
+   the header and dock stay ordinary page; if the BROWSER is already zoomed
+   (`visualViewport.scale > 1.05`) we set `touch-action: auto` and handle
+   nothing, because someone fighting out of an accidental page zoom must not
+   also be fighting us; and a Reset control is on screen whenever the view has
+   been moved.
+
 Rules 1 and 2 have never slipped, and they are why the UI could be rewritten
 twice at zero cost to the engine. Rule 3 is new only as *writing*: it is the
 lesson of the all-canvas experiment, stated so it does not have to be relearned.

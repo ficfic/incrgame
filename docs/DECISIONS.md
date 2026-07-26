@@ -1099,3 +1099,41 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   browser check now reports on its own line in the Actions list: red when the
   layout is genuinely broken, loud when it could not run, and unable to take the
   site down with it.
+- 2026-07-26 — **Position now carries the taxonomy; zoom carries detail.** Owner:
+  "we need the nodes and edges dynamically adjust on zoom… nodes with various
+  weight which will dictate their size and visibility at certain zoom level.
+  otherwise it's a mess immediately." It was: at 21 concepts the labels already
+  overlapped and every edge crossed the middle, because the spiral placed nodes
+  by DISCOVERY ORDER — position meant nothing, so zoom could not mean anything
+  either. Chosen by chips, all four as recommended: pinch+pan with a Reset;
+  weight = taxonomic generality; hidden nodes roll up into their nearest visible
+  ancestor with a count; and yes, re-lay-out so children sit near their parent.
+  No dataset change needed — the shipped chunks already carry `p`, a parent
+  index forming a tree rooted at `entity`.
+  New `src/render/layout.ts`: radius = depth, angle inherited (a subtree is a
+  wedge), weight = sector width. **Siblings split their parent's wedge EQUALLY** —
+  proportional-to-subtree-size was written first and a test caught that one new
+  leaf re-divides the entire circle, i.e. every discovery moves all 240 nodes,
+  which is the complaint the spiral was replaced to fix.
+  Labels are decided against each label's OWN estimated width; a single shared
+  constant made "set" and "psychological feature" ask for the same room, which
+  is why long ones overlapped at the default zoom.
+  Measured on the real dataset at the 240 cap: **32 dots / 18 labels at rest,
+  57/30 at ×2, 187/36 at ×5, all 240 by ×18.** Off-screen nodes are not rendered
+  at all (21 → 1 DOM node when zoomed in).
+- 2026-07-26 — **Placement is unit-testable for the first time.** `layout` and
+  `levelOfDetail` are pure functions over an injected `parentOf`, so
+  `test/layout.test.ts` covers them directly — including against the REAL
+  4,096-concept tree read from `public/ontology/`, which a browser test cannot
+  reach (18s per discovery ⇒ over an hour of wall clock for a full board). Two
+  of the first assertions I wrote were wrong rather than the code: an only child
+  legitimately inherits its parent's whole wedge and stays drawable at any zoom.
+  Kept the lesson in a comment so the next session does not "fix" correct code.
+- 2026-07-26 — **Pinch-zoom is allowed back, with written rules.** It trapped the
+  owner twice. Now: the stage is never `position: fixed`; gestures bind to the
+  stage ELEMENT only, so header and dock stay ordinary page; if
+  `visualViewport.scale > 1.05` we set `touch-action: auto` and handle nothing,
+  because a player fighting out of an accidental page zoom must not also fight
+  us; a Reset ("⤢ fit") control is on screen whenever the view has been moved.
+  Easing moved from screen space to WORLD space, so zoom is instant (it is only
+  a transform) and only real movement is animated.

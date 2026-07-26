@@ -6,7 +6,7 @@
 // reimplementations of things the browser already does correctly, and they were
 // what broke under zoom.
 import type { Edge, GameState } from '../core/types';
-import { type Camera, cameraFor, relHue, toScreen } from './board';
+import { type Camera, relHue, toScreen } from './board';
 import { CONNECT_MS, displayedFidelity } from '../core/engine';
 import { D } from '../core/numbers';
 
@@ -44,16 +44,17 @@ export interface Scene {
    *  computed once by the shell and handed down, never re-derived here. */
   dotted: Array<{ a: number; b: number; rel: number }>;
   pos: Map<number, { x: number; y: number }>;
+  /** The player's current view. Handed down, never recomputed here — the
+   *  painter recomputing its own camera is how the atmosphere ended up centred
+   *  somewhere the graph inside it was not, and it would now silently ignore
+   *  zoom and pan as well. */
+  cam: Camera;
 }
 
 export function paintGraph(canvas: HTMLCanvasElement, s: Scene): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  const { w, h } = s;
-  // the SAME camera the DOM node layer uses, from the same box — the atmosphere
-  // used to be laid out by its own pixel formula, which is how a ring ended up
-  // centred somewhere the graph inside it was not
-  const cam = cameraFor(w, h);
+  const { w, h, cam } = s;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
     canvas.width = Math.round(w * dpr);

@@ -69,8 +69,12 @@ the single most useful thing on this page.
   header / stage / dock.
 - **`src/render/paint.ts`** draws ONLY lines, the drifting substrate and the
   provenance ring, into a canvas that fills the stage.
+- **`src/render/layout.ts`** decides WHERE a concept goes and WHETHER it is
+  drawn: radial taxonomy placement (radius = depth, angle inherited from the
+  parent) plus level-of-detail. Pure functions over an injected `parentOf`, and
+  unit-tested against the real dataset in `test/layout.test.ts`.
 - **`src/render/board.ts`** is pure geometry and holds **the camera** —
-  `cameraFor`, `toScreen`, `worldPos`, `onRim`, `positions`, `frontierPos`,
+  `cameraFor` (box + zoom + pan), `toScreen`/`toWorld`, `frontierPos`,
   `isRotted`, `stageHue`, `relHue`. No DOM, no state. Everything with a place on
   the board is authored in world units and converted here and nowhere else; if
   you find yourself writing `w / 2` in another file, that is the bug returning
