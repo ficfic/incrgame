@@ -1089,3 +1089,13 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   true when nothing ran, and that vacuous tick is what let a dead gate look
   alive. All four paths (green / assertion-red / dead-port / no-browser) run and
   verified before committing.
+- 2026-07-26 — **The visual gate runs BESIDE the deploy, not in front of it.**
+  The browser check drives ~75s of real waiting; as a step inside `build` its
+  slowness sat directly on top of the publish (one run held the deploy nine
+  minutes, and the `timeout-minutes` backstop would have failed the *publish*
+  over a browser that was merely slow). Split into its own `visual` job;
+  `deploy` needs only `build`. **Rule: what blocks a publish must be fast and
+  deterministic** — typecheck, unit tests, core purity, ontology/licence. The
+  browser check now reports on its own line in the Actions list: red when the
+  layout is genuinely broken, loud when it could not run, and unable to take the
+  site down with it.

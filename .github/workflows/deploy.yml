@@ -39,35 +39,6 @@ jobs:
       - name: Test (gates deploy)
         run: npx vitest run
 
-      # Geometry only exists once CSS has run, so the only honest way to check
-      # it is to run CSS. This caught nothing for days while `.node` rendered
-      # its dot half a label-width away from its model coordinate and every
-      # unit test stayed green.
-      # NOT `continue-on-error`. It was, and on the runner the hard-coded
-      # browser path did not exist, so the launch threw, the error was
-      # swallowed, and the step reported SUCCESS in eleven seconds — less time
-      # than a single viewport spends waiting. The script now finds a browser
-      # or announces that it SKIPPED; either way it stops claiming to have run.
-      - name: Alignment invariant (real browser)
-        # `timeout-minutes` because this step once sat in_progress for nine
-        # minutes and blocked the deploy behind it. `npx wait-on` was the likely
-        # culprit — wait-on is not a dependency, so npx went to the registry for
-        # it mid-job; the poll below needs nothing but node.
-        timeout-minutes: 6
-        run: |
-          npm run build
-          npx vite preview --port 4321 --strictPort > /tmp/preview.log 2>&1 &
-          node -e '
-            const t0 = Date.now();
-            (async () => {
-              while (Date.now() - t0 < 60000) {
-                try { if ((await fetch("http://localhost:4321/incrgame/")).ok) { console.log("preview up"); return; } } catch {}
-                await new Promise((r) => setTimeout(r, 500));
-              }
-              console.log("::warning::preview server never came up");
-            })();
-          '
-          node scripts/check-alignment.mjs 4321
       - name: Core-purity check
         # core/ must stay headless: no DOM globals, no clock, no RNG, no imports
         # from ui/render/shell. Was an inline grep over raw text, which flagged
@@ -101,6 +72,46 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
+  # ── The visual gate runs BESIDE the deploy, not in front of it ─────────────
+  #
+  # Geometry only exists once CSS has run, so the only honest way to check it is
+  # to run CSS — that is why this exists, and it earns its keep (it is what
+  # caught the graph sitting 30px off centre while every unit test was green).
+  # But it drives a real browser through ~75 seconds of waiting, and when it was
+  # a step inside `build` its slowness sat directly on top of the publish: one
+  # run held the deploy for nine minutes, and a timeout would have failed the
+  # publish over a browser that was merely slow.
+  #
+  # So the gates that block a publish are the fast, deterministic ones —
+  # typecheck, unit tests, core purity, ontology/licence. This one reports on
+  # its own line in the Actions list: red when the layout is genuinely broken,
+  # loud when it could not run, and never able to take the site down with it.
+  visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Alignment invariant (real browser)
+        run: |
+          npm run build
+          npx vite preview --port 4321 --strictPort > /tmp/preview.log 2>&1 &
+          node -e '
+            const t0 = Date.now();
+            (async () => {
+              while (Date.now() - t0 < 60000) {
+                try { if ((await fetch("http://localhost:4321/incrgame/")).ok) { console.log("preview up"); return; } } catch {}
+                await new Promise((r) => setTimeout(r, 500));
+              }
+              console.log("::warning::preview server never came up");
+            })();
+          '
+          node scripts/check-alignment.mjs 4321
 
   deploy:
     # The github-pages environment only allows the default (pinned) branch —
