@@ -38,6 +38,20 @@ jobs:
         run: npx svelte-check --tsconfig ./tsconfig.json --fail-on-warnings false
       - name: Test (gates deploy)
         run: npx vitest run
+
+      # Geometry only exists once CSS has run, so the only honest way to check
+      # it is to run CSS. This caught nothing for days while `.node` rendered
+      # its dot half a label-width away from its model coordinate and every
+      # unit test stayed green.
+      - name: Alignment invariant (real browser)
+        run: |
+          npm run build
+          npx vite preview --port 4321 --strictPort &
+          npx wait-on -t 30000 http://localhost:4321/incrgame/ || sleep 8
+          node scripts/check-alignment.mjs 4321
+        env:
+          CHROMIUM_PATH: /opt/pw-browsers/chromium/chrome
+        continue-on-error: true
       - name: Core-purity check
         # core/ must stay headless: no DOM globals, no imports from ui/render/shell.
         # shell/ is browser-facing (fetch, storage, the ontology loader), so an

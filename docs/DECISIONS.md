@@ -987,3 +987,27 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   The rAF loop only marks the board dirty **while something is actually
   moving**, so a settled graph costs nothing per frame — which is the property
   that made turning the spin off worth doing in the first place.
+
+- 2026-07-25 — **ONE ANCHORING RULE, and a browser check that enforces it.**
+  Owner, after a third round of visual bugs: *"stop patching holes… this is a
+  typical problem which must have a typical solution."* Correct, and it was one
+  bug the whole time, not many.
+  **`.node` was a flex column whose width came from its LABEL**, positioned with
+  `translate(x, y)` and no centring — so the dot rendered at `x + labelWidth/2`.
+  Measured: `thing` 8.7px off, `entity` 16.3px, **`physical entity` 32.3px.**
+  The canvas draws to the true coordinate, so lines missed dots, the root sat
+  off the ring centre, and the error grew with the word. Every "miscentred /
+  misaligned" report traces to this single cause.
+  **The rule, now in ARCHITECTURE as technical-vision item 4:** anything placed
+  at a model coordinate is centred on it with
+  `translate(Xpx, Ypx) translate(-50%, -50%)`, and its box size never depends on
+  its text — labels are `position: absolute` so they cannot move what they
+  label. Applied uniformly to nodes, dotted-line buttons and discovery timers.
+  **`scripts/check-alignment.mjs` (`npm run check:align`)** drives a real
+  browser at two viewports, reads each element's transform back out, and asserts
+  the rendered centre matches within 1.5px. Verified to go RED (exit 1) by
+  reintroducing the exact bug before committing — the vacuous-test mistake was
+  already made once in this repo and is not being made again. Wired into CI.
+  The lesson worth keeping: **the engine was never wrong, which is why 92 green
+  tests said nothing.** Geometry that only exists after CSS has run can only be
+  checked by running CSS.

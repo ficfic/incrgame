@@ -335,7 +335,7 @@
     {#each openLines as l (l.a + ':' + l.b + ':' + l.rel)}
       <button
         class="line" class:busy={l.busy} class:isa={l.rel === 0}
-        style="--h:{relHue(l.rel, hue)};transform:translate({l.x}px,{l.y}px)"
+        style="--h:{relHue(l.rel, hue)};transform:translate({l.x}px,{l.y}px) translate(-50%,-50%)"
         disabled={l.busy || free < 1}
         title="{l.name}"
         aria-label="connect: {l.name}"
@@ -346,13 +346,13 @@
     {#each nodes as n (n.id)}
       <div class="node" class:root={n.root} class:rotted={n.rotted}
            class:arriving={n.arriving > 0}
-           style="transform:translate({n.x}px,{n.y}px);--in:{n.arriving}">
-        <i></i>{#if n.label}<span>{n.label}</span>{/if}
+           style="transform:translate({n.x}px,{n.y}px) translate(-50%,-50%);--in:{n.arriving}">
+        {#if n.label}<span>{n.label}</span>{/if}
       </div>
     {/each}
 
     {#each inFlight as f (f.node)}
-      <div class="finding" style="transform:translate({f.x}px,{f.y}px)">
+      <div class="finding" style="transform:translate({f.x}px,{f.y}px) translate(-50%,-50%)">
         <svg viewBox="0 0 40 40" aria-hidden="true">
           <circle cx="20" cy="20" r="17" />
           <circle cx="20" cy="20" r="17" class="sweep"
@@ -552,34 +552,51 @@
   }
   canvas { position: absolute; inset: 0; display: block; }
 
-  .node, .line, .finding { position: absolute; left: 0; top: 0; will-change: transform; }
-  .node {
-    display: flex; flex-direction: column; align-items: center;
-    margin: -4px 0 0 -4px; pointer-events: none;
+  /* ══ THE ONE POSITIONING RULE ═════════════════════════════════════════
+     Anything placed at a model coordinate is centred on it with
+     `translate(Xpx, Ypx) translate(-50%, -50%)`, and ITS BOX SIZE NEVER
+     DEPENDS ON ITS TEXT. Text hangs off the box with `position: absolute`,
+     so it can never move the thing it labels.
+
+     This is the bug that produced every "misaligned" report. `.node` was a
+     flex column whose width came from its LABEL, translated with no centring
+     — so the dot landed at `x + labelWidth/2`: 8px off for "thing", 32px off
+     for "physical entity". The canvas draws lines to the true coordinate, so
+     lines missed dots, the root sat off the ring centre, and the error grew
+     with the word. `scripts/check-alignment.mjs` asserts this invariant
+     against a real browser; run it after touching anything in here.
+     ═══════════════════════════════════════════════════════════════════════ */
+  .node, .line, .finding {
+    position: absolute; left: 0; top: 0;
+    will-change: transform;
   }
-  .node i {
-    width: 7px; height: 7px; border-radius: 50%;
+  /* the node element IS the dot — never the label */
+  .node {
+    width: 7px; height: 7px; pointer-events: none;
+    border-radius: 50%;
     background: hsl(var(--hue) 40% 46%);
   }
-  .node.root i { width: 13px; height: 13px; background: hsl(var(--hue) 90% 78%); box-shadow: 0 0 12px hsl(var(--hue) 90% 60% / 0.6); }
-  .node.rotted i { background: #b0566b; }
+  .node.root {
+    width: 13px; height: 13px;
+    background: hsl(var(--hue) 90% 78%);
+    box-shadow: 0 0 12px hsl(var(--hue) 90% 60% / 0.6);
+  }
+  .node.rotted { background: #b0566b; }
   /* An arriving concept flares and shrinks into place. `--in` is 1 when it is
      furthest from home and 0 when it settles, so this is driven by the same
      eased position the canvas is drawing to — not by a duplicate timer. */
-  .node.arriving i {
-    transform: scale(calc(1 + var(--in) * 1.8));
-    box-shadow: 0 0 calc(var(--in) * 22px) hsl(var(--hue) 85% 65%);
-  }
+  .node.arriving { box-shadow: 0 0 calc(var(--in) * 22px) hsl(var(--hue) 85% 70%); }
   .node.arriving span { opacity: calc(1 - var(--in)); }
+  /* absolutely positioned, so it cannot influence where the dot sits */
   .node span {
-    margin-top: 2px; font-size: 0.62rem; white-space: nowrap;
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    margin-top: 3px; font-size: 0.62rem; white-space: nowrap;
     color: hsl(var(--hue) 40% 68%); text-shadow: 0 1px 3px #080b11, 0 0 6px #080b11;
   }
   .node.root span { font-weight: 700; font-size: 0.76rem; color: hsl(var(--hue) 80% 84%); }
 
   /* A dotted-line target. Looks like part of the graph; is a real button. */
   .line {
-    margin: -14px 0 0 -14px;
     width: 28px; height: 28px; padding: 0;
     border: 0; border-radius: 50%; background: transparent;
     display: grid; place-items: center; cursor: pointer;
@@ -600,7 +617,7 @@
     text-shadow: 0 1px 3px #080b11, 0 0 6px #080b11; pointer-events: none;
   }
 
-  .finding { margin: -20px 0 0 -20px; width: 40px; height: 40px; pointer-events: none; }
+  .finding { width: 40px; height: 40px; pointer-events: none; }
   .finding svg { width: 40px; height: 40px; transform: rotate(-90deg); }
   .finding circle { fill: none; stroke: hsl(var(--hue) 70% 58%); stroke-width: 3; opacity: 0.22; }
   .finding circle.sweep { opacity: 1; stroke-linecap: round; }

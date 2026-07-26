@@ -12,11 +12,13 @@
     "test": "vitest run",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "icons": "node scripts/gen-icons.mjs",
-    "ontology": "node scripts/build-ontology.mjs"
+    "ontology": "node scripts/build-ontology.mjs",
+    "check:align": "node scripts/check-alignment.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@types/node": "^26.1.1",
+    "playwright-core": "^1.62.0",
     "svelte": "^5.56.8",
     "svelte-check": "^4.7.3",
     "typescript": "~5.9.0",

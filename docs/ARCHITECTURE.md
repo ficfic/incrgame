@@ -20,6 +20,25 @@ survived six pivots and is the thing to check new code against:
    measurement or scrolling — that was tried, it cost 809 lines, and it broke
    the game under pinch-zoom.
 
+4. **ONE COORDINATE SYSTEM, ONE ANCHORING RULE.** The engine and the shell
+   agree on a model coordinate for every visible thing. Anything placed at one —
+   DOM element or canvas stroke — is **centred on it**, via
+   `transform: translate(Xpx, Ypx) translate(-50%, -50%)`, and **its box size
+   never depends on its text**: labels hang off the box with `position:
+   absolute` so they cannot move the thing they label.
+   This rule is written down because breaking it produced days of "everything is
+   misaligned" that no unit test could see. `.node` was a flex column sized by
+   its LABEL, so its dot rendered at `x + labelWidth/2` — 8px off for "thing",
+   32px off for "physical entity". The canvas drew its lines to the true
+   coordinate, so lines missed dots, the root sat off the ring centre, and the
+   error grew with the word. The engine was never wrong, which is exactly why
+   92 green tests said nothing.
+   **Geometry that only exists after CSS has run can only be checked by running
+   CSS.** `scripts/check-alignment.mjs` (`npm run check:align`) drives a real
+   browser, reads each element's transform back out, and asserts its rendered
+   centre equals it. It is verified to go RED when the rule is broken — a check
+   that cannot fail is worse than no check.
+
 Rules 1 and 2 have never slipped, and they are why the UI could be rewritten
 twice at zero cost to the engine. Rule 3 is new only as *writing*: it is the
 lesson of the all-canvas experiment, stated so it does not have to be relearned.
