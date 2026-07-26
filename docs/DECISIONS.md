@@ -1336,3 +1336,56 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   Standing rule this establishes: **in a game whose charter is that every
   in-game concept matches its real definition, a coined resource name is a
   theory violation, not a flavour choice.**
+- 2026-07-26 — **ECONOMY.md revision 2: "the YIELD is the game", not "the loss is
+  the game".** Two independent reviews took revision 1 apart at the doc stage,
+  before a line was written, and converged on three structural holes.
+  (1) **Loss with no counter-lever.** A constant fractional loss is not a
+  mechanic — in series `output = input × Πy` is one coefficient, so the whole
+  ladder was a units conversion, and every lever in the doc took something away
+  (the only named mitigation for loss cost speed, i.e. more loss). Fix: yield is
+  shown as a PERCENTAGE not a subtraction, is attributable to a cause the player
+  chose, and is upgradeable toward a cap strictly below 100%. Revision 1 shipped
+  the ceiling with no climb.
+  (2) **No compounding term anywhere.** Every mechanism was linear; the stack
+  carries `break_eternity` for numbers the design would never reach, which was a
+  smell hiding a hole. Fix: checkpoints multiply their rung's rate and stack
+  multiplicatively; the counter-force is the generational recursion. That race is
+  the mid-game and is the first thing to simulate.
+  (3) **The twist rescored progress instead of recontextualising it.** A hidden
+  second number revealed late lands when it reframes your choices and fails when
+  it marks your work down — "94% was fake, you're at 31%" is the failure, and the
+  optimal play before and after would have been opposites. Fix: BOTH numbers on
+  screen from minute one, unremarked; the reveal is the player realising what they
+  were looking at. And the second number becomes a GATE — training gates on
+  volume (needs automation), coverage gates on source agreement (needs NOT
+  automating) — which kills pure-hand-play and speedrun-dirty simultaneously and
+  stops it being stranded a third time.
+  Also fixed: rot must cost RATE not just score (the engine's existing `f³` gate,
+  which revision 1 silently dropped, making the dirtiest line the fastest);
+  automating rung 1 was strictly dominated *and* was the tutorial button, because
+  serial throughput is `min(capacity)` and rung 1 was specified endless; rung 1
+  was the cookie again, now fixed by giving salvage a SOURCE whose distribution
+  differs (common ruins = head-heavy, deep archives = tail-heavy), which also
+  gives the mitigation a faucet and the pacing its minute-three fork.
+- 2026-07-26 — **A statistical error I wrote, corrected: retention must be
+  SELECTIVE.** Revision 1 said "hold back some verified statements from curation
+  and your batches keep their tails". That is false. A uniform random subset of a
+  distribution has the same shape as the whole distribution, so withholding 20% at
+  random preserves nothing about the tails — it only reduces sample size. It
+  charged real throughput for a benefit that does not exist and taught the player
+  something untrue about the paper the game is built on, in a project whose
+  charter is that every concept matches its real definition.
+  Shumailov's named mitigation is about the COMPOSITION of the training set —
+  retain original human data and mix it in — not volume withheld. Retention is now
+  selective (withhold rare, low-`weight` statements specifically) and
+  non-stationary (three competing sinks, a shelf life via `REDRIFT_SCALE`, and a
+  value that depends on which rung you intend to automate next).
+  Recorded prominently because it is exactly the class of error this project's
+  theory-fidelity rule exists to catch, and I introduced it.
+- 2026-07-26 — **HARD CONSTRAINT: Verified and Batches carry IDENTITY, not just
+  magnitude.** They are distributions over concepts, not scalars. The entire
+  differentiator is that losing 30% means losing SPECIFIC RARE CONCEPTS rather
+  than 30% of a number. The moment a future session stores either as a bare
+  `Decimal` for save-size or perf reasons, the design silently becomes an ordinary
+  conversion chain with unusual nouns. A weight histogram over 4,096 concepts is a
+  few hundred bytes.

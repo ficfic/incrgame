@@ -1,15 +1,17 @@
 # The economy — the refinement ladder
 
-> **Status: PROPOSED, 2026-07-26.** Chosen by the owner from four options after
-> the previous economy was found not to exist in any meaningful sense: one
-> substance (statements) whose only purpose was buying agents, plus attention as
-> a capacity. No ladder, no conversion, no reason to hold anything.
+> **Status: PROPOSED, revision 2, 2026-07-26.** Chosen by the owner from four
+> options after the previous economy was found not to meaningfully exist.
+> Supersedes `ECONOMY_MODEL.md`.
 >
-> This supersedes `ECONOMY_MODEL.md`, which was already self-flagged stale and
-> describes a third, older game.
+> **Revision 2 exists because two independent reviews took revision 1 apart and
+> agreed on three structural holes**: loss with no counter-lever, no compounding
+> term anywhere, and a twist that retroactively rescores the player's progress.
+> Revision 1 also contained a **statistical error about the paper it cites** —
+> see "Retention", below. All three fixes are in.
 >
-> **Nothing here is built.** No numbers below are balanced; they are shapes with
-> placeholder magnitudes, to be simulated before anyone believes them.
+> **Nothing here is built. No number here is a number — it is a shape wearing a
+> digit.** Simulate headless before believing any of it.
 
 ---
 
@@ -17,166 +19,311 @@
 
 You salvage raw text from a collapsed internet, refine it up a ladder into
 training data, train a model on it, and the model automates the rung it was
-trained on — **badly**, in a way that propagates back up the ladder you just
-built.
+trained on — at a **yield you can see, fight, and never quite fix.**
 
 ## Why this shape
 
 The owner's framing: *"the entire thing we are doing is actually training AI."*
-That is the missing requirement (d) — "the end goal turns out not to be the real
-goal" — which an audit found existed nowhere in the code. It is not a text
-reveal. It is the structure.
+That is requirement (d) — "the end goal turns out not to be the real goal" —
+which an audit found existed nowhere in the code. It is not a text reveal, it is
+the structure.
 
-**Every rung is a real word.** Statements is RDF's own term for a triple;
-batches and checkpoints are what practitioners actually say; and rung 1 is
-**tokens** — the literal unit a model is trained on, and the unit the industry
-bills for, per million. Nothing here is coined.
-
-That last point killed the previous attempt at this rung. It was called
-"Datums", which is an invented word on top of a grammatical error (the plural of
-*datum* is *data*), and it was a placeholder carried across three pivots. The v9
-deletion note gave the real reason it never worked: "every price in the game was
-denominated in a thing the subject matter does not have." Tokens are a thing
-this subject matter unambiguously has, and naming them honestly also sharpens
-the satire — the player accumulates precisely the unit the real industry sells.
+**Every rung is a real word.** Tokens is the literal unit a model trains on and
+the unit the industry bills for; Statements is RDF's own term for a triple;
+Batches and Checkpoints are what practitioners say. Nothing is coined. In a game
+whose charter is that every concept matches its real definition, **a coined
+resource name is a theory violation, not a flavour choice** — which is why
+"Datums" failed three separate times.
 
 ---
+
+## THE YIELD IS THE GAME
+
+Revision 1 said "the loss is the game". That was the central error and everything
+else followed from it.
+
+A constant fractional loss is **not a mechanic**. If 100 tokens yield 10
+statements, that is arithmetically identical to a lossless conversion at 10:1 —
+a units change, and in series `output = input × Πyᵢ` is one coefficient.
+Doubling the bottom of the ladder doubles the top. Forever. The player stops
+noticing by minute 15.
+
+Worse, it *feels* like a tax. Every lever in revision 1 was a choice between two
+things being taken away, and the only named mitigation cost speed — the mitigation
+for loss was more loss. The predicted review: *"neat theme, but every button in
+this game makes my numbers smaller."*
+
+So the rule for everything below:
+
+- **Yield is shown as a percentage, never as a subtraction.** `extraction 62%` is
+  a stat you optimise; `lost 4,300` is a punishment. Same number, opposite game.
+- **Yield is attributable.** The player can always see *why*: "62% because you
+  automated this rung", not "because physics".
+- **Yield is upgradeable, and capped strictly below 100%.** The climb is the fun;
+  the ceiling is the tension. Revision 1 shipped the ceiling with no climb.
 
 ## The ladder
 
-Five rungs. Every conversion is **lossy**, and the loss is the game.
-
-| # | Resource | Faucet (how you get it) | Sink (what it buys) |
+| # | Resource | Faucet | Sink |
 |---|---|---|---|
-| 1 | **Tokens** — raw salvaged text, unstructured, worthless alone | Salvage. The idle faucet; the first thing you automate | Extraction |
-| 2 | **Statements** — a subject–predicate–object triple extracted from tokens | Extraction, by hand or by machine | Verification |
-| 3 | **Verified** — a statement checked against the graph | Connect / Review / supervised agents | Curation, and agent costs |
-| 4 | **Batches** — a curated training set | Curation: consumes verified statements, **drops the tails** | Training runs |
-| 5 | **Checkpoints** — a trained model | Training runs consume batches | Automating a rung; unlocking verbs |
+| 1 | **Tokens** — raw salvaged text | Salvage, from a chosen **source** (see below) | Extraction |
+| 2 | **Statements** — a subject–predicate–object triple | Extraction | Verification |
+| 3 | **Verified** — a statement checked against the graph | Connect / Review / supervised agents | Curation · agent costs · retention |
+| 4 | **Batches** — a curated training set with a *composition* | Curation | Training runs |
+| 5 | **Checkpoints** — a trained model | Training runs | Automating a rung · unlocking verbs |
 
-**Attention is unchanged** and stays the allocator across all five rungs:
-capacity you allocate, never a wallet you drain. That decision is locked
-(DECISIONS, v9) and nothing here touches it.
+**Three stocks are live on the HUD** — Tokens, Verified, Checkpoints. Statements
+is a *provenance split of one number* (the engine already does exactly this with
+`state.provenance`), and Batches exist only at the moment of training. Eight
+simultaneous numbers does not survive a phone; four independent ones is about the
+limit.
 
-## The loop, stated plainly
+**But the whole ladder is visible from minute one, greyed out, with real costs.**
+Locked-content teasers are among the strongest retention devices in the genre and
+this project already learned that once.
 
-1. Salvage tokens (cheap, endless, boring — so you automate it first).
-2. Extract statements from tokens. Extraction **misreads** a share of them.
-3. Verify statements against the graph. Verification is **sampling**, so a share
-   of the bad ones survive.
-4. Curate a batch. Curation **drops the tails** — see below.
-5. Train. A checkpoint automates the rung it was trained on.
-6. That rung now produces subtly worse material, which propagates **up**.
+### ⚠️ A HARD CONSTRAINT, so a later session cannot optimise the game away
 
-The player's job is not to stop this. It is to decide **which rung to hand over
-and when**, knowing that every rung you automate degrades everything above it.
+**Verified and Batches carry IDENTITY, not just magnitude.** They are
+distributions over concepts, not scalars. The entire differentiator of this design
+is that losing 30% means losing *specific rare concepts*, not 30% of a number.
 
-## Tail loss: the mechanic that makes the theory load-bearing
+The moment someone stores rung 3 or 4 as a bare `Decimal` for save-size or
+performance reasons, the differentiator silently evaporates and this becomes a
+conversion chain with unusual nouns. A weight histogram over 4,096 concepts is a
+few hundred bytes. **Cheaper than the alternatives, and not negotiable.**
 
-This is the part worth getting exactly right, because it is the paper.
+## Where the loss actually bites
 
-Shumailov et al. (Nature, 2024): a model retrained on its own output loses the
-**tails of the distribution first** — rare events disappear before common ones,
-and the result is over-confident and over-average.
+Constant yields are the **gearbox** — they set pacing. They are not the engine.
+Exactly two things make loss bite, and the design needs one of each:
 
-In this game, a training batch is **sampled** from your verified statements. So
-the model learns whatever is common in your graph and fumbles whatever is rare.
-Rarity is already a first-class property of the board: `weight` in
-`src/render/detail.ts` is taxonomic generality, and it already drives node size
-and level-of-detail.
+**1. Absolute capacity, not proportional share.** One rung must convert at a rate
+capped in absolute units. Then out-producing it does not out-produce the loss — it
+just lowers your verified *share*. Verification is the candidate, and **Attention
+is already the right allocator.**
 
-**So collapse is visible.** As a checkpoint takes over a rung, the low-weight
-periphery of the graph starts going wrong while the high-weight core stays
-crisp. The rim goes dark; the middle stays bright. We would be *rendering* the
-result rather than illustrating it with a caption.
+Note the collision this creates, because it is real: `REVIEW_SAMPLE_SHARE` and
+`AUTO_REVIEW_SHARE` are deliberately *proportional* to honour no-babysitting. You
+cannot have both proportional review and a ladder where loss matters. The honest
+compromise: **absolute human capacity, plus a proportional-but-worse machine
+buyout** — which preserves the HITL guardrail rather than quietly repealing it.
 
-The mitigation the paper actually names — retain original human data — is then a
-real strategic option rather than a slogan: hold back some verified statements
-from curation and your batches keep their tails, at the cost of training slower.
+**2. Recursive loss — the actual paper.** `q(n+1) = f(q(n))`, where the batch that
+trains checkpoint *n+1* was produced by checkpoint *n*. Revision 1 described tail
+loss as a property of *curation* rather than as a *recursion over generations*,
+which is Shumailov with the mechanism removed. Make `f` a contraction and you get
+geometric decay to a fixed point — a floor, a plateau, which VISION already says
+it wants. Without the recursion there is no compounding and no collapse, only a
+fixed discount.
 
-## The goal, and the real goal
+**Rot must cost RATE, not just score.** The current engine already gets this: the
+total gate on recovery is `f³`, so a rotted graph grinds a very hard tail rather
+than merely scoring lower. Revision 1 dropped it, which made the fastest route to
+every chapter the dirtiest one. Carry it forward.
 
-**Stated goal:** train a checkpoint capable of restoring the whole 4,096-concept
-world.
+## Where growth comes from
 
-**The twist, made of arithmetic and not of text:** coverage measures agreement
-with *your own corpus*. The model's benchmark is the material you fed it, so it
-can only ever score its own homework.
+Revision 1 had **no compounding term at all** — every mechanism in it was linear.
+An incremental without an exponential goes flat in the mid-game and dies, and the
+stack carries `break_eternity` for numbers this design would never reach. That was
+a smell and it was hiding a hole.
 
-This is checkable in code because **we ship the real dataset**. Open English
-WordNet is the ground truth, sitting right there in `public/ontology/`. So a
-second number genuinely exists and can be computed at any moment: agreement with
-the *source*, as opposed to agreement with your corpus.
+**Checkpoints multiply their rung's rate, and stack multiplicatively across
+rungs.** That is the exponential. The counter-force is the recursion above: each
+generation of checkpoint trains on material the previous generation produced, so
+throughput compounds while quality contracts. **The race between those two curves
+is the mid-game**, and it is the first thing to simulate.
 
-The reveal is that those two numbers were never the same, and the game can show
-it without a single authored sentence:
+## Retention: the corrected mitigation
 
-```
-    fidelity (what you were shown)     94%
-    agreement with the source          31%
-```
+> **Revision 1 was statistically wrong here and it must not be repeated.** It said
+> "hold back some verified statements from curation and your batches keep their
+> tails". A uniform random subset of a distribution has *the same shape* as the
+> whole distribution — withholding 20% at random preserves nothing about the
+> tails, it just reduces sample size. As written it charged real throughput for a
+> benefit that does not exist, and it taught the player something false about the
+> paper the game is built on.
 
-There is precedent in the codebase for exactly this trick and it already works:
-`displayedFidelity` vs `fidelity` differ by `falselyVerified`, and the player is
-never told the second one exists. That mechanism was built and then stranded
-because the dominant strategy never triggered it. Here it is the spine.
+Shumailov's named mitigation is about the **composition** of the training set —
+retain original human-produced data and mix it in — not about volume withheld. So:
+
+- **Retention is selective.** You withhold *rare* (low-`weight`) statements
+  specifically. `weight` already exists as real taxonomic generality in
+  `src/render/detail.ts` and already drives node size and LOD. Withholding the rim
+  is a targeting decision, and it is the correct reading of the paper.
+- **Retention is non-stationary**, so it cannot be solved once with a slider:
+  - Verified has **three competing sinks** (curation, agents, retention). Holding
+    tails back means not building the agent, and the exchange rate moves as your
+    corpus goes synthetic.
+  - **Held-back statements have a shelf life** — `REDRIFT_SCALE` already decays
+    verified back to unchecked as ancestry becomes synthetic. Hoarding tails is a
+    race, not a savings account.
+  - **What you intend to automate next changes what tails are worth.** A checkpoint
+    for Salvage does not need rare data. A checkpoint for Verification desperately
+    does.
+
+"Always retain 18%" is a chore. "Do I spend my rare statements on the agent now, or
+save them for the verification checkpoint in twenty minutes" is a game.
+
+## Salvage has a source, and the source has a shape
+
+Rung 1 in revision 1 was admitted filler — "cheap, endless, boring" — which is the
+cookie again wearing a new name. A rung that is boring by design, automated
+immediately, and has one sink is a multiplication by a constant.
+
+**Fix: where you salvage determines the distribution of what you get.**
+
+- **Common ruins** → head-heavy tokens. Fast, cheap, plentiful.
+- **Deep archives** → tail-heavy tokens. Slow, expensive, and the only real source
+  of the rare material retention is trying to preserve.
+
+This earns its keep four ways: the bottom rung becomes the *faucet for the tails*,
+so Shumailov's mitigation has a **source** rather than only a hoarding option; rung
+1 stops being filler; the ladder gains a genuine second fork; and the distribution
+mechanic starts at rung 1 rather than appearing at rung 4 — which is what stops a
+future session from implementing rungs 1–3 as scalars and gutting the design.
+
+It is also the **minute-three decision** the pacing needs. Speed versus breadth,
+same substance, both on-theme.
+
+## Automation: a tradeoff you configure, never a tax
+
+The genre's law here is not negotiable: **automation that is a configurable
+tradeoff is beloved; automation that is an unavoidable tax is the single most
+complained-about mechanic in every idle game that has one.** Factorio's pollution
+is loved because it is a rate you invest against. Paperclips' probe drift works
+because the drift/speed slider is *a control you set*.
+
+Revision 1 said both things in adjacent sentences — "automates the rung, badly"
+(tax) and "decide which rung to hand over and when" (tradeoff) — and did not notice
+they were different games.
+
+Three things must hold:
+
+1. **Every rung must be viable to automate in different orders**, with different
+   consequences. If a dominant order exists it is a tutorial, not a decision.
+   Revision 1 failed this outright: in a serial chain throughput is
+   `min(capacity)`, so the optimal order is always "automate the current
+   bottleneck" — which is 1,2,3,4 for any monotone cost curve, and rung 1 was
+   specified as *endless* and therefore never the bottleneck, making the game's
+   tutorial button a strictly dominated move whose rot propagates through four
+   conversions.
+   **So: make the throughput gain AND the damage both largest at the bottom.** The
+   gradients then oppose, and "how far up do I hand over, and how early" becomes a
+   real problem with an interior optimum that moves with the corpus.
+2. **A path to full automation at *acceptable* quality must exist** — expensive,
+   late, hard-won. Not perfect. Acceptable.
+3. **Automating must be always-eventually-correct.** If manual ever stays better,
+   this is a game that punishes idling, in the idle genre.
+
+Each checkpoint therefore carries a **speed/fidelity slider, adjustable after
+training**, modelled on the Paperclips probe designer. Deployment-time
+quality/latency tradeoffs are precisely what the satire is about.
+
+**Rot is a rate you fight with investment, never a ratchet.** If rot is monotone,
+every save's endgame is "everything automated, everything dark" — a terminal state
+strictly worse than the opening, which players find in six hours and post about.
+
+**Darkness must be recoverable in one visible move** (re-verify from retained
+data), not a re-grind. VISION locks "nothing the player CHOSE is ever deleted out
+from under them", and a rim concept going dark because a checkpoint *you trained*
+sampled badly is structurally the game taking something you earned. Best visual in
+the design, one decision away from being the ragequit trigger.
+
+## The two numbers — a GATE, not a reveal
+
+**Stated goal:** train a checkpoint that restores the whole 4,096-concept world.
+
+Coverage measures agreement with **your own corpus**. The model's benchmark is the
+material you fed it, so it can only ever score its own homework. Because the real
+dataset ships in `public/ontology/`, **agreement with the source is a second number
+that genuinely exists and is computable at any moment.**
+
+Revision 1 planned to reveal it late. Both reviews independently rejected that, and
+they are right: a late-revealed second number **lands when it recontextualises the
+player's choices and fails when it rescores their progress downward.** "94% was
+fake, you're actually at 31%" is the second thing, and the thread writes itself —
+*"so the game lied to me for twelve hours."* They would be correct, because the
+optimal play before and after the reveal are opposites, which means the game
+punished them for playing it well.
+
+**So both numbers are on screen from minute one.** Unexplained, unremarked, small.
+Nobody can claim they were lied to — the number was right there, and they can
+screenshot their own first session to prove it. It is *more* thematically exact:
+nobody hid the eval, the eval was contaminated in public and you did not read it.
+The reveal becomes the player realising what they have been looking at all along,
+which is a far better feeling than being told.
+
+**And then the second number does mechanical work, which is what stops it being
+stranded a third time** (`displayedFidelity` vs `fidelity` was built and never
+triggered, because nothing forced the player through it):
+
+- **Training a checkpoint gates on VOLUME** → needs throughput → needs automation.
+- **Coverage gates on SOURCE AGREEMENT** → needs human-sourced, tail-rich material
+  → needs *not* automating.
+
+Neither is skippable, and that single constraint kills both dominant strategies at
+once: pure hand-play cannot generate the volume for a checkpoint, and pure
+automation cannot move source agreement. **The interior of that tradeoff is the
+game**, and the player is forced through it on every chapter.
 
 ## Where the story lives
 
-Each **checkpoint is a chapter.** Training changes what the game *is* — a rung
-automates, a verb leaves your hands — so the narrative beat and the mechanical
-shift are the same event. That is the Antimatter Dimensions / Celestials
-pattern: narrative as the reward for a milestone that rewrites the rules, never
-as an interruption and never as a gate.
+Each **checkpoint is a chapter**, because training changes what the game *is* — a
+rung automates, a verb leaves your hands. The narrative beat and the mechanical
+shift are the same event: narrative as the reward for a rule-rewriting milestone,
+never an interruption and never a gate.
 
-This directly fixes what the story audit found: the only vignette in the game
-was gated behind a state the HUD paints red, so the dominant player never saw
-it. Story that hangs off the economy as a garnish gets skipped. Story that *is*
-the economy cannot be.
+This is the fix for what the story audit found: the only vignette in the game was
+gated behind a state the HUD paints red, so the dominant player never saw it. Story
+that hangs off the economy as a garnish gets skipped; story that *is* the economy
+cannot be.
 
-**Prose is owner-written, as always.** This document specifies beats and
-triggers — data — and not one player-facing sentence.
+**Prose is owner-written.** This document specifies beats and triggers — data — and
+not one player-facing sentence.
 
 ---
 
-## What this keeps, and what it breaks
+## Pacing targets, stated as requirements
 
-**Keeps:** attention as allocated capacity; the graph as the board; agents
-bought with verified statements; supervision as the quality/speed dial;
-never-break-a-save; the real dataset and its licence chain.
-
-**Breaks / needs work:**
-
-- **New stored fields** for each rung. The save's nested backfill was fixed on
-  2026-07-26 precisely because a new `ResourceId` would otherwise arrive
-  `undefined` and turn into `NaN` on first increment. That fix is a
-  prerequisite for this design and it is already in.
-- `resources` already contains `data` (inert since v9) and four other dead tier
-  fields. Decide whether tokens reuse the `data` id — the field exists, is `'15'`
-  at start, and is read nowhere — or land as a new one. Reuse is cheaper and the
-  save shape never shrinks either way. Note the id is internal; only the LABEL
-  is player-facing, so reuse costs nothing in vocabulary.
-- The `TIER_LADDER` loop and `ratePerSecond` (hard-returns `'0'`) are dead code
-  that this design would actually give a job.
-- The current `recovered()` / coverage definition needs revisiting: under this
-  design, coverage against your own corpus and coverage against the source are
-  two different numbers and the game shows one while scoring the other.
+- **Minute 3** — first real fork (common ruins vs deep archives).
+- **Minute 20, hard ceiling 45** — first Checkpoint. Rung 5 *is* the thesis; if
+  chapter 1 is three hours out, nobody ever sees the game's actual idea and every
+  review says "conversion chain, seen it."
+- **Minute 10** — the full ladder is visible, greyed, with real costs.
+- **Hour 1** — one rung automated, first rim-darkening, both numbers diverging.
 
 ## Open questions for the owner
 
-1. **How many rungs are visible at once?** Five stocks on a phone HUD is a lot.
-   Likely answer: rungs reveal as you reach them, so the first ten minutes shows
-   two numbers, not five.
-2. **Is Salvage a tap or a trickle?** It is the bottom of the ladder and the
-   first thing automated; it may not deserve a verb at all.
-3. **Can you ever go back down the ladder?** Un-training, discarding a
-   checkpoint, restoring from held-back data — is regression a player action or
-   only something that happens to you?
-4. **Does the reveal land once, or continuously?** A single dramatic reveal, or
-   a second number that has been quietly visible all along for anyone who looked.
+1. **Is checkpoint count bounded at one per rung, or unbounded (v2, v3 of the same
+   rung)?** Bounded → automation is exhausted in one session and prestige carries
+   the back half. Unbounded → geometric throughput, and the quality recursion must
+   be a genuine contraction or it runs away. **The largest missing number.**
+2. **Can a checkpoint automate Training itself?** A literal self-training loop —
+   either the endgame beat of the project or an unbounded runaway. Both are good
+   answers; not choosing is not.
+3. **What carries forward positively through prestige?** Every prestige in the
+   genre makes you stronger. This one currently makes you richer *and more wrong*
+   along two axes at once, with no stated permanent gain — a hole with a save
+   migration on the far side of it.
+4. **Is there a downward verb?** Roll back a checkpoint, restore a rung to hand
+   operation, refund nothing. Without one every conversion is irreversible and
+   there is risk-free rate rather than risk — and a decision with no downside is
+   not a decision.
 
 ## Before anything is built
 
-Simulate it headless. The measurement harness exists and was used today to prove
-the old economy's wall in minutes rather than hours of play. **No number in this
-document should be believed until it has been run.**
+Simulate headless. The harness exists and proved the old economy's wall in minutes
+today. Two questions kill this design and both are answerable before a component is
+written:
+
+- **Does automating ever become correct?**
+- **Is the endgame board dark?**
+
+Plus: **simulate the yield curve and the terminal state at hour 12.**
+
+**Free call, worth taking:** reuse the existing `data` `ResourceId` for tokens. It
+is `'15'` at start, read nowhere in play, and a new id is fresh backfill surface on
+a save-integrity rule that cost a day to fix. The id is internal; only the label is
+player-facing.
