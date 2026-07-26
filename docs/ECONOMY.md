@@ -359,7 +359,7 @@ player-facing.
 
 ---
 
-## BUILT, 2026-07-26 — rungs 1 and 2 are real
+## BUILT, 2026-07-26 — rungs 1 and 2 are real (revised the same day)
 
 Status above says "nothing here is built". That is no longer true for the bottom
 of the ladder. Shipped in save **v13**:
@@ -416,3 +416,71 @@ about twenty seconds in.** The number is true and the player has two immediate
 levers (switch source, or review). But it is the first feedback a new player
 gets and it reads as failure. Worth watching on a real device before deciding
 whether it is tension or a wall.
+
+
+---
+
+## REVISED, 2026-07-26 — "what are we salvaging?"
+
+The owner asked what Salvage salvages. The answer was **nothing**, and it took
+one question to expose it.
+
+`resources.data` was a bare counter with no referent in the dataset. Extraction
+turned it into an integer and called the result "statements" — while a line
+drawn by hand minted a REAL triple over two real synsets. **Two different things
+shared one word, and one of them did not exist.** That is a `GLOSSARY`/`SPEC`
+violation (a statement is a subject–predicate–object triple) and it is the same
+vocabulary disease `readouts.ts` was built to prevent, one level deeper: not a
+display bug, but whether the thing is there at all.
+
+### What rung 1 is now
+
+- A **passage** is one real concept's text. The noun changed with the thing: a
+  token is a sub-word unit, and calling a whole gloss a token would be
+  inaccurate in a project whose first rule is that terms match their real
+  definitions. "Passage" is ordinary IR vocabulary, not a coinage.
+- **Salvage draws from your own board.** Sampling the whole 4,096-concept
+  dataset does not work: extraction proposes relations between concepts that are
+  ON the board, so passages about undiscovered concepts would propose nothing
+  and the yield would read 45% while delivering zero. Drawing from the wreckage
+  of what you have already found is also the truer story.
+- **The fork now bites by itself, with no extra rule.** Ruins sample the head —
+  the common core, already well connected, so fewer NEW relations. Archives
+  sample the rim — which is exactly where the unfilled lines are.
+- **Extraction proposes REAL relations**, from the same table the dotted lines
+  come from, gated on holding a passage about one end. You cannot extract a fact
+  from text you do not have. That gate is what relation extraction IS.
+
+### The trap this created, and the verb that fixes it
+
+Extraction proposes **unchecked**. Nothing in the engine had ever flipped an edge
+from unchecked to checked, and the offer list excluded every drawn edge — so
+extracted lines could only rot, AND extraction ate the player's chance to draw
+that relation by hand. **A verb that permanently degrades your graph, in the
+first minute, with no way back.** It was live for about twenty minutes.
+
+**Confirming a proposal is now a move.** An unchecked line stays tappable; a
+Connect on it flips it to checked and moves the statement from unverified to
+verified. No second statement is minted — the statement already existed, and
+what changes is its provenance, which is exactly what looking at something does.
+
+### Measured against the real build, 150 seconds of play
+
+| | before the rebuild | after |
+|---|---|---|
+| statements | 1,470 | 27 |
+| recovered | 28 | 28 |
+| what a statement IS | an integer | an edge between two real concepts |
+| `checked` | pinned at 13%, red | oscillates 35% → 97% |
+
+The middle row is the point: statements and recovered now move together, because
+they are the same thing seen twice. The last row is the loop finally breathing —
+extraction proposes and the number drops, you confirm and it climbs.
+
+### Still open
+
+- **Statement volume fell ~50×**, and the agent roster (40 and 90 checked) was
+  priced against the old flow. First automation is now a long way out. Needs a
+  pass, and it is a real balance decision rather than an obvious fix.
+- Salvage remains an uncapped tap; it is now self-limiting in a way it was not,
+  because passages only propose relations that actually exist on your board.

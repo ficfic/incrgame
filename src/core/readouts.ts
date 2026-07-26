@@ -68,10 +68,17 @@ export const READOUTS = {
     count: (s) => D(verified(s)),
   },
 
-  /** Rung 1. Raw salvaged text, before extraction. */
-  tokens: {
-    noun: 'tokens',
-    count: (s) => D(s.resources.data),
+  /** Rung 1. Salvaged text you hold, one passage per real concept.
+   *
+   *  The noun changed from "tokens" when the thing changed. `resources.data`
+   *  was a bare counter with no referent in the dataset; a passage is a real
+   *  concept's text. A token is a sub-word unit — calling one whole gloss a
+   *  token would have been inaccurate in a project whose first rule is that
+   *  every term matches its real definition. "Passage" is ordinary IR
+   *  vocabulary, not a coinage. */
+  passages: {
+    noun: 'passages',
+    count: (s) => D(s.pool.length),
   },
 } satisfies Record<string, Readout>;
 

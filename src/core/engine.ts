@@ -22,7 +22,7 @@ import { CONCEPT_BUDGET } from '../content/ontologyMeta';
 import { VIGNETTES } from '../content/vignettes';
 import { nextRand } from './rng';
 
-export const CURRENT_SAVE_VERSION = 13;
+export const CURRENT_SAVE_VERSION = 14;
 
 // Frontier Mining knobs (Chad's term sheet; tune by playing)
 const START_DATA = '15';        // enough to wire the first ~2 entities
@@ -42,16 +42,20 @@ const START_DATA = '15';        // enough to wire the first ~2 entities
  *  THE RULE THIS OBEYS: yield is a PERCENTAGE YOU RAISE, never a subtraction.
  *  `extraction 45%` is a stat to optimise; `lost 4,300` is a punishment. Same
  *  arithmetic, opposite game. */
-const SALVAGE: Record<SalvageSource, { tokens: number; tail: number }> = {
+const SALVAGE: Record<SalvageSource, { passages: number; tail: number }> = {
   // Head-heavy: plentiful, common, and it is the same common things over again.
-  common: { tokens: 12, tail: 0.12 },
+  common: { passages: 12, tail: 0.12 },
   // Tail-heavy: less of it, and it is the rare material nothing else supplies.
-  archive: { tokens: 5, tail: 0.78 },
+  archive: { passages: 5, tail: 0.78 },
 };
 
-/** Tokens consumed by one Extraction. A fixed batch, so the yield percentage
+/** Passages consumed by one Extraction. A fixed batch, so the yield percentage
  *  is legible: 20 in, ~9 out, and you can watch the 45% become 52%. */
 const EXTRACT_BATCH = 20;
+
+/** How many salvaged passages you may hold. A save is not an accumulator, and
+ *  an unbounded array in state is a save-size bug waiting for a long session. */
+const POOL_CAP = 240;
 
 /** Base share of a token batch that survives extraction as a statement.
  *
@@ -273,6 +277,7 @@ export function initialState(seed = 1): GameState {
     // and a decision you have already been made for is not one.
     source: 'common',
     tokenTail: SALVAGE.common.tail,
+    pool: [],
     coverage: { general: 0 },
     reflection: 0,
     graph: deriveGraph(forged, '0'), // one lonely anchor, zero statements
@@ -413,15 +418,22 @@ export function extractionYield(state: GameState): number {
   return Math.max(0, Math.min(EXTRACT_YIELD_CAP, y));
 }
 
-/** Tokens one Salvage brings in, and how tail-rich they are. */
-export function salvageRate(state: GameState): { tokens: number; tail: number } {
+/** Passages one Salvage brings in, and how tail-rich they are. */
+export function salvageRate(state: GameState): { passages: number; tail: number } {
   return SALVAGE[state.source] ?? SALVAGE.common;
 }
 
-/** Tokens consumed per Extraction, and whether there are enough. */
+/** Passages consumed per Extraction, and whether there are enough. */
 export const extractCost = (): number => EXTRACT_BATCH;
 export function canExtract(state: GameState): boolean {
-  return D(state.resources.data).gte(EXTRACT_BATCH);
+  return state.pool.length >= EXTRACT_BATCH;
+}
+
+/** How many relations one Extraction may propose. The shell needs this to know
+ *  how many candidates to hand over, and the button needs it to show the yield;
+ *  both must read the SAME function or the number on screen is a lie. */
+export function extractCapacity(state: GameState): number {
+  return Math.floor(EXTRACT_BATCH * extractionYield(state));
 }
 
 const mod = (state: GameState, key: string): number => state.modifiers[key] ?? 1;
@@ -767,14 +779,40 @@ export function apply(state: GameState, action: Action): GameState {
           // A finished CONNECT puts the line on the board. This is the only way
           // a line the player drew comes into existence — you watch it fill.
           if (b.kind === 'connect' && b.edge) {
-            if (anchors.includes(b.edge.a) && anchors.includes(b.edge.b)
-                && !edges.some((e) => e.a === b.edge!.a && e.b === b.edge!.b && e.rel === b.edge!.rel)) {
+            const same = (e: Edge): boolean =>
+              e.a === b.edge!.a && e.b === b.edge!.b && e.rel === b.edge!.rel;
+            const existing = edges.findIndex(same);
+            if (!anchors.includes(b.edge.a) || !anchors.includes(b.edge.b)) continue;
+
+            if (existing >= 0) {
+              // CONFIRMING A MACHINE'S PROPOSAL.
+              //
+              // Extraction proposes relations UNCHECKED. Before this branch
+              // existed there was no way to ever check one — nothing in the
+              // engine flipped an edge from unchecked to checked — so every
+              // extracted line could only rot, and extraction quietly ATE the
+              // player's chance to draw that same relation by hand. A verb that
+              // permanently degrades your graph, in the first minute, with no
+              // way back.
+              //
+              // No new statement is minted: the statement already exists. What
+              // changes is its provenance, from unverified to verified, which
+              // is exactly what looking at something does.
+              if (edges[existing]!.checked) continue; // already yours; nothing to do
+              const next = [...edges];
+              next[existing] = { ...next[existing]!, checked: true, fake: false };
+              edges = next;
+              unverified = unverified.sub(1);
+              if (unverified.lt(0)) unverified = D('0');
+              lifetimeVerified = lifetimeVerified.add(1);
+            } else {
               edges = [...edges, b.edge];
               edges = trimEdges(edges);
               resources = touched ? resources : { ...resources };
               resources.triples = add(resources.triples, 1);
               lifetimeVerified = lifetimeVerified.add(1);
             }
+            touched = true;
             continue;
           }
           if (b.kind !== 'discover' || b.node === undefined) continue;
@@ -946,7 +984,10 @@ export function apply(state: GameState, action: Action): GameState {
       // both ends must be on the board, and the line must not already exist or
       // already be in flight — otherwise a double-tap books the same work twice
       if (!state.forged.anchors.includes(a) || !state.forged.anchors.includes(b)) return state;
-      if (state.forged.edges.some((e) => e.a === a && e.b === b && e.rel === rel)) return state;
+      // An UNCHECKED line may be re-drawn: that is how you confirm a relation
+      // an extractor proposed. Only a line you have already checked is a no-op.
+      const already = state.forged.edges.find((e) => e.a === a && e.b === b && e.rel === rel);
+      if (already?.checked) return state;
       if (state.bookings.some((x) => x.edge && x.edge.a === a && x.edge.b === b && x.edge.rel === rel)) {
         return state;
       }
@@ -1106,52 +1147,83 @@ export function apply(state: GameState, action: Action): GameState {
       // Rung 1's faucet. Deliberately NOT attention-gated: attention is the
       // rung-3 allocator (ECONOMY.md, "where the loss actually bites"), and
       // making the bottom of the ladder compete for it would starve the top.
-      const { tokens, tail } = salvageRate(state);
-      const have = D(state.resources.data);
-      const after = have.add(tokens);
+      //
+      // `picks` are real concept ids, sampled by the shell from the shipped
+      // dataset. Core cannot read the ontology — it is fetched, and core is
+      // pure — so the shell hands over finished data, the same contract
+      // `connect` uses.
+      const { passages, tail } = salvageRate(state);
+      const picks = action.picks.filter((id) => Number.isInteger(id) && id >= 0);
+      if (picks.length === 0) return state;
+
+      const pool = [...state.pool, ...picks.slice(0, passages)];
+      // Oldest passages fall off the end: text you salvaged and never read is
+      // text you no longer have. Bounded state, and honest about it.
+      const trimmed = pool.length > POOL_CAP ? pool.slice(pool.length - POOL_CAP) : pool;
+
       // Composition is a stock-weighted average, so hauling common ruins on top
-      // of an archive stock genuinely dilutes it. Guarded against the empty
-      // stock, where the incoming batch simply IS the composition.
-      const mix = after.lte(0)
+      // of an archive stock genuinely dilutes it rather than flipping it.
+      const had = state.pool.length;
+      const total = had + Math.min(picks.length, passages);
+      const mix = total <= 0
         ? tail
-        : have.mul(state.tokenTail).add(D(tokens).mul(tail)).div(after).toNumber();
+        : (had * state.tokenTail + Math.min(picks.length, passages) * tail) / total;
+
       return {
         ...state,
-        resources: { ...state.resources, data: after.toString() },
+        pool: trimmed,
         tokenTail: Number.isFinite(mix) ? Math.max(0, Math.min(1, mix)) : tail,
       };
     }
 
     case 'extract': {
-      // Rung 1 → rung 2. A fixed batch in, a YIELD PERCENTAGE out.
+      // Rung 1 → rung 2, and the reason this action carries a payload at all.
+      //
+      // It used to mint an INTEGER and call it statements. A line drawn by hand
+      // mints a real triple over two real synsets; extraction minted a number
+      // with no subject, predicate, object or referent in the dataset. Two
+      // different things shared one word, and one of them did not exist.
+      //
+      // Now the shell proposes real relations over concepts you hold passages
+      // about — which is what relation extraction is: you cannot extract a fact
+      // from text you do not have.
       if (!canExtract(state)) return state;
-      const yieldPct = extractionYield(state);
-      const minted = Math.floor(EXTRACT_BATCH * yieldPct);
-      if (minted <= 0) return state;
 
-      // WHERE THE FORK PAYS OFF, and why the archives are worth being slow for.
-      //
-      // Text you dug out of a deep archive you have effectively read: those
-      // statements arrive CHECKED. Common-ruins text is bulk — it arrives
-      // unverified, so it drifts, and clearing it costs attention later.
-      //
-      // So the choice is volume against agreement, which is exactly the axis
-      // ECONOMY.md says the two numbers must pull along: training needs volume,
-      // coverage needs source-faithful material, and neither is skippable.
-      const clean = Math.round(minted * state.tokenTail);
-      const dirty = minted - clean;
+      const room = extractCapacity(state);
+      if (room <= 0) return state;
 
+      const anchors = state.forged.anchors;
+      const fresh: Edge[] = [];
+      for (const c of action.candidates) {
+        if (fresh.length >= room) break;
+        if (!anchors.includes(c.a) || !anchors.includes(c.b)) continue;
+        const dup = (e: Edge): boolean => e.a === c.a && e.b === c.b && e.rel === c.rel;
+        if (state.forged.edges.some(dup) || fresh.some(dup)) continue;
+        // An extractor PROPOSES. Checking is a separate verb with a separate
+        // cost, and collapsing the two is how a graph gets trusted for free.
+        fresh.push({ ...c, checked: false });
+      }
+
+      // The passages are spent whether or not the batch yielded anything. That
+      // is the yield being real: a run that finds nothing still cost the text.
+      const pool = state.pool.slice(EXTRACT_BATCH);
+      if (fresh.length === 0) return { ...state, pool };
+
+      const edges = trimEdges([...state.forged.edges, ...fresh]);
+      const resources = {
+        ...state.resources,
+        triples: add(state.resources.triples, String(fresh.length)),
+      };
       return {
         ...state,
-        resources: {
-          ...state.resources,
-          data: D(state.resources.data).sub(EXTRACT_BATCH).toString(),
-          triples: add(state.resources.triples, String(minted)),
-        },
+        pool,
+        forged: { ...state.forged, edges },
+        resources,
         provenance: {
           ...state.provenance,
-          unverified: add(state.provenance.unverified, String(dirty)),
+          unverified: add(state.provenance.unverified, String(fresh.length)),
         },
+        graph: deriveGraph({ ...state.forged, edges }, resources.triples),
         // ⚠️ EXTRACTION DOES NOT FEED `lifetimeVerified`, AND IT USED TO.
         //
         // That field is the game's ONE permanent ratchet: it drives the
@@ -1160,12 +1232,9 @@ export function apply(state: GameState, action: Action): GameState {
         // bulk conversion, not a person reading a statement.
         //
         // Measured before this was removed: 150 seconds of tapping produced
-        // 1,150 statements and moved the attention cap from 4 to 13. Attention
-        // is the designed bottleneck of the entire game, and rung 1 — the
-        // cheapest, most spammable verb — was inflating it fourfold in two
-        // minutes. Archive material still arrives CHECKED, so the source fork
-        // keeps its teeth; what it no longer does is buy permanent capacity
-        // that the human verbs are supposed to earn.
+        // 1,150 statements and moved the attention cap from 4 to 13 — a
+        // fourfold inflation of the game's designed bottleneck, from its
+        // cheapest and most spammable verb.
       };
     }
 

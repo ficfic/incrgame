@@ -18,7 +18,7 @@
   import {
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
     DISCOVER_MS, extractCost, extractionYield, hasTrust, pendingVignette, recovered,
-    REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS, salvageRate, sourceAgreement,
+    REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS, salvageRate, sourceAgreement, extractCapacity,
     unsupervised, verified,
   } from '../core/engine';
   import { FRONTIER_CAP } from '../core/graph';
@@ -39,6 +39,7 @@
   import { GraphSim } from '../render/sim';
   import { paintGraph } from '../render/paint';
   import { ticker, TICKER_TTL_MS } from '../shell/ticker';
+  import { proposeCandidates, samplePassages } from '../shell/salvage';
 
   let canvas = $state<HTMLCanvasElement>();
   let stage = $state<HTMLDivElement>();
@@ -75,6 +76,37 @@
     const clock = $game.lastTick || Date.now();
     return $ticker.filter((l) => clock - l.at < TICKER_TTL_MS).slice(-2);
   });
+
+  /** Rung 1. The shell samples REAL concepts and hands the engine finished
+   *  data — core cannot read the ontology, and this is the same contract
+   *  `connect` uses. Salvage draws from your own board: extraction proposes
+   *  relations between concepts that are ON it, so passages about undiscovered
+   *  concepts would propose nothing and the yield would be a lie. */
+  function salvage(): void {
+    const { passages } = salvageRate($game);
+    const picks = samplePassages(
+      $game.forged.anchors,
+      (id) => weights.get(id)?.weight ?? 0,
+      $game.source,
+      passages,
+      Math.random,
+    );
+    if (picks.length === 0) { say('Nothing left to salvage here'); return; }
+    dispatch({ type: 'salvage', picks });
+  }
+
+  /** Rung 1 → 2. Every candidate is a REAL relation from the shipped dataset —
+   *  the same table the dotted lines come from — gated on holding a passage
+   *  about one of its ends. An extractor proposes; it does not verify, so these
+   *  arrive unchecked and rot like anything else nobody has looked at. */
+  function extract(): void {
+    if (!canExtract($game)) { say(`Need ${EXTRACT_BATCH} passages`); return; }
+    const candidates = proposeCandidates(
+      $game.pool, potential, $game.forged.edges, extractCapacity($game),
+    );
+    dispatch({ type: 'extract', candidates });
+    if (candidates.length === 0) say('That batch supported nothing new');
+  }
 
   const activeVignette = $derived.by(() => {
     const id = pendingVignette($game);
@@ -261,7 +293,12 @@
   const onScreen = $derived(new Set(lod.shown));
 
   const dotted = $derived.by(() => {
-    const drawn = new Set($game.forged.edges.map((e) => `${e.a}:${e.b}:${e.rel}`));
+    // Only CHECKED lines leave the offer list. An unchecked line — one an
+    // extractor proposed — stays tappable, because confirming a machine's
+    // proposal is a move the player must always have. Without this, extraction
+    // consumed relations permanently and the graph could only rot.
+    const drawn = new Set($game.forged.edges.filter((e) => e.checked)
+      .map((e) => `${e.a}:${e.b}:${e.rel}`));
     return potential.filter((p) => !drawn.has(`${p.a}:${p.b}:${p.rel}`)
       && onScreen.has(p.a) && onScreen.has(p.b));
   });
@@ -340,6 +377,17 @@
   /** Take the current follow-mode framing as the starting point for manual
    *  control, so the first pinch continues from what you were looking at
    *  instead of snapping to zoom 1. */
+  /** Did this gesture land on a CONTROL rather than on the board?
+   *
+   *  The dotted-line targets, the fit button and the inspect card all live
+   *  inside the stage, so their taps arrived at the stage's pointer handlers
+   *  too — and every one of them silently switched auto-framing off. Tapping
+   *  "connect" would stop the board framing itself, and concepts then drifted
+   *  off the edges as the graph grew, for a reason the player could not
+   *  possibly connect to what they had just pressed. */
+  const onControl = (e: Event): boolean =>
+    !!(e.target as Element | null)?.closest?.('button, .card');
+
   function takeControl(): void {
     if (!follow) return;
     zoom = followZoom;
@@ -394,6 +442,7 @@
 
   function onTouchStart(e: TouchEvent): void {
     if (!grabbing) return;
+    if (onControl(e)) return;
     takeControl();
     grip = centreOf(e.touches);
     tapCandidate = null;
@@ -459,6 +508,7 @@
   let mouseDown = false;
   function onMouseDown(e: MouseEvent): void {
     if (!stage) return;
+    if (onControl(e)) return;
     takeControl();
     const box = stage.getBoundingClientRect();
     const at = toWorld(cam, { x: e.clientX - box.left, y: e.clientY - box.top });
@@ -618,7 +668,7 @@
          same reasoning — 0.02% at minute one is a number with no meaning yet,
          and there is no room to caption it honestly at this size. -->
     <div class="stats">
-      <div><b class:good={D($game.resources.data).gte(EXTRACT_BATCH)}>{formatWhole($game.resources.data)}</b><span>tokens</span></div>
+      <div><b class:good={$game.pool.length >= EXTRACT_BATCH}>{$game.pool.length}</b><span>passages</span></div>
       <div><b class="good">{recovered($game)}</b><span>recovered</span></div>
       <!-- "—" not "100%": a new save has zero statements and the ratio returns
            1, which read as a perfect score over an empty graph. -->
@@ -728,15 +778,15 @@
          everything else, they cost no attention, and they give the first minute
          something to actually do. -->
     <div class="actions">
-      <button class="act" onclick={() => dispatch({ type: 'salvage' })}>
-        <b>Salvage</b><span>+{salvageRate($game).tokens} tokens</span>
+      <button class="act" onclick={salvage}>
+        <b>Salvage</b><span>+{salvageRate($game).passages} passages</span>
       </button>
 
       <!-- The yield is a PERCENTAGE YOU RAISE, never a subtraction. Same
            arithmetic as "lost 11 of 20", opposite feeling (ECONOMY.md). -->
       <button class="act primary" disabled={!canExtract($game)}
-        onclick={() => (canExtract($game) ? dispatch({ type: 'extract' }) : say(`Need ${EXTRACT_BATCH} tokens`))}>
-        <b>Extract</b><span>{EXTRACT_BATCH} tokens · {(extractionYield($game) * 100).toFixed(0)}%</span>
+        onclick={extract}>
+        <b>Extract</b><span>{EXTRACT_BATCH} passages · {(extractionYield($game) * 100).toFixed(0)}%</span>
       </button>
 
       <button class="act primary" disabled={!canDiscover} onclick={discover}>

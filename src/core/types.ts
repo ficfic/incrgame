@@ -227,6 +227,19 @@ export interface GameState {
    *  ongoing speed-versus-breadth decision, not a one-time fork you can regret
    *  permanently. */
   source: SalvageSource;
+  /** Concepts you hold SALVAGED TEXT about — the passages Extraction reads.
+   *
+   *  ⚠️ This replaced a bare counter, and the reason is the whole point of the
+   *  game. Rung 1 used to increment `resources.data` by 12, and Extraction used
+   *  to mint a number of "statements" that were not statements: no subject, no
+   *  predicate, no object, no referent in the dataset at all. Meanwhile a line
+   *  drawn by hand minted a REAL triple over two real synsets. Two different
+   *  things shared the word "statements", and one of them did not exist.
+   *
+   *  Now a passage is a real concept's text, and you can only extract a
+   *  relation you actually hold text about — which is what relation extraction
+   *  IS. Bounded, because a save is not a place to accumulate forever. */
+  pool: number[];
   /** 0..1 — the share of the CURRENT token stock that came from deep archives.
    *
    *  ⚠️ This is a COMPOSITION SUMMARY, not identity. `docs/ECONOMY.md` states as
@@ -266,8 +279,14 @@ export type Action =
   | { type: 'chooseOption'; eventId: string; choiceId: string }
   | { type: 'reflect' }                            // prestige = retrain on yourself
   // ---- v13: the bottom of the ladder ----
-  | { type: 'salvage' }                            // rung 1 faucet: raw text → tokens
-  | { type: 'extract' }                            // rung 1 → 2: tokens → statements, at a YIELD
+  /** Rung 1. `picks` are CONCEPT IDS the shell sampled from the real dataset —
+   *  core cannot read the ontology (it is fetched, and core is pure), so the
+   *  shell hands over finished data exactly as it does for `connect`. */
+  | { type: 'salvage'; picks: number[] }
+  /** Rung 1 → 2. `candidates` are real relations over concepts you hold
+   *  passages about, already yield-limited by the shell. They arrive UNCHECKED:
+   *  an extractor proposes, it does not verify. */
+  | { type: 'extract'; candidates: Edge[] }
   | { type: 'setSource'; source: SalvageSource };  // where Salvage draws from
 
 // ---- content data types (SPEC "Content data types") ----

@@ -155,6 +155,18 @@ export const MIGRATIONS: Migration[] = [
   // with a matching composition — which is the honest description of a stock
   // that was never sorted, not a guess about where it came from.
   (s) => ({ ...s, source: 'common', tokenTail: 0.12 }),
+  // v13 → v14 — salvaged text is now REAL. A passage is a concept from the
+  // shipped dataset rather than an increment of a counter, so Extraction can
+  // propose actual relations instead of minting integers and calling them
+  // statements.
+  //
+  // The pool starts empty, which is the honest position: a v13 save's `data`
+  // balance recorded a QUANTITY of text and never recorded what any of it was
+  // about, so there is nothing to convert. Nothing else is touched — every
+  // statement, line and concept survives — and the first Salvage refills it in
+  // one tap. `resources.data` is left exactly as it was, per the standing rule
+  // that a saved field is never removed.
+  (s) => ({ ...s, pool: [] }),
 ];
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----

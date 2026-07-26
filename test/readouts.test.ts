@@ -153,9 +153,9 @@ describe('no milestone fires on something that cannot happen', () => {
 });
 
 describe('apply() still works with the readouts in place', () => {
-  it('a salvage moves the tokens readout', () => {
+  it('a salvage moves the passages readout', () => {
     const s0 = initialState(1);
-    const s1 = apply(s0, { type: 'salvage' });
-    expect(READOUTS.tokens.count(s1).gt(READOUTS.tokens.count(s0))).toBe(true);
+    const s1 = apply(s0, { type: 'salvage', picks: [1, 2, 3] });
+    expect(READOUTS.passages.count(s1).gt(READOUTS.passages.count(s0))).toBe(true);
   });
 });

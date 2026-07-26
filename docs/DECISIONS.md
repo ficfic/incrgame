@@ -1596,3 +1596,29 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   It found the ratchet bug on its first run — a defect no unit test could catch,
   because every individual piece behaved exactly as written. **Look at the game
   before saying it works.**
+- 2026-07-26 — **"What are we salvaging?" — nothing, and the answer rebuilt rung
+  1.** `resources.data` was a counter with no referent in the dataset;
+  Extraction turned it into an integer and called it "statements", while a
+  hand-drawn line minted a real triple over two real synsets. Two different
+  things shared one word and one of them did not exist — a GLOSSARY/SPEC
+  violation and the vocabulary disease one level below display. Now a
+  **passage** is one real concept's text (the noun changed because the thing
+  did: a token is a sub-word unit, and "passage" is standard IR vocabulary, not
+  a coinage), Salvage samples the player's own board weighted by the source
+  fork, and Extraction proposes REAL relations from the shipped table, gated on
+  holding a passage about one end. Save v14, pool starts empty (a v13 save
+  recorded a quantity of text and never what it was about, so there is nothing
+  to convert).
+- 2026-07-26 — **Confirming a machine's proposal is a verb, because without it
+  extraction was a trap.** Extracted edges arrive unchecked, nothing in the
+  engine ever flipped an edge to checked, and the offer list excluded all drawn
+  edges — so extracted lines could only rot AND extraction consumed the chance
+  to draw that relation by hand. Now an unchecked line stays tappable and a
+  Connect on it flips it, moving the statement from unverified to verified
+  without minting a second one.
+- 2026-07-26 — **Taps on controls inside the stage no longer cancel auto-fit.**
+  The dotted-line targets, the fit button and the inspect card all sit inside the
+  stage, so their taps reached the board's pointer handlers and silently turned
+  framing off; concepts then drifted off the edges as the graph grew, for a
+  reason no player could connect to the button they pressed. Caught by looking at
+  a screenshot from `play-probe`, not by any test.
