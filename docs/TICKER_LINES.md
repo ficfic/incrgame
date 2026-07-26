@@ -1,34 +1,68 @@
 # Ticker lines — awaiting the owner's pen
 
-The event ticker (`src/shell/ticker.ts`) drips one-liners as things happen.
-Per the prose guardrail (★ CLAUDE.md), **every flavor line a player reads is
-human-written**. Until you write them, the ticker uses mechanical fallbacks
-assembled from labels + numbers ("Ingestion Pipeline™ #3 online") — factual,
-never authored.
+The event ticker (`src/shell/ticker.ts`) drips one-liners as things happen: two
+lines at a time in the dock, no modal, nothing interrupted. It is Universal
+Paperclips' actual delivery mechanism and the best narrative vehicle in this
+project — and it currently holds **zero** owner lines (`OWNER_LINES = {}`).
 
-**How to fill:** write your line next to a trigger id, then it goes into
-`OWNER_LINES` in `src/shell/ticker.ts` (`'trigger-id': 'your line'`). Numbered
-triggers accept a generic id too (`buy:harvester` fires for any count if the
-exact `buy:harvester:N` id has no line — ask Claude to wire generic fallbacks
-when you deliver the first batch).
+Per the prose guardrail (★ CLAUDE.md), **every flavour line a player reads is
+human-written.** Until you write them the ticker uses mechanical fallbacks
+assembled from labels and numbers — factual, never authored.
 
-Register to aim for (from GAME_DESIGN): satirical startup surface, ominous awe
-spine. Early lines = startup theater; later milestones can start whispering.
+**How to fill:** write your line next to a trigger id; it goes into
+`OWNER_LINES` in `src/shell/ticker.ts` as `'trigger-id': 'your line'`.
+
+See `docs/CONTENT.md` for where this sits in the writing order. Short version:
+**this table is tier 1, reach 100%, and it is the highest-value hour available.**
+
+---
+
+## The milestone sequence — write it as ONE voice, not eight jokes
+
+This is the tonal arc, pre-numbered and pre-wired. The instruction that matters:
+**do not write eight independent jokes.** Write one voice that curdles.
 
 | Trigger id | Fires when | Mechanical fallback | Your line |
 |---|---|---|---|
-| `buy:harvester:1` | first Ingestion Pipeline™ | "Ingestion Pipeline™ #1 online" | |
-| `buy:harvester:5` | fifth | "Ingestion Pipeline™ #5 online" | |
-| `buy:harvester:10` | tenth | "Ingestion Pipeline™ #10 online" | |
-| `nodes:10` | graph reaches 10 nodes | "graph: 10 nodes" | |
-| `nodes:25` | 25 nodes | "graph: 25 nodes" | |
-| `nodes:50` | 50 nodes | "graph: 50 nodes" | |
-| `nodes:100` | 100 nodes | "graph: 100 nodes" | |
-| `nodes:250` | 250 nodes (past the drawn cap — the halo appears) | "graph: 250 nodes" | |
-| `nodes:500` | 500 nodes | "graph: 500 nodes" | |
-| `nodes:1000` | 1,000 nodes | "graph: 1000 nodes" | |
-| `away-return` | returning after ≥5 min away | "while away: +N Datums" | |
+| `nodes:10` | 10 concepts on the board | "graph: 10 nodes" | |
+| `nodes:25` | 25 | "graph: 25 nodes" | |
+| `nodes:50` | 50 | "graph: 50 nodes" | |
+| `nodes:100` | 100 | "graph: 100 nodes" | |
+| `nodes:250` | 250 — **the turn.** GAME_DESIGN puts the curdle here | "graph: 250 nodes" | |
+| `nodes:500` | 500 | "graph: 500 nodes" | |
+| `nodes:1000` | 1,000 | "graph: 1000 nodes" | |
+| `nodes:2500` | 2,500 — should not be funny | "graph: 2500 nodes" | |
 
-**Wanted for M3 (write whenever):** first Extractor, first Triple, first
-Reasoner, first inference-multiplier tick, graph "bloom" moment. Trigger ids
-will be added when M3 lands.
+## Other live triggers
+
+| Trigger id | Fires when | Mechanical fallback | Your line |
+|---|---|---|---|
+| `away-return` | returning after ≥5 min away | banked-work summary | |
+
+---
+
+## Removed, 2026-07-26 — triggers that could never fire
+
+Three rows here pointed at `buy:harvester:1 / :5 / :10`. **The Harvester is not
+on `M1_ROSTER` and cannot be bought**, so any line written against those ids
+would never have been read by a single player. The old "+N Datums" fallback for
+`away-return` was also stale — Datums were deleted at v9, and the bottom rung of
+the new ladder is **tokens** (see `docs/ECONOMY.md`).
+
+Recorded rather than silently deleted, because "write prose for content that can
+never fire" is a mistake this project has now made twice.
+
+## Known defect before you write numbered triggers
+
+`say(\`buy:${g.id}:${after}\`)` fires on **every** purchase, unbounded — so by
+Extractor #30 the same line repeats forever. Generic fallbacks need wiring
+(`buy:extractor` matching any count) before the first numbered batch is worth
+writing.
+
+## Not yet — the ladder's own beats
+
+The refinement ladder (`docs/ECONOMY.md`) adds a chapter per checkpoint. Those
+trigger ids are specified in `docs/CONTENT.md` tier 2 and will be added here when
+the economy is built. **Do not write them yet**: the shape may still move, and
+writing against a shape that moves is the same mistake as balancing numbers that
+are about to be replaced.

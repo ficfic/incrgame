@@ -15,6 +15,8 @@ import { GENERATORS } from '../src/content/generators';
 import { ANCHOR_CAP } from '../src/core/graph';
 import { VIGNETTES } from '../src/content/vignettes';
 import type { GameState } from '../src/core/types';
+import { get } from 'svelte/store';
+import { say, ticker, OWNER_LINES_FOR_TEST } from '../src/shell/ticker';
 
 const withExtractors = (n: number, s = initialState()): GameState =>
   ({ ...s, generators: { ...s.generators, extractor: n } });
@@ -749,5 +751,32 @@ describe('vignettes reach the player and their doors all do something', () => {
     const retrained = apply({ ...chosen, forged: { ...chosen.forged, foldedNodes: '5000' } }, { type: 'reflect' });
     expect(retrained.flags).toEqual(chosen.flags);
     expect(retrained.modifiers).toEqual({}); // the bargain resets, the memory does not
+  });
+});
+
+// ── the ticker is writable ─────────────────────────────────────────────────
+describe('ticker trigger fallbacks', () => {
+  it('falls back from a numbered trigger to its generic form', () => {
+    // Without this the owner must write a line per purchase COUNT, or watch the
+    // same mechanical string repeat forever — by Extractor #30 the ticker was
+    // reading "#30 online" and would have gone on indefinitely.
+    OWNER_LINES_FOR_TEST['buy:extractor'] = 'GENERIC';
+    say('buy:extractor:30', 'MECHANICAL');
+    expect(get(ticker).at(-1)!.text).toBe('GENERIC');
+    delete OWNER_LINES_FOR_TEST['buy:extractor'];
+  });
+
+  it('prefers an exact numbered line when one exists', () => {
+    OWNER_LINES_FOR_TEST['buy:extractor'] = 'GENERIC';
+    OWNER_LINES_FOR_TEST['buy:extractor:1'] = 'EXACT';
+    say('buy:extractor:1', 'MECHANICAL');
+    expect(get(ticker).at(-1)!.text).toBe('EXACT');
+    delete OWNER_LINES_FOR_TEST['buy:extractor'];
+    delete OWNER_LINES_FOR_TEST['buy:extractor:1'];
+  });
+
+  it('still uses the mechanical fallback when the owner has written nothing', () => {
+    say('nodes:250', 'graph: 250 nodes');
+    expect(get(ticker).at(-1)!.text).toBe('graph: 250 nodes');
   });
 });

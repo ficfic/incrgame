@@ -20,6 +20,11 @@ export interface TickerLine {
 // Empty until the owner writes them — mechanical fallbacks carry the ticker.
 const OWNER_LINES: Record<string, string> = {};
 
+/** Test seam. The fallback chain is the thing that makes numbered triggers
+ *  writable at all, so it needs a test, and a test needs a way to plant a line
+ *  without shipping one. Exported as the same object, never written in play. */
+export const OWNER_LINES_FOR_TEST = OWNER_LINES;
+
 const NODE_MILESTONES = [10, 25, 50, 100, 250, 500, 1000, 2500];
 const EDGE_MILESTONES = [1, 10, 50, 250, 1000];
 
@@ -27,8 +32,18 @@ const lines = writable<TickerLine[]>([]);
 export const ticker: Readable<TickerLine[]> = lines;
 
 let nextId = 1;
+
+/** Emit a line for a trigger.
+ *
+ *  Numbered triggers fall back to their UNNUMBERED form: `buy:extractor:30`
+ *  looks for `buy:extractor:30` first, then `buy:extractor`. Without that, the
+ *  owner would have to write a line per purchase count or watch the same
+ *  mechanical string repeat forever — by Extractor #30 the ticker was reading
+ *  "#30 online" and would have gone on doing so indefinitely. A generic line is
+ *  the difference between the buy trigger being writable and being noise. */
 export function say(triggerId: string, mechanical: string): void {
-  const text = OWNER_LINES[triggerId] ?? mechanical;
+  const generic = triggerId.replace(/:\d+$/, '');
+  const text = OWNER_LINES[triggerId] ?? OWNER_LINES[generic] ?? mechanical;
   lines.update((l) => [...l.slice(-30), { id: nextId++, text }]);
 }
 

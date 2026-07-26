@@ -1389,3 +1389,35 @@ now but inert. Density is the other one: 123 non-is-a relations of which only
   `Decimal` for save-size or perf reasons, the design silently becomes an ordinary
   conversion chain with unusual nouns. A weight histogram over 4,096 concepts is a
   few hundred bytes.
+- 2026-07-26 — **`docs/CONTENT.md`: the beat sheet, ordered by REACH.** Owner
+  asked for content work. The organising rule is the lesson from the story audit:
+  **order writing by the fraction of sessions that see the beat**, not by how
+  interesting it is to design. The game's only narrative beat was gated behind
+  `minDrifted ≥ 5` — an unsupervised extractor, the one state the HUD paints red
+  — so the game steered players away from its own content and the dominant
+  strategy never saw a word. A beat nobody reaches is not content.
+  Tiers, with reach: cold open (100%) → ticker (100%, continuous) → chapter beats,
+  one per checkpoint (~100%, since training is the goal) → review desk framing
+  (most sessions) → forks (opt-in, priced accordingly). Word budgets and
+  constraints per tier; trigger ids and effects only, no prose.
+  Four reachability rules made non-negotiable, each earned by a real defect:
+  every trigger must be reachable by the DOMINANT strategy (check against
+  `scripts/sim-economy.mjs`); no beat may trigger on a state the UI warns
+  against; no beat may fire on a mechanic that cannot happen; numbered triggers
+  need a generic fallback.
+  Explicit "do not write yet" list, because writing against a moving shape is the
+  same mistake as balancing numbers that are about to be replaced: fork prose
+  (until the third door is real), anything keyed to prestige memory (flags now
+  survive but nothing reads them), and chapter beats for rungs the economy has
+  not built.
+- 2026-07-26 — **Ticker: numbered triggers now fall back to their generic form,
+  and three dead rows are gone.** `buy:extractor:30` looks for the exact id, then
+  `buy:extractor`, then the mechanical string — without which the owner would
+  have to write a line per purchase count or watch "#30 online" repeat forever.
+  Tested, including the red path.
+  `TICKER_LINES.md` also had three rows for `buy:harvester:*`. **The Harvester is
+  off `M1_ROSTER` and cannot be bought**, so any line written there would never
+  have been read by a single player — the second time this project has invited
+  prose for content that can never fire. Removed, and recorded rather than
+  silently deleted. The stale "+N Datums" fallback went with it; the bottom rung
+  is tokens now.
