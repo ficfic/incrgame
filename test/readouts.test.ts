@@ -153,9 +153,13 @@ describe('no milestone fires on something that cannot happen', () => {
 });
 
 describe('apply() still works with the readouts in place', () => {
-  it('a salvage moves the passages readout', () => {
-    const s0 = initialState(1);
-    const s1 = apply(s0, { type: 'salvage', picks: [1, 2, 3] });
-    expect(READOUTS.passages.count(s1).gt(READOUTS.passages.count(s0))).toBe(true);
+  it('extracting moves the statements readout', () => {
+    const base = initialState(1);
+    const s0: GameState = {
+      ...base, lastTick: 1000, contextWindow: 8,
+      forged: { ...base.forged, anchors: [0, 1, 2, 3] },
+    };
+    const s1 = apply(s0, { type: 'extract', candidates: [{ a: 1, b: 0, rel: 0, checked: false, fake: false }] });
+    expect(READOUTS.statements.count(s1).gt(READOUTS.statements.count(s0))).toBe(true);
   });
 });

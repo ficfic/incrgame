@@ -487,22 +487,29 @@ export function extractionYield(state: GameState): number {
   return Math.max(0, Math.min(EXTRACT_YIELD_CAP, y));
 }
 
-/** Passages one Salvage brings in, and how tail-rich they are. */
-export function salvageRate(state: GameState): { passages: number; tail: number } {
-  return SALVAGE[state.source] ?? SALVAGE.common;
-}
-
-/** Passages consumed per Extraction, and whether there are enough. */
-export const extractCost = (): number => EXTRACT_BATCH;
+/** ---- EXTRACT READS WHAT YOU HOLD -------------------------------------
+ *
+ *  There is no passage stock and no Salvage verb. A "passage" was a middleman
+ *  between two verbs — you gathered text so that you could convert text — and
+ *  the owner asked what one was twice, which is the answer.
+ *
+ *  Extraction now reads the concepts IN CONTEXT directly. It costs nothing:
+ *  it is self-limiting, because it can only propose relations that exist in the
+ *  dataset and are not already drawn, and it says so when it finds none. The
+ *  budget the player actually spends is ATTENTION, on confirming. */
 export function canExtract(state: GameState): boolean {
-  return state.pool.length >= EXTRACT_BATCH;
+  return inContext(state).length > 1;
 }
 
-/** How many relations one Extraction may propose. The shell needs this to know
- *  how many candidates to hand over, and the button needs it to show the yield;
- *  both must read the SAME function or the number on screen is a lie. */
+/** How many relations one Extraction may propose: a share of what the model is
+ *  holding. A bigger context window proposes more per tap, which is the window
+ *  paying for itself in the most direct way available.
+ *
+ *  The shell needs this to know how many candidates to hand over and the button
+ *  needs it to show the yield; both must read the SAME function or the number on
+ *  screen is a lie. */
 export function extractCapacity(state: GameState): number {
-  return Math.floor(EXTRACT_BATCH * extractionYield(state));
+  return Math.max(1, Math.floor(inContext(state).length * extractionYield(state)));
 }
 
 const mod = (state: GameState, key: string): number => state.modifiers[key] ?? 1;
@@ -1157,47 +1164,6 @@ export function apply(state: GameState, action: Action): GameState {
       };
     }
 
-    case 'setSource': {
-      // Reversible on purpose. ECONOMY.md frames this as "speed versus
-      // breadth", which is a standing question the answer to which changes as
-      // the corpus does — not a door that shuts behind you.
-      if (action.source !== 'common' && action.source !== 'archive') return state;
-      return { ...state, source: action.source };
-    }
-
-    case 'salvage': {
-      // Rung 1's faucet. Deliberately NOT attention-gated: attention is the
-      // rung-3 allocator (ECONOMY.md, "where the loss actually bites"), and
-      // making the bottom of the ladder compete for it would starve the top.
-      //
-      // `picks` are real concept ids, sampled by the shell from the shipped
-      // dataset. Core cannot read the ontology — it is fetched, and core is
-      // pure — so the shell hands over finished data, the same contract
-      // `connect` uses.
-      const { passages, tail } = salvageRate(state);
-      const picks = action.picks.filter((id) => Number.isInteger(id) && id >= 0);
-      if (picks.length === 0) return state;
-
-      const pool = [...state.pool, ...picks.slice(0, passages)];
-      // Oldest passages fall off the end: text you salvaged and never read is
-      // text you no longer have. Bounded state, and honest about it.
-      const trimmed = pool.length > POOL_CAP ? pool.slice(pool.length - POOL_CAP) : pool;
-
-      // Composition is a stock-weighted average, so hauling common ruins on top
-      // of an archive stock genuinely dilutes it rather than flipping it.
-      const had = state.pool.length;
-      const total = had + Math.min(picks.length, passages);
-      const mix = total <= 0
-        ? tail
-        : (had * state.tokenTail + Math.min(picks.length, passages) * tail) / total;
-
-      return {
-        ...state,
-        pool: trimmed,
-        tokenTail: Number.isFinite(mix) ? Math.max(0, Math.min(1, mix)) : tail,
-      };
-    }
-
     case 'extract': {
       // Rung 1 → rung 2, and the reason this action carries a payload at all.
       //
@@ -1226,10 +1192,7 @@ export function apply(state: GameState, action: Action): GameState {
         fresh.push({ ...c, checked: false });
       }
 
-      // The passages are spent whether or not the batch yielded anything. That
-      // is the yield being real: a run that finds nothing still cost the text.
-      const pool = state.pool.slice(EXTRACT_BATCH);
-      if (fresh.length === 0) return { ...state, pool };
+      if (fresh.length === 0) return state;
 
       const edges = trimEdges([...state.forged.edges, ...fresh]);
       const resources = {
@@ -1238,7 +1201,6 @@ export function apply(state: GameState, action: Action): GameState {
       };
       return {
         ...state,
-        pool,
         forged: { ...state.forged, edges },
         resources,
         provenance: {

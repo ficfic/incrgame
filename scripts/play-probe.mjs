@@ -53,7 +53,7 @@ const read = async () => {
   // for it. It does NOT buy one — buying changes the run it is measuring.
   const agents = await page.$$eval('.mach', (bs) => bs
     .map((b) => (b.disabled ? '-' : '+') + (b.querySelector('em')?.textContent?.trim() ?? '')));
-  return { t: 0, statements: head, passages: cells.passages, recovered: cells.recovered,
+  return { t: 0, statements: head, recovered: cells.recovered,
            context: cells.context, checked: cells.checked, agreeing: cells.agreeing,
            attention: cells.attention, nodes, dotted, agents: agents.join(' ') };
 };
@@ -98,18 +98,17 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
     await page.waitForTimeout(150);
     continue;
   }
+  // Salvage is deleted; Extract is the only conversion left.
   const ex = page.locator('button.act', { hasText: 'Extract' });
-  if (await ex.isEnabled().catch(() => false)) { await ex.click().catch(() => {}); }
-  else await page.locator('button.act', { hasText: 'Salvage' }).click().catch(() => {});
+  if (await ex.isEnabled().catch(() => false)) await ex.click().catch(() => {});
   await page.waitForTimeout(200);
 }
 log.push({ ...(await read()), t: Math.floor((Date.now() - t0) / 1000) });
 
-console.log('t    stmts psg  rec  context chk   agree att   nodes dot  agents');
+console.log('t    stmts rec  context chk   agree att   nodes dot  agents');
 for (const r of log) {
   console.log(
-    String(r.t).padEnd(4), String(r.statements).padEnd(5), String(r.passages).padEnd(4),
-    String(r.recovered).padEnd(4), String(r.context).padEnd(7), String(r.checked).padEnd(5),
+    String(r.t).padEnd(4), String(r.statements).padEnd(5), String(r.recovered).padEnd(4), String(r.context).padEnd(7), String(r.checked).padEnd(5),
     String(r.agreeing).padEnd(5), String(r.attention).padEnd(5),
     String(r.nodes).padEnd(5), String(r.dotted).padEnd(4), r.agents);
 }

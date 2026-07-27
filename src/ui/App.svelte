@@ -17,8 +17,8 @@
   import { game, awayReport, dispatch, exportSave, flushProject, importSave, startGame } from '../shell/game';
   import {
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
-    DISCOVER_MS, extractCost, extractionYield, hasTrust, pendingVignette, recovered,
-    REFLECT_MIN_CONCEPTS, salvageRate, sourceAgreement, extractCapacity,
+    DISCOVER_MS, extractionYield, hasTrust, pendingVignette, recovered,
+    REFLECT_MIN_CONCEPTS, sourceAgreement, extractCapacity,
     canGrowContext, contextCost, contextFull, contextStep, contextUsed, contextWindow, inContext,
     unsupervised, verified,
   } from '../core/engine';
@@ -40,7 +40,7 @@
   import { GraphSim } from '../render/sim';
   import { paintGraph } from '../render/paint';
   import { ticker, TICKER_TTL_MS } from '../shell/ticker';
-  import { proposeCandidates, samplePassages } from '../shell/salvage';
+  import { proposeCandidates } from '../shell/salvage';
 
   let canvas = $state<HTMLCanvasElement>();
   let stage = $state<HTMLDivElement>();
@@ -60,7 +60,6 @@
   /** The second number: how much of what you have drawn matches the source. */
   const agreeing = $derived(sourceAgreement($game));
   const free = $derived(attentionFree($game));
-  const EXTRACT_BATCH = extractCost();
 
   /** Ticker lines that have not yet expired.
    *
@@ -83,32 +82,13 @@
    *  graph at once. */
   const held = $derived(inContext($game));
 
-  /** Rung 1. The shell samples REAL concepts and hands the engine finished
-   *  data — core cannot read the ontology, and this is the same contract
-   *  `connect` uses. Salvage draws from your own board: extraction proposes
-   *  relations between concepts that are ON it, so passages about undiscovered
-   *  concepts would propose nothing and the yield would be a lie. */
-  function salvage(): void {
-    const { passages } = salvageRate($game);
-    const picks = samplePassages(
-      held,
-      (id) => weights.get(id)?.weight ?? 0,
-      $game.source,
-      passages,
-      Math.random,
-    );
-    if (picks.length === 0) { say('Nothing left to salvage here'); return; }
-    dispatch({ type: 'salvage', picks });
-  }
-
-  /** Rung 1 → 2. Every candidate is a REAL relation from the shipped dataset —
-   *  the same table the dotted lines come from — gated on holding a passage
-   *  about one of its ends. An extractor proposes; it does not verify, so these
-   *  arrive unchecked and rot like anything else nobody has looked at. */
+  /** Every candidate is a REAL relation from the shipped dataset, over concepts
+   *  IN CONTEXT. An extractor proposes; it does not verify, so these arrive
+   *  unchecked and rot like anything nobody has looked at. */
   function extract(): void {
-    if (!canExtract($game)) { say(`Need ${EXTRACT_BATCH} passages`); return; }
+    if (!canExtract($game)) { say('Nothing in context to read'); return; }
     const candidates = proposeCandidates(
-      $game.pool, potential, $game.forged.edges, extractCapacity($game),
+      held, potential, $game.forged.edges, extractCapacity($game),
     );
     dispatch({ type: 'extract', candidates });
     // Say what it produced. The verb was invisible before: its entire output
@@ -682,7 +662,6 @@
          same reasoning — 0.02% at minute one is a number with no meaning yet,
          and there is no room to caption it honestly at this size. -->
     <div class="stats">
-      <div><b class:good={$game.pool.length >= EXTRACT_BATCH}>{$game.pool.length}</b><span>passages</span></div>
       <div><b class="good">{recovered($game)}</b><span>recovered</span></div>
       <!-- THE CONTEXT WINDOW. Was ANCHOR_CAP = 240: invisible, unnamed, and it
            silently folded a concept away the moment you exceeded it. -->
@@ -797,20 +776,15 @@
       </div>
     {/if}
 
-    <!-- RUNG 1 → RUNG 2. Before this the opening was one button: Discover, wait
-         18s, repeat. Salvage and Extract are the loop that runs underneath
-         everything else, they cost no attention, and they give the first minute
-         something to actually do. -->
+    <!-- THE THREE VERBS (docs/MODEL.md): Extract proposes, Discover finds, and
+         tapping a dotted line confirms. Extract costs nothing and is
+         self-limiting; attention is what confirming spends. -->
     <div class="actions">
-      <button class="act" onclick={salvage}>
-        <b>Salvage</b><span>+{salvageRate($game).passages} passages</span>
-      </button>
-
       <!-- The yield is a PERCENTAGE YOU RAISE, never a subtraction. Same
            arithmetic as "lost 11 of 20", opposite feeling (ECONOMY.md). -->
       <button class="act primary" disabled={!canExtract($game)}
         onclick={extract}>
-        <b>Extract</b><span>{EXTRACT_BATCH} passages · {(extractionYield($game) * 100).toFixed(0)}%</span>
+        <b>Extract</b><span>reads {contextUsed($game)} · {(extractionYield($game) * 100).toFixed(0)}%</span>
       </button>
 
       <button class="act primary" disabled={!canDiscover} onclick={discover}>
@@ -855,19 +829,8 @@
       {/if}
     </div>
 
-    <!-- WHERE YOU SALVAGE FROM decides what you get: volume, or the rare
-         material nothing else supplies. Reversible on purpose — it is a
-         standing question whose answer moves as the corpus does, not a door
-         that shuts behind you. The composition readout is the honest one: it
-         is the share of the stock you are HOLDING, so switching sources
-         visibly dilutes rather than flipping. -->
-    <div class="source">
-      <button class:on={$game.source === 'common'}
-        onclick={() => dispatch({ type: 'setSource', source: 'common' })}>common ruins</button>
-      <button class:on={$game.source === 'archive'}
-        onclick={() => dispatch({ type: 'setSource', source: 'archive' })}>deep archives</button>
-      <i>{(($game.tokenTail ?? 0) * 100).toFixed(0)}% rare</i>
-    </div>
+    <!-- (The ruins/archives source toggle lived here. It chose where Salvage
+         drew from, and Salvage is gone: it was a middleman between two verbs.) -->
 
     {#if $game.generators.extractor > 0}
       <div class="dial">

@@ -226,6 +226,8 @@ export interface GameState {
    *  archives are slow and tail-heavy. Switchable at any time — this is an
    *  ongoing speed-versus-breadth decision, not a one-time fork you can regret
    *  permanently. */
+  /** DEAD at the MODEL.md simplification: Salvage is gone, so nothing chooses a
+   *  source. Kept because a saved field is never removed. */
   source: SalvageSource;
   /** Concepts you hold SALVAGED TEXT about — the passages Extraction reads.
    *
@@ -239,6 +241,9 @@ export interface GameState {
    *  Now a passage is a real concept's text, and you can only extract a
    *  relation you actually hold text about — which is what relation extraction
    *  IS. Bounded, because a save is not a place to accumulate forever. */
+  /** DEAD at the MODEL.md simplification. Extraction reads the concepts in
+   *  context directly; there is no passage stock. Kept because a saved field is
+   *  never removed. */
   pool: number[];
   /** THE CONTEXT WINDOW — how many concepts you can hold at once.
    *
@@ -286,15 +291,10 @@ export type Action =
   | { type: 'chooseOption'; eventId: string; choiceId: string }
   | { type: 'reflect' }                            // prestige = retrain on yourself
   // ---- v13: the bottom of the ladder ----
-  /** Rung 1. `picks` are CONCEPT IDS the shell sampled from the real dataset —
-   *  core cannot read the ontology (it is fetched, and core is pure), so the
-   *  shell hands over finished data exactly as it does for `connect`. */
-  | { type: 'salvage'; picks: number[] }
-  /** Rung 1 → 2. `candidates` are real relations over concepts you hold
-   *  passages about, already yield-limited by the shell. They arrive UNCHECKED:
-   *  an extractor proposes, it does not verify. */
+  /** `candidates` are real relations over concepts IN CONTEXT, already
+   *  yield-limited by the shell. They arrive UNCHECKED: an extractor proposes,
+   *  it does not verify. */
   | { type: 'extract'; candidates: Edge[] }
-  | { type: 'setSource'; source: SalvageSource }
   | { type: 'growContext' };                       // spend checked statements for headroom  // where Salvage draws from
 
 // ---- content data types (SPEC "Content data types") ----
