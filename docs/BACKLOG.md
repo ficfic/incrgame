@@ -450,3 +450,5 @@ inherit them by assumption.
 - [ ] Tapping a node cancels auto-framing and reheats the sim (`sim.grab`); the inspect card lists no connections.
 - [ ] `drifted` has no sink in generation 1 — it only ever goes up.
 - [ ] **Owner decision needed:** `the-graph` rules the in-game help sheet AI-written player-facing UI copy, which CLAUDE.md bans by name. Either the mechanical-fact carve-out is written into the rule, or the sheet becomes ⟨owner⟩ slots.
+
+- [ ] **Sibling choice needs a rarity/salience score.** `scripts/lane-analysis.mjs` picks the alphabetical first three siblings at each junction, so `animal` offers "aerobe / amphidiploid / anaerobe". Sizing is right; the choices are not. Needs a per-concept score before lanes become playable branches.
