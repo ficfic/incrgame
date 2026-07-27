@@ -340,7 +340,6 @@
       };
     }));
 
-  const filling = $derived($game.bookings.filter((b) => b.kind === 'connect'));
   const extracting = $derived($game.bookings.find((b) => b.kind === 'extract'));
 
   /** THE FLASH. While extraction runs the board shows it working: pairs among
@@ -699,17 +698,24 @@
       <div><b class:warn={contextFull($game)}>{contextUsed($game)}/{contextWindow($game)}</b><span>context</span></div>
       <!-- "—" not "100%": a new save has zero statements and the ratio returns
            1, which read as a perfect score over an empty graph. -->
+      <!-- A FRACTION, NOT A PERCENTAGE. "90% checked" does not say ninety
+           percent OF WHAT, and the owner said so. "36/40" answers that without
+           a word of explanation. -->
       <div><b class:good={hasTrust($game) && trust > 0.66}
               class:warn={hasTrust($game) && trust <= 0.66 && trust > 0.33}
               class:bad={hasTrust($game) && trust <= 0.33}
-        >{hasTrust($game) ? `${(trust * 100).toFixed(0)}%` : '—'}</b><span>checked</span></div>
+        >{hasTrust($game)
+          ? `${formatWhole(verified($game))}/${formatWhole($game.resources.triples)}`
+          : '—'}</b><span>checked</span></div>
       <!-- THE SECOND NUMBER. On screen from minute one, small and unremarked,
            because a late reveal would rescore the player's own progress
            downward and they would be right to call that a lie (ECONOMY.md).
            It is never explained here. It does not need to be — it is true, it
            is small, and one day it stops matching the number beside it. -->
       <div><b class:warn={agreeing < 1 && agreeing > 0.8} class:bad={agreeing <= 0.8}
-        >{$game.forged.edges.length > 0 ? `${(agreeing * 100).toFixed(0)}%` : '—'}</b><span>agreeing</span></div>
+        >{$game.forged.edges.length > 0
+          ? `${$game.forged.edges.filter((e) => !e.fake).length}/${$game.forged.edges.length}`
+          : '—'}</b><span>agreeing</span></div>
       <div><b class:good={free > 0} class:warn={free === 0}>{free}/{attentionCap($game)}</b><span>attention</span></div>
     </div>
   </header>
@@ -828,9 +834,10 @@
         <span>{worldDone ? 'world recovered' : nothingLeftToFind ? '⟨nothing left to find — owner⟩' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
       </button>
 
-      {#if filling.length > 0}
-        <div class="act status"><b>{filling.length}</b><span>{filling.length === 1 ? 'line filling' : 'lines filling'}</span></div>
-      {/if}
+      <!-- (A "N lines filling" chip lived here. The line is already visibly
+           filling ON THE BOARD — the painter draws it growing from one end —
+           so the chip restated something you were already looking at, in a
+           word ("lines") the rest of the game had stopped using. -->
 
       <!-- (The Review desk lived here. It sampled an abstract statement pool
            and touched NOTHING on the board — owner: "review does not make any

@@ -439,3 +439,5 @@ inherit them by assumption.
 
 - [x] ~~Giant coloured arcs in the stage corners~~ — **NOT A BUG (2026-07-26).** They are the discovery countdown rings (`.finding`), sitting on the frontier circle and clipped by the stage edge. My guess about `dotRadius` was wrong; looking at a wider screenshot showed six of them reading "6s"/"7s".
 - [ ] **The board is a hairball past ~50 concepts** — everything spokes off `entity` and labels overlap. LOD declutters labels but not the layout.
+
+- [ ] `agreeing` reads 31/31 and stays there until unsupervised machines exist, so it teaches nothing yet. It is correct and inert. Decide whether it earns HUD space before the machines that move it are buildable.
