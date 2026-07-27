@@ -450,3 +450,6 @@ inherit them by assumption.
 - [ ] Tapping a node cancels auto-framing and reheats the sim (`sim.grab`); the inspect card lists no connections.
 - [ ] `drifted` has no sink in generation 1 — it only ever goes up.
 - [ ] **Owner decision needed:** `the-graph` rules the in-game help sheet AI-written player-facing UI copy, which CLAUDE.md bans by name. Either the mechanical-fact carve-out is written into the rule, or the sheet becomes ⟨owner⟩ slots.
+
+- [ ] `dream`, `exercise`, `service` and `button` score as obscure. Honest — the shipped synset really is sense 6-of-6 and a leaf — but the LABEL reads common, so a tier shown next to a word will look wrong. Decide whether the score is per-concept (correct) or wants a per-label override (friendly).
+- [ ] Rarity's `degree` signal contributes almost nothing on the shipped slice (123 relations over 4,096 concepts). It is measured against the full lexicon so it is not dead, but it is the weakest of the seven and carries weight 0.03.
