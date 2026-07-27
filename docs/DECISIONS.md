@@ -1641,3 +1641,8 @@ Entries above this line are long because the one-line rule did not exist yet.
 - 2026-07-26 — **Ladder repriced from measurement**: Extractor 40→14 (ratio 1.30→1.25), Reasoner 90→36, context growth 12→8 (ratio 1.35→1.22). First agent now affordable at t=210s in a real 10-minute browser run; before, play froze at 20/20 with everything idle.
 - 2026-07-26 — **The "frozen economy" was the PROBE, twice**: it never clicked Review (the only way unverified becomes checked), and its clicks had no timeout so Playwright's wait-for-stable burned 8s per click on a live force simulation — 400 of 600 seconds spent retrying one wobbling button, logged as a dead game. Probe now reviews and clicks with force+1.5s.
 - 2026-07-26 — **`tokenTail` went dead at v14 and nobody noticed**: the clean/dirty extraction split was replaced by real candidate edges, so "12% rare" is now displayed and consumed by nothing.
+- 2026-07-26 — **Owner: the economy is convoluted; simplified to three verbs** (Discover → Extract → Confirm) in `docs/MODEL.md`, superseding the ECONOMY.md ladder. Thirteen things to press became three plus one upgrade.
+- 2026-07-26 — **Dotted edges will come ONLY from Extract** (owner's proposal). Today they appear from the dataset the moment two concepts are on the board, which is why Extract looked like it did nothing.
+- 2026-07-26 — **Review desk deleted**: it sampled an abstract statement pool and touched nothing on the board. Confirming a dotted edge is the check.
+- 2026-07-26 — **Passages and Salvage deleted**: a middleman between two verbs; the owner asked what a passage was twice.
+- 2026-07-26 — **Attention grows very slowly and can DEGRADE** (owner). It is a slow background reward, never a currency; 4→13 in two minutes was wrong.
