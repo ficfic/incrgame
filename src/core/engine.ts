@@ -12,7 +12,7 @@
 // falls until recovery stops. You prestige because you stalled, and what you
 // inherit is your own machine output, which drifts faster. The stated goal is
 // unreachable by construction, and gets further away every generation.
-import type { Action, Edge, GameState, GeneratorId, ResourceId, ReviewItem, SalvageSource } from './types';
+import type { Action, Edge, GameState, GeneratorId, ResourceId, ReviewItem, SalvageSource, Vignette, VignetteChoice } from './types';
 import { TIER_LADDER } from './types';
 import { add, sub, gte, mul, scaleCost, D } from './numbers';
 import Decimal from 'break_eternity.js';
@@ -778,6 +778,76 @@ export function pendingVignette(state: GameState): string | null {
   return null;
 }
 
+// ---- VOCABULARY GATES ----------------------------------------------------
+//
+// A choice can require concepts and relation types you must already have
+// discovered. The rule is one sentence and it is the whole mechanic:
+//
+//   A CHOICE YOU CANNOT MEET IS SHOWN AND NOT TAKEABLE. It is never hidden.
+//
+// Hiding it would be easier and would destroy the thing it exists for. The
+// locked door is what tells the player that discovering more of the graph buys
+// something other than a bigger picture — and a door that is not drawn teaches
+// nothing at all. So the engine's job here is to answer "can I take this" and
+// "what am I missing", and nothing else filters.
+
+/** Concepts you have discovered — everything on the board, in or out of
+ *  context. A concept that has fallen out of the context window is still a word
+ *  you know; the window is about what the model is holding, not about what you
+ *  have seen. */
+export function knownConcepts(state: GameState): Set<number> {
+  return new Set(state.forged.anchors);
+}
+
+/** Relation types you have actually drawn at least one of. Drawn, not
+ *  confirmed: you have met the relation the moment it appears on your board.
+ *  Requiring confirmation would gate story on a second, unrelated action. */
+export function knownRels(state: GameState): Set<number> {
+  return new Set(state.forged.edges.map((e) => e.rel));
+}
+
+/** What a choice still needs, or nothing. Returned rather than a bare boolean
+ *  so the UI can NAME the missing words — "locked" with no reason is a dead end
+ *  wearing a lock icon. */
+export function missingFor(
+  state: GameState, choice: VignetteChoice,
+): { concepts: number[]; rels: number[] } {
+  const req = choice.requires;
+  if (!req) return { concepts: [], rels: [] };
+  const haveConcepts = knownConcepts(state);
+  const haveRels = knownRels(state);
+  return {
+    concepts: (req.concepts ?? []).filter((id) => !haveConcepts.has(id)),
+    rels: (req.rels ?? []).filter((r) => !haveRels.has(r)),
+  };
+}
+
+export function canTakeChoice(state: GameState, choice: VignetteChoice): boolean {
+  const missing = missingFor(state, choice);
+  return missing.concepts.length === 0 && missing.rels.length === 0;
+}
+
+/** Every choice on a vignette, each marked takeable or not.
+ *
+ *  ⚠️ THE SOFTLOCK GUARD, and it is why this returns the whole list rather than
+ *  a filtered one. The content check guarantees every beat ships an ungated
+ *  exit, but a modal with no way out is an unrecoverable save, and "the data
+ *  promised" is not a thing to bet a save file on. If nothing is takeable, this
+ *  opens EVERY choice rather than leaving the player staring at a wall. Failing
+ *  open costs a gate being bypassed in a case that should never occur; failing
+ *  closed costs the game. */
+export function choicesFor(
+  state: GameState, vignette: Vignette,
+): Array<{ choice: VignetteChoice; takeable: boolean; missing: { concepts: number[]; rels: number[] } }> {
+  const marked = vignette.choices.map((choice) => ({
+    choice,
+    takeable: canTakeChoice(state, choice),
+    missing: missingFor(state, choice),
+  }));
+  if (marked.some((m) => m.takeable)) return marked;
+  return marked.map((m) => ({ ...m, takeable: true }));
+}
+
 // ---- the reducer ---------------------------------------------------------
 
 export function apply(state: GameState, action: Action): GameState {
@@ -1280,6 +1350,12 @@ export function apply(state: GameState, action: Action): GameState {
       const choice = v?.choices.find((c) => c.id === action.choiceId);
       if (!v || !choice) return state;
       if (state.vignette.seen.includes(v.id)) return state;
+      // The gate, enforced HERE and not only in the UI. A disabled button is a
+      // suggestion; the reducer is the rule. `choicesFor` rather than
+      // `canTakeChoice` so the softlock guard applies — if the beat somehow
+      // shipped with every exit gated, the reducer opens them too, and the two
+      // never disagree about what is takeable.
+      if (!choicesFor(state, v).find((m) => m.choice.id === choice.id)?.takeable) return state;
       const modifiers = { ...state.modifiers };
       for (const [key, value] of Object.entries(choice.effects)) {
         if (value !== undefined) modifiers[key] = (modifiers[key] ?? 1) * value;

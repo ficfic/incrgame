@@ -19,7 +19,7 @@
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
     DISCOVER_MS, extractionYield, hasTrust, pendingVignette, recovered,
     REFLECT_MIN_CONCEPTS, sourceAgreement, extractCapacity,
-    ATTENTION_BASE, ATTENTION_PENALTY_FLOOR, attentionPenalty,
+    ATTENTION_BASE, ATTENTION_PENALTY_FLOOR, attentionPenalty, choicesFor,
     canGrowContext, contextGate, contextFull, contextStep, contextUsed, contextWindow,
     EXTRACT_MS, inContext,
     unsupervised, verified,
@@ -129,6 +129,19 @@
   /** Concepts inside the window. Everything else is drawn cold: still there,
    *  still yours, just not what the model is thinking about right now. */
   const heldSet = $derived(new Set(held));
+
+  /** What a locked choice is still waiting for, in words the player can go and
+   *  look for. Concept labels come from the ontology and relation names from
+   *  REL_NAMES — every one is data, none is authored copy. A concept whose
+   *  chunk has not landed shows its id rather than blanking the line. */
+  function needs(missing: { concepts: number[]; rels: number[] }): string {
+    void $ontologyRevision;
+    const words = [
+      ...missing.concepts.map((id) => conceptAt(id)?.label ?? `#${id}`),
+      ...missing.rels.map((r) => REL_NAMES[r] ?? `rel ${r}`),
+    ];
+    return words.length === 0 ? '' : `needs ${words.join(' · ')}`;
+  }
 
   const activeVignette = $derived.by(() => {
     const id = pendingVignette($game);
@@ -933,11 +946,17 @@
     <div class="sheet">
       <h2>{activeVignette.title || '⟨title — owner⟩'}</h2>
       <p class="body">{activeVignette.body || '⟨body — owner⟩'}</p>
+      <!-- A LOCKED CHOICE IS DRAWN, NEVER HIDDEN. It is the only thing in the
+           game that says what discovering more of the graph is FOR, and a door
+           that is not drawn teaches nothing. It also names what it wants —
+           "locked" with no reason is a dead end wearing a lock icon — and the
+           names are ontology labels, i.e. DATA, not written copy. -->
       <div class="sheet-foot col">
-        {#each activeVignette.choices as c (c.id)}
-          <button class="choice"
-            onclick={() => { dispatch({ type: 'chooseOption', eventId: activeVignette.id, choiceId: c.id }); sheet = null; }}>
-            <b>{c.label || '⟨choice — owner⟩'}</b><span>{describeEffects(c.effects)}</span>
+        {#each choicesFor($game, activeVignette) as m (m.choice.id)}
+          <button class="choice" class:locked={!m.takeable} disabled={!m.takeable}
+            onclick={() => { dispatch({ type: 'chooseOption', eventId: activeVignette.id, choiceId: m.choice.id }); sheet = null; }}>
+            <b>{m.choice.label || '⟨choice — owner⟩'}</b>
+            <span>{m.takeable ? describeEffects(m.choice.effects) : needs(m.missing)}</span>
           </button>
         {/each}
       </div>
@@ -1470,6 +1489,13 @@
     background: #10151d; border: 1px solid #2f3d4e; color: #cfe0e8;
   }
   .sheet-foot button.bad { border-color: #b0566b; color: #b0566b; }
+  /* A locked choice reads as a door, not as an error: dimmed and quiet, with
+     the words it wants underneath. `:disabled` alone rendered it the same grey
+     as a spent button, which says "broken" rather than "not yet". */
+  .sheet-foot button.locked {
+    border-style: dashed; border-color: #26333f; color: #5d7385;
+  }
+  .sheet-foot button.locked span { color: #6f8ba0; font-style: italic; }
   .sheet-foot button:disabled { color: #2f3d4e; border-color: #1b2533; cursor: default; }
   .choice { display: flex; flex-direction: column; gap: 2px; text-align: left; }
   .choice span { font: 0.62rem ui-monospace, monospace; color: #5d7385; }

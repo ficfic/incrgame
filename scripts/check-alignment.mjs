@@ -17,8 +17,23 @@
 //   node scripts/check-alignment.mjs 4321
 //
 // Exits non-zero with a table of offenders.
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
+
+/** How long a discovery takes, READ FROM THE ENGINE.
+ *
+ *  ⚠️ THIS WAS A HARD-CODED 21000. The engine's discovery went from 18s to 40s
+ *  and this check went quietly back to skipping every viewport — "only 1 nodes
+ *  on the board" — which is the second time in one day that a guard here has
+ *  stopped measuring without failing. A wait tuned to a constant has to read
+ *  the constant. */
+const DISCOVER_MS = Number(
+  /DISCOVER_MS = ([\d_]+)/.exec(readFileSync('src/core/engine.ts', 'utf8'))?.[1]?.replace(/_/g, '')
+);
+if (!Number.isFinite(DISCOVER_MS) || DISCOVER_MS <= 0) {
+  console.error('could not read DISCOVER_MS from src/core/engine.ts — refusing to guess');
+  process.exit(1);
+}
 
 const PORT = process.argv[2] ?? '4321';
 const TOLERANCE = 1.5; // css px; sub-pixel rounding only
@@ -163,8 +178,8 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
   }
   console.log(`${tag.padEnd(6)} ${width}x${height}: ${badges.length} rim badges in flight`);
 
-  // then let the easing settle
-  await page.waitForTimeout(21000);
+  // then let the discoveries land and the easing settle
+  await page.waitForTimeout(DISCOVER_MS + 3000);
   const { rows, stage } = await measure();
 
   for (const r of rows) {

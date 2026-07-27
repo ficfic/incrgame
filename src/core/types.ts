@@ -345,6 +345,20 @@ export interface VignetteChoice {
    *  player as generated NUMBERS, which is data, not prose. */
   effects: { drift?: number; extraction?: number; capacity?: number; review?: number };
   flag?: string;
+  /** VOCABULARY GATE. The concepts and relation types you must already have
+   *  discovered before this choice can be taken.
+   *
+   *  `concepts` are node ids — the same integers a save stores, indexing the
+   *  ontology chunks. `rels` are indices into {@link REL_NAMES}.
+   *
+   *  A gated choice you cannot meet is SHOWN AND NOT TAKEABLE, never hidden:
+   *  seeing the door you cannot open yet is the mechanic, and it is the only
+   *  thing that tells you what discovering more is FOR. Filtering it out would
+   *  leave the player with no way to know the choice existed.
+   *
+   *  Optional and additive, so no save moves — a save stores which vignettes
+   *  were seen, never the vignette data itself. */
+  requires?: { concepts: number[]; rels: number[] };
 }
 
 export interface FieldNote {
