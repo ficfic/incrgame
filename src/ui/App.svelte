@@ -19,7 +19,7 @@
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
     DISCOVER_MS, extractCost, extractionYield, hasTrust, pendingVignette, recovered,
     REFLECT_MIN_CONCEPTS, salvageRate, sourceAgreement, extractCapacity,
-    canGrowContext, contextCost, contextFull, contextStep, contextUsed, contextWindow,
+    canGrowContext, contextCost, contextFull, contextStep, contextUsed, contextWindow, inContext,
     unsupervised, verified,
   } from '../core/engine';
   import { FRONTIER_CAP } from '../core/graph';
@@ -77,6 +77,12 @@
     return $ticker.filter((l) => clock - l.at < TICKER_TTL_MS).slice(-2);
   });
 
+  /** Extraction reads the concepts IN CONTEXT — the most recent window's worth
+   *  — not everything that has ever been on the board. That is what makes the
+   *  window mean something: grow it and the model can relate more of its own
+   *  graph at once. */
+  const held = $derived(inContext($game));
+
   /** Rung 1. The shell samples REAL concepts and hands the engine finished
    *  data — core cannot read the ontology, and this is the same contract
    *  `connect` uses. Salvage draws from your own board: extraction proposes
@@ -85,7 +91,7 @@
   function salvage(): void {
     const { passages } = salvageRate($game);
     const picks = samplePassages(
-      $game.forged.anchors,
+      held,
       (id) => weights.get(id)?.weight ?? 0,
       $game.source,
       passages,
@@ -117,6 +123,10 @@
    *  decoration floating at a fixed size. */
   const contextRing = $derived(Math.max(120, Math.min(w, h) * 0.86));
 
+  /** Concepts inside the window. Everything else is drawn cold: still there,
+   *  still yours, just not what the model is thinking about right now. */
+  const heldSet = $derived(new Set(held));
+
   const activeVignette = $derived.by(() => {
     const id = pendingVignette($game);
     return id ? (VIGNETTES.find((v) => v.id === id) ?? null) : null;
@@ -124,7 +134,7 @@
 
   const potential = $derived.by(() => {
     void $ontologyRevision;
-    return potentialEdges($game.forged.anchors);
+    return potentialEdges(held);
   });
 
   // The graph does NOT spin.
@@ -355,7 +365,7 @@
   const nothingLeftToFind = $derived($game.forged.nextId >= CONCEPT_BUDGET);
   const worldDone = $derived(recovered($game) >= CONCEPT_BUDGET);
   const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP
-    && $game.lastTick > 0 && !nothingLeftToFind && !contextFull($game));
+    && $game.lastTick > 0 && !nothingLeftToFind);
 
   // ---- PINCH AND PAN ----------------------------------------------------
   //
@@ -738,6 +748,7 @@
          what the player actually owns. -->
     {#each nodes as n (n.id)}
       <div class="node" class:root={n.root} class:rotted={n.rotted}
+       class:cold={!heldSet.has(n.id)}
        class:holding={n.folded > 0}
            style="transform:translate({n.x}px,{n.y}px) translate(-50%,-50%);--r:{n.r}px">
         {#if n.label}<span>{n.label}</span>{/if}
@@ -804,7 +815,7 @@
 
       <button class="act primary" disabled={!canDiscover} onclick={discover}>
         <b>Discover</b>
-        <span>{worldDone ? 'world recovered' : nothingLeftToFind ? '⟨nothing left to find — owner⟩' : contextFull($game) ? 'context full' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
+        <span>{worldDone ? 'world recovered' : nothingLeftToFind ? '⟨nothing left to find — owner⟩' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
       </button>
 
       {#if filling.length > 0}
@@ -1115,6 +1126,12 @@
     box-shadow: 0 0 0 1px hsl(var(--hue) 45% 40% / 0.05) inset;
     transition: border-color 400ms linear;
   }
+  /* Out of context. Dimmed, never deleted — VISION locks "nothing you chose is
+     ever taken away", and this is the difference between forgetting something
+     and losing it. */
+  .node.cold { opacity: 0.34; }
+  .node.cold span { opacity: 0.5; }
+
   .window.full { border-color: hsl(42 75% 60% / 0.55); border-style: dashed; }
 
   .ticker {

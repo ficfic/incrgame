@@ -241,12 +241,32 @@ export function contextWindow(state: GameState): number {
  *  booking four discoveries into three free slots is impossible rather than
  *  merely disappointing. */
 export function contextUsed(state: GameState): number {
-  return state.forged.anchors.length
-    + state.bookings.filter((b) => b.kind === 'discover').length;
+  return Math.min(contextWindow(state), state.forged.anchors.length);
 }
 
+/** At capacity — informational, NOT a gate. */
 export function contextFull(state: GameState): boolean {
-  return contextUsed(state) >= contextWindow(state);
+  return state.forged.anchors.length >= contextWindow(state);
+}
+
+/** THE CONCEPTS THE MODEL IS ACTUALLY HOLDING: the most recent `contextWindow`
+ *  of them, plus the root, which stays as the thing you navigate by.
+ *
+ *  A full window used to BLOCK discovery, and that made the game circular and
+ *  unwinnable: relations among held concepts run out → no proposals → no
+ *  `checked` → cannot afford to grow → cannot discover → nothing to do. Measured
+ *  stall at 24/24 concepts from t=135.
+ *
+ *  A real context window does not refuse new input. It drops the oldest. So
+ *  discovery always works, older concepts fall OUT of context — still on the
+ *  board, dimmed, never deleted — and growing the window means holding more of
+ *  your own graph in mind at once. */
+export function inContext(state: GameState): number[] {
+  const a = state.forged.anchors;
+  const n = contextWindow(state);
+  if (a.length <= n) return a;
+  const tail = a.slice(a.length - n);
+  return tail.includes(0) ? tail : [0, ...tail.slice(1)];
 }
 
 /** Cost of the next +CONTEXT_STEP, in CHECKED statements.
@@ -862,7 +882,7 @@ export function apply(state: GameState, action: Action): GameState {
           // edge here for free is what made the world hand-completable in 2h34m
           // without ever buying a machine.
           anchors = [...anchors, b.node];
-          while (anchors.length > contextWindow(state)) {
+          while (anchors.length > ANCHOR_CAP) {
             // EVICT THE DARK FIRST, and never the root.
             //
             // Folding by age alone did two bad things. It threw away the
@@ -994,11 +1014,6 @@ export function apply(state: GameState, action: Action): GameState {
       // +1 anchor and +1 VERIFIED statement for nodes with nothing behind them —
       // an infinite faucet of the one thing the game says is scarce.
       if (state.forged.nextId >= CONCEPT_BUDGET) return state;
-      // THE CONTEXT WINDOW. A full window blocks discovery outright instead of
-      // quietly folding a concept away the moment the next one lands. The old
-      // silent eviction is why concepts vanished with nothing on screen to
-      // explain it; a wall you can see and pay to move is a mechanic.
-      if (contextFull(state)) return state;
       const node = state.forged.nextId;
       // take the lowest free ring slot so discoveries never share a position
       const taken = new Set(state.bookings.map((b) => b.slot));

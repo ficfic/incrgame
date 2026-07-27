@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   apply, canGrowContext, contextCost, contextFull, contextStep, contextUsed,
-  contextWindow, initialState, verified,
+  contextWindow, inContext, initialState, verified,
 } from '../src/core/engine';
 import { ANCHOR_CAP } from '../src/core/graph';
 import { deserialize, MIGRATIONS, serialize } from '../src/core/save';
@@ -24,29 +24,40 @@ describe('the window is a real limit', () => {
     expect(contextFull(s)).toBe(false);
   });
 
-  it('counts work IN FLIGHT, so you cannot book past the ceiling', () => {
-    const s = initialState(1);
-    const booked: GameState = {
-      ...s,
-      bookings: Array.from({ length: 5 }, (_, i) =>
-        ({ kind: 'discover' as const, until: 9e12, node: 100 + i, slot: i })),
-    };
-    expect(contextUsed(booked)).toBe(1 + 5);
-  });
-
-  it('BLOCKS discovery when full instead of silently folding a concept away', () => {
+  it('does NOT block discovery when full — it drops the oldest instead', () => {
+    // ⚠️ THIS TEST IS INVERTED FROM ITS FIRST VERSION, and the inversion is the
+    // point. A full window used to refuse the discovery. That made the game
+    // circular and unwinnable: relations among held concepts run out → nothing
+    // to propose → no `checked` → cannot afford to grow → cannot discover →
+    // nothing to do at all. Measured stall at 24/24 concepts from t=135.
+    //
+    // A real context window does not refuse new input; it drops the oldest.
     const base = initialState(1);
     const anchors = Array.from({ length: 16 }, (_, i) => i);
     const full: GameState = {
-      ...base, lastTick: 1000, lifetimeVerified: '1e6',
-      contextWindow: 16,
+      ...base, lastTick: 1000, lifetimeVerified: '1e6', contextWindow: 16,
       forged: { ...base.forged, anchors, nextId: 16 },
     };
     expect(contextFull(full)).toBe(true);
-    // The old behaviour was to accept the discovery and evict something. The
-    // whole point of naming the window is that nothing disappears unexplained.
-    expect(apply(full, { type: 'discover' })).toBe(full);
-    expect(full.forged.anchors).toHaveLength(16);
+    expect(apply(full, { type: 'discover' })).not.toBe(full);
+  });
+
+  it('drops the OLDEST out of context and keeps it on the board', () => {
+    const base = initialState(1);
+    const anchors = Array.from({ length: 30 }, (_, i) => i);
+    const s: GameState = { ...base, contextWindow: 16, forged: { ...base.forged, anchors } };
+    const held = inContext(s);
+    expect(held).toHaveLength(16);
+    expect(held).not.toContain(5);           // an early concept has fallen out...
+    expect(s.forged.anchors).toContain(5);   // ...and is still yours, still drawn
+    expect(held).toContain(29);              // the newest is in
+  });
+
+  it('always keeps the root in context, so there is something to navigate by', () => {
+    const base = initialState(1);
+    const anchors = Array.from({ length: 100 }, (_, i) => i);
+    const s: GameState = { ...base, contextWindow: 16, forged: { ...base.forged, anchors } };
+    expect(inContext(s)).toContain(0);
   });
 
   it('never exceeds the render budget, whatever the save says', () => {
@@ -90,18 +101,17 @@ describe('growing it', () => {
     expect(apply(s, { type: 'growContext' })).toBe(s);
   });
 
-  it('the window unblocks discovery — the wall is a price, not a dead end', () => {
+  it('growing it widens what the model is holding', () => {
     const base = initialState(1);
-    const anchors = Array.from({ length: 16 }, (_, i) => i);
-    const full: GameState = {
-      ...base, lastTick: 1000, lifetimeVerified: '1e6', contextWindow: 16,
+    const anchors = Array.from({ length: 40 }, (_, i) => i);
+    const s0: GameState = {
+      ...base, lastTick: 1000, contextWindow: 16,
       resources: { ...base.resources, triples: '1000' },
-      forged: { ...base.forged, anchors, nextId: 16 },
+      forged: { ...base.forged, anchors },
     };
-    expect(apply(full, { type: 'discover' })).toBe(full);
-    const grown = apply(full, { type: 'growContext' });
-    expect(contextFull(grown)).toBe(false);
-    expect(apply(grown, { type: 'discover' })).not.toBe(grown);
+    const before = inContext(s0).length;
+    const s1 = apply(s0, { type: 'growContext' });
+    expect(inContext(s1).length).toBe(before + contextStep());
   });
 });
 

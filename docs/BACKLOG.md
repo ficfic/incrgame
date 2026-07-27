@@ -436,3 +436,6 @@ inherit them by assumption.
 - [ ] Toast overlaps the source toggle when both are visible (seen 2026-07-26 in ctx2 probe shot).
 
 - [ ] Rename the "N lines filling" status label — owner: "these are not lines" (2026-07-26).
+
+- [ ] **Giant coloured arcs in the stage corners** at ~60 nodes (seen 2026-07-26, dark.png). Likely a node rendered with an enormous `--r`; `.node` is a border-radius circle so a bad `dotRadius`/weight would look exactly like this. Not investigated.
+- [ ] **The board is a hairball past ~50 concepts** — everything spokes off `entity` and labels overlap. LOD declutters labels but not the layout.

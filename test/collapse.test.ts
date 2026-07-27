@@ -6,7 +6,7 @@ import {
   apply, coverage, driftPerSecond, fidelity, initialState, lit, recovered,
   displayedFidelity, recoveryPerSecond, REFLECT_MIN_CONCEPTS, sourceAgreement,
   tick, verified, DISCOVER_MS, CONNECT_MS, attentionFree, pendingVignette,
-  attentionCap, extractionPerSecond, contextWindow, contextFull,
+  attentionCap, extractionPerSecond, contextWindow, contextFull, inContext,
 } from '../src/core/engine';
 import { applyOfflineProgress } from '../src/core/offline';
 import { deserialize, serialize } from '../src/core/save';
@@ -199,12 +199,12 @@ describe('the world can no longer be finished by hand alone', () => {
       t += 1000;
       s = apply(s, { type: 'tick', dt: 1, now: t });
     }
-    // v15: this used to assert "more than 50 concepts found". The CONTEXT
-    // WINDOW now stops hand-discovery at its ceiling long before that, which
-    // makes this test's own claim — the world cannot be finished by hand —
-    // true by construction rather than by exhaustion. Assert the stronger fact.
-    expect(s.forged.anchors.length).toBe(contextWindow(s));
+    // The window does not stop discovery — it drops the oldest OUT of context
+    // (an earlier version of this test asserted a hard stop, which was the
+    // circular-deadlock design). Concepts keep landing; none of them count.
+    expect(s.forged.anchors.length).toBeGreaterThan(50);
     expect(contextFull(s)).toBe(true);
+    expect(inContext(s).length).toBe(contextWindow(s));
     // ...and none of them recovered, because nothing was ever connected
     expect(s.forged.edges).toHaveLength(0);
     expect(recovered(s)).toBe(0);
@@ -600,9 +600,11 @@ describe('discovering past the anchor cap', () => {
       }
       s = tick(s, 1);
     }
-    // The spammer is stopped BY THE WINDOW, not by the old 240-anchor fold.
-    expect(s.forged.nextId).toBeLessThanOrEqual(contextWindow(s));
-    expect(contextFull(s)).toBe(true);
+    // Spam is bounded by the RENDER budget, and the window keeps most of it out
+    // of context — but the original point is the one that matters: none of it
+    // counts, because nothing was ever connected.
+    expect(s.forged.anchors.length).toBeLessThanOrEqual(ANCHOR_CAP);
+    expect(inContext(s).length).toBe(contextWindow(s));
     // ...and the point of the original test still holds: none of it counts.
     expect(Number(s.forged.foldedNodes)).toBe(0);
     expect(recovered(s)).toBe(0);
