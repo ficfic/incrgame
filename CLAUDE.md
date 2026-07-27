@@ -93,18 +93,15 @@ tests for the check script.
 - **Develop on `claude/knowledge-recovery-ontology-game-g0f9q0`**; deploy by
   fast-forwarding `claude/incremental-game-github-pages-w7pvk6` onto it. Push
   with `-u origin <branch>`. No PRs unless asked.
-- **★ All player-facing VOICE is human-written.** Event text, jokes, Field
-  Notes, flavour, the cold open, ticker lines with a personality. The content
-  pipeline generates **structured data only** — costs, gates, graphs, numbers —
-  **never sentences.** This game's thesis is mocking AI slop; shipping AI-written
-  voice would make it the hypocrisy it satirises. As load-bearing as "never break
-  a save."
-  **Amended 2026-07-27** (owner: *"please do prose… i need to see explanations in
-  game and they must make sense"*): **mechanical explanation is not voice.** What
-  a button does, what a number counts, what `hypernym` means — the help sheet and
-  the in-game glossary — is documentation, and I write it. It stays flat: no
-  jokes, no persona, and every number read from the engine. Anything with a
-  voice is still an ⟨owner⟩ slot.
+- **★ Player-facing PROSE is machine-drafted and owner-edited.** *(Reversed by
+  the owner on 2026-07-27. The previous rule — "all prose is human-written,
+  never sentences" — is void. Kept on record here because it was load-bearing
+  for months and a future session will otherwise re-derive it.)*
+  Agents draft event text, Field Notes, flavour and vignette prose; the owner
+  then iterates on it, repeatedly. The thesis is unchanged — this game still
+  mocks AI slop — so the bar is that a line must be **good enough that the
+  owner would defend it**, not merely present. Drafts are a starting point for
+  the owner's passes, never a finished surface.
   *(WordNet glosses shown verbatim are DATA, not prose, and are fine.)*
 - **Never break an existing save.** Every save carries a `version`; older
   versions run a forward migration, never a reset; never rename or remove a

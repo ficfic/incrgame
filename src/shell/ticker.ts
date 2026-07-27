@@ -1,10 +1,11 @@
 // The event ticker (Paperclips-style drip). SHELL-side: it observes state
 // transitions and emits lines; the engine knows nothing about it.
 //
-// ★ PROSE GUARDRAIL: every line here is either (a) MECHANICAL — assembled from
-// content labels + numbers, no authored flavor — or (b) OWNER-WRITTEN, keyed by
-// trigger id in OWNER_LINES. Claude does not write flavor prose. The list of
-// trigger moments awaiting the owner's pen lives in docs/TICKER_LINES.md.
+// ★ PROSE: machine-drafted, owner-edited (CLAUDE.md, reversed 2026-07-27 — the
+// old "Claude does not write flavor prose" rule is void). Lines here are either
+// (a) MECHANICAL — assembled from content labels + numbers — or (b) drafted
+// flavour keyed by trigger id in OWNER_LINES, which the owner then iterates on.
+// The trigger moments still awaiting a line live in docs/TICKER_LINES.md.
 import { writable, type Readable } from 'svelte/store';
 import type { GameState } from '../core/types';
 import { attentionPenalty } from '../core/engine';

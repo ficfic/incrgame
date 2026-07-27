@@ -967,16 +967,13 @@
          page that drifts from the code is worse than no help page: it teaches
          a wrong game with authority. Change a cost and this changes with it.
 
-         ★ THE PROSE RULE, AND WHERE THE LINE NOW SITS. CLAUDE.md bans
-         AI-written player-facing prose because the game satirises AI slop.
-         The owner asked, in as many words, for explanations in the game that
-         make sense, so the rule is amended deliberately (docs/DECISIONS.md
-         2026-07-27) rather than quietly broken:
-
-           MECHANICAL EXPLANATION — what a button does, what a number counts,
-           what a real term means — is written here. It is documentation.
-           VOICE — jokes, flavour, Field Notes, event text, the cold open —
-           stays the owner's, and stays an ⟨owner⟩ slot until they write it.
+         ★ PROSE. The rule was reversed on 2026-07-27: prose is machine-
+         drafted and owner-edited, and the old "never a sentence" rule is
+         void (docs/DECISIONS.md). What survives here is narrower and is
+         about THIS surface, not about authorship: a manual has no persona
+         and no jokes, because a joke in the manual is a different failure
+         from a joke in a Field Note. Flat, mechanical, and every number
+         read from the engine.
 
          ★ THE GLOSSARY IS THEORY-FAITHFUL. Every definition below matches
          docs/GLOSSARY.md, which cites its sources. If they ever disagree, the
