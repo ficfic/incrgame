@@ -30,8 +30,10 @@
   import { GENERATORS, M1_ROSTER } from '../content/generators';
   import { CONCEPT_BUDGET } from '../content/ontologyMeta';
   import { REL_NAMES } from '../core/types';
-  import type { Lane } from '../core/starmap';
-  import { lanes, mask } from '../core/starmap';
+  import type { LaneState } from '../core/starmap';
+  import { currentBeat } from '../core/starmap';
+  import { beatConcepts, maskedText, renderMasked } from '../core/masking';
+  import { graphWord } from '../content/lexicon';
   import { VIGNETTES, describeEffects } from '../content/vignettes';
   import {
     conceptAt, conceptForNode, loadManifest, ontologyCredit, ontologyRevision,
@@ -412,44 +414,6 @@
   const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP
     && $game.lastTick > 0);
 
-  /** The starmap, trimmed to what fits a phone dock.
-   *
-   *  Sorted by `lanes()` as solid → dotted → locked, but the dock shows the
-   *  OPEN ones first and then the locked ones, capped, because a strip of
-   *  twenty routes is a wall rather than a choice. Locked lanes are never
-   *  dropped entirely — at least one is always kept, since the whole point is
-   *  that you can see a door you cannot open. */
-  const allLanes = $derived(lanes($game));
-  const openLanes = $derived.by(() => {
-    void $ontologyRevision;
-    // DOTTED FIRST. `lanes()` sorts solid → dotted → locked, which is the right
-    // order for a map and the wrong one for a dock: solid lanes go somewhere
-    // you already are, so they led the strip with three dead tap targets. A
-    // probe run spent 300 seconds tapping `abstraction` and never left the
-    // first ring — which is exactly what a player would have done.
-    const dotted = allLanes.filter((l) => l.state === 'dotted');
-    const solid = allLanes.filter((l) => l.state === 'solid');
-    const shut = allLanes.filter((l) => l.state === 'locked');
-    // Three open and two locked, ALWAYS in that proportion when both exist.
-    // The first version filled from the open end and left one slot over, so
-    // once four routes were open the locked ones fell off the strip entirely —
-    // and the feature is the locked ones. Locked keeps its two seats.
-    // A SEAT FOR EACH STATE. Filling the strip by priority meant dotted lanes
-    // took every slot and the other two states never appeared — the map showed
-    // only what was actionable, which is a to-do list, not a map. Dotted leads
-    // because it is the move; solid and locked keep a seat each so the strip
-    // always says where you have been and what is still shut.
-    const take = (xs: Lane[], n: number) => xs.slice(0, n);
-    const picked = [
-      ...take(dotted, 3),
-      ...take(solid, shut.length > 0 ? 1 : 2),
-      ...take(shut, 2),
-    ];
-    // Backfill from whatever is left, so a strip is never short when it could
-    // be full — early on there is nothing locked, later nothing dotted.
-    const seen = new Set(picked.map((l) => l.id));
-    return [...picked, ...allLanes.filter((l) => !seen.has(l.id))].slice(0, 6);
-  });
   /** Destinations already booked.
    *
    *  These used to be FILTERED OUT, and thirty seconds into a real run the
@@ -677,19 +641,60 @@
   /** Take a lane. A SOLID lane goes somewhere you already hold, so there is
    *  nothing to discover — it is a route on your own map, and saying so is
    *  more honest than booking a slot to arrive where you already are. */
+  /** The beat the player is standing in. Position is DERIVED from the last
+   *  anchor — see `currentBeat` — so nothing new is stored in the save. */
+  const beat = $derived.by(() => { void $ontologyRevision; return currentBeat($game); });
+
+  /** label → node id, built from the concepts THIS BEAT declares. Never a
+   *  global lemma index: "set", "thing" and "state" are concepts and ordinary
+   *  English both, and a global table masks the wrong words. */
+  const beatTable = $derived.by(() => {
+    void $ontologyRevision;
+    return beat ? beatConcepts(beat, (id) => conceptAt(id)?.label ?? null) : new Map<string, number>();
+  });
+  const knownSet = $derived(new Set($game.forged.anchors));
+
+  /** Render one field's ⟦spans⟧ to HTML. A word you cannot read is marked so it
+   *  can be styled as the graph's tongue; everything else is escaped and
+   *  emitted verbatim. */
+  function seg(text: string): string {
+    return renderMasked(text, beatTable, knownSet, graphWord)
+      .map((p) => {
+        const t = p.text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] ?? c));
+        return p.masked ? `<em class="glyph">${t}</em>`
+          : p.concept !== undefined ? `<b class="bound">${t}</b>` : t;
+      })
+      .join('');
+  }
+  function plain(text: string): string {
+    return maskedText(renderMasked(text, beatTable, knownSet, graphWord));
+  }
+
+  /** This beat's choices, each marked takeable — the same three states the
+   *  lane strip used, because a choice IS a lane. */
+  const beatChoices = $derived.by(() => {
+    if (!beat) return [];
+    return beat.choices.map((choice) => {
+      const missing = (choice.requires?.concepts ?? []).filter((id) => !knownSet.has(id));
+      const state: LaneState = missing.length > 0
+        ? 'locked' : knownSet.has(choice.to) ? 'solid' : 'dotted';
+      return { choice, state, missing };
+    });
+  });
+
+  function travelTo(c: { choice: { to: number }; state: LaneState }): void {
+    if (c.state === 'locked') { say('That way is held'); return; }
+    if (c.state === 'solid') { say('Already yours'); return; }
+    if (free < 1) { say('No free attention'); return; }
+    dispatch({ type: 'discover', node: c.choice.to, parent: beat?.at });
+  }
+
   /** Seconds left on a lane being travelled. */
   function landingIn(node: number): number {
     const b = $game.bookings.find((x) => x.kind === 'discover' && x.node === node);
     return b ? Math.max(0, Math.ceil((b.until - $game.lastTick) / 1000)) : 0;
   }
 
-  function travel(l: Lane): void {
-    if (l.state === 'locked') { say('That way is held'); return; }
-    if (l.state === 'solid') { say(`${l.toLabel} is already yours`); return; }
-    if (free < 1) { say('No free attention'); return; }
-    if (!canDiscover) { say('No free slot'); return; }
-    dispatch({ type: 'discover', node: l.to, parent: l.from });
-  }
 
   function connect(p: { a: number; b: number; rel: number }): void {
     if (free < 1) { say('No free attention'); return; }
@@ -929,34 +934,37 @@
         </button>
       {/if}
 
-      <!-- THE STARMAP REPLACES THE DISCOVER BUTTON.
-           A button that hands you the next concept in a fixed order is a
-           vending machine: it says nothing about where you are or where you
-           could go. A lane names its destination.
+      <!-- THE BEAT. The starmap's lanes and the story's choices were always
+           the same thing; this renders them as one surface.
 
-           ⚠️ LOCKED LANES ARE RENDERED. That is the design, not an oversight.
-           Their destination is withheld and their KEY is shown masked — you
-           can see the shape of the word that opens the way and not read it.
-           An absent edge motivates nobody. -->
-      {#if openLanes.length > 0}
+           ⟦spans⟧ in title, body and every choice label are substituted: the
+           English label where you have discovered that concept, the graph's own
+           word where you have not. Text OUTSIDE the brackets is never touched —
+           the prose is written (docs/VOICE.md §4) so a line with every noun in
+           the graph's tongue still parses as English and still states a
+           decision.
+
+           ⚠️ LOCKED CHOICES ARE RENDERED, and their key is shown in the graph's
+           word. The player has to be able to see WHICH word they lack. -->
+      {#if beat}
+        <div class="beat">
+          <h3>{@html seg(beat.title)}</h3>
+          <p>{@html seg(beat.body)}</p>
+        </div>
         <div class="lanes">
-          {#each openLanes as l (l.id)}
-            <button class="lane {l.state}" class:flying={booked.has(l.to)}
-              disabled={l.state !== 'dotted' || booked.has(l.to) || free < 1}
-              aria-label={l.state === 'locked'
-                ? `locked lane, needs ${l.missing.length} concept(s)`
-                : `travel to ${l.toLabel}`}
-              onclick={() => travel(l)}>
-              <b>{l.state === 'locked' ? mask(l.toLabel) : l.toLabel}</b>
-              <span>{l.state === 'locked'
-                ? `held by ${l.missing.map((id) => mask(conceptAt(id)?.label ?? '')).join(' ')}`
-                : booked.has(l.to) ? `${landingIn(l.to)}s`
-                : l.state === 'solid' ? 'known' : `${DISCOVER_MS / 1000}s`}</span>
+          {#each beatChoices as c (c.choice.id)}
+            <button class="lane {c.state}" class:flying={booked.has(c.choice.to)}
+              disabled={c.state !== 'dotted' || booked.has(c.choice.to) || free < 1}
+              aria-label={plain(c.choice.label)}
+              onclick={() => travelTo(c)}>
+              <b>{@html seg(c.choice.label)}</b>
+              <span>{c.state === 'locked'
+                ? `held by ${c.missing.map((id: number) => graphWord(id)).join(' ')}`
+                : booked.has(c.choice.to) ? `${landingIn(c.choice.to)}s`
+                : c.state === 'solid' ? 'known' : `${DISCOVER_MS / 1000}s`}</span>
             </button>
           {/each}
         </div>
-      {:else}
-        <div class="act status"><b>No lanes</b><span>{worldDone ? 'world recovered' : 'nothing reachable'}</span></div>
       {/if}
 
       <!-- (A "N lines filling" chip lived here. The line is already visibly
@@ -1579,6 +1587,25 @@
      dimmed and dashed and its label is blocks — you can see there is a way
      and see the shape of the word that holds it. That is the whole feature;
      an absent edge motivates nobody. */
+  /* The beat: the only prose surface in the game, so it gets room to be read
+     and a measure that does not run the full width of a phone. */
+  .beat { max-width: 34em; margin: 0 auto 4px; text-align: left; }
+  .beat h3 {
+    margin: 0 0 4px; font-size: 0.7rem; letter-spacing: 0.09em;
+    text-transform: uppercase; color: #5d7385; font-weight: 600;
+  }
+  .beat p { margin: 0; color: #b3c6d4; font-size: 0.86rem; line-height: 1.45; }
+  /* A word you cannot read yet, in the graph's own tongue. Monospace and
+     letter-spaced so the SHARED PREFIX is scannable — `ka-sa-le` and
+     `ka-sa-le-then` have to look like kin at a glance, which is the whole
+     mechanic and the reason these are never truncated. */
+  .beat :global(.glyph), .lane :global(.glyph) {
+    font-family: ui-monospace, monospace; font-style: normal;
+    color: #c9a227; letter-spacing: 0.02em;
+  }
+  /* A word you have bound to English. */
+  .beat :global(.bound), .lane :global(.bound) { color: #eaf6f2; font-weight: 600; }
+
   .lanes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .lane {
     flex: 1 1 auto; min-width: 96px; max-width: 46%;

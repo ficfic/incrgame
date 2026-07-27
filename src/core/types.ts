@@ -385,7 +385,9 @@ export interface StoryChoice {
 
 export interface StoryBeat {
   id: string;
-  lane: string;
+  /** Lexical lanes this beat sits on. Was a single `lane`; the 93 per-lane
+   *  beats collapsed to 27 real PLACES, each shared by several lanes. */
+  lanes: string[];
   depth: number;
   /** The node this beat is told FROM. */
   at: number;

@@ -30,6 +30,26 @@ import { STORY } from '../content/story';
 
 export type LaneState = 'solid' | 'dotted' | 'locked';
 
+/** WHERE THE PLAYER IS, derived and never stored.
+ *
+ *  Taking a choice discovers its `to` and moves there, and targeted discovery
+ *  appends that concept to `anchors` — so the last anchor IS the current
+ *  position. No new save field, which is the constraint this whole feature was
+ *  given: a save already records everywhere you have been, in order.
+ *
+ *  Falls back to the newest anchor that HAS a beat, then to the root, so a
+ *  discovery made off the story graph (Extract's proposals, a machine) does not
+ *  strand the player on a node with nothing to read. */
+export function currentBeat(state: GameState): StoryBeat | null {
+  const byNode = new Map(STORY.beats.map((b) => [b.at, b] as const));
+  const anchors = state.forged.anchors;
+  for (let i = anchors.length - 1; i >= 0; i--) {
+    const beat = byNode.get(anchors[i]!);
+    if (beat) return beat;
+  }
+  return byNode.get(0) ?? null;
+}
+
 export interface Lane {
   /** Node the lane leaves from — always a concept you already hold. */
   from: number;
