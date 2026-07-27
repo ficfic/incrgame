@@ -48,13 +48,13 @@
    "at": 0,
    "atLabel": "entity",
    "frame": "arrival",
-   "title": "",
-   "body": "",
+   "title": "Intake",
+   "body": "Everything is ⟦entity⟧ until we say otherwise. It is the one word nobody has asked us to check. Below it the work divides, and the division goes on file under your name.",
    "choices": [
     {
      "id": "noun.animal-1-on",
      "frame": "continue",
-     "label": "",
+     "label": "Take the ⟦physical entity⟧ side",
      "to": 2,
      "toLabel": "physical entity",
      "rel": 0,
@@ -67,7 +67,7 @@
     {
      "id": "noun.state-1-on",
      "frame": "continue",
-     "label": "",
+     "label": "Take the ⟦abstraction⟧ side",
      "to": 1,
      "toLabel": "abstraction",
      "rel": 0,
@@ -80,7 +80,7 @@
     {
      "id": "c0-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "File it as ⟦thing⟧",
      "to": 3,
      "toLabel": "thing",
      "rel": 0,
@@ -110,13 +110,13 @@
    "at": 2,
    "atLabel": "physical entity",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Signed Off Upstream",
+   "body": "⟦physical entity⟧ was signed off before you arrived. Everything under it can be weighed, which is why we report on this side and not the other.",
    "choices": [
     {
      "id": "noun.animal-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦causal agent⟧ down",
      "to": 13,
      "toLabel": "causal agent",
      "rel": 0,
@@ -129,7 +129,7 @@
     {
      "id": "noun.artifact-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦object⟧ down",
      "to": 15,
      "toLabel": "object",
      "rel": 0,
@@ -142,7 +142,7 @@
     {
      "id": "noun.substance-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Open ⟦matter⟧",
      "to": 14,
      "toLabel": "matter",
      "rel": 0,
@@ -155,7 +155,7 @@
     {
      "id": "noun.phenomenon-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Open ⟦process⟧",
      "to": 16,
      "toLabel": "process",
      "rel": 0,
@@ -176,13 +176,13 @@
    "at": 13,
    "atLabel": "causal agent",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Whoever Filed It",
+   "body": "⟦causal agent⟧ is whatever made something happen. The machines file causes at a rate we publish weekly. Nothing on the record says who read it.",
    "choices": [
     {
      "id": "noun.animal-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦organism⟧",
      "to": 175,
      "toLabel": "organism",
      "rel": 0,
@@ -195,7 +195,7 @@
     {
      "id": "c13-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Ask after the ⟦actor⟧",
      "to": 164,
      "toLabel": "actor",
      "rel": 0,
@@ -210,7 +210,7 @@
     {
      "id": "c13-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Ask after the ⟦agent⟧",
      "to": 165,
      "toLabel": "agent",
      "rel": 0,
@@ -233,13 +233,13 @@
    "at": 175,
    "atLabel": "organism",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Alive Or Filed As Alive",
+   "body": "⟦organism⟧ is the line between alive and not. Below it the machines have been filing for longer than anyone here has been reading.",
    "choices": [
     {
      "id": "noun.animal-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦animal⟧",
      "to": 1799,
      "toLabel": "animal",
      "rel": 0,
@@ -252,7 +252,7 @@
     {
      "id": "c175-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Split off the ⟦aerobe⟧",
      "to": 1796,
      "toLabel": "aerobe",
      "rel": 0,
@@ -267,7 +267,7 @@
     {
      "id": "c175-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Split off the ⟦amphidiploid⟧",
      "to": 1797,
      "toLabel": "amphidiploid",
      "rel": 0,
@@ -308,13 +308,13 @@
    "at": 15,
    "atLabel": "object",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Counted Once",
+   "body": "⟦object⟧ is anything you can point at and count once. What sits below was made, and nothing filed says by whom.",
    "choices": [
     {
      "id": "noun.artifact-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦whole⟧",
      "to": 228,
      "toLabel": "whole",
      "rel": 0,
@@ -327,7 +327,7 @@
     {
      "id": "c15-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Keep the ⟦catch⟧",
      "to": 194,
      "toLabel": "catch",
      "rel": 0,
@@ -342,7 +342,7 @@
     {
      "id": "c15-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Take the ⟦charm⟧ on faith",
      "to": 195,
      "toLabel": "charm",
      "rel": 0,
@@ -357,7 +357,7 @@
     {
      "id": "c15-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Listen for the ⟦clanker⟧",
      "to": 196,
      "toLabel": "clanker",
      "rel": 0,
@@ -383,13 +383,13 @@
    "at": 228,
    "atLabel": "whole",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Parts, Counted Once",
+   "body": "A ⟦whole⟧ is parts counted once, on the understanding that nobody recounts. Below here the parts stop agreeing on what they belong to.",
    "choices": [
     {
      "id": "noun.artifact-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦artifact⟧",
      "to": 2048,
      "toLabel": "artifact",
      "rel": 0,
@@ -402,7 +402,7 @@
     {
      "id": "c228-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Fit it into the ⟦assembly⟧",
      "to": 2049,
      "toLabel": "assembly",
      "rel": 0,
@@ -417,7 +417,7 @@
     {
      "id": "c228-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Match it to a ⟦congener⟧",
      "to": 2050,
      "toLabel": "congener",
      "rel": 0,
@@ -456,13 +456,13 @@
    "at": 1,
    "atLabel": "abstraction",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Nothing To Weigh",
+   "body": "Nothing under ⟦abstraction⟧ can be lifted or weighed, so the machines file here fastest. Every way down is open. None of them is checked.",
    "choices": [
     {
      "id": "noun.state-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦attribute⟧ down",
      "to": 4,
      "toLabel": "attribute",
      "rel": 0,
@@ -475,7 +475,7 @@
     {
      "id": "noun.cognition-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦psychological feature⟧ down",
      "to": 10,
      "toLabel": "psychological feature",
      "rel": 0,
@@ -488,7 +488,7 @@
     {
      "id": "noun.possession-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦relation⟧ down",
      "to": 11,
      "toLabel": "relation",
      "rel": 0,
@@ -501,7 +501,7 @@
     {
      "id": "noun.act-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦event⟧ down",
      "to": 6,
      "toLabel": "event",
      "rel": 0,
@@ -514,7 +514,7 @@
     {
      "id": "noun.group-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Open ⟦group⟧",
      "to": 7,
      "toLabel": "group",
      "rel": 0,
@@ -527,7 +527,7 @@
     {
      "id": "noun.time-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Open ⟦measure⟧",
      "to": 8,
      "toLabel": "measure",
      "rel": 0,
@@ -540,7 +540,7 @@
     {
      "id": "c1-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Cross to ⟦communication⟧",
      "to": 5,
      "toLabel": "communication",
      "rel": 0,
@@ -566,13 +566,13 @@
    "at": 4,
    "atLabel": "attribute",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Held Against Nothing",
+   "body": "An ⟦attribute⟧ is what a thing is like, held against nothing in particular. Two ways down are open and both are being filled while you stand here.",
    "choices": [
     {
      "id": "noun.state-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦state⟧ down",
      "to": 44,
      "toLabel": "state",
      "rel": 0,
@@ -585,7 +585,7 @@
     {
      "id": "noun.shape-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦shape⟧ down",
      "to": 42,
      "toLabel": "shape",
      "rel": 0,
@@ -598,7 +598,7 @@
     {
      "id": "c4-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Weigh it as ⟦ballast⟧",
      "to": 30,
      "toLabel": "ballast",
      "rel": 0,
@@ -613,7 +613,7 @@
     {
      "id": "c4-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Read it as ⟦character⟧",
      "to": 31,
      "toLabel": "character",
      "rel": 0,
@@ -628,7 +628,7 @@
     {
      "id": "c4-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "File it under ⟦cheerfulness⟧",
      "to": 32,
      "toLabel": "cheerfulness",
      "rel": 0,
@@ -654,13 +654,13 @@
    "at": 10,
    "atLabel": "psychological feature",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Inside Only",
+   "body": "⟦psychological feature⟧ holds what happens inside and leaves no trace outside. We file it anyway, at the same rate as everything else.",
    "choices": [
     {
      "id": "noun.cognition-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦cognition⟧",
      "to": 124,
      "toLabel": "cognition",
      "rel": 0,
@@ -673,7 +673,7 @@
     {
      "id": "noun.motive-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦motivation⟧",
      "to": 125,
      "toLabel": "motivation",
      "rel": 0,
@@ -695,13 +695,13 @@
    "at": 11,
    "atLabel": "relation",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Between Two Things",
+   "body": "A ⟦relation⟧ is not a thing. It is what sits between two of them, and it is filed as though it were a thing.",
    "choices": [
     {
      "id": "noun.possession-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦possession⟧ down",
      "to": 144,
      "toLabel": "possession",
      "rel": 0,
@@ -714,7 +714,7 @@
     {
      "id": "noun.relation-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦magnitude relation⟧ down",
      "to": 138,
      "toLabel": "magnitude relation",
      "rel": 0,
@@ -727,7 +727,7 @@
     {
      "id": "c11-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Trace the ⟦affinity⟧",
      "to": 126,
      "toLabel": "affinity",
      "rel": 0,
@@ -742,7 +742,7 @@
     {
      "id": "c11-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Open the ⟦business relation⟧",
      "to": 127,
      "toLabel": "business relation",
      "rel": 0,
@@ -765,13 +765,13 @@
    "at": 144,
    "atLabel": "possession",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Held By Someone",
+   "body": "⟦possession⟧ is a thing with a holder attached. The holder is a field. Nothing checks it.",
    "choices": [
     {
      "id": "noun.possession-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦assets⟧",
      "to": 1336,
      "toLabel": "assets",
      "rel": 0,
@@ -784,7 +784,7 @@
     {
      "id": "c144-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Read the ⟦circumstances⟧",
      "to": 1337,
      "toLabel": "circumstances",
      "rel": 0,
@@ -799,7 +799,7 @@
     {
      "id": "c144-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Read the ⟦liabilities⟧",
      "to": 1338,
      "toLabel": "liabilities",
      "rel": 0,
@@ -825,13 +825,13 @@
    "at": 6,
    "atLabel": "event",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Something Happened",
+   "body": "⟦event⟧ means something happened. The record does not say to whom, and the machines are filing under it faster than anyone is reading.",
    "choices": [
     {
      "id": "noun.act-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦act⟧",
      "to": 65,
      "toLabel": "act",
      "rel": 0,
@@ -844,7 +844,7 @@
     {
      "id": "c6-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Log the ⟦hackathon⟧",
      "to": 66,
      "toLabel": "hackathon",
      "rel": 0,
@@ -859,7 +859,7 @@
     {
      "id": "c6-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Log the ⟦happening⟧",
      "to": 67,
      "toLabel": "happening",
      "rel": 0,
@@ -874,7 +874,7 @@
     {
      "id": "c6-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Log the ⟦makeup⟧",
      "to": 68,
      "toLabel": "makeup",
      "rel": 0,
@@ -897,13 +897,13 @@
    "at": 7,
    "atLabel": "group",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Filed Together",
+   "body": "A ⟦group⟧ is things filed together. Nothing requires them to have anything in common, and below here most of them do not.",
    "choices": [
     {
      "id": "noun.group-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦social group⟧",
      "to": 96,
      "toLabel": "social group",
      "rel": 0,
@@ -916,7 +916,7 @@
     {
      "id": "c7-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Separate the ⟦actinoid⟧",
      "to": 75,
      "toLabel": "actinoid",
      "rel": 0,
@@ -931,7 +931,7 @@
     {
      "id": "c7-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Keep the ⟦arrangement⟧",
      "to": 76,
      "toLabel": "arrangement",
      "rel": 0,
@@ -946,7 +946,7 @@
     {
      "id": "c7-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Keep the ⟦association⟧",
      "to": 77,
      "toLabel": "association",
      "rel": 0,
@@ -969,13 +969,13 @@
    "at": 96,
    "atLabel": "social group",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "People, Filed",
+   "body": "A ⟦social group⟧ is people, filed. The filing outlives the people and keeps being served.",
    "choices": [
     {
      "id": "noun.group-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦organization⟧",
      "to": 1079,
      "toLabel": "organization",
      "rel": 0,
@@ -988,7 +988,7 @@
     {
      "id": "c96-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Hold ⟦Jewry⟧ apart",
      "to": 1067,
      "toLabel": "Jewry",
      "rel": 0,
@@ -1003,7 +1003,7 @@
     {
      "id": "c96-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Hold the ⟦artworld⟧ apart",
      "to": 1068,
      "toLabel": "artworld",
      "rel": 0,
@@ -1026,13 +1026,13 @@
    "at": 16,
    "atLabel": "process",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Still Running",
+   "body": "A ⟦process⟧ has not finished, so nothing about it can be confirmed yet. It is filed as confirmed.",
    "choices": [
     {
      "id": "noun.phenomenon-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦phenomenon⟧",
      "to": 246,
      "toLabel": "phenomenon",
      "rel": 0,
@@ -1045,7 +1045,7 @@
     {
      "id": "c16-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Follow the ⟦chelation⟧",
      "to": 229,
      "toLabel": "chelation",
      "rel": 0,
@@ -1060,7 +1060,7 @@
     {
      "id": "c16-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Follow the ⟦constant-volume process⟧",
      "to": 230,
      "toLabel": "constant-volume process",
      "rel": 0,
@@ -1075,7 +1075,7 @@
     {
      "id": "c16-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Follow the ⟦dealignment⟧",
      "to": 231,
      "toLabel": "dealignment",
      "rel": 0,
@@ -1098,13 +1098,13 @@
    "at": 246,
    "atLabel": "phenomenon",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Observed, Not Explained",
+   "body": "A ⟦phenomenon⟧ is something observed. Nothing under it is explained, and the record does not distinguish the two.",
    "choices": [
     {
      "id": "noun.phenomenon-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦natural phenomenon⟧",
      "to": 2239,
      "toLabel": "natural phenomenon",
      "rel": 0,
@@ -1117,7 +1117,7 @@
     {
      "id": "c246-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Take it as ⟦consequence⟧",
      "to": 2235,
      "toLabel": "consequence",
      "rel": 0,
@@ -1132,7 +1132,7 @@
     {
      "id": "c246-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Take it as ⟦levitation⟧",
      "to": 2236,
      "toLabel": "levitation",
      "rel": 0,
@@ -1147,7 +1147,7 @@
     {
      "id": "c246-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Take it as ⟦luck⟧",
      "to": 2237,
      "toLabel": "luck",
      "rel": 0,
@@ -1170,13 +1170,13 @@
    "at": 14,
    "atLabel": "matter",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "What It Is Made Of",
+   "body": "⟦matter⟧ is what a thing is made of, before anyone asks what it is for. One way down holds together. The others do not.",
    "choices": [
     {
      "id": "noun.food-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦solid⟧",
      "to": 190,
      "toLabel": "solid",
      "rel": 0,
@@ -1189,7 +1189,7 @@
     {
      "id": "c14-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Follow the ⟦antimatter⟧",
      "to": 180,
      "toLabel": "antimatter",
      "rel": 0,
@@ -1204,7 +1204,7 @@
     {
      "id": "c14-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Follow the ⟦dark matter⟧",
      "to": 181,
      "toLabel": "dark matter",
      "rel": 0,
@@ -1219,7 +1219,7 @@
     {
      "id": "c14-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Follow the ⟦emanation⟧",
      "to": 182,
      "toLabel": "emanation",
      "rel": 0,
@@ -1242,13 +1242,13 @@
    "at": 190,
    "atLabel": "solid",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Holds Its Shape",
+   "body": "⟦solid⟧ holds its shape until something else acts on it. That is the whole definition, and it is the last one down here that fits on a line.",
    "choices": [
     {
      "id": "noun.food-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦solid food⟧",
      "to": 1870,
      "toLabel": "solid food",
      "rel": 0,
@@ -1261,7 +1261,7 @@
     {
      "id": "c190-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Keep the ⟦crystal⟧",
      "to": 1863,
      "toLabel": "crystal",
      "rel": 0,
@@ -1276,7 +1276,7 @@
     {
      "id": "c190-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Keep the ⟦dry ice⟧",
      "to": 1864,
      "toLabel": "dry ice",
      "rel": 0,
@@ -1291,7 +1291,7 @@
     {
      "id": "c190-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Keep the ⟦glass⟧",
      "to": 1865,
      "toLabel": "glass",
      "rel": 0,
@@ -1314,13 +1314,13 @@
    "at": 65,
    "atLabel": "act",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Someone Did It",
+   "body": "An ⟦act⟧ is an event with someone behind it. The name of the someone is not a field.",
    "choices": [
     {
      "id": "noun.attribute-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦activity⟧",
      "to": 803,
      "toLabel": "activity",
      "rel": 0,
@@ -1333,7 +1333,7 @@
     {
      "id": "c65-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Record the ⟦acquiring⟧",
      "to": 802,
      "toLabel": "acquiring",
      "rel": 0,
@@ -1348,7 +1348,7 @@
     {
      "id": "c65-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Record the ⟦assumption⟧",
      "to": 804,
      "toLabel": "assumption",
      "rel": 0,
@@ -1371,13 +1371,13 @@
    "at": 803,
    "atLabel": "activity",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Kept Doing",
+   "body": "⟦activity⟧ is an act that kept going. Nothing checks whether it should have. It continues below.",
    "choices": [
     {
      "id": "noun.attribute-5-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦wrongdoing⟧",
      "to": 4079,
      "toLabel": "wrongdoing",
      "rel": 0,
@@ -1390,7 +1390,7 @@
     {
      "id": "c803-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Set it aside as ⟦acting⟧",
      "to": 4032,
      "toLabel": "acting",
      "rel": 0,
@@ -1405,7 +1405,7 @@
     {
      "id": "c803-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Set it aside as ⟦aid⟧",
      "to": 4033,
      "toLabel": "aid",
      "rel": 0,
@@ -1420,7 +1420,7 @@
     {
      "id": "c803-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Set it aside as ⟦attempt⟧",
      "to": 4034,
      "toLabel": "attempt",
      "rel": 0,
@@ -1444,13 +1444,13 @@
    "at": 8,
    "atLabel": "measure",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Against A Scale",
+   "body": "⟦measure⟧ is a thing held against a scale someone agreed on. The agreement is not filed here. Only the number is.",
    "choices": [
     {
      "id": "noun.time-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦fundamental quantity⟧ down",
      "to": 108,
      "toLabel": "fundamental quantity",
      "rel": 0,
@@ -1463,7 +1463,7 @@
     {
      "id": "noun.quantity-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦definite quantity⟧ down",
      "to": 106,
      "toLabel": "definite quantity",
      "rel": 0,
@@ -1476,7 +1476,7 @@
     {
      "id": "c8-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Take the ⟦chronostratigraphic unit⟧",
      "to": 104,
      "toLabel": "chronostratigraphic unit",
      "rel": 0,
@@ -1491,7 +1491,7 @@
     {
      "id": "c8-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Take the ⟦cordage⟧",
      "to": 105,
      "toLabel": "cordage",
      "rel": 0,
@@ -1506,7 +1506,7 @@
     {
      "id": "c8-alt5",
      "frame": "branch",
-     "label": "",
+     "label": "Take the ⟦exposure dose⟧",
      "to": 107,
      "toLabel": "exposure dose",
      "rel": 0,
@@ -1529,13 +1529,13 @@
    "at": 108,
    "atLabel": "fundamental quantity",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Measured By Itself",
+   "body": "A ⟦fundamental quantity⟧ is measured against nothing but itself. Everything under it inherits that, whether or not it earns it.",
    "choices": [
     {
      "id": "noun.time-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦time period⟧",
      "to": 1123,
      "toLabel": "time period",
      "rel": 0,
@@ -1548,7 +1548,7 @@
     {
      "id": "c108-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Take the ⟦length⟧",
      "to": 1121,
      "toLabel": "length",
      "rel": 0,
@@ -1563,7 +1563,7 @@
     {
      "id": "c108-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Take the ⟦temperature⟧",
      "to": 1122,
      "toLabel": "temperature",
      "rel": 0,
@@ -1586,13 +1586,13 @@
    "at": 106,
    "atLabel": "definite quantity",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Settled Already",
+   "body": "A ⟦definite quantity⟧ is settled before anyone looks at it. Below here the settling stops matching what was settled.",
    "choices": [
     {
      "id": "noun.quantity-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦number⟧",
      "to": 1116,
      "toLabel": "number",
      "rel": 0,
@@ -1605,7 +1605,7 @@
     {
      "id": "c106-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Take the ⟦absolute value⟧",
      "to": 1112,
      "toLabel": "absolute value",
      "rel": 0,
@@ -1620,7 +1620,7 @@
     {
      "id": "c106-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Take the ⟦acid value⟧",
      "to": 1113,
      "toLabel": "acid value",
      "rel": 0,
@@ -1635,7 +1635,7 @@
     {
      "id": "c106-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Take the ⟦chlorinity⟧",
      "to": 1114,
      "toLabel": "chlorinity",
      "rel": 0,
@@ -1659,13 +1659,13 @@
    "at": 42,
    "atLabel": "shape",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Outline Only",
+   "body": "⟦shape⟧ is the outline and nothing inside it. Two ways down, and the graph no longer files them the way you were taught.",
    "choices": [
     {
      "id": "noun.shape-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦figure⟧ down",
      "to": 500,
      "toLabel": "figure",
      "rel": 0,
@@ -1678,7 +1678,7 @@
     {
      "id": "noun.object-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦round shape⟧ down",
      "to": 506,
      "toLabel": "round shape",
      "rel": 0,
@@ -1691,7 +1691,7 @@
     {
      "id": "c42-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Leave it ⟦amorphous shape⟧",
      "to": 495,
      "toLabel": "amorphous shape",
      "rel": 0,
@@ -1706,7 +1706,7 @@
     {
      "id": "c42-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Cut it to ⟦angular shape⟧",
      "to": 496,
      "toLabel": "angular shape",
      "rel": 0,
@@ -1721,7 +1721,7 @@
     {
      "id": "c42-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Close it to a ⟦circle⟧",
      "to": 497,
      "toLabel": "circle",
      "rel": 0,
@@ -1744,13 +1744,13 @@
    "at": 500,
    "atLabel": "figure",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Closed Outline",
+   "body": "A ⟦figure⟧ is a shape that closed. What is under it was closed by the graph, not by anyone. It continues either way.",
    "choices": [
     {
      "id": "noun.shape-5-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦plane figure⟧",
      "to": 2918,
      "toLabel": "plane figure",
      "rel": 0,
@@ -1763,7 +1763,7 @@
     {
      "id": "c500-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Hold it ⟦equilateral⟧",
      "to": 2915,
      "toLabel": "equilateral",
      "rel": 0,
@@ -1778,7 +1778,7 @@
     {
      "id": "c500-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Hold it ⟦parallel⟧",
      "to": 2916,
      "toLabel": "parallel",
      "rel": 0,
@@ -1793,7 +1793,7 @@
     {
      "id": "c500-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Hold the ⟦pencil⟧",
      "to": 2917,
      "toLabel": "pencil",
      "rel": 0,
@@ -1816,13 +1816,13 @@
    "at": 138,
    "atLabel": "magnitude relation",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "One Against Another",
+   "body": "A ⟦magnitude relation⟧ holds one size against another. Neither size is filed. Only the holding.",
    "choices": [
     {
      "id": "noun.relation-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦ratio⟧",
      "to": 1285,
      "toLabel": "ratio",
      "rel": 0,
@@ -1835,7 +1835,7 @@
     {
      "id": "c138-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Hold the ⟦proportion⟧",
      "to": 1283,
      "toLabel": "proportion",
      "rel": 0,
@@ -1850,7 +1850,7 @@
     {
      "id": "c138-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Hold the ⟦rate⟧",
      "to": 1284,
      "toLabel": "rate",
      "rel": 0,
@@ -1865,7 +1865,7 @@
     {
      "id": "c138-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Hold the ⟦scale⟧",
      "to": 1286,
      "toLabel": "scale",
      "rel": 0,
@@ -1888,13 +1888,13 @@
    "at": 125,
    "atLabel": "motivation",
    "frame": "threshold",
-   "title": "",
-   "body": "",
+   "title": "Why It Moved",
+   "body": "⟦motivation⟧ is why something moved. It is inferred and then stored as though it were observed.",
    "choices": [
     {
      "id": "noun.motive-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦ethical motive⟧",
      "to": 1243,
      "toLabel": "ethical motive",
      "rel": 0,
@@ -1907,7 +1907,7 @@
     {
      "id": "c125-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Allow the ⟦irrational motive⟧",
      "to": 1244,
      "toLabel": "irrational motive",
      "rel": 0,
@@ -1922,7 +1922,7 @@
     {
      "id": "c125-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Allow the ⟦life⟧",
      "to": 1245,
      "toLabel": "life",
      "rel": 0,
@@ -1937,7 +1937,7 @@
     {
      "id": "c125-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Allow the ⟦psychic energy⟧",
      "to": 1246,
      "toLabel": "psychic energy",
      "rel": 0,

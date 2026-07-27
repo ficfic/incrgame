@@ -42,7 +42,19 @@
  *     choice noun.animal-1-alt0 is gated on unknown node 99999
  *   exit 1
  *
- * Both sabotages applied, observed, and reverted on 2026-07-27.
+ * Sabotage C - a span naming something that is not a concept. In prose.json
+ * change one bracketed word to a nonsense string, regenerate, run. Observed:
+ *   FAIL  span: 1
+ *     c0: <nonesuchword> is not a concept
+ *   exit 1
+ *
+ * Sabotage D - a body that is mostly maskable words. Replace one body with
+ * nothing but bracketed concepts, regenerate, run. Observed:
+ *   FAIL  span: 1
+ *     c0: 7/8 words are maskable - will not survive masking
+ *   exit 1
+ *
+ * All four sabotages applied, observed, and reverted on 2026-07-27.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -110,6 +122,46 @@ for (const b of beats) {
 }
 if (dangling.length) {
   fail.push(`dangling reference: ${dangling.length}\n  ${dangling[0]}`);
+}
+
+/* 4. SPANS RESOLVE, AND NO BEAT IS ALL BLOCKS.
+ *
+ * `⟦word⟧` marks a maskable concept. Two ways this goes wrong and both are
+ * invisible until a player hits them:
+ *
+ *   - a span naming something that is not a concept never masks, so the word
+ *     stays legible forever and the beat quietly loses its gate;
+ *   - a sentence whose every word is a span renders as a wall of unknown words
+ *     with no English holding it up. docs/VOICE.md section 4 exists to prevent
+ *     this: stakes live in the verb and the preposition, never in the noun.
+ *
+ * The second is checked as a ratio rather than by parsing English: if more than
+ * half a body's words sit inside brackets, it will not survive masking. */
+const LABELS = new Set();
+{
+  const idx = JSON.parse(readFileSync(join(ROOT, 'public/ontology/index.json'), 'utf8'));
+  for (let c = 0; c < idx.chunks; c++) {
+    for (const l of JSON.parse(readFileSync(join(ROOT, `public/ontology/c${String(c).padStart(3, '0')}.json`), 'utf8')).l) {
+      LABELS.add(l);
+    }
+  }
+}
+const spanProblems = [];
+for (const b of beats) {
+  if (!b.body) continue;
+  for (const text of [b.title, b.body, ...b.choices.map((c) => c.label)]) {
+    for (const m of (text ?? '').matchAll(/⟦([^⟧]+)⟧/g)) {
+      if (!LABELS.has(m[1])) spanProblems.push(`${b.id}: ⟦${m[1]}⟧ is not a concept`);
+    }
+  }
+  const inSpans = [...b.body.matchAll(/⟦([^⟧]+)⟧/g)].reduce((n, m) => n + m[1].split(/\s+/).length, 0);
+  const total = b.body.replace(/[⟦⟧]/g, '').split(/\s+/).length;
+  if (inSpans / total > 0.5) {
+    spanProblems.push(`${b.id}: ${inSpans}/${total} words are maskable — will not survive masking`);
+  }
+}
+if (spanProblems.length) {
+  fail.push(`span: ${spanProblems.length}\n  ${spanProblems[0]}`);
 }
 
 if (fail.length) {

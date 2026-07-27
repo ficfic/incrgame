@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /* build-story.mjs — generate the CYOA beat skeletons from the lane spines.
  *
- * ★ THIS SCRIPT WRITES NO SENTENCES. ★
- * Every `title`, `body` and choice `label` it emits is the empty string, exactly
- * like `src/content/vignettes.ts` ships them. The UI renders a visible ⟨owner⟩
- * marker in their place so an unwritten beat looks unfinished, never quietly
- * fake (CLAUDE.md ★ prose guardrail; VISION.md "Hard rules"). What this script
- * generates is STRUCTURE: ids, junctions, gates, destinations.
+ * THIS SCRIPT GENERATES STRUCTURE ONLY — ids, junctions, gates, destinations.
+ * It writes no sentences, but not for the reason it used to: the ★ prose
+ * guardrail was reversed by the owner on 2026-07-27 (see docs/DECISIONS.md), so
+ * prose is now machine-drafted and owner-edited. It stays out of here because
+ * structure and text move independently — 93 beats collapsed to 27 when the
+ * keying changed, and authored text must survive that. Prose lives in
+ * docs/graph/prose.json and is merged in below.
  *
  * THE SHAPE IT BUILDS
  * -------------------
@@ -233,6 +234,28 @@ for (const b of beats) {
   b.choices = [...best.values()];
 }
 
+/* MERGE THE AUTHORED PROSE.
+ *
+ * docs/graph/prose.json is written by hand. Merging it here rather than
+ * authoring inside this script means regenerating the STRUCTURE never destroys
+ * the TEXT — the two have already moved independently once (93 beats collapsed
+ * to 27 after the structure changed) and will again.
+ *
+ * `⟦word⟧` marks a maskable concept. Everything outside the brackets is always
+ * visible, so the sentence still parses when every concept in it is unread.
+ * See docs/VOICE.md section 4. */
+const PROSE = join(ROOT, 'docs/graph/prose.json');
+const prose = JSON.parse(readFileSync(PROSE, 'utf8'));
+let written = 0;
+for (const b of beats) {
+  const p = prose[b.id];
+  if (!p) continue;
+  written++;
+  b.title = p.title ?? '';
+  b.body = p.body ?? '';
+  for (const c of b.choices) if (p.choices?.[c.id]) c.label = p.choices[c.id];
+}
+
 // The real writing load: one line per distinct frame, not one per beat.
 const frames = [...new Set([...beats.map((b) => b.frame), ...beats.flatMap((b) => b.choices.map((c) => c.frame))])].sort();
 
@@ -254,7 +277,7 @@ writeFileSync(
 console.log(`beats ................ ${beats.length}`);
 console.log(`lanes ................ ${lanes.length}`);
 console.log(`frames to write ...... ${frames.length}  (${frames.join(', ')})`);
-console.log(`per-beat overrides ... optional, all empty`);
+console.log(`beats with prose ..... ${written} of ${beats.length}`);
 // Never silent: a bounded artifact that does not say what it bounded reads as
 // complete coverage when it is not.
 console.log(
