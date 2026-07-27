@@ -76,26 +76,40 @@ board. Runs against `docs/graph/story.json` as it stands.
 **Done when:** `npm run play` shows a beat with masked words, and a screenshot
 of the same beat after discovering one of them shows that word resolved.
 
-## 3. Re-aim the dataset depth-first
+## 3. Score the vocabulary for WEIRD, and cut the junk
 
 **Owner: content-tooling session.** Can run in parallel with 1 and 2 — different
 branch, different directory.
 
-`build-ontology.mjs` selects breadth-first from `entity`, so the shipped 4,096
-concepts bottom out at **depth 5 of 16**. We ship the taxonomy's classifiers and
-none of its instances: `noun.animal` holds 25 concepts and not one is an animal;
-`noun.food` holds `paring` and `solid food`. Measured by
-`scripts/lane-analysis.mjs`.
+> This item replaced "re-aim the dataset depth-first", which was solving the
+> wrong problem. Owner, 2026-07-27: *"i want weird abstract shit in the story,
+> not wolves."* The upper ontology **is** this game's subject matter; chasing
+> `wolf` and `firearm` would have made it a nature documentary with RDF stapled
+> on. See `DECISIONS.md`.
 
-Consequence today: `build-story.mjs` drops **215 of 308 beats** because the
-concepts they sit on do not exist in the game.
+The dataset is not too shallow. It is **uncurated**. Measured: **1,212
+weird-abstract concepts already ship** —
 
-Select depth-first along lanes instead. 26 lanes to full depth with three
-siblings per junction costs **773 concepts** — a fifth of what ships now.
+    otherworld · eidos · ethos · might-have-been · nonevent
+    unconnectedness · dealignment · reciprocality · bilocation
+    irreversible process · cause of death · uncheerfulness
 
-**This renumbers every node id and resets saves. That is authorised**
-(`DECISIONS.md`, 2026-07-27) — say so in the commit message.
+— sitting beside the actual defect, which is junk: `jimdandy`, `instalike`,
+`must-see`, `freshener`, `stinker`, `whacker`, `go-to`. WordNet slang filed
+under `noun.artifact`.
 
-**Done when:** `npm run check:story` passes with the dropped-beat count at or
-near zero, and the reply pastes the new category distribution showing real
-animals.
+And the junction problem is unsolved: `scripts/build-story.mjs` still picks
+siblings **alphabetically**, so the choice under `animal` is
+`aerobe / amphidiploid / anaerobe`. Correct arithmetic, dead choices.
+
+**Two halves, and the first is free.** Scoring changes no ids — it only reorders
+which siblings a junction offers, so it needs no save reset. Cutting junk
+removes concepts and therefore renumbers, which resets saves; that is authorised
+(`DECISIONS.md`, 2026-07-27) but do it second and say so in the commit.
+
+Score for **strangeness**, not rarity and not concreteness. `nonevent` beats
+`anaerobe` and both are rare.
+
+**Done when:** the reply pastes a junction's before/after choice list — the
+`aerobe / amphidiploid / anaerobe` one is the benchmark — and `npm run
+check:story` still passes.
