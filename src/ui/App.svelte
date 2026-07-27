@@ -106,7 +106,11 @@
       $game.pool, potential, $game.forged.edges, extractCapacity($game),
     );
     dispatch({ type: 'extract', candidates });
-    if (candidates.length === 0) say('That batch supported nothing new');
+    // Say what it produced. The verb was invisible before: its entire output
+    // looked identical to lines the board was already giving away.
+    say(candidates.length === 0
+      ? 'Nothing new to propose here'
+      : `Proposed ${candidates.length} connection${candidates.length === 1 ? '' : 's'}`);
   }
 
   /** Diameter of the drawn window. It tracks the FRAMED extent of the graph, so
@@ -298,16 +302,22 @@
    *  because both ends were plotted regardless of whether you could see them. */
   const onScreen = $derived(new Set(lod.shown));
 
-  const dotted = $derived.by(() => {
-    // Only CHECKED lines leave the offer list. An unchecked line — one an
-    // extractor proposed — stays tappable, because confirming a machine's
-    // proposal is a move the player must always have. Without this, extraction
-    // consumed relations permanently and the graph could only rot.
-    const drawn = new Set($game.forged.edges.filter((e) => e.checked)
-      .map((e) => `${e.a}:${e.b}:${e.rel}`));
-    return potential.filter((p) => !drawn.has(`${p.a}:${p.b}:${p.rel}`)
-      && onScreen.has(p.a) && onScreen.has(p.b));
-  });
+  /** THE DOTTED LINES ARE PROPOSALS, AND PROPOSALS COME FROM EXTRACT.
+   *
+   *  This used to be `potential` — every relation the DATASET offers between two
+   *  concepts on the board — minus the ones already drawn. So a dotted line
+   *  appeared the instant two concepts happened to be related, the board filled
+   *  with connections nobody asked for, and Extract looked like it did nothing
+   *  because its output was indistinguishable from free scenery.
+   *
+   *  Now a dotted line is an UNCHECKED EDGE: something Extract proposed, or an
+   *  unwatched machine invented. Tapping it confirms it. `potential` is still
+   *  the source of truth for what Extract may propose — it is just no longer
+   *  something the player can see and take for free. */
+  const dotted = $derived.by(() =>
+    $game.forged.edges
+      .filter((e) => !e.checked && onScreen.has(e.a) && onScreen.has(e.b))
+      .map((e) => ({ a: e.a, b: e.b, rel: e.rel })));
 
   const openLines = $derived.by(() => {
     void simTick;

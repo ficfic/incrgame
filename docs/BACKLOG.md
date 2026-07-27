@@ -434,3 +434,5 @@ inherit them by assumption.
       adjectives a player can never encounter here).
 
 - [ ] Toast overlaps the source toggle when both are visible (seen 2026-07-26 in ctx2 probe shot).
+
+- [ ] Rename the "N lines filling" status label — owner: "these are not lines" (2026-07-26).

@@ -27,21 +27,7 @@ things every time:
 > 2026-07-26 and made three decisions; the model is one page and supersedes the
 > ladder in ECONOMY.md. These items are that model, in order, smallest first.
 
-## 1. Dotted edges come from Extract, and nowhere else
-
-Today a dotted line appears the instant two concepts share a relation in the
-dataset. So the board fills with connections you never asked for, and Extract
-appears to do nothing. Owner: *"maybe we make dotted lines only after we
-extract? so we discover, then we extract and that gives us dotted edges that we
-fill?"*
-
-Extract must be the only source of dotted edges, and it should say how many it
-just proposed.
-
-**Done when:** a fresh board shows NO dotted lines until Extract runs; the button
-reports what it produced; `play-probe` screenshot shows both.
-
-## 2. Delete the Review desk
+## 1. Delete the Review desk
 
 It samples an abstract statement pool and touches nothing on the board.
 Confirming a dotted edge is the check now. Removes a modal, a timer, a queue and
@@ -50,14 +36,14 @@ a whole mental model.
 **Done when:** no Review button, no `review` sheet, `state.review` left in the
 save unread (additive), and confirming still moves `checked`.
 
-## 3. Delete passages and Salvage
+## 2. Delete passages and Salvage
 
 Middleman between two verbs. The owner asked what a passage was twice.
 
 **Done when:** Salvage and Extract's passage cost are gone, Extract reads the
 concepts you hold directly, and the HUD loses the `passages` cell.
 
-## 4. Attention grows very slowly, and can degrade
+## 3. Attention grows very slowly, and can degrade
 
 It went 4→13 in two minutes. It is a slow background reward, never a currency.
 Degradation trigger is an open question in MODEL.md — pick ONE, make it legible.
@@ -65,7 +51,7 @@ Degradation trigger is an open question in MODEL.md — pick ONE, make it legibl
 **Done when:** `play-probe` shows attention roughly flat over 10 minutes, and one
 named condition visibly costs a slot.
 
-## 5. Prove the four gates go red, in writing
+## 4. Prove the four gates go red, in writing
 
 `the-process` audit, 2026-07-26: **0 of 4** gates (`check:align`, `check:core`,
 `check:vocab`, `play`) has a durable record of being confirmed red. Two of the
@@ -79,7 +65,7 @@ in chat does not count: the record has to outlive the session.
 that makes it fail and the observed output, and `DECISIONS.md` has one line
 recording it.
 
-## 6. `OWNER_LINES` — the eight ticker milestones
+## 5. `OWNER_LINES` — the eight ticker milestones
 
 Wired, reachable, 100% reach, still empty. Owner writes them; nothing else here
 is blocked on anything.

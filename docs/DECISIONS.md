@@ -1646,3 +1646,4 @@ Entries above this line are long because the one-line rule did not exist yet.
 - 2026-07-26 — **Review desk deleted**: it sampled an abstract statement pool and touched nothing on the board. Confirming a dotted edge is the check.
 - 2026-07-26 — **Passages and Salvage deleted**: a middleman between two verbs; the owner asked what a passage was twice.
 - 2026-07-26 — **Attention grows very slowly and can DEGRADE** (owner). It is a slow background reward, never a currency; 4→13 in two minutes was wrong.
+- 2026-07-26 — **Dotted lines are now PROPOSALS, not scenery**: they are unchecked edges Extract produced, not every relation the dataset offers between two concepts on the board. Extract now says how many it proposed. Needed no new state — unchecked edges already existed; they simply were not what the board offered.

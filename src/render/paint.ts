@@ -136,20 +136,9 @@ function lines(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
     ctx.stroke();
   }
 
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = 'hsl(42 70% 55% / 0.45)';
-  ctx.beginPath();
-  for (const e of state.forged.edges) {
-    if (e.checked) continue;
-    const pa = at(e.a), pb = at(e.b);
-    ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
-  }
-  ctx.stroke();
-  ctx.fillStyle = 'hsl(42 70% 55% / 0.45)';
-  for (const e of state.forged.edges) {
-    if (e.checked) continue;
-    arrow(ctx, at(e.a), at(e.b), 4);
-  }
+  // (An unchecked-edge pass lived here, drawing thin amber lines. Unchecked
+  //  edges ARE the dotted lines now — App.svelte builds `dotted` from them —
+  //  so this drew every proposal a second time, solid, on top of its own dashes.)
 
   ctx.lineWidth = 1.6;
   const solid = new Map<number, Edge[]>();
