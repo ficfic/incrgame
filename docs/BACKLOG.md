@@ -452,3 +452,8 @@ inherit them by assumption.
 - [ ] **Owner decision needed:** `the-graph` rules the in-game help sheet AI-written player-facing UI copy, which CLAUDE.md bans by name. Either the mechanical-fact carve-out is written into the rule, or the sheet becomes ⟨owner⟩ slots.
 
 - [ ] **Sibling choice needs a rarity/salience score.** `scripts/lane-analysis.mjs` picks the alphabetical first three siblings at each junction, so `animal` offers "aerobe / amphidiploid / anaerobe". Sizing is right; the choices are not. Needs a per-concept score before lanes become playable branches.
+
+## Overtaken by the 2026-07-27 scope change (were NEXT.md items 2 and 3)
+
+- [ ] **Prove the four gates go red, in writing.** `the-process` audit 2026-07-26: 0 of 4 (`check:align`, `check:core`, `check:vocab`, `play`) has a durable record of being confirmed red, and two have already been caught vacuous. Now five gates — `check:story` was proven red on 2026-07-27 (two sabotages recorded in its header, and it caught a real bug), the other four still have no record. Rule 4 says a check nobody has broken on purpose is assumed vacuous.
+- [ ] **`OWNER_LINES` — the eight ticker milestones.** Wired, reachable, 100% reach, still empty. No longer blocked on the owner: the prose guardrail was reversed 2026-07-27, so agents can draft these and the owner iterates. `docs/TICKER_LINES.md` holds the table and the instruction that matters — "do not write eight independent jokes, write one voice that curdles."
