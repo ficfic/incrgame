@@ -183,11 +183,14 @@ can't be a free lunch either, or closing the game becomes optimal. So absence
 
 These outrank cleverness, including mine.
 
-- **★ Every player-facing sentence is written by the owner** — or quoted verbatim
-  from a licensed dataset with attribution. The pipeline generates structured
-  data only: numbers, ids, gates, graph shape. **Never sentences.** A game that
-  satirises AI slop cannot ship AI slop. Unwritten prose renders as a visible
-  `⟨owner⟩` slot so an unfinished vignette looks unfinished, never quietly fake.
+- **★ Player-facing sentences are machine-drafted and owner-edited.**
+  *(Reversed 2026-07-27; see `docs/DECISIONS.md`. The prior rule was "every
+  sentence is written by the owner, never generated".)* Agents draft; the owner
+  iterates over the drafts, repeatedly, and that iteration is the point. A game
+  that satirises AI slop still cannot **ship** AI slop — so the test is whether
+  the owner would defend the line, not whether it exists. Quoted dataset text
+  stays verbatim and attributed. The `⟨owner⟩` slot machinery now marks prose
+  the owner has not yet passed over, rather than prose that does not exist.
 - **Human-in-the-loop is never mandatory.** Orchestrators buy review out at a
   worse quality-per-cost. Manual review is a min-max lever for when the owner
   feels like it. An idle game that demands attention isn't an idle game.

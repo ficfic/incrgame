@@ -1,0 +1,5143 @@
+{
+ "source": "Open English WordNet 2025-edition (CC BY 4.0) — see docs/ATTRIBUTION.md",
+ "generatedBy": "scripts/lane-analysis.mjs",
+ "measured": {
+  "nounSynsets": 71864,
+  "maxDepth": 16,
+  "bfsBudget": 4096,
+  "bfsReachesDepth": 5
+ },
+ "sizing": [
+  {
+   "width": 0,
+   "concepts": 250
+  },
+  {
+   "width": 1,
+   "concepts": 442
+  },
+  {
+   "width": 2,
+   "concepts": 620
+  },
+  {
+   "width": 3,
+   "concepts": 773
+  }
+ ],
+ "lanes": [
+  {
+   "category": "noun.animal",
+   "depth": 16,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00001930-n",
+     "label": "physical entity",
+     "siblings": [
+      {
+       "id": "00002137-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00007347-n",
+     "label": "causal agent",
+     "siblings": [
+      {
+       "id": "00021007-n",
+       "label": "matter"
+      },
+      {
+       "id": "00002684-n",
+       "label": "object"
+      },
+      {
+       "id": "00029976-n",
+       "label": "process"
+      }
+     ]
+    },
+    {
+     "id": "00004475-n",
+     "label": "organism",
+     "siblings": [
+      {
+       "id": "09786620-n",
+       "label": "actor"
+      },
+      {
+       "id": "09213796-n",
+       "label": "agent"
+      },
+      {
+       "id": "14802595-n",
+       "label": "agent"
+      }
+     ]
+    },
+    {
+     "id": "00015568-n",
+     "label": "animal",
+     "siblings": [
+      {
+       "id": "01329538-n",
+       "label": "aerobe"
+      },
+      {
+       "id": "01322423-n",
+       "label": "amphidiploid"
+      },
+      {
+       "id": "01329669-n",
+       "label": "anaerobe"
+      }
+     ]
+    },
+    {
+     "id": "01468898-n",
+     "label": "chordate",
+     "siblings": [
+      {
+       "id": "01327557-n",
+       "label": "acrodont"
+      },
+      {
+       "id": "01323947-n",
+       "label": "adult"
+      },
+      {
+       "id": "85444389-n",
+       "label": "albino"
+      }
+     ]
+    },
+    {
+     "id": "01474323-n",
+     "label": "vertebrate",
+     "siblings": [
+      {
+       "id": "01469977-n",
+       "label": "cephalochordate"
+      },
+      {
+       "id": "01470879-n",
+       "label": "tunicate"
+      }
+     ]
+    },
+    {
+     "id": "01476447-n",
+     "label": "aquatic vertebrate",
+     "siblings": [
+      {
+       "id": "01474944-n",
+       "label": "Amniota"
+      },
+      {
+       "id": "01475143-n",
+       "label": "amniote"
+      },
+      {
+       "id": "01630065-n",
+       "label": "amphibian"
+      }
+     ]
+    },
+    {
+     "id": "02514684-n",
+     "label": "fish",
+     "siblings": [
+      {
+       "id": "01476924-n",
+       "label": "jawless vertebrate"
+      },
+      {
+       "id": "01482747-n",
+       "label": "placoderm"
+      }
+     ]
+    },
+    {
+     "id": "02517456-n",
+     "label": "bony fish",
+     "siblings": [
+      {
+       "id": "01319329-n",
+       "label": "bottom lurker"
+      },
+      {
+       "id": "01319070-n",
+       "label": "bottom-feeder"
+      },
+      {
+       "id": "01483157-n",
+       "label": "cartilaginous fish"
+      }
+     ]
+    },
+    {
+     "id": "02530794-n",
+     "label": "teleost fish",
+     "siblings": [
+      {
+       "id": "02517845-n",
+       "label": "crossopterygian"
+      },
+      {
+       "id": "02518819-n",
+       "label": "lungfish"
+      }
+     ]
+    },
+    {
+     "id": "01431221-n",
+     "label": "soft-finned fish",
+     "siblings": [
+      {
+       "id": "01457186-n",
+       "label": "cornetfish"
+      },
+      {
+       "id": "02553091-n",
+       "label": "flying fish"
+      },
+      {
+       "id": "02641226-n",
+       "label": "ganoid"
+      }
+     ]
+    },
+    {
+     "id": "01440849-n",
+     "label": "cypriniform fish",
+     "siblings": [
+      {
+       "id": "02548659-n",
+       "label": "New World opah"
+      },
+      {
+       "id": "01431813-n",
+       "label": "Ostariophysi"
+      },
+      {
+       "id": "02536465-n",
+       "label": "anchovy"
+      }
+     ]
+    },
+    {
+     "id": "01447424-n",
+     "label": "catostomid",
+     "siblings": [
+      {
+       "id": "02586198-n",
+       "label": "characin"
+      },
+      {
+       "id": "01441762-n",
+       "label": "cyprinid"
+      },
+      {
+       "id": "01449230-n",
+       "label": "cyprinodont"
+      }
+     ]
+    },
+    {
+     "id": "01447563-n",
+     "label": "sucker",
+     "siblings": []
+    },
+    {
+     "id": "01448070-n",
+     "label": "buffalo fish",
+     "siblings": [
+      {
+       "id": "01448498-n",
+       "label": "hog sucker"
+      },
+      {
+       "id": "01448793-n",
+       "label": "redhorse"
+      }
+     ]
+    },
+    {
+     "id": "01448234-n",
+     "label": "black buffalo",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.artifact",
+   "depth": 15,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00001930-n",
+     "label": "physical entity",
+     "siblings": [
+      {
+       "id": "00002137-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00002684-n",
+     "label": "object",
+     "siblings": [
+      {
+       "id": "00007347-n",
+       "label": "causal agent"
+      },
+      {
+       "id": "00021007-n",
+       "label": "matter"
+      },
+      {
+       "id": "00029976-n",
+       "label": "process"
+      }
+     ]
+    },
+    {
+     "id": "00003553-n",
+     "label": "whole",
+     "siblings": [
+      {
+       "id": "09261049-n",
+       "label": "catch"
+      },
+      {
+       "id": "03013287-n",
+       "label": "charm"
+      },
+      {
+       "id": "92464675-n",
+       "label": "clanker"
+      }
+     ]
+    },
+    {
+     "id": "00022119-n",
+     "label": "artifact",
+     "siblings": [
+      {
+       "id": "02752958-n",
+       "label": "assembly"
+      },
+      {
+       "id": "00003993-n",
+       "label": "congener"
+      },
+      {
+       "id": "03593583-n",
+       "label": "item"
+      }
+     ]
+    },
+    {
+     "id": "03580409-n",
+     "label": "instrumentality",
+     "siblings": [
+      {
+       "id": "02704252-n",
+       "label": "Americana"
+      },
+      {
+       "id": "02709895-n",
+       "label": "anachronism"
+      },
+      {
+       "id": "02726951-n",
+       "label": "antiquity"
+      }
+     ]
+    },
+    {
+     "id": "03187746-n",
+     "label": "device",
+     "siblings": [
+      {
+       "id": "03000998-n",
+       "label": "ceramic"
+      },
+      {
+       "id": "03095830-n",
+       "label": "connection"
+      },
+      {
+       "id": "03099154-n",
+       "label": "container"
+      }
+     ]
+    },
+    {
+     "id": "03579967-n",
+     "label": "instrument",
+     "siblings": [
+      {
+       "id": "03623043-n",
+       "label": "Kinetoscope"
+      },
+      {
+       "id": "02679115-n",
+       "label": "acoustic device"
+      },
+      {
+       "id": "02681751-n",
+       "label": "adapter"
+      }
+     ]
+    },
+    {
+     "id": "04572661-n",
+     "label": "weapon",
+     "siblings": [
+      {
+       "id": "02711570-n",
+       "label": "analyzer"
+      },
+      {
+       "id": "92458962-n",
+       "label": "bolus hook"
+      },
+      {
+       "id": "02990502-n",
+       "label": "cautery"
+      }
+     ]
+    },
+    {
+     "id": "03472916-n",
+     "label": "gun",
+     "siblings": [
+      {
+       "id": "14915406-n",
+       "label": "Greek fire"
+      },
+      {
+       "id": "02882960-n",
+       "label": "bow"
+      },
+      {
+       "id": "02883635-n",
+       "label": "bow and arrow"
+      }
+     ]
+    },
+    {
+     "id": "03348699-n",
+     "label": "firearm",
+     "siblings": [
+      {
+       "id": "04037846-n",
+       "label": "Quaker gun"
+      },
+      {
+       "id": "02692133-n",
+       "label": "air gun"
+      },
+      {
+       "id": "02718623-n",
+       "label": "antiaircraft"
+      }
+     ]
+    },
+    {
+     "id": "02762968-n",
+     "label": "autoloader",
+     "siblings": [
+      {
+       "id": "03808656-n",
+       "label": "muzzle loader"
+      },
+      {
+       "id": "03954735-n",
+       "label": "pistol"
+      },
+      {
+       "id": "04083396-n",
+       "label": "repeating firearm"
+      }
+     ]
+    },
+    {
+     "id": "02763434-n",
+     "label": "automatic firearm",
+     "siblings": [
+      {
+       "id": "04178520-n",
+       "label": "semiautomatic firearm"
+      }
+     ]
+    },
+    {
+     "id": "03706725-n",
+     "label": "machine gun",
+     "siblings": [
+      {
+       "id": "02763663-n",
+       "label": "automatic pistol"
+      }
+     ]
+    },
+    {
+     "id": "04354597-n",
+     "label": "submachine gun",
+     "siblings": [
+      {
+       "id": "02910981-n",
+       "label": "Browning machine gun"
+      },
+      {
+       "id": "03434047-n",
+       "label": "Gatling gun"
+      },
+      {
+       "id": "03738034-n",
+       "label": "Maxim gun"
+      }
+     ]
+    },
+    {
+     "id": "02900380-n",
+     "label": "Bren",
+     "siblings": [
+      {
+       "id": "03612872-n",
+       "label": "Kalashnikov"
+      },
+      {
+       "id": "04321660-n",
+       "label": "Sten gun"
+      },
+      {
+       "id": "04457404-n",
+       "label": "Tommy gun"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.state",
+   "depth": 15,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00024444-n",
+     "label": "attribute",
+     "siblings": [
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      },
+      {
+       "id": "00031563-n",
+       "label": "group"
+      }
+     ]
+    },
+    {
+     "id": "00024900-n",
+     "label": "state",
+     "siblings": [
+      {
+       "id": "04699340-n",
+       "label": "ballast"
+      },
+      {
+       "id": "04624273-n",
+       "label": "character"
+      },
+      {
+       "id": "04638046-n",
+       "label": "cheerfulness"
+      }
+     ]
+    },
+    {
+     "id": "13943868-n",
+     "label": "condition",
+     "siblings": [
+      {
+       "id": "14030430-n",
+       "label": "action"
+      },
+      {
+       "id": "13977471-n",
+       "label": "being"
+      },
+      {
+       "id": "13943045-n",
+       "label": "cleavage"
+      }
+     ]
+    },
+    {
+     "id": "14057659-n",
+     "label": "physical condition",
+     "siblings": [
+      {
+       "id": "14597894-n",
+       "label": "absolution"
+      },
+      {
+       "id": "80258799-n",
+       "label": "anchorage"
+      },
+      {
+       "id": "13961932-n",
+       "label": "astigmatism"
+      }
+     ]
+    },
+    {
+     "id": "14075399-n",
+     "label": "pathological state",
+     "siblings": [
+      {
+       "id": "14525310-n",
+       "label": "abnormality"
+      },
+      {
+       "id": "14037896-n",
+       "label": "acathexia"
+      },
+      {
+       "id": "14086207-n",
+       "label": "addiction"
+      }
+     ]
+    },
+    {
+     "id": "14075528-n",
+     "label": "ill health",
+     "siblings": []
+    },
+    {
+     "id": "14085287-n",
+     "label": "illness",
+     "siblings": [
+      {
+       "id": "14236681-n",
+       "label": "affliction"
+      },
+      {
+       "id": "14086047-n",
+       "label": "biliousness"
+      },
+      {
+       "id": "14077199-n",
+       "label": "dyscrasia"
+      }
+     ]
+    },
+    {
+     "id": "14093842-n",
+     "label": "disease",
+     "siblings": [
+      {
+       "id": "14088814-n",
+       "label": "ague"
+      },
+      {
+       "id": "14089175-n",
+       "label": "amyloidosis"
+      },
+      {
+       "id": "14089385-n",
+       "label": "anuresis"
+      }
+     ]
+    },
+    {
+     "id": "14145535-n",
+     "label": "communicable disease",
+     "siblings": [
+      {
+       "id": "14099752-n",
+       "label": "Kawasaki disease"
+      },
+      {
+       "id": "14101602-n",
+       "label": "Marseilles fever"
+      },
+      {
+       "id": "14101903-n",
+       "label": "Meniere's disease"
+      }
+     ]
+    },
+    {
+     "id": "14145717-n",
+     "label": "contagious disease",
+     "siblings": [
+      {
+       "id": "14168983-n",
+       "label": "cold"
+      },
+      {
+       "id": "14150693-n",
+       "label": "infectious disease"
+      }
+     ]
+    },
+    {
+     "id": "14156641-n",
+     "label": "venereal disease",
+     "siblings": [
+      {
+       "id": "14148413-n",
+       "label": "Vincent's angina"
+      },
+      {
+       "id": "85935644-n",
+       "label": "coronavirus disease"
+      },
+      {
+       "id": "14146992-n",
+       "label": "diphtheria"
+      }
+     ]
+    },
+    {
+     "id": "14157467-n",
+     "label": "syphilis",
+     "siblings": [
+      {
+       "id": "14199061-n",
+       "label": "chlamydia"
+      },
+      {
+       "id": "14156006-n",
+       "label": "genital herpes"
+      },
+      {
+       "id": "14157025-n",
+       "label": "gonorrhea"
+      }
+     ]
+    },
+    {
+     "id": "14158547-n",
+     "label": "neurosyphilis",
+     "siblings": [
+      {
+       "id": "14157833-n",
+       "label": "primary syphilis"
+      },
+      {
+       "id": "14157964-n",
+       "label": "secondary syphilis"
+      },
+      {
+       "id": "14158105-n",
+       "label": "tertiary syphilis"
+      }
+     ]
+    },
+    {
+     "id": "14158301-n",
+     "label": "tabes dorsalis",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.cognition",
+   "depth": 14,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00023280-n",
+     "label": "psychological feature",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      }
+     ]
+    },
+    {
+     "id": "00023451-n",
+     "label": "cognition",
+     "siblings": [
+      {
+       "id": "00023953-n",
+       "label": "motivation"
+      }
+     ]
+    },
+    {
+     "id": "05817200-n",
+     "label": "content",
+     "siblings": [
+      {
+       "id": "05624029-n",
+       "label": "ability"
+      },
+      {
+       "id": "06202938-n",
+       "label": "attitude"
+      },
+      {
+       "id": "05694286-n",
+       "label": "cognitive factor"
+      }
+     ]
+    },
+    {
+     "id": "06008444-n",
+     "label": "knowledge domain",
+     "siblings": [
+      {
+       "id": "05993821-n",
+       "label": "acculturation"
+      },
+      {
+       "id": "05950141-n",
+       "label": "belief"
+      },
+      {
+       "id": "05993172-n",
+       "label": "education"
+      }
+     ]
+    },
+    {
+     "id": "06005806-n",
+     "label": "discipline",
+     "siblings": [
+      {
+       "id": "06006992-n",
+       "label": "region"
+      },
+      {
+       "id": "06008718-n",
+       "label": "scientific knowledge"
+      }
+     ]
+    },
+    {
+     "id": "06008975-n",
+     "label": "science",
+     "siblings": [
+      {
+       "id": "92444030-n",
+       "label": "addiction studies"
+      },
+      {
+       "id": "06007534-n",
+       "label": "allometry"
+      },
+      {
+       "id": "06132970-n",
+       "label": "architecture"
+      }
+     ]
+    },
+    {
+     "id": "06009578-n",
+     "label": "natural science",
+     "siblings": [
+      {
+       "id": "06075622-n",
+       "label": "agrobiology"
+      },
+      {
+       "id": "06075817-n",
+       "label": "agrology"
+      },
+      {
+       "id": "06075369-n",
+       "label": "agronomy"
+      }
+     ]
+    },
+    {
+     "id": "06046810-n",
+     "label": "life science",
+     "siblings": [
+      {
+       "id": "06094057-n",
+       "label": "chemistry"
+      },
+      {
+       "id": "06132733-n",
+       "label": "cosmography"
+      },
+      {
+       "id": "06125083-n",
+       "label": "earth science"
+      }
+     ]
+    },
+    {
+     "id": "06047178-n",
+     "label": "biology",
+     "siblings": [
+      {
+       "id": "06050997-n",
+       "label": "biomedical science"
+      },
+      {
+       "id": "06051131-n",
+       "label": "biometrics"
+      },
+      {
+       "id": "06051336-n",
+       "label": "craniology"
+      }
+     ]
+    },
+    {
+     "id": "06087877-n",
+     "label": "morphology",
+     "siblings": [
+      {
+       "id": "92448526-n",
+       "label": "biodynamics"
+      },
+      {
+       "id": "06075964-n",
+       "label": "biogeography"
+      },
+      {
+       "id": "06076105-n",
+       "label": "botany"
+      }
+     ]
+    },
+    {
+     "id": "06067070-n",
+     "label": "anatomy",
+     "siblings": []
+    },
+    {
+     "id": "06069415-n",
+     "label": "gross anatomy",
+     "siblings": [
+      {
+       "id": "06068675-n",
+       "label": "clinical anatomy"
+      },
+      {
+       "id": "06068832-n",
+       "label": "comparative anatomy"
+      },
+      {
+       "id": "06069090-n",
+       "label": "developmental anatomy"
+      }
+     ]
+    },
+    {
+     "id": "06068962-n",
+     "label": "dental anatomy",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.communication",
+   "depth": 14,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00001930-n",
+     "label": "physical entity",
+     "siblings": [
+      {
+       "id": "00002137-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00002684-n",
+     "label": "object",
+     "siblings": [
+      {
+       "id": "00007347-n",
+       "label": "causal agent"
+      },
+      {
+       "id": "00021007-n",
+       "label": "matter"
+      },
+      {
+       "id": "00029976-n",
+       "label": "process"
+      }
+     ]
+    },
+    {
+     "id": "00003553-n",
+     "label": "whole",
+     "siblings": [
+      {
+       "id": "09261049-n",
+       "label": "catch"
+      },
+      {
+       "id": "03013287-n",
+       "label": "charm"
+      },
+      {
+       "id": "92464675-n",
+       "label": "clanker"
+      }
+     ]
+    },
+    {
+     "id": "00022119-n",
+     "label": "artifact",
+     "siblings": [
+      {
+       "id": "02752958-n",
+       "label": "assembly"
+      },
+      {
+       "id": "00003993-n",
+       "label": "congener"
+      },
+      {
+       "id": "03593583-n",
+       "label": "item"
+      }
+     ]
+    },
+    {
+     "id": "03133774-n",
+     "label": "creation",
+     "siblings": [
+      {
+       "id": "02704252-n",
+       "label": "Americana"
+      },
+      {
+       "id": "02709895-n",
+       "label": "anachronism"
+      },
+      {
+       "id": "02726951-n",
+       "label": "antiquity"
+      }
+     ]
+    },
+    {
+     "id": "04014270-n",
+     "label": "product",
+     "siblings": [
+      {
+       "id": "02746552-n",
+       "label": "art"
+      },
+      {
+       "id": "03042580-n",
+       "label": "classic"
+      },
+      {
+       "id": "03085664-n",
+       "label": "composition"
+      }
+     ]
+    },
+    {
+     "id": "04606723-n",
+     "label": "work",
+     "siblings": [
+      {
+       "id": "02873453-n",
+       "label": "book"
+      },
+      {
+       "id": "02873887-n",
+       "label": "book"
+      },
+      {
+       "id": "02933876-n",
+       "label": "by-product"
+      }
+     ]
+    },
+    {
+     "id": "06601855-n",
+     "label": "publication",
+     "siblings": [
+      {
+       "id": "03382428-n",
+       "label": "follow-up"
+      },
+      {
+       "id": "03490738-n",
+       "label": "handicraft"
+      },
+      {
+       "id": "03591929-n",
+       "label": "ironwork"
+      }
+     ]
+    },
+    {
+     "id": "06422547-n",
+     "label": "book",
+     "siblings": [
+      {
+       "id": "06603723-n",
+       "label": "collection"
+      },
+      {
+       "id": "06602491-n",
+       "label": "impression"
+      },
+      {
+       "id": "06607555-n",
+       "label": "magazine"
+      }
+     ]
+    },
+    {
+     "id": "06429241-n",
+     "label": "reference book",
+     "siblings": [
+      {
+       "id": "06427692-n",
+       "label": "appointment book"
+      },
+      {
+       "id": "06423235-n",
+       "label": "authority"
+      },
+      {
+       "id": "06424253-n",
+       "label": "bestiary"
+      }
+     ]
+    },
+    {
+     "id": "06432944-n",
+     "label": "handbook",
+     "siblings": [
+      {
+       "id": "06438138-n",
+       "label": "annual"
+      },
+      {
+       "id": "06438756-n",
+       "label": "atlas"
+      },
+      {
+       "id": "06424663-n",
+       "label": "cookbook"
+      }
+     ]
+    },
+    {
+     "id": "06434383-n",
+     "label": "guidebook",
+     "siblings": [
+      {
+       "id": "06434286-n",
+       "label": "bible"
+      },
+      {
+       "id": "06433328-n",
+       "label": "manual"
+      },
+      {
+       "id": "06435139-n",
+       "label": "reckoner"
+      }
+     ]
+    },
+    {
+     "id": "06435021-n",
+     "label": "travel guidebook",
+     "siblings": [
+      {
+       "id": "06434555-n",
+       "label": "field guide"
+      },
+      {
+       "id": "06434733-n",
+       "label": "roadbook"
+      }
+     ]
+    },
+    {
+     "id": "06434876-n",
+     "label": "baedeker",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.possession",
+   "depth": 14,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00032220-n",
+     "label": "relation",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      }
+     ]
+    },
+    {
+     "id": "00032912-n",
+     "label": "possession",
+     "siblings": [
+      {
+       "id": "13833622-n",
+       "label": "affinity"
+      },
+      {
+       "id": "13804981-n",
+       "label": "association"
+      },
+      {
+       "id": "13859040-n",
+       "label": "business relation"
+      }
+     ]
+    },
+    {
+     "id": "13350663-n",
+     "label": "assets",
+     "siblings": [
+      {
+       "id": "13350511-n",
+       "label": "circumstances"
+      },
+      {
+       "id": "13417227-n",
+       "label": "liabilities"
+      },
+      {
+       "id": "13265007-n",
+       "label": "property"
+      }
+     ]
+    },
+    {
+     "id": "13352213-n",
+     "label": "sum",
+     "siblings": [
+      {
+       "id": "13428381-n",
+       "label": "accounts receivable"
+      },
+      {
+       "id": "13374622-n",
+       "label": "capital"
+      },
+      {
+       "id": "13375435-n",
+       "label": "capital"
+      }
+     ]
+    },
+    {
+     "id": "13275704-n",
+     "label": "gain",
+     "siblings": [
+      {
+       "id": "13397064-n",
+       "label": "advance"
+      },
+      {
+       "id": "13290706-n",
+       "label": "cash surrender value"
+      },
+      {
+       "id": "13290913-n",
+       "label": "contribution"
+      }
+     ]
+    },
+    {
+     "id": "13275884-n",
+     "label": "financial gain",
+     "siblings": [
+      {
+       "id": "13279724-n",
+       "label": "paper profit"
+      }
+     ]
+    },
+    {
+     "id": "13276044-n",
+     "label": "income",
+     "siblings": [
+      {
+       "id": "13332852-n",
+       "label": "capital gain"
+      },
+      {
+       "id": "13332701-n",
+       "label": "unearned increment"
+      },
+      {
+       "id": "13280816-n",
+       "label": "winnings"
+      }
+     ]
+    },
+    {
+     "id": "13279261-n",
+     "label": "net income",
+     "siblings": [
+      {
+       "id": "13276893-n",
+       "label": "EBITDA"
+      },
+      {
+       "id": "13280098-n",
+       "label": "cash flow"
+      },
+      {
+       "id": "13276461-n",
+       "label": "disposable income"
+      }
+     ]
+    },
+    {
+     "id": "13387866-n",
+     "label": "accumulation",
+     "siblings": [
+      {
+       "id": "13429196-n",
+       "label": "dividend"
+      },
+      {
+       "id": "13280380-n",
+       "label": "earning per share"
+      },
+      {
+       "id": "13281409-n",
+       "label": "fast buck"
+      }
+     ]
+    },
+    {
+     "id": "13389225-n",
+     "label": "reserve",
+     "siblings": [
+      {
+       "id": "13388243-n",
+       "label": "store"
+      }
+     ]
+    },
+    {
+     "id": "13391187-n",
+     "label": "reserve account",
+     "siblings": [
+      {
+       "id": "13389491-n",
+       "label": "bank"
+      },
+      {
+       "id": "92441528-n",
+       "label": "capital reserve"
+      },
+      {
+       "id": "13390247-n",
+       "label": "fuel level"
+      }
+     ]
+    },
+    {
+     "id": "13390740-n",
+     "label": "hidden reserve",
+     "siblings": [
+      {
+       "id": "13391030-n",
+       "label": "pool"
+      },
+      {
+       "id": "92441227-n",
+       "label": "revaluation reserve"
+      },
+      {
+       "id": "13391388-n",
+       "label": "valuation reserve"
+      }
+     ]
+    },
+    {
+     "id": "13390896-n",
+     "label": "cookie jar reserve",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.act",
+   "depth": 14,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00029677-n",
+     "label": "event",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00031563-n",
+       "label": "group"
+      }
+     ]
+    },
+    {
+     "id": "00030657-n",
+     "label": "act",
+     "siblings": [
+      {
+       "id": "90008911-n",
+       "label": "hackathon"
+      },
+      {
+       "id": "07298313-n",
+       "label": "happening"
+      },
+      {
+       "id": "07337369-n",
+       "label": "makeup"
+      }
+     ]
+    },
+    {
+     "id": "00038116-n",
+     "label": "action",
+     "siblings": [
+      {
+       "id": "00042637-n",
+       "label": "acquiring"
+      },
+      {
+       "id": "00408356-n",
+       "label": "activity"
+      },
+      {
+       "id": "00084080-n",
+       "label": "assumption"
+      }
+     ]
+    },
+    {
+     "id": "01082290-n",
+     "label": "group action",
+     "siblings": [
+      {
+       "id": "00035910-n",
+       "label": "accomplishment"
+      },
+      {
+       "id": "00966680-n",
+       "label": "aggression"
+      },
+      {
+       "id": "00036612-n",
+       "label": "alienation"
+      }
+     ]
+    },
+    {
+     "id": "01125919-n",
+     "label": "social control",
+     "siblings": [
+      {
+       "id": "01184802-n",
+       "label": "action"
+      },
+      {
+       "id": "01232427-n",
+       "label": "assembly"
+      },
+      {
+       "id": "01235962-n",
+       "label": "attendance"
+      }
+     ]
+    },
+    {
+     "id": "01135602-n",
+     "label": "management",
+     "siblings": [
+      {
+       "id": "01153433-n",
+       "label": "appeasement"
+      },
+      {
+       "id": "01126431-n",
+       "label": "auto limitation"
+      },
+      {
+       "id": "01168582-n",
+       "label": "corrections"
+      }
+     ]
+    },
+    {
+     "id": "01140991-n",
+     "label": "authorization",
+     "siblings": [
+      {
+       "id": "01138273-n",
+       "label": "administration"
+      },
+      {
+       "id": "01144840-n",
+       "label": "channelization"
+      },
+      {
+       "id": "01136081-n",
+       "label": "conducting"
+      }
+     ]
+    },
+    {
+     "id": "01141515-n",
+     "label": "license",
+     "siblings": [
+      {
+       "id": "01142151-n",
+       "label": "certification"
+      },
+      {
+       "id": "01142792-n",
+       "label": "commission"
+      },
+      {
+       "id": "01143160-n",
+       "label": "delegating"
+      }
+     ]
+    },
+    {
+     "id": "01144162-n",
+     "label": "allowance",
+     "siblings": [
+      {
+       "id": "01143914-n",
+       "label": "clearance"
+      },
+      {
+       "id": "01144050-n",
+       "label": "conge"
+      },
+      {
+       "id": "01144335-n",
+       "label": "dispensation"
+      }
+     ]
+    },
+    {
+     "id": "01073014-n",
+     "label": "tolerance",
+     "siblings": []
+    },
+    {
+     "id": "01073137-n",
+     "label": "lenience",
+     "siblings": []
+    },
+    {
+     "id": "01073335-n",
+     "label": "clemency",
+     "siblings": []
+    },
+    {
+     "id": "01251862-n",
+     "label": "amnesty",
+     "siblings": [
+      {
+       "id": "01168409-n",
+       "label": "commutation"
+      },
+      {
+       "id": "01261259-n",
+       "label": "quarter"
+      },
+      {
+       "id": "01261714-n",
+       "label": "reprieve"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.group",
+   "depth": 13,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00031563-n",
+     "label": "group",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      }
+     ]
+    },
+    {
+     "id": "07967506-n",
+     "label": "social group",
+     "siblings": [
+      {
+       "id": "14608290-n",
+       "label": "actinoid"
+      },
+      {
+       "id": "07955013-n",
+       "label": "arrangement"
+      },
+      {
+       "id": "08006819-n",
+       "label": "association"
+      }
+     ]
+    },
+    {
+     "id": "08024893-n",
+     "label": "organization",
+     "siblings": [
+      {
+       "id": "08496106-n",
+       "label": "Jewry"
+      },
+      {
+       "id": "84105760-n",
+       "label": "artworld"
+      },
+      {
+       "id": "07981699-n",
+       "label": "body"
+      }
+     ]
+    },
+    {
+     "id": "08206589-n",
+     "label": "unit",
+     "siblings": [
+      {
+       "id": "08488196-n",
+       "label": "Girl Scouts"
+      },
+      {
+       "id": "08025814-n",
+       "label": "International Olympic Committee"
+      },
+      {
+       "id": "08053422-n",
+       "label": "Orange Order"
+      }
+     ]
+    },
+    {
+     "id": "08094128-n",
+     "label": "administrative unit",
+     "siblings": [
+      {
+       "id": "08289882-n",
+       "label": "combination"
+      },
+      {
+       "id": "08094547-n",
+       "label": "company"
+      },
+      {
+       "id": "08290088-n",
+       "label": "crew"
+      }
+     ]
+    },
+    {
+     "id": "08237635-n",
+     "label": "division",
+     "siblings": [
+      {
+       "id": "08160486-n",
+       "label": "Inland Revenue"
+      },
+      {
+       "id": "08170773-n",
+       "label": "Ordnance Survey"
+      },
+      {
+       "id": "08502840-n",
+       "label": "Russian agency"
+      }
+     ]
+    },
+    {
+     "id": "08131836-n",
+     "label": "department",
+     "siblings": [
+      {
+       "id": "08418205-n",
+       "label": "branch"
+      }
+     ]
+    },
+    {
+     "id": "08136796-n",
+     "label": "government department",
+     "siblings": [
+      {
+       "id": "08132179-n",
+       "label": "academic department"
+      },
+      {
+       "id": "08135014-n",
+       "label": "business department"
+      },
+      {
+       "id": "08137054-n",
+       "label": "payroll"
+      }
+     ]
+    },
+    {
+     "id": "08139116-n",
+     "label": "federal department",
+     "siblings": [
+      {
+       "id": "08138842-n",
+       "label": "Special Branch"
+      },
+      {
+       "id": "08138984-n",
+       "label": "State Department"
+      },
+      {
+       "id": "08366475-n",
+       "label": "admiralty"
+      }
+     ]
+    },
+    {
+     "id": "08140150-n",
+     "label": "executive department",
+     "siblings": []
+    },
+    {
+     "id": "08154738-n",
+     "label": "Department of State",
+     "siblings": [
+      {
+       "id": "08145946-n",
+       "label": "Department of Agriculture"
+      },
+      {
+       "id": "08146250-n",
+       "label": "Department of Commerce"
+      },
+      {
+       "id": "08161532-n",
+       "label": "Department of Commerce and Labor"
+      }
+     ]
+    },
+    {
+     "id": "08155079-n",
+     "label": "Foggy Bottom",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.substance",
+   "depth": 13,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00001930-n",
+     "label": "physical entity",
+     "siblings": [
+      {
+       "id": "00002137-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00021007-n",
+     "label": "matter",
+     "siblings": [
+      {
+       "id": "00007347-n",
+       "label": "causal agent"
+      },
+      {
+       "id": "00002684-n",
+       "label": "object"
+      },
+      {
+       "id": "00029976-n",
+       "label": "process"
+      }
+     ]
+    },
+    {
+     "id": "00019793-n",
+     "label": "substance",
+     "siblings": [
+      {
+       "id": "14606715-n",
+       "label": "antimatter"
+      },
+      {
+       "id": "14606400-n",
+       "label": "dark matter"
+      },
+      {
+       "id": "15134312-n",
+       "label": "emanation"
+      }
+     ]
+    },
+    {
+     "id": "14604877-n",
+     "label": "material",
+     "siblings": [
+      {
+       "id": "14747240-n",
+       "label": "activator"
+      },
+      {
+       "id": "14643403-n",
+       "label": "atom"
+      },
+      {
+       "id": "05271349-n",
+       "label": "body substance"
+      }
+     ]
+    },
+    {
+     "id": "14831008-n",
+     "label": "chemical",
+     "siblings": [
+      {
+       "id": "14823414-n",
+       "label": "abrasive"
+      },
+      {
+       "id": "14621808-n",
+       "label": "absorbate"
+      },
+      {
+       "id": "14726577-n",
+       "label": "adhesive material"
+      }
+     ]
+    },
+    {
+     "id": "14842408-n",
+     "label": "compound",
+     "siblings": [
+      {
+       "id": "14732692-n",
+       "label": "Alar"
+      },
+      {
+       "id": "14796346-n",
+       "label": "bactericide"
+      },
+      {
+       "id": "14822501-n",
+       "label": "carbon tetrahalide"
+      }
+     ]
+    },
+    {
+     "id": "14631699-n",
+     "label": "acid",
+     "siblings": [
+      {
+       "id": "14608023-n",
+       "label": "acceptor"
+      },
+      {
+       "id": "14608196-n",
+       "label": "adduct"
+      },
+      {
+       "id": "14844026-n",
+       "label": "allomorph"
+      }
+     ]
+    },
+    {
+     "id": "14763539-n",
+     "label": "carboxylic acid",
+     "siblings": [
+      {
+       "id": "14609228-n",
+       "label": "alkapton"
+      },
+      {
+       "id": "14767468-n",
+       "label": "aminobenzoic acid"
+      },
+      {
+       "id": "14791656-n",
+       "label": "aqua regia"
+      }
+     ]
+    },
+    {
+     "id": "14764406-n",
+     "label": "fatty acid",
+     "siblings": [
+      {
+       "id": "14623348-n",
+       "label": "acetic acid"
+      },
+      {
+       "id": "14799480-n",
+       "label": "benzoic acid"
+      },
+      {
+       "id": "92463583-n",
+       "label": "dicarboxylic acid"
+      }
+     ]
+    },
+    {
+     "id": "14765094-n",
+     "label": "unsaturated fatty acid",
+     "siblings": [
+      {
+       "id": "14764766-n",
+       "label": "saturated fatty acid"
+      },
+      {
+       "id": "14765303-n",
+       "label": "trans fatty acid"
+      }
+     ]
+    },
+    {
+     "id": "14765909-n",
+     "label": "polyunsaturated fatty acid",
+     "siblings": [
+      {
+       "id": "14871980-n",
+       "label": "eleostearic acid"
+      },
+      {
+       "id": "92420809-n",
+       "label": "hydroxynervonic acid"
+      },
+      {
+       "id": "14765653-n",
+       "label": "monounsaturated fatty acid"
+      }
+     ]
+    },
+    {
+     "id": "14766207-n",
+     "label": "omega-3 fatty acid",
+     "siblings": [
+      {
+       "id": "14962081-n",
+       "label": "linoleic acid"
+      },
+      {
+       "id": "14766450-n",
+       "label": "omega-6 fatty acid"
+      }
+     ]
+    },
+    {
+     "id": "14633621-n",
+     "label": "alpha-linolenic acid",
+     "siblings": [
+      {
+       "id": "14862070-n",
+       "label": "docosahexaenoic acid"
+      },
+      {
+       "id": "14871824-n",
+       "label": "eicosapentaenoic acid"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.person",
+   "depth": 13,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00023280-n",
+     "label": "psychological feature",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      }
+     ]
+    },
+    {
+     "id": "00023451-n",
+     "label": "cognition",
+     "siblings": [
+      {
+       "id": "00023953-n",
+       "label": "motivation"
+      }
+     ]
+    },
+    {
+     "id": "05817200-n",
+     "label": "content",
+     "siblings": [
+      {
+       "id": "05624029-n",
+       "label": "ability"
+      },
+      {
+       "id": "06202938-n",
+       "label": "attitude"
+      },
+      {
+       "id": "05694286-n",
+       "label": "cognitive factor"
+      }
+     ]
+    },
+    {
+     "id": "05950141-n",
+     "label": "belief",
+     "siblings": [
+      {
+       "id": "05993821-n",
+       "label": "acculturation"
+      },
+      {
+       "id": "05993172-n",
+       "label": "education"
+      },
+      {
+       "id": "05993469-n",
+       "label": "experience"
+      }
+     ]
+    },
+    {
+     "id": "09527267-n",
+     "label": "spiritual being",
+     "siblings": [
+      {
+       "id": "05954938-n",
+       "label": "autotelism"
+      },
+      {
+       "id": "05951737-n",
+       "label": "conviction"
+      },
+      {
+       "id": "05952149-n",
+       "label": "doctrine"
+      }
+     ]
+    },
+    {
+     "id": "09528550-n",
+     "label": "deity",
+     "siblings": [
+      {
+       "id": "09562026-n",
+       "label": "angel"
+      },
+      {
+       "id": "09559695-n",
+       "label": "eon"
+      },
+      {
+       "id": "09563541-n",
+       "label": "fairy"
+      }
+     ]
+    },
+    {
+     "id": "09571032-n",
+     "label": "Greco-Roman deity",
+     "siblings": [
+      {
+       "id": "09609186-n",
+       "label": "Anglo-Saxon deity"
+      },
+      {
+       "id": "09530229-n",
+       "label": "Celtic deity"
+      },
+      {
+       "id": "09556159-n",
+       "label": "Chinese deity"
+      }
+     ]
+    },
+    {
+     "id": "09571761-n",
+     "label": "nymph",
+     "siblings": [
+      {
+       "id": "09601011-n",
+       "label": "Leto"
+      }
+     ]
+    },
+    {
+     "id": "09573254-n",
+     "label": "water nymph",
+     "siblings": [
+      {
+       "id": "09573407-n",
+       "label": "Daphne"
+      },
+      {
+       "id": "09572176-n",
+       "label": "Echo"
+      },
+      {
+       "id": "09572345-n",
+       "label": "Hesperides"
+      }
+     ]
+    },
+    {
+     "id": "09513482-n",
+     "label": "sea nymph",
+     "siblings": [
+      {
+       "id": "09573572-n",
+       "label": "naiad"
+      }
+     ]
+    },
+    {
+     "id": "09573714-n",
+     "label": "Nereid",
+     "siblings": [
+      {
+       "id": "09513340-n",
+       "label": "Calypso"
+      },
+      {
+       "id": "09574028-n",
+       "label": "Oceanid"
+      },
+      {
+       "id": "10621248-n",
+       "label": "Siren"
+      }
+     ]
+    },
+    {
+     "id": "09573887-n",
+     "label": "Thetis",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.phenomenon",
+   "depth": 13,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00001930-n",
+     "label": "physical entity",
+     "siblings": [
+      {
+       "id": "00002137-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00029976-n",
+     "label": "process",
+     "siblings": [
+      {
+       "id": "00007347-n",
+       "label": "causal agent"
+      },
+      {
+       "id": "00021007-n",
+       "label": "matter"
+      },
+      {
+       "id": "00002684-n",
+       "label": "object"
+      }
+     ]
+    },
+    {
+     "id": "00034512-n",
+     "label": "phenomenon",
+     "siblings": [
+      {
+       "id": "13467145-n",
+       "label": "chelation"
+      },
+      {
+       "id": "92440968-n",
+       "label": "constant-volume process"
+      },
+      {
+       "id": "13477079-n",
+       "label": "dealignment"
+      }
+     ]
+    },
+    {
+     "id": "11428673-n",
+     "label": "natural phenomenon",
+     "siblings": [
+      {
+       "id": "11430739-n",
+       "label": "consequence"
+      },
+      {
+       "id": "11428847-n",
+       "label": "levitation"
+      },
+      {
+       "id": "11438252-n",
+       "label": "luck"
+      }
+     ]
+    },
+    {
+     "id": "11439518-n",
+     "label": "physical phenomenon",
+     "siblings": [
+      {
+       "id": "11429173-n",
+       "label": "chemical phenomenon"
+      },
+      {
+       "id": "11437786-n",
+       "label": "geological phenomenon"
+      },
+      {
+       "id": "11438864-n",
+       "label": "organic phenomenon"
+      }
+     ]
+    },
+    {
+     "id": "11472635-n",
+     "label": "energy",
+     "siblings": [
+      {
+       "id": "11445515-n",
+       "label": "acoustic phenomenon"
+      },
+      {
+       "id": "92422925-n",
+       "label": "adiabaticity"
+      },
+      {
+       "id": "11445694-n",
+       "label": "atmospheric phenomenon"
+      }
+     ]
+    },
+    {
+     "id": "11519684-n",
+     "label": "radiation",
+     "siblings": [
+      {
+       "id": "11441936-n",
+       "label": "activation energy"
+      },
+      {
+       "id": "11444514-n",
+       "label": "alternative energy"
+      },
+      {
+       "id": "11446103-n",
+       "label": "atomic energy"
+      }
+     ]
+    },
+    {
+     "id": "11471253-n",
+     "label": "electromagnetic radiation",
+     "siblings": [
+      {
+       "id": "11461657-n",
+       "label": "cosmic radiation"
+      },
+      {
+       "id": "11457691-n",
+       "label": "ionizing radiation"
+      },
+      {
+       "id": "11530485-n",
+       "label": "solar radiation"
+      }
+     ]
+    },
+    {
+     "id": "11441515-n",
+     "label": "actinic radiation",
+     "siblings": [
+      {
+       "id": "11547628-n",
+       "label": "X ray"
+      },
+      {
+       "id": "11448493-n",
+       "label": "beam"
+      },
+      {
+       "id": "11449775-n",
+       "label": "black-body radiation"
+      }
+     ]
+    },
+    {
+     "id": "11494354-n",
+     "label": "light",
+     "siblings": [
+      {
+       "id": "11489881-n",
+       "label": "infrared"
+      },
+      {
+       "id": "11542373-n",
+       "label": "ultraviolet"
+      }
+     ]
+    },
+    {
+     "id": "11448137-n",
+     "label": "beam",
+     "siblings": [
+      {
+       "id": "11453549-n",
+       "label": "candlelight"
+      },
+      {
+       "id": "11460787-n",
+       "label": "corona"
+      },
+      {
+       "id": "11462394-n",
+       "label": "counterglow"
+      }
+     ]
+    },
+    {
+     "id": "11492903-n",
+     "label": "heat ray",
+     "siblings": [
+      {
+       "id": "11493099-n",
+       "label": "high beam"
+      },
+      {
+       "id": "11506081-n",
+       "label": "laser beam"
+      },
+      {
+       "id": "11506174-n",
+       "label": "low beam"
+      }
+     ]
+    },
+    {
+     "id": "11493220-n",
+     "label": "infrared ray",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.food",
+   "depth": 13,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00001930-n",
+     "label": "physical entity",
+     "siblings": [
+      {
+       "id": "00002137-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00021007-n",
+     "label": "matter",
+     "siblings": [
+      {
+       "id": "00007347-n",
+       "label": "causal agent"
+      },
+      {
+       "id": "00002684-n",
+       "label": "object"
+      },
+      {
+       "id": "00029976-n",
+       "label": "process"
+      }
+     ]
+    },
+    {
+     "id": "15071467-n",
+     "label": "solid",
+     "siblings": [
+      {
+       "id": "14606715-n",
+       "label": "antimatter"
+      },
+      {
+       "id": "14606400-n",
+       "label": "dark matter"
+      },
+      {
+       "id": "15134312-n",
+       "label": "emanation"
+      }
+     ]
+    },
+    {
+     "id": "07571428-n",
+     "label": "solid food",
+     "siblings": [
+      {
+       "id": "14907357-n",
+       "label": "crystal"
+      },
+      {
+       "id": "15071734-n",
+       "label": "dry ice"
+      },
+      {
+       "id": "14905454-n",
+       "label": "glass"
+      }
+     ]
+    },
+    {
+     "id": "07721456-n",
+     "label": "produce",
+     "siblings": [
+      {
+       "id": "07637670-n",
+       "label": "baked goods"
+      },
+      {
+       "id": "07718387-n",
+       "label": "breakfast food"
+      },
+      {
+       "id": "07864314-n",
+       "label": "butter"
+      }
+     ]
+    },
+    {
+     "id": "07723196-n",
+     "label": "vegetable",
+     "siblings": [
+      {
+       "id": "07724005-n",
+       "label": "eater"
+      },
+      {
+       "id": "07721676-n",
+       "label": "edible fruit"
+      }
+     ]
+    },
+    {
+     "id": "07724543-n",
+     "label": "legume",
+     "siblings": [
+      {
+       "id": "07734492-n",
+       "label": "artichoke"
+      },
+      {
+       "id": "07734665-n",
+       "label": "artichoke heart"
+      },
+      {
+       "id": "07734958-n",
+       "label": "asparagus"
+      }
+     ]
+    },
+    {
+     "id": "07740688-n",
+     "label": "bean",
+     "siblings": [
+      {
+       "id": "07742648-n",
+       "label": "black-eyed pea"
+      },
+      {
+       "id": "07742071-n",
+       "label": "chickpea"
+      },
+      {
+       "id": "07741231-n",
+       "label": "lentil"
+      }
+     ]
+    },
+    {
+     "id": "07742772-n",
+     "label": "common bean",
+     "siblings": [
+      {
+       "id": "07740921-n",
+       "label": "goa bean"
+      },
+      {
+       "id": "07741018-n",
+       "label": "mung bean"
+      },
+      {
+       "id": "07745461-n",
+       "label": "soy"
+      }
+     ]
+    },
+    {
+     "id": "07743554-n",
+     "label": "fresh bean",
+     "siblings": [
+      {
+       "id": "07743434-n",
+       "label": "black bean"
+      },
+      {
+       "id": "07743717-n",
+       "label": "flageolet"
+      },
+      {
+       "id": "07743353-n",
+       "label": "frijole"
+      }
+     ]
+    },
+    {
+     "id": "07744780-n",
+     "label": "shell bean",
+     "siblings": [
+      {
+       "id": "07743844-n",
+       "label": "green bean"
+      },
+      {
+       "id": "07744684-n",
+       "label": "wax bean"
+      }
+     ]
+    },
+    {
+     "id": "07744976-n",
+     "label": "lima bean",
+     "siblings": [
+      {
+       "id": "07745360-n",
+       "label": "fava bean"
+      },
+      {
+       "id": "07745804-n",
+       "label": "green soybean"
+      },
+      {
+       "id": "07745201-n",
+       "label": "sieva bean"
+      }
+     ]
+    },
+    {
+     "id": "07745118-n",
+     "label": "Fordhooks",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.plant",
+   "depth": 13,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00029677-n",
+     "label": "event",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00031563-n",
+       "label": "group"
+      }
+     ]
+    },
+    {
+     "id": "00030657-n",
+     "label": "act",
+     "siblings": [
+      {
+       "id": "90008911-n",
+       "label": "hackathon"
+      },
+      {
+       "id": "07298313-n",
+       "label": "happening"
+      },
+      {
+       "id": "07337369-n",
+       "label": "makeup"
+      }
+     ]
+    },
+    {
+     "id": "00038116-n",
+     "label": "action",
+     "siblings": [
+      {
+       "id": "00042637-n",
+       "label": "acquiring"
+      },
+      {
+       "id": "00408356-n",
+       "label": "activity"
+      },
+      {
+       "id": "00084080-n",
+       "label": "assumption"
+      }
+     ]
+    },
+    {
+     "id": "01082290-n",
+     "label": "group action",
+     "siblings": [
+      {
+       "id": "00035910-n",
+       "label": "accomplishment"
+      },
+      {
+       "id": "00966680-n",
+       "label": "aggression"
+      },
+      {
+       "id": "00036612-n",
+       "label": "alienation"
+      }
+     ]
+    },
+    {
+     "id": "01108713-n",
+     "label": "transaction",
+     "siblings": [
+      {
+       "id": "01184802-n",
+       "label": "action"
+      },
+      {
+       "id": "01232427-n",
+       "label": "assembly"
+      },
+      {
+       "id": "01235962-n",
+       "label": "attendance"
+      }
+     ]
+    },
+    {
+     "id": "01092370-n",
+     "label": "commerce",
+     "siblings": [
+      {
+       "id": "01109264-n",
+       "label": "affairs"
+      },
+      {
+       "id": "92437217-n",
+       "label": "agiotage"
+      },
+      {
+       "id": "01113038-n",
+       "label": "borrowing"
+      }
+     ]
+    },
+    {
+     "id": "01096649-n",
+     "label": "commercial enterprise",
+     "siblings": [
+      {
+       "id": "01108620-n",
+       "label": "carriage trade"
+      },
+      {
+       "id": "01114977-n",
+       "label": "distribution"
+      },
+      {
+       "id": "01094898-n",
+       "label": "e-commerce"
+      }
+     ]
+    },
+    {
+     "id": "00925258-n",
+     "label": "industry",
+     "siblings": [
+      {
+       "id": "01103234-n",
+       "label": "advertising"
+      },
+      {
+       "id": "01106311-n",
+       "label": "agribusiness"
+      },
+      {
+       "id": "00621664-n",
+       "label": "butchery"
+      }
+     ]
+    },
+    {
+     "id": "00915536-n",
+     "label": "production",
+     "siblings": [
+      {
+       "id": "00915258-n",
+       "label": "cottage industry"
+      },
+      {
+       "id": "00925616-n",
+       "label": "industrialization"
+      }
+     ]
+    },
+    {
+     "id": "00916463-n",
+     "label": "output",
+     "siblings": [
+      {
+       "id": "00924944-n",
+       "label": "boring"
+      },
+      {
+       "id": "00916760-n",
+       "label": "breeding"
+      },
+      {
+       "id": "00916971-n",
+       "label": "brewing"
+      }
+     ]
+    },
+    {
+     "id": "13106624-n",
+     "label": "crop",
+     "siblings": []
+    },
+    {
+     "id": "13107513-n",
+     "label": "fruitage",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.attribute",
+   "depth": 12,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00029677-n",
+     "label": "event",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00031563-n",
+       "label": "group"
+      }
+     ]
+    },
+    {
+     "id": "00030657-n",
+     "label": "act",
+     "siblings": [
+      {
+       "id": "90008911-n",
+       "label": "hackathon"
+      },
+      {
+       "id": "07298313-n",
+       "label": "happening"
+      },
+      {
+       "id": "07337369-n",
+       "label": "makeup"
+      }
+     ]
+    },
+    {
+     "id": "00408356-n",
+     "label": "activity",
+     "siblings": [
+      {
+       "id": "00042637-n",
+       "label": "acquiring"
+      },
+      {
+       "id": "00038116-n",
+       "label": "action"
+      },
+      {
+       "id": "00084080-n",
+       "label": "assumption"
+      }
+     ]
+    },
+    {
+     "id": "00734044-n",
+     "label": "wrongdoing",
+     "siblings": [
+      {
+       "id": "00549363-n",
+       "label": "acting"
+      },
+      {
+       "id": "01210099-n",
+       "label": "aid"
+      },
+      {
+       "id": "00787849-n",
+       "label": "attempt"
+      }
+     ]
+    },
+    {
+     "id": "00746303-n",
+     "label": "transgression",
+     "siblings": [
+      {
+       "id": "00734615-n",
+       "label": "brutalization"
+      },
+      {
+       "id": "00766841-n",
+       "label": "champerty"
+      },
+      {
+       "id": "00740264-n",
+       "label": "dereliction"
+      }
+     ]
+    },
+    {
+     "id": "00758433-n",
+     "label": "sin",
+     "siblings": [
+      {
+       "id": "00746729-n",
+       "label": "abomination"
+      },
+      {
+       "id": "00768966-n",
+       "label": "crime"
+      },
+      {
+       "id": "00748164-n",
+       "label": "depravity"
+      }
+     ]
+    },
+    {
+     "id": "00759083-n",
+     "label": "mortal sin",
+     "siblings": [
+      {
+       "id": "00758690-n",
+       "label": "actual sin"
+      },
+      {
+       "id": "00758272-n",
+       "label": "fall"
+      },
+      {
+       "id": "00758836-n",
+       "label": "original sin"
+      }
+     ]
+    },
+    {
+     "id": "00759528-n",
+     "label": "pride",
+     "siblings": [
+      {
+       "id": "00759878-n",
+       "label": "avarice"
+      },
+      {
+       "id": "00759688-n",
+       "label": "envy"
+      },
+      {
+       "id": "00760539-n",
+       "label": "gluttony"
+      }
+     ]
+    },
+    {
+     "id": "04895107-n",
+     "label": "arrogance",
+     "siblings": []
+    },
+    {
+     "id": "04896357-n",
+     "label": "snobbery",
+     "siblings": [
+      {
+       "id": "04895463-n",
+       "label": "condescension"
+      },
+      {
+       "id": "04895705-n",
+       "label": "contemptuousness"
+      },
+      {
+       "id": "04895898-n",
+       "label": "hubris"
+      }
+     ]
+    },
+    {
+     "id": "04896532-n",
+     "label": "clannishness",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.body",
+   "depth": 12,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00001930-n",
+     "label": "physical entity",
+     "siblings": [
+      {
+       "id": "00002137-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00002452-n",
+     "label": "thing",
+     "siblings": [
+      {
+       "id": "00007347-n",
+       "label": "causal agent"
+      },
+      {
+       "id": "00021007-n",
+       "label": "matter"
+      },
+      {
+       "id": "00002684-n",
+       "label": "object"
+      }
+     ]
+    },
+    {
+     "id": "09408804-n",
+     "label": "part",
+     "siblings": [
+      {
+       "id": "09248053-n",
+       "label": "body of water"
+      },
+      {
+       "id": "09335551-n",
+       "label": "inessential"
+      },
+      {
+       "id": "09390100-n",
+       "label": "necessity"
+      }
+     ]
+    },
+    {
+     "id": "05227735-n",
+     "label": "body part",
+     "siblings": [
+      {
+       "id": "09209933-n",
+       "label": "acicula"
+      },
+      {
+       "id": "09238222-n",
+       "label": "base"
+      },
+      {
+       "id": "09279917-n",
+       "label": "corner"
+      }
+     ]
+    },
+    {
+     "id": "05232895-n",
+     "label": "structure",
+     "siblings": [
+      {
+       "id": "05564576-n",
+       "label": "abdomen"
+      },
+      {
+       "id": "05228942-n",
+       "label": "adnexa"
+      },
+      {
+       "id": "02319677-n",
+       "label": "ambulacrum"
+      }
+     ]
+    },
+    {
+     "id": "05253854-n",
+     "label": "tube",
+     "siblings": [
+      {
+       "id": "05395185-n",
+       "label": "alveolar bed"
+      },
+      {
+       "id": "01907762-n",
+       "label": "apodeme"
+      },
+      {
+       "id": "05453582-n",
+       "label": "aster"
+      }
+     ]
+    },
+    {
+     "id": "05404676-n",
+     "label": "vessel",
+     "siblings": [
+      {
+       "id": "05334172-n",
+       "label": "cochlea"
+      },
+      {
+       "id": "05254400-n",
+       "label": "salpinx"
+      },
+      {
+       "id": "05254139-n",
+       "label": "tubule"
+      }
+     ]
+    },
+    {
+     "id": "05425319-n",
+     "label": "blood vessel",
+     "siblings": []
+    },
+    {
+     "id": "05341325-n",
+     "label": "artery",
+     "siblings": [
+      {
+       "id": "05433487-n",
+       "label": "capillary"
+      },
+      {
+       "id": "05425521-n",
+       "label": "ductus arteriosus"
+      },
+      {
+       "id": "05425929-n",
+       "label": "vasa vasorum"
+      }
+     ]
+    },
+    {
+     "id": "05348754-n",
+     "label": "cerebral artery",
+     "siblings": [
+      {
+       "id": "05342858-n",
+       "label": "alveolar artery"
+      },
+      {
+       "id": "05343398-n",
+       "label": "angular artery"
+      },
+      {
+       "id": "05343519-n",
+       "label": "aorta"
+      }
+     ]
+    },
+    {
+     "id": "05362292-n",
+     "label": "temporal artery",
+     "siblings": [
+      {
+       "id": "05348964-n",
+       "label": "anterior cerebral artery"
+      },
+      {
+       "id": "05349189-n",
+       "label": "middle cerebral artery"
+      },
+      {
+       "id": "05349337-n",
+       "label": "posterior cerebral artery"
+      }
+     ]
+    },
+    {
+     "id": "05362503-n",
+     "label": "anterior temporal artery",
+     "siblings": [
+      {
+       "id": "05362694-n",
+       "label": "intermediate temporal artery"
+      },
+      {
+       "id": "05362889-n",
+       "label": "posterior temporal artery"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.time",
+   "depth": 11,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00033914-n",
+     "label": "measure",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      }
+     ]
+    },
+    {
+     "id": "13597072-n",
+     "label": "fundamental quantity",
+     "siblings": [
+      {
+       "id": "92422856-n",
+       "label": "chronostratigraphic unit"
+      },
+      {
+       "id": "13601032-n",
+       "label": "cordage"
+      },
+      {
+       "id": "13597304-n",
+       "label": "definite quantity"
+      }
+     ]
+    },
+    {
+     "id": "15137796-n",
+     "label": "time period",
+     "siblings": [
+      {
+       "id": "05136466-n",
+       "label": "length"
+      },
+      {
+       "id": "05031420-n",
+       "label": "mass"
+      },
+      {
+       "id": "05018974-n",
+       "label": "temperature"
+      }
+     ]
+    },
+    {
+     "id": "15182001-n",
+     "label": "calendar day",
+     "siblings": [
+      {
+       "id": "84502472-n",
+       "label": "A.M."
+      },
+      {
+       "id": "15255586-n",
+       "label": "Golden Age"
+      },
+      {
+       "id": "15210831-n",
+       "label": "Indian summer"
+      }
+     ]
+    },
+    {
+     "id": "15182185-n",
+     "label": "day",
+     "siblings": [
+      {
+       "id": "15185626-n",
+       "label": "date"
+      },
+      {
+       "id": "15188052-n",
+       "label": "day of the week"
+      }
+     ]
+    },
+    {
+     "id": "15208263-n",
+     "label": "holiday",
+     "siblings": [
+      {
+       "id": "15183149-n",
+       "label": "Admission Day"
+      },
+      {
+       "id": "15215614-n",
+       "label": "American Indian Day"
+      },
+      {
+       "id": "15213340-n",
+       "label": "April Fools'"
+      }
+     ]
+    },
+    {
+     "id": "15186678-n",
+     "label": "feast day",
+     "siblings": [
+      {
+       "id": "15221279-n",
+       "label": "Christmas Eve"
+      },
+      {
+       "id": "15246082-n",
+       "label": "Mesasamkranti"
+      },
+      {
+       "id": "15244670-n",
+       "label": "Ramanavami"
+      }
+     ]
+    },
+    {
+     "id": "15210125-n",
+     "label": "movable feast",
+     "siblings": [
+      {
+       "id": "15221021-n",
+       "label": "Christmas"
+      },
+      {
+       "id": "15218106-n",
+       "label": "Circumcision"
+      },
+      {
+       "id": "15243818-n",
+       "label": "Id al-Adha"
+      }
+     ]
+    },
+    {
+     "id": "15212989-n",
+     "label": "Easter",
+     "siblings": [
+      {
+       "id": "15220763-n",
+       "label": "Passover"
+      }
+     ]
+    },
+    {
+     "id": "15216236-n",
+     "label": "Pasch",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.quantity",
+   "depth": 11,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00033914-n",
+     "label": "measure",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      }
+     ]
+    },
+    {
+     "id": "13597304-n",
+     "label": "definite quantity",
+     "siblings": [
+      {
+       "id": "92422856-n",
+       "label": "chronostratigraphic unit"
+      },
+      {
+       "id": "13601032-n",
+       "label": "cordage"
+      },
+      {
+       "id": "92466752-n",
+       "label": "exposure dose"
+      }
+     ]
+    },
+    {
+     "id": "13603216-n",
+     "label": "number",
+     "siblings": [
+      {
+       "id": "13602668-n",
+       "label": "absolute value"
+      },
+      {
+       "id": "13602801-n",
+       "label": "acid value"
+      },
+      {
+       "id": "13603074-n",
+       "label": "chlorinity"
+      }
+     ]
+    },
+    {
+     "id": "13751538-n",
+     "label": "complex number",
+     "siblings": [
+      {
+       "id": "13615111-n",
+       "label": "Fibonacci number"
+      },
+      {
+       "id": "13750928-n",
+       "label": "addend"
+      },
+      {
+       "id": "05866558-n",
+       "label": "arity"
+      }
+     ]
+    },
+    {
+     "id": "13752012-n",
+     "label": "real number",
+     "siblings": [
+      {
+       "id": "13751842-n",
+       "label": "complex conjugate"
+      },
+      {
+       "id": "13752164-n",
+       "label": "pure imaginary number"
+      }
+     ]
+    },
+    {
+     "id": "13752579-n",
+     "label": "rational number",
+     "siblings": [
+      {
+       "id": "13752694-n",
+       "label": "irrational number"
+      },
+      {
+       "id": "05873468-n",
+       "label": "scalar product"
+      }
+     ]
+    },
+    {
+     "id": "13754218-n",
+     "label": "fraction",
+     "siblings": []
+    },
+    {
+     "id": "13754435-n",
+     "label": "common fraction",
+     "siblings": [
+      {
+       "id": "13758197-n",
+       "label": "complex fraction"
+      },
+      {
+       "id": "13758690-n",
+       "label": "continued fraction"
+      },
+      {
+       "id": "13757940-n",
+       "label": "improper fraction"
+      }
+     ]
+    },
+    {
+     "id": "13758939-n",
+     "label": "one-half",
+     "siblings": [
+      {
+       "id": "13761861-n",
+       "label": "one-billionth"
+      },
+      {
+       "id": "13760280-n",
+       "label": "one-eighth"
+      },
+      {
+       "id": "13759970-n",
+       "label": "one-fifth"
+      }
+     ]
+    },
+    {
+     "id": "13759137-n",
+     "label": "fifty percent",
+     "siblings": [
+      {
+       "id": "13759229-n",
+       "label": "moiety"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.process",
+   "depth": 11,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00023280-n",
+     "label": "psychological feature",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      }
+     ]
+    },
+    {
+     "id": "00023451-n",
+     "label": "cognition",
+     "siblings": [
+      {
+       "id": "00023953-n",
+       "label": "motivation"
+      }
+     ]
+    },
+    {
+     "id": "05817200-n",
+     "label": "content",
+     "siblings": [
+      {
+       "id": "05624029-n",
+       "label": "ability"
+      },
+      {
+       "id": "06202938-n",
+       "label": "attitude"
+      },
+      {
+       "id": "05694286-n",
+       "label": "cognitive factor"
+      }
+     ]
+    },
+    {
+     "id": "05842164-n",
+     "label": "idea",
+     "siblings": [
+      {
+       "id": "05993821-n",
+       "label": "acculturation"
+      },
+      {
+       "id": "05950141-n",
+       "label": "belief"
+      },
+      {
+       "id": "05993172-n",
+       "label": "education"
+      }
+     ]
+    },
+    {
+     "id": "05844071-n",
+     "label": "concept",
+     "siblings": [
+      {
+       "id": "05928753-n",
+       "label": "burden"
+      },
+      {
+       "id": "05843892-n",
+       "label": "cogitation"
+      },
+      {
+       "id": "05921754-n",
+       "label": "figment"
+      }
+     ]
+    },
+    {
+     "id": "05897536-n",
+     "label": "hypothesis",
+     "siblings": [
+      {
+       "id": "05862715-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "92438760-n",
+       "label": "adiaphoron"
+      },
+      {
+       "id": "05847274-n",
+       "label": "category"
+      }
+     ]
+    },
+    {
+     "id": "05898856-n",
+     "label": "model",
+     "siblings": [
+      {
+       "id": "05900703-n",
+       "label": "assumption"
+      },
+      {
+       "id": "05898369-n",
+       "label": "gemmule"
+      },
+      {
+       "id": "06165589-n",
+       "label": "historicism"
+      }
+     ]
+    },
+    {
+     "id": "13583099-n",
+     "label": "stochastic process",
+     "siblings": [
+      {
+       "id": "05899249-n",
+       "label": "Copernican system"
+      },
+      {
+       "id": "05899570-n",
+       "label": "M-theory"
+      },
+      {
+       "id": "05899416-n",
+       "label": "Ptolemaic system"
+      }
+     ]
+    },
+    {
+     "id": "13532710-n",
+     "label": "Markov process",
+     "siblings": [
+      {
+       "id": "13567176-n",
+       "label": "random walk"
+      },
+      {
+       "id": "13582401-n",
+       "label": "stationary stochastic process"
+      }
+     ]
+    },
+    {
+     "id": "13532571-n",
+     "label": "Markov chain",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.location",
+   "depth": 11,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00001930-n",
+     "label": "physical entity",
+     "siblings": [
+      {
+       "id": "00002137-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00002684-n",
+     "label": "object",
+     "siblings": [
+      {
+       "id": "00007347-n",
+       "label": "causal agent"
+      },
+      {
+       "id": "00021007-n",
+       "label": "matter"
+      },
+      {
+       "id": "00029976-n",
+       "label": "process"
+      }
+     ]
+    },
+    {
+     "id": "00003553-n",
+     "label": "whole",
+     "siblings": [
+      {
+       "id": "09261049-n",
+       "label": "catch"
+      },
+      {
+       "id": "03013287-n",
+       "label": "charm"
+      },
+      {
+       "id": "92464675-n",
+       "label": "clanker"
+      }
+     ]
+    },
+    {
+     "id": "00022119-n",
+     "label": "artifact",
+     "siblings": [
+      {
+       "id": "02752958-n",
+       "label": "assembly"
+      },
+      {
+       "id": "00003993-n",
+       "label": "congener"
+      },
+      {
+       "id": "03593583-n",
+       "label": "item"
+      }
+     ]
+    },
+    {
+     "id": "04348764-n",
+     "label": "structure",
+     "siblings": [
+      {
+       "id": "02704252-n",
+       "label": "Americana"
+      },
+      {
+       "id": "02709895-n",
+       "label": "anachronism"
+      },
+      {
+       "id": "02726951-n",
+       "label": "antiquity"
+      }
+     ]
+    },
+    {
+     "id": "03302664-n",
+     "label": "establishment",
+     "siblings": [
+      {
+       "id": "02690680-n",
+       "label": "airdock"
+      },
+      {
+       "id": "02702353-n",
+       "label": "altar"
+      },
+      {
+       "id": "02736218-n",
+       "label": "arcade"
+      }
+     ]
+    },
+    {
+     "id": "03959296-n",
+     "label": "place of business",
+     "siblings": [
+      {
+       "id": "02672515-n",
+       "label": "academy"
+      },
+      {
+       "id": "03579706-n",
+       "label": "institution"
+      },
+      {
+       "id": "03922408-n",
+       "label": "perfumery"
+      }
+     ]
+    },
+    {
+     "id": "03753653-n",
+     "label": "mercantile establishment",
+     "siblings": [
+      {
+       "id": "03418338-n",
+       "label": "gambling house"
+      },
+      {
+       "id": "03511514-n",
+       "label": "health spa"
+      },
+      {
+       "id": "03547907-n",
+       "label": "hotel-casino"
+      }
+     ]
+    },
+    {
+     "id": "03727779-n",
+     "label": "marketplace",
+     "siblings": [
+      {
+       "id": "03123854-n",
+       "label": "country store"
+      },
+      {
+       "id": "03181429-n",
+       "label": "department store"
+      },
+      {
+       "id": "03211126-n",
+       "label": "discount house"
+      }
+     ]
+    },
+    {
+     "id": "03853343-n",
+     "label": "open-air market",
+     "siblings": [
+      {
+       "id": "02687821-n",
+       "label": "agora"
+      },
+      {
+       "id": "08509471-n",
+       "label": "agora"
+      },
+      {
+       "id": "02816780-n",
+       "label": "bazaar"
+      }
+     ]
+    },
+    {
+     "id": "08589445-n",
+     "label": "flea market",
+     "siblings": [
+      {
+       "id": "03327649-n",
+       "label": "farmer's market"
+      },
+      {
+       "id": "04268391-n",
+       "label": "souk"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.event",
+   "depth": 10,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00029677-n",
+     "label": "event",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00031563-n",
+       "label": "group"
+      }
+     ]
+    },
+    {
+     "id": "00030657-n",
+     "label": "act",
+     "siblings": [
+      {
+       "id": "90008911-n",
+       "label": "hackathon"
+      },
+      {
+       "id": "07298313-n",
+       "label": "happening"
+      },
+      {
+       "id": "07337369-n",
+       "label": "makeup"
+      }
+     ]
+    },
+    {
+     "id": "00038116-n",
+     "label": "action",
+     "siblings": [
+      {
+       "id": "00042637-n",
+       "label": "acquiring"
+      },
+      {
+       "id": "00408356-n",
+       "label": "activity"
+      },
+      {
+       "id": "00084080-n",
+       "label": "assumption"
+      }
+     ]
+    },
+    {
+     "id": "00191991-n",
+     "label": "change",
+     "siblings": [
+      {
+       "id": "00035910-n",
+       "label": "accomplishment"
+      },
+      {
+       "id": "00966680-n",
+       "label": "aggression"
+      },
+      {
+       "id": "00036612-n",
+       "label": "alienation"
+      }
+     ]
+    },
+    {
+     "id": "00199979-n",
+     "label": "change of state",
+     "siblings": [
+      {
+       "id": "00164227-n",
+       "label": "about-face"
+      },
+      {
+       "id": "00164451-n",
+       "label": "adulteration"
+      },
+      {
+       "id": "00200556-n",
+       "label": "alteration"
+      }
+     ]
+    },
+    {
+     "id": "00249844-n",
+     "label": "improvement",
+     "siblings": [
+      {
+       "id": "00201093-n",
+       "label": "aeration"
+      },
+      {
+       "id": "00243675-n",
+       "label": "arousal"
+      },
+      {
+       "id": "00262447-n",
+       "label": "beautification"
+      }
+     ]
+    },
+    {
+     "id": "00265209-n",
+     "label": "enrichment",
+     "siblings": [
+      {
+       "id": "00261872-n",
+       "label": "amelioration"
+      },
+      {
+       "id": "92438323-n",
+       "label": "business process reengineering"
+      },
+      {
+       "id": "00251880-n",
+       "label": "cleaning"
+      }
+     ]
+    },
+    {
+     "id": "07449073-n",
+     "label": "fertilization",
+     "siblings": [
+      {
+       "id": "00265372-n",
+       "label": "fortification"
+      }
+     ]
+    },
+    {
+     "id": "07449278-n",
+     "label": "top dressing",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.shape",
+   "depth": 10,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00024444-n",
+     "label": "attribute",
+     "siblings": [
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      },
+      {
+       "id": "00031563-n",
+       "label": "group"
+      }
+     ]
+    },
+    {
+     "id": "00028005-n",
+     "label": "shape",
+     "siblings": [
+      {
+       "id": "04699340-n",
+       "label": "ballast"
+      },
+      {
+       "id": "04624273-n",
+       "label": "character"
+      },
+      {
+       "id": "04638046-n",
+       "label": "cheerfulness"
+      }
+     ]
+    },
+    {
+     "id": "13885383-n",
+     "label": "figure",
+     "siblings": [
+      {
+       "id": "13890113-n",
+       "label": "amorphous shape"
+      },
+      {
+       "id": "13887384-n",
+       "label": "angular shape"
+      },
+      {
+       "id": "13896556-n",
+       "label": "circle"
+      }
+     ]
+    },
+    {
+     "id": "13885789-n",
+     "label": "plane figure",
+     "siblings": [
+      {
+       "id": "13885155-n",
+       "label": "equilateral"
+      },
+      {
+       "id": "13903651-n",
+       "label": "parallel"
+      },
+      {
+       "id": "13885623-n",
+       "label": "pencil"
+      }
+     ]
+    },
+    {
+     "id": "13888765-n",
+     "label": "polygon",
+     "siblings": [
+      {
+       "id": "13895614-n",
+       "label": "conic section"
+      },
+      {
+       "id": "13919891-n",
+       "label": "ellipsoid"
+      },
+      {
+       "id": "13925916-n",
+       "label": "figure eight"
+      }
+     ]
+    },
+    {
+     "id": "13889136-n",
+     "label": "isogon",
+     "siblings": [
+      {
+       "id": "13889448-n",
+       "label": "concave polygon"
+      },
+      {
+       "id": "13889247-n",
+       "label": "convex polygon"
+      },
+      {
+       "id": "13905370-n",
+       "label": "decagon"
+      }
+     ]
+    },
+    {
+     "id": "13889754-n",
+     "label": "regular polygon",
+     "siblings": []
+    },
+    {
+     "id": "13901273-n",
+     "label": "square",
+     "siblings": [
+      {
+       "id": "13902604-n",
+       "label": "equilateral triangle"
+      },
+      {
+       "id": "92471253-n",
+       "label": "regular pentagon"
+      }
+     ]
+    },
+    {
+     "id": "13901688-n",
+     "label": "quadrate",
+     "siblings": []
+    }
+   ]
+  },
+  {
+   "category": "noun.object",
+   "depth": 10,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00024444-n",
+     "label": "attribute",
+     "siblings": [
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      },
+      {
+       "id": "00031563-n",
+       "label": "group"
+      }
+     ]
+    },
+    {
+     "id": "00028005-n",
+     "label": "shape",
+     "siblings": [
+      {
+       "id": "04699340-n",
+       "label": "ballast"
+      },
+      {
+       "id": "04624273-n",
+       "label": "character"
+      },
+      {
+       "id": "04638046-n",
+       "label": "cheerfulness"
+      }
+     ]
+    },
+    {
+     "id": "13888104-n",
+     "label": "round shape",
+     "siblings": [
+      {
+       "id": "13890113-n",
+       "label": "amorphous shape"
+      },
+      {
+       "id": "13887384-n",
+       "label": "angular shape"
+      },
+      {
+       "id": "13896556-n",
+       "label": "circle"
+      }
+     ]
+    },
+    {
+     "id": "13921893-n",
+     "label": "sphere",
+     "siblings": [
+      {
+       "id": "13886656-n",
+       "label": "bulb"
+      },
+      {
+       "id": "13898609-n",
+       "label": "coil"
+      },
+      {
+       "id": "13895231-n",
+       "label": "cone"
+      }
+     ]
+    },
+    {
+     "id": "13922097-n",
+     "label": "ball",
+     "siblings": [
+      {
+       "id": "13888407-n",
+       "label": "conglomeration"
+      },
+      {
+       "id": "13924278-n",
+       "label": "drop"
+      }
+     ]
+    },
+    {
+     "id": "09312615-n",
+     "label": "globule",
+     "siblings": [
+      {
+       "id": "13924183-n",
+       "label": "bolus"
+      },
+      {
+       "id": "03147782-n",
+       "label": "crystal ball"
+      },
+      {
+       "id": "09302776-n",
+       "label": "fireball"
+      }
+     ]
+    },
+    {
+     "id": "09252616-n",
+     "label": "bubble",
+     "siblings": []
+    },
+    {
+     "id": "09305630-n",
+     "label": "foam",
+     "siblings": [
+      {
+       "id": "09214513-n",
+       "label": "air bubble"
+      },
+      {
+       "id": "09462024-n",
+       "label": "soap bubble"
+      }
+     ]
+    },
+    {
+     "id": "09324750-n",
+     "label": "head",
+     "siblings": [
+      {
+       "id": "09359461-n",
+       "label": "lather"
+      },
+      {
+       "id": "04193311-n",
+       "label": "shaving foam"
+      },
+      {
+       "id": "09462117-n",
+       "label": "soapsuds"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.feeling",
+   "depth": 10,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00024444-n",
+     "label": "attribute",
+     "siblings": [
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      },
+      {
+       "id": "00031563-n",
+       "label": "group"
+      }
+     ]
+    },
+    {
+     "id": "00024900-n",
+     "label": "state",
+     "siblings": [
+      {
+       "id": "04699340-n",
+       "label": "ballast"
+      },
+      {
+       "id": "04624273-n",
+       "label": "character"
+      },
+      {
+       "id": "04638046-n",
+       "label": "cheerfulness"
+      }
+     ]
+    },
+    {
+     "id": "13943868-n",
+     "label": "condition",
+     "siblings": [
+      {
+       "id": "14030430-n",
+       "label": "action"
+      },
+      {
+       "id": "13977471-n",
+       "label": "being"
+      },
+      {
+       "id": "13943045-n",
+       "label": "cleavage"
+      }
+     ]
+    },
+    {
+     "id": "14057659-n",
+     "label": "physical condition",
+     "siblings": [
+      {
+       "id": "14597894-n",
+       "label": "absolution"
+      },
+      {
+       "id": "80258799-n",
+       "label": "anchorage"
+      },
+      {
+       "id": "13961932-n",
+       "label": "astigmatism"
+      }
+     ]
+    },
+    {
+     "id": "14047468-n",
+     "label": "arousal",
+     "siblings": [
+      {
+       "id": "14525310-n",
+       "label": "abnormality"
+      },
+      {
+       "id": "14037896-n",
+       "label": "acathexia"
+      },
+      {
+       "id": "14086207-n",
+       "label": "addiction"
+      }
+     ]
+    },
+    {
+     "id": "14059685-n",
+     "label": "emotional arousal",
+     "siblings": [
+      {
+       "id": "14059525-n",
+       "label": "alertness"
+      },
+      {
+       "id": "14062475-n",
+       "label": "desire"
+      },
+      {
+       "id": "14059838-n",
+       "label": "excitation"
+      }
+     ]
+    },
+    {
+     "id": "14060493-n",
+     "label": "excitement",
+     "siblings": [
+      {
+       "id": "14060021-n",
+       "label": "anger"
+      }
+     ]
+    },
+    {
+     "id": "07526619-n",
+     "label": "fever",
+     "siblings": [
+      {
+       "id": "14060374-n",
+       "label": "fever pitch"
+      },
+      {
+       "id": "92434863-n",
+       "label": "feverishness"
+      },
+      {
+       "id": "14060962-n",
+       "label": "sensation"
+      }
+     ]
+    },
+    {
+     "id": "07526763-n",
+     "label": "buck fever",
+     "siblings": [
+      {
+       "id": "07526865-n",
+       "label": "gold fever"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.relation",
+   "depth": 9,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00032220-n",
+     "label": "relation",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      }
+     ]
+    },
+    {
+     "id": "13837364-n",
+     "label": "magnitude relation",
+     "siblings": [
+      {
+       "id": "13833622-n",
+       "label": "affinity"
+      },
+      {
+       "id": "13804981-n",
+       "label": "association"
+      },
+      {
+       "id": "13859040-n",
+       "label": "business relation"
+      }
+     ]
+    },
+    {
+     "id": "13841419-n",
+     "label": "ratio",
+     "siblings": [
+      {
+       "id": "13837661-n",
+       "label": "proportion"
+      },
+      {
+       "id": "15311467-n",
+       "label": "rate"
+      },
+      {
+       "id": "13837554-n",
+       "label": "scale"
+      }
+     ]
+    },
+    {
+     "id": "13847027-n",
+     "label": "quotient",
+     "siblings": [
+      {
+       "id": "13845088-n",
+       "label": "Mach number"
+      },
+      {
+       "id": "13842212-n",
+       "label": "abundance"
+      },
+      {
+       "id": "13842451-n",
+       "label": "abundance"
+      }
+     ]
+    },
+    {
+     "id": "13837954-n",
+     "label": "proportion",
+     "siblings": []
+    },
+    {
+     "id": "13839738-n",
+     "label": "percentage",
+     "siblings": [
+      {
+       "id": "13840355-n",
+       "label": "batting average"
+      },
+      {
+       "id": "13838283-n",
+       "label": "case-fatality proportion"
+      },
+      {
+       "id": "13838525-n",
+       "label": "case-to-infection proportion"
+      }
+     ]
+    },
+    {
+     "id": "13840763-n",
+     "label": "occupancy rate",
+     "siblings": [
+      {
+       "id": "13839973-n",
+       "label": "absentee rate"
+      },
+      {
+       "id": "13841286-n",
+       "label": "unemployment rate"
+      },
+      {
+       "id": "13841128-n",
+       "label": "vacancy rate"
+      }
+     ]
+    },
+    {
+     "id": "13840948-n",
+     "label": "hospital occupancy",
+     "siblings": [
+      {
+       "id": "13841041-n",
+       "label": "hotel occupancy"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.motive",
+   "depth": 6,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00002137-n",
+     "label": "abstraction",
+     "siblings": [
+      {
+       "id": "00001930-n",
+       "label": "physical entity"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00023280-n",
+     "label": "psychological feature",
+     "siblings": [
+      {
+       "id": "00024444-n",
+       "label": "attribute"
+      },
+      {
+       "id": "00033319-n",
+       "label": "communication"
+      },
+      {
+       "id": "00029677-n",
+       "label": "event"
+      }
+     ]
+    },
+    {
+     "id": "00023953-n",
+     "label": "motivation",
+     "siblings": [
+      {
+       "id": "00023451-n",
+       "label": "cognition"
+      }
+     ]
+    },
+    {
+     "id": "09206590-n",
+     "label": "ethical motive",
+     "siblings": [
+      {
+       "id": "09203156-n",
+       "label": "irrational motive"
+      },
+      {
+       "id": "09201624-n",
+       "label": "life"
+      },
+      {
+       "id": "09207731-n",
+       "label": "psychic energy"
+      }
+     ]
+    },
+    {
+     "id": "09207033-n",
+     "label": "conscience",
+     "siblings": [
+      {
+       "id": "09207565-n",
+       "label": "Inner Light"
+      },
+      {
+       "id": "09206868-n",
+       "label": "hedonism"
+      }
+     ]
+    },
+    {
+     "id": "09207440-n",
+     "label": "sense of shame",
+     "siblings": [
+      {
+       "id": "05621408-n",
+       "label": "superego"
+      },
+      {
+       "id": "09207302-n",
+       "label": "wee small voice"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "category": "noun.Tops",
+   "depth": 5,
+   "spine": [
+    {
+     "id": "00001740-n",
+     "label": "entity",
+     "siblings": []
+    },
+    {
+     "id": "00001930-n",
+     "label": "physical entity",
+     "siblings": [
+      {
+       "id": "00002137-n",
+       "label": "abstraction"
+      },
+      {
+       "id": "04431553-n",
+       "label": "thing"
+      }
+     ]
+    },
+    {
+     "id": "00002684-n",
+     "label": "object",
+     "siblings": [
+      {
+       "id": "00007347-n",
+       "label": "causal agent"
+      },
+      {
+       "id": "00021007-n",
+       "label": "matter"
+      },
+      {
+       "id": "00029976-n",
+       "label": "process"
+      }
+     ]
+    },
+    {
+     "id": "00003553-n",
+     "label": "whole",
+     "siblings": [
+      {
+       "id": "09261049-n",
+       "label": "catch"
+      },
+      {
+       "id": "03013287-n",
+       "label": "charm"
+      },
+      {
+       "id": "92464675-n",
+       "label": "clanker"
+      }
+     ]
+    },
+    {
+     "id": "00022119-n",
+     "label": "artifact",
+     "siblings": [
+      {
+       "id": "02752958-n",
+       "label": "assembly"
+      },
+      {
+       "id": "00003993-n",
+       "label": "congener"
+      },
+      {
+       "id": "03593583-n",
+       "label": "item"
+      }
+     ]
+    },
+    {
+     "id": "00023083-n",
+     "label": "article",
+     "siblings": [
+      {
+       "id": "02704252-n",
+       "label": "Americana"
+      },
+      {
+       "id": "02709895-n",
+       "label": "anachronism"
+      },
+      {
+       "id": "02726951-n",
+       "label": "antiquity"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
