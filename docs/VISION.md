@@ -194,8 +194,11 @@ These outrank cleverness, including mine.
 - **Human-in-the-loop is never mandatory.** Orchestrators buy review out at a
   worse quality-per-cost. Manual review is a min-max lever for when the owner
   feels like it. An idle game that demands attention isn't an idle game.
-- **Never break a save.** Additive forward migrations only. The owner plays their
-  real save; corrupting it loses real progress.
+- **Saves are breakable.** *(Reversed 2026-07-27; see `docs/DECISIONS.md`. The
+  prior rule was "never break a save, additive forward migrations only".)* The
+  owner has said they are fine losing a save at any time, so a migration is a
+  convenience to be written when cheap, not a precondition for shipping. State
+  it in the commit when a change resets saves — silently is still wrong.
 - **Theory-appropriate terminology, always.** The owner is here to learn. Where a
   mechanic simplifies real theory, the simplification is labelled
   (`docs/SIMPLIFICATIONS.md`). The glossary wins unless a decision says otherwise.

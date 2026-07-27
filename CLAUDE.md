@@ -103,10 +103,17 @@ tests for the check script.
   owner would defend it**, not merely present. Drafts are a starting point for
   the owner's passes, never a finished surface.
   *(WordNet glosses shown verbatim are DATA, not prose, and are fine.)*
-- **Never break an existing save.** Every save carries a `version`; older
-  versions run a forward migration, never a reset; never rename or remove a
-  saved field without a migration that preserves it; keep export/import working.
-  When in doubt, migrate additively.
+- **Saves are breakable.** *(Reversed by the owner on 2026-07-27: "i'm
+  completely ok with breaking saves at any time." The previous rule — "never
+  break an existing save, additive forward migrations only" — is void. On
+  record because it shaped the save format and a future session will otherwise
+  assume it still holds.)*
+  Migrations are now **optional**, not mandatory: write one when it is cheap,
+  reset when it is not. Two things still stand, for different reasons —
+  `version` stays on every save so the code can *tell* which format it has, and
+  export/import keeps working because that is how the owner moves a save
+  between devices. Say plainly in the commit message when a change resets saves;
+  a silent reset is still a defect.
 - **Stay theory-faithful — this game is educational.** Every in-game concept
   matches its real definition in `docs/GLOSSARY.md`. Where a mechanic simplifies
   real theory, label the simplification in-game (`docs/SIMPLIFICATIONS.md`). The
