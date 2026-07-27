@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /* build-story.mjs — generate the CYOA beat skeletons from the lane spines.
  *
- * ★ THIS SCRIPT WRITES NO SENTENCES. ★
- * Every `title`, `body` and choice `label` it emits is the empty string, exactly
- * like `src/content/vignettes.ts` ships them. The UI renders a visible ⟨owner⟩
- * marker in their place so an unwritten beat looks unfinished, never quietly
- * fake (CLAUDE.md ★ prose guardrail; VISION.md "Hard rules"). What this script
- * generates is STRUCTURE: ids, junctions, gates, destinations.
+ * THIS SCRIPT GENERATES STRUCTURE ONLY — ids, junctions, gates, destinations.
+ * It writes no sentences, but not for the reason it used to: the ★ prose
+ * guardrail was reversed by the owner on 2026-07-27 (see docs/DECISIONS.md), so
+ * prose is now machine-drafted and owner-edited. It stays out of here because
+ * structure and text move independently — 93 beats collapsed to 27 when the
+ * keying changed, and authored text must survive that. Prose lives in
+ * docs/graph/prose.json and is merged in below.
  *
  * THE SHAPE IT BUILDS
  * -------------------
@@ -97,6 +98,8 @@ const frameFor = (depth, total) => {
 };
 
 const beats = [];
+const byConcept = new Map();   // node id -> the single beat standing there
+let merged = 0;
 for (let li = 0; li < lanes.length; li++) {
   const lane = lanes[li];
   // Start at 1: index 0 is `entity` itself, which the player already has.
@@ -124,19 +127,46 @@ for (let li = 0; li < lanes.length; li++) {
       },
     ];
 
-    beats.push({
-      id: `${lane.category}-${d}`,
-      lane: lane.category,
+    /* ONE BEAT PER CONCEPT, not per (lane, depth).
+     *
+     * This keyed by `${lane}-${depth}` until the continuity review measured
+     * what that produced: "26 beats stand at `entity` and 17 at `abstraction`
+     * — 46% of the corpus at two nodes... this is one sentence rewritten 43
+     * times." Three writers independently opened with the literal 5-gram
+     * "entity covers everything, which is why".
+     *
+     * That was not a writing failure. Every lane starts at `entity`, so the
+     * generator was ASKING for 26 beats about the same concept and there was
+     * no non-identical way to answer. Lanes share their upper reaches — near
+     * the root they are the same few nodes — so a beat belongs to a PLACE, and
+     * the lanes leaving it are its choices.
+     *
+     * It is also the starmap: standing at `entity` you see every lane that
+     * leaves it, which is what the owner asked for in the first place. */
+    const key = node(here.id);
+    const existing = byConcept.get(key);
+    if (existing) {
+      existing.choices.push(...choices);
+      existing.pendingSiblings.push(...next.siblings);
+      existing.lanes.push(lane.category);
+      merged++;
+      continue;
+    }
+    const beat = {
+      id: `c${key}`,
+      lanes: [lane.category],
       laneIndex: li,
       depth: d,
-      at: node(here.id),
+      at: key,
       atLabel: here.label,
       frame: frameFor(d, lane.spine.length),
       title: '', // ← owner, OPTIONAL override of the frame
       body: '',  // ← owner, OPTIONAL override of the frame
       choices,
-      pendingSiblings: next.siblings,
-    });
+      pendingSiblings: [...next.siblings],
+    };
+    byConcept.set(key, beat);
+    beats.push(beat);
   }
 }
 
@@ -169,7 +199,7 @@ for (const b of beats) {
     let key = teachable[offset % teachable.length];
     if (key === undefined) { dropped.choices++; continue; }
     b.choices.push({
-      id: `${b.lane}-${b.depth}-alt${si}`,
+      id: `${b.id}-alt${si}`,
       frame: 'branch',
       label: '', // ← owner, OPTIONAL override of the frame
       to: node(sib.id),
@@ -181,6 +211,53 @@ for (const b of beats) {
   }
   delete b.pendingSiblings;
   delete b.laneIndex;
+}
+
+/* DEDUPE CHOICES WITHIN A MERGED BEAT.
+ *
+ * 26 lanes run through `entity`, and every one of them offers the same three
+ * children, so the merge produced 78 choices at that beat: 26 copies each of
+ * `physical entity`, `abstraction` and `thing`. Near the root the lanes are not
+ * distinct routes at all — they are the same few nodes — and they only diverge
+ * further down.
+ *
+ * Keep one choice per destination, preferring an UNGATED copy: if any lane
+ * reaches a destination without a key, the destination is not gated. Dropping
+ * that preference would invent locks that no lane actually imposes. */
+for (const b of beats) {
+  const best = new Map();
+  for (const c of b.choices) {
+    const prev = best.get(c.to);
+    const ungated = (c.requires?.concepts ?? []).length === 0;
+    if (!prev || (ungated && (prev.requires?.concepts ?? []).length > 0)) best.set(c.to, c);
+  }
+  b.choices = [...best.values()];
+}
+
+/* MERGE THE AUTHORED PROSE.
+ *
+ * docs/graph/prose.json is written by hand. Merging it here rather than
+ * authoring inside this script means regenerating the STRUCTURE never destroys
+ * the TEXT — the two have already moved independently once (93 beats collapsed
+ * to 27 after the structure changed) and will again.
+ *
+ * `⟦word⟧` marks a maskable concept. Everything outside the brackets is always
+ * visible, so the sentence still parses when every concept in it is unread.
+ * See docs/VOICE.md section 4. */
+const PROSE = join(ROOT, 'docs/graph/prose.json');
+const prose = JSON.parse(readFileSync(PROSE, 'utf8'));
+let written = 0;
+for (const b of beats) {
+  // Keyed by LABEL, not by beat id: beat ids embed node ids, and node ids
+  // renumber whenever the concept selection changes — which it is about to,
+  // for connectivity. Labels are unique in the shipped set (build-ontology.mjs
+  // rejects duplicate labels), so they survive a re-selection intact.
+  const p = prose[b.atLabel];
+  if (!p) continue;
+  written++;
+  b.title = p.title ?? '';
+  b.body = p.body ?? '';
+  for (const c of b.choices) if (p.choices?.[c.toLabel]) c.label = p.choices[c.toLabel];
 }
 
 // The real writing load: one line per distinct frame, not one per beat.
@@ -204,7 +281,7 @@ writeFileSync(
 console.log(`beats ................ ${beats.length}`);
 console.log(`lanes ................ ${lanes.length}`);
 console.log(`frames to write ...... ${frames.length}  (${frames.join(', ')})`);
-console.log(`per-beat overrides ... optional, all empty`);
+console.log(`beats with prose ..... ${written} of ${beats.length}`);
 // Never silent: a bounded artifact that does not say what it bounded reads as
 // complete coverage when it is not.
 console.log(

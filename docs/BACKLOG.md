@@ -463,3 +463,7 @@ inherit them by assumption.
 - [ ] The story graph covers 106 of 4,096 concepts. Past that the starmap has no lanes and the board falls back to nothing — measured by walking every dotted lane to exhaustion.
 - [ ] Masked lane labels render as a block texture at dock size; legible as "hidden" but reads more like a swatch than a word. Consider a lighter glyph or per-character spacing.
 - [ ] `docs/graph/story.json` is imported into the bundle (96 KB today, mostly empty strings). When the beat text lands it needs the ontology's lazy-chunk treatment.
+## Overtaken by the 2026-07-27 scope change (were NEXT.md items 2 and 3)
+
+- [ ] **Prove the four gates go red, in writing.** `the-process` audit 2026-07-26: 0 of 4 (`check:align`, `check:core`, `check:vocab`, `play`) has a durable record of being confirmed red, and two have already been caught vacuous. Now five gates — `check:story` was proven red on 2026-07-27 (two sabotages recorded in its header, and it caught a real bug), the other four still have no record. Rule 4 says a check nobody has broken on purpose is assumed vacuous.
+- [ ] **`OWNER_LINES` — the eight ticker milestones.** Wired, reachable, 100% reach, still empty. No longer blocked on the owner: the prose guardrail was reversed 2026-07-27, so agents can draft these and the owner iterates. `docs/TICKER_LINES.md` holds the table and the instruction that matters — "do not write eight independent jokes, write one voice that curdles."

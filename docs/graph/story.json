@@ -2,7 +2,7 @@
  "generatedBy": "scripts/build-story.mjs",
  "note": "All title/body/label fields are owner-written and ship empty by design.",
  "counts": {
-  "beats": 93,
+  "beats": 27,
   "lanes": 26,
   "frames": 5
  },
@@ -15,19 +15,46 @@
  ],
  "beats": [
   {
-   "id": "noun.animal-1",
-   "lane": "noun.animal",
+   "id": "c0",
+   "lanes": [
+    "noun.animal",
+    "noun.artifact",
+    "noun.state",
+    "noun.cognition",
+    "noun.communication",
+    "noun.possession",
+    "noun.act",
+    "noun.group",
+    "noun.substance",
+    "noun.person",
+    "noun.phenomenon",
+    "noun.food",
+    "noun.plant",
+    "noun.attribute",
+    "noun.body",
+    "noun.time",
+    "noun.quantity",
+    "noun.process",
+    "noun.location",
+    "noun.event",
+    "noun.shape",
+    "noun.object",
+    "noun.feeling",
+    "noun.relation",
+    "noun.motive",
+    "noun.Tops"
+   ],
    "depth": 1,
    "at": 0,
    "atLabel": "entity",
    "frame": "arrival",
-   "title": "",
-   "body": "",
+   "title": "Intake",
+   "body": "Everything is ⟦entity⟧ until we say otherwise. It is the one word nobody has asked us to check. Below it the work divides, and the division goes on file under your name.",
    "choices": [
     {
      "id": "noun.animal-1-on",
      "frame": "continue",
-     "label": "",
+     "label": "Take the ⟦physical entity⟧ side",
      "to": 2,
      "toLabel": "physical entity",
      "rel": 0,
@@ -38,11 +65,24 @@
      "effects": {}
     },
     {
-     "id": "noun.animal-1-alt0",
-     "frame": "branch",
-     "label": "",
+     "id": "noun.state-1-on",
+     "frame": "continue",
+     "label": "Take the ⟦abstraction⟧ side",
      "to": 1,
      "toLabel": "abstraction",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c0-alt1",
+     "frame": "branch",
+     "label": "File it as ⟦thing⟧",
+     "to": 3,
+     "toLabel": "thing",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -51,38 +91,32 @@
       "rels": []
      },
      "effects": {}
-    },
-    {
-     "id": "noun.animal-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
     }
    ]
   },
   {
-   "id": "noun.animal-2",
-   "lane": "noun.animal",
+   "id": "c2",
+   "lanes": [
+    "noun.animal",
+    "noun.artifact",
+    "noun.communication",
+    "noun.substance",
+    "noun.phenomenon",
+    "noun.food",
+    "noun.location",
+    "noun.Tops"
+   ],
    "depth": 2,
    "at": 2,
    "atLabel": "physical entity",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Signed Off Upstream",
+   "body": "⟦physical entity⟧ was signed off before you arrived. Everything under it can be weighed, which is why we report on this side and not the other.",
    "choices": [
     {
      "id": "noun.animal-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦causal agent⟧ down",
      "to": 13,
      "toLabel": "causal agent",
      "rel": 0,
@@ -93,46 +127,40 @@
      "effects": {}
     },
     {
-     "id": "noun.animal-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.animal-2-alt1",
-     "frame": "branch",
-     "label": "",
+     "id": "noun.artifact-2-on",
+     "frame": "continue",
+     "label": "Follow ⟦object⟧ down",
      "to": 15,
      "toLabel": "object",
      "rel": 0,
      "requires": {
-      "concepts": [
-       228
-      ],
+      "concepts": [],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.animal-2-alt2",
-     "frame": "branch",
-     "label": "",
+     "id": "noun.substance-2-on",
+     "frame": "continue",
+     "label": "Open ⟦matter⟧",
+     "to": 14,
+     "toLabel": "matter",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.phenomenon-2-on",
+     "frame": "continue",
+     "label": "Open ⟦process⟧",
      "to": 16,
      "toLabel": "process",
      "rel": 0,
      "requires": {
-      "concepts": [
-       6
-      ],
+      "concepts": [],
       "rels": []
      },
      "effects": {}
@@ -140,19 +168,21 @@
    ]
   },
   {
-   "id": "noun.animal-3",
-   "lane": "noun.animal",
+   "id": "c13",
+   "lanes": [
+    "noun.animal"
+   ],
    "depth": 3,
    "at": 13,
    "atLabel": "causal agent",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Whoever Filed It",
+   "body": "⟦causal agent⟧ is whatever made something happen. The machines file causes at a rate we publish weekly. Nothing on the record says who read it.",
    "choices": [
     {
      "id": "noun.animal-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦organism⟧",
      "to": 175,
      "toLabel": "organism",
      "rel": 0,
@@ -163,30 +193,30 @@
      "effects": {}
     },
     {
-     "id": "noun.animal-3-alt0",
+     "id": "c13-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Ask after the ⟦actor⟧",
      "to": 164,
      "toLabel": "actor",
      "rel": 0,
      "requires": {
       "concepts": [
-       44
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.animal-3-alt1",
+     "id": "c13-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Ask after the ⟦agent⟧",
      "to": 165,
      "toLabel": "agent",
      "rel": 0,
      "requires": {
       "concepts": [
-       2048
+       1
       ],
       "rels": []
      },
@@ -195,19 +225,21 @@
    ]
   },
   {
-   "id": "noun.animal-4",
-   "lane": "noun.animal",
+   "id": "c175",
+   "lanes": [
+    "noun.animal"
+   ],
    "depth": 4,
    "at": 175,
    "atLabel": "organism",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Alive Or Filed As Alive",
+   "body": "⟦organism⟧ is the line between alive and not. Below it the machines have been filing for longer than anyone here has been reading.",
    "choices": [
     {
      "id": "noun.animal-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦animal⟧",
      "to": 1799,
      "toLabel": "animal",
      "rel": 0,
@@ -218,37 +250,37 @@
      "effects": {}
     },
     {
-     "id": "noun.animal-4-alt0",
+     "id": "c175-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Split off the ⟦aerobe⟧",
      "to": 1796,
      "toLabel": "aerobe",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.animal-4-alt1",
+     "id": "c175-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Split off the ⟦amphidiploid⟧",
      "to": 1797,
      "toLabel": "amphidiploid",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.animal-4-alt2",
+     "id": "c175-alt2",
      "frame": "branch",
      "label": "",
      "to": 1798,
@@ -256,7 +288,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
@@ -265,76 +297,26 @@
    ]
   },
   {
-   "id": "noun.artifact-1",
-   "lane": "noun.artifact",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.artifact-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.artifact-2",
-   "lane": "noun.artifact",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
+   "id": "c15",
+   "lanes": [
+    "noun.artifact",
+    "noun.communication",
+    "noun.location",
+    "noun.Tops"
+   ],
+   "depth": 3,
+   "at": 15,
+   "atLabel": "object",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Counted Once",
+   "body": "⟦object⟧ is anything you can point at and count once. What sits below was made, and nothing filed says by whom.",
    "choices": [
     {
-     "id": "noun.artifact-2-on",
+     "id": "noun.artifact-3-on",
      "frame": "continue",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
+     "label": "Go down to ⟦whole⟧",
+     "to": 228,
+     "toLabel": "whole",
      "rel": 0,
      "requires": {
       "concepts": [],
@@ -343,41 +325,41 @@
      "effects": {}
     },
     {
-     "id": "noun.artifact-2-alt0",
+     "id": "c15-alt0",
      "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
+     "label": "Keep the ⟦catch⟧",
+     "to": 194,
+     "toLabel": "catch",
      "rel": 0,
      "requires": {
       "concepts": [
-       228
+       1
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.artifact-2-alt1",
+     "id": "c15-alt1",
      "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
+     "label": "Take the ⟦charm⟧ on faith",
+     "to": 195,
+     "toLabel": "charm",
      "rel": 0,
      "requires": {
       "concepts": [
-       6
+       1
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.artifact-2-alt2",
+     "id": "c15-alt2",
      "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
+     "label": "Listen for the ⟦clanker⟧",
+     "to": 196,
+     "toLabel": "clanker",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -390,89 +372,24 @@
    ]
   },
   {
-   "id": "noun.artifact-3",
-   "lane": "noun.artifact",
-   "depth": 3,
-   "at": 15,
-   "atLabel": "object",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.artifact-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 228,
-     "toLabel": "whole",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 194,
-     "toLabel": "catch",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 195,
-     "toLabel": "charm",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 196,
-     "toLabel": "clanker",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.artifact-4",
-   "lane": "noun.artifact",
+   "id": "c228",
+   "lanes": [
+    "noun.artifact",
+    "noun.communication",
+    "noun.location",
+    "noun.Tops"
+   ],
    "depth": 4,
    "at": 228,
    "atLabel": "whole",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Parts, Counted Once",
+   "body": "A ⟦whole⟧ is parts counted once, on the understanding that nobody recounts. Below here the parts stop agreeing on what they belong to.",
    "choices": [
     {
      "id": "noun.artifact-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦artifact⟧",
      "to": 2048,
      "toLabel": "artifact",
      "rel": 0,
@@ -483,81 +400,26 @@
      "effects": {}
     },
     {
-     "id": "noun.artifact-4-alt0",
+     "id": "c228-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Fit it into the ⟦assembly⟧",
      "to": 2049,
      "toLabel": "assembly",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.artifact-4-alt1",
+     "id": "c228-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Match it to a ⟦congener⟧",
      "to": 2050,
      "toLabel": "congener",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.state-1",
-   "lane": "noun.state",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.state-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -570,19 +432,37 @@
    ]
   },
   {
-   "id": "noun.state-2",
-   "lane": "noun.state",
+   "id": "c1",
+   "lanes": [
+    "noun.state",
+    "noun.cognition",
+    "noun.possession",
+    "noun.act",
+    "noun.group",
+    "noun.person",
+    "noun.plant",
+    "noun.attribute",
+    "noun.time",
+    "noun.quantity",
+    "noun.process",
+    "noun.event",
+    "noun.shape",
+    "noun.object",
+    "noun.feeling",
+    "noun.relation",
+    "noun.motive"
+   ],
    "depth": 2,
    "at": 1,
    "atLabel": "abstraction",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Nothing To Weigh",
+   "body": "Nothing under ⟦abstraction⟧ can be lifted or weighed, so the machines file here fastest. Every way down is open. None of them is checked.",
    "choices": [
     {
      "id": "noun.state-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦attribute⟧ down",
      "to": 4,
      "toLabel": "attribute",
      "rel": 0,
@@ -593,191 +473,9 @@
      "effects": {}
     },
     {
-     "id": "noun.state-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       14
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2239
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.state-3",
-   "lane": "noun.state",
-   "depth": 3,
-   "at": 4,
-   "atLabel": "attribute",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.state-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 44,
-     "toLabel": "state",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 30,
-     "toLabel": "ballast",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 31,
-     "toLabel": "character",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 32,
-     "toLabel": "cheerfulness",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.cognition-1",
-   "lane": "noun.cognition",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.cognition-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.cognition-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.cognition-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       246
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.cognition-2",
-   "lane": "noun.cognition",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
      "id": "noun.cognition-2-on",
      "frame": "continue",
-     "label": "",
+     "label": "Follow ⟦psychological feature⟧ down",
      "to": 10,
      "toLabel": "psychological feature",
      "rel": 0,
@@ -788,11 +486,136 @@
      "effects": {}
     },
     {
-     "id": "noun.cognition-2-alt0",
+     "id": "noun.possession-2-on",
+     "frame": "continue",
+     "label": "Follow ⟦relation⟧ down",
+     "to": 11,
+     "toLabel": "relation",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.act-2-on",
+     "frame": "continue",
+     "label": "Follow ⟦event⟧ down",
+     "to": 6,
+     "toLabel": "event",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.group-2-on",
+     "frame": "continue",
+     "label": "Open ⟦group⟧",
+     "to": 7,
+     "toLabel": "group",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.time-2-on",
+     "frame": "continue",
+     "label": "Open ⟦measure⟧",
+     "to": 8,
+     "toLabel": "measure",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c1-alt0",
      "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
+     "label": "Cross to ⟦communication⟧",
+     "to": 5,
+     "toLabel": "communication",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       1
+      ],
+      "rels": []
+     },
+     "effects": {}
+    }
+   ]
+  },
+  {
+   "id": "c4",
+   "lanes": [
+    "noun.state",
+    "noun.shape",
+    "noun.object",
+    "noun.feeling"
+   ],
+   "depth": 3,
+   "at": 4,
+   "atLabel": "attribute",
+   "frame": "descent",
+   "title": "Held Against Nothing",
+   "body": "An ⟦attribute⟧ is what a thing is like, held against nothing in particular. Two ways down are open and both are being filled while you stand here.",
+   "choices": [
+    {
+     "id": "noun.state-3-on",
+     "frame": "continue",
+     "label": "Follow ⟦state⟧ down",
+     "to": 44,
+     "toLabel": "state",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.shape-3-on",
+     "frame": "continue",
+     "label": "Follow ⟦shape⟧ down",
+     "to": 42,
+     "toLabel": "shape",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c4-alt0",
+     "frame": "branch",
+     "label": "Weigh it as ⟦ballast⟧",
+     "to": 30,
+     "toLabel": "ballast",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       1
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c4-alt1",
+     "frame": "branch",
+     "label": "Read it as ⟦character⟧",
+     "to": 31,
+     "toLabel": "character",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -803,30 +626,15 @@
      "effects": {}
     },
     {
-     "id": "noun.cognition-2-alt1",
+     "id": "c4-alt2",
      "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
+     "label": "File it under ⟦cheerfulness⟧",
+     "to": 32,
+     "toLabel": "cheerfulness",
      "rel": 0,
      "requires": {
       "concepts": [
-       2239
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.cognition-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
+       228
       ],
       "rels": []
      },
@@ -835,19 +643,24 @@
    ]
   },
   {
-   "id": "noun.cognition-3",
-   "lane": "noun.cognition",
+   "id": "c10",
+   "lanes": [
+    "noun.cognition",
+    "noun.person",
+    "noun.process",
+    "noun.motive"
+   ],
    "depth": 3,
    "at": 10,
    "atLabel": "psychological feature",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Inside Only",
+   "body": "⟦psychological feature⟧ holds what happens inside and leaves no trace outside. We file it anyway, at the same rate as everything else.",
    "choices": [
     {
      "id": "noun.cognition-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦cognition⟧",
      "to": 124,
      "toLabel": "cognition",
      "rel": 0,
@@ -858,163 +671,39 @@
      "effects": {}
     },
     {
-     "id": "noun.cognition-3-alt0",
-     "frame": "branch",
-     "label": "",
+     "id": "noun.motive-3-on",
+     "frame": "continue",
+     "label": "Go down to ⟦motivation⟧",
      "to": 125,
      "toLabel": "motivation",
      "rel": 0,
      "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.communication-1",
-   "lane": "noun.communication",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.communication-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
       "concepts": [],
       "rels": []
      },
      "effects": {}
-    },
-    {
-     "id": "noun.communication-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       246
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
     }
    ]
   },
   {
-   "id": "noun.communication-2",
-   "lane": "noun.communication",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.communication-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2239
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.communication-3",
-   "lane": "noun.communication",
+   "id": "c11",
+   "lanes": [
+    "noun.possession",
+    "noun.relation"
+   ],
    "depth": 3,
-   "at": 15,
-   "atLabel": "object",
+   "at": 11,
+   "atLabel": "relation",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Between Two Things",
+   "body": "A ⟦relation⟧ is not a thing. It is what sits between two of them, and it is filed as though it were a thing.",
    "choices": [
     {
-     "id": "noun.communication-3-on",
+     "id": "noun.possession-3-on",
      "frame": "continue",
-     "label": "",
-     "to": 228,
-     "toLabel": "whole",
+     "label": "Follow ⟦possession⟧ down",
+     "to": 144,
+     "toLabel": "possession",
      "rel": 0,
      "requires": {
       "concepts": [],
@@ -1023,41 +712,96 @@
      "effects": {}
     },
     {
-     "id": "noun.communication-3-alt0",
+     "id": "noun.relation-3-on",
+     "frame": "continue",
+     "label": "Follow ⟦magnitude relation⟧ down",
+     "to": 138,
+     "toLabel": "magnitude relation",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c11-alt0",
      "frame": "branch",
-     "label": "",
-     "to": 194,
-     "toLabel": "catch",
+     "label": "Trace the ⟦affinity⟧",
+     "to": 126,
+     "toLabel": "affinity",
      "rel": 0,
      "requires": {
       "concepts": [
-       2
+       10
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.communication-3-alt1",
+     "id": "c11-alt2",
      "frame": "branch",
-     "label": "",
-     "to": 195,
-     "toLabel": "charm",
+     "label": "Open the ⟦business relation⟧",
+     "to": 127,
+     "toLabel": "business relation",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       11
+      ],
+      "rels": []
+     },
+     "effects": {}
+    }
+   ]
+  },
+  {
+   "id": "c144",
+   "lanes": [
+    "noun.possession"
+   ],
+   "depth": 4,
+   "at": 144,
+   "atLabel": "possession",
+   "frame": "descent",
+   "title": "Held By Someone",
+   "body": "⟦possession⟧ is a thing with a holder attached. The holder is a field. Nothing checks it.",
+   "choices": [
+    {
+     "id": "noun.possession-4-on",
+     "frame": "continue",
+     "label": "Go down to ⟦assets⟧",
+     "to": 1336,
+     "toLabel": "assets",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c144-alt0",
+     "frame": "branch",
+     "label": "Read the ⟦circumstances⟧",
+     "to": 1337,
+     "toLabel": "circumstances",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       11
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.communication-3-alt2",
+     "id": "c144-alt1",
      "frame": "branch",
-     "label": "",
-     "to": 196,
-     "toLabel": "clanker",
+     "label": "Read the ⟦liabilities⟧",
+     "to": 1338,
+     "toLabel": "liabilities",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -1070,434 +814,24 @@
    ]
   },
   {
-   "id": "noun.communication-4",
-   "lane": "noun.communication",
-   "depth": 4,
-   "at": 228,
-   "atLabel": "whole",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.communication-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2048,
-     "toLabel": "artifact",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2049,
-     "toLabel": "assembly",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       14
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 2050,
-     "toLabel": "congener",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.possession-1",
-   "lane": "noun.possession",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.possession-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.possession-2",
-   "lane": "noun.possession",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.possession-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 11,
-     "toLabel": "relation",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1116
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.possession-3",
-   "lane": "noun.possession",
-   "depth": 3,
-   "at": 11,
-   "atLabel": "relation",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.possession-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 144,
-     "toLabel": "possession",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 126,
-     "toLabel": "affinity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 127,
-     "toLabel": "business relation",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.possession-4",
-   "lane": "noun.possession",
-   "depth": 4,
-   "at": 144,
-   "atLabel": "possession",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.possession-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1336,
-     "toLabel": "assets",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1337,
-     "toLabel": "circumstances",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 1338,
-     "toLabel": "liabilities",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       108
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.act-1",
-   "lane": "noun.act",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.act-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.act-2",
-   "lane": "noun.act",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.act-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1116
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.act-3",
-   "lane": "noun.act",
+   "id": "c6",
+   "lanes": [
+    "noun.act",
+    "noun.plant",
+    "noun.attribute",
+    "noun.event"
+   ],
    "depth": 3,
    "at": 6,
    "atLabel": "event",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Something Happened",
+   "body": "⟦event⟧ means something happened. The record does not say to whom, and the machines are filing under it faster than anyone is reading.",
    "choices": [
     {
      "id": "noun.act-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦act⟧",
      "to": 65,
      "toLabel": "act",
      "rel": 0,
@@ -1508,9 +842,9 @@
      "effects": {}
     },
     {
-     "id": "noun.act-3-alt0",
+     "id": "c6-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Log the ⟦hackathon⟧",
      "to": 66,
      "toLabel": "hackathon",
      "rel": 0,
@@ -1523,30 +857,30 @@
      "effects": {}
     },
     {
-     "id": "noun.act-3-alt1",
+     "id": "c6-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Log the ⟦happening⟧",
      "to": 67,
      "toLabel": "happening",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       11
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.act-3-alt2",
+     "id": "c6-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Log the ⟦makeup⟧",
      "to": 68,
      "toLabel": "makeup",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       124
       ],
       "rels": []
      },
@@ -1555,144 +889,21 @@
    ]
   },
   {
-   "id": "noun.group-1",
-   "lane": "noun.group",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.group-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.group-2",
-   "lane": "noun.group",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.group-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1116
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       500
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.group-3",
-   "lane": "noun.group",
+   "id": "c7",
+   "lanes": [
+    "noun.group"
+   ],
    "depth": 3,
    "at": 7,
    "atLabel": "group",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Filed Together",
+   "body": "A ⟦group⟧ is things filed together. Nothing requires them to have anything in common, and below here most of them do not.",
    "choices": [
     {
      "id": "noun.group-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦social group⟧",
      "to": 96,
      "toLabel": "social group",
      "rel": 0,
@@ -1703,45 +914,45 @@
      "effects": {}
     },
     {
-     "id": "noun.group-3-alt0",
+     "id": "c7-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Separate the ⟦actinoid⟧",
      "to": 75,
      "toLabel": "actinoid",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       11
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.group-3-alt1",
+     "id": "c7-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Keep the ⟦arrangement⟧",
      "to": 76,
      "toLabel": "arrangement",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       124
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.group-3-alt2",
+     "id": "c7-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Keep the ⟦association⟧",
      "to": 77,
      "toLabel": "association",
      "rel": 0,
      "requires": {
       "concepts": [
-       2918
+       65
       ],
       "rels": []
      },
@@ -1750,19 +961,21 @@
    ]
   },
   {
-   "id": "noun.group-4",
-   "lane": "noun.group",
+   "id": "c96",
+   "lanes": [
+    "noun.group"
+   ],
    "depth": 4,
    "at": 96,
    "atLabel": "social group",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "People, Filed",
+   "body": "A ⟦social group⟧ is people, filed. The filing outlives the people and keeps being served.",
    "choices": [
     {
      "id": "noun.group-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦organization⟧",
      "to": 1079,
      "toLabel": "organization",
      "rel": 0,
@@ -1773,9 +986,9 @@
      "effects": {}
     },
     {
-     "id": "noun.group-4-alt0",
+     "id": "c96-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Hold ⟦Jewry⟧ apart",
      "to": 1067,
      "toLabel": "Jewry",
      "rel": 0,
@@ -1788,15 +1001,15 @@
      "effects": {}
     },
     {
-     "id": "noun.group-4-alt1",
+     "id": "c96-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Hold the ⟦artworld⟧ apart",
      "to": 1068,
      "toLabel": "artworld",
      "rel": 0,
      "requires": {
       "concepts": [
-       6
+       124
       ],
       "rels": []
      },
@@ -1805,434 +1018,21 @@
    ]
   },
   {
-   "id": "noun.substance-1",
-   "lane": "noun.substance",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.substance-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.substance-2",
-   "lane": "noun.substance",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.substance-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       500
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.person-1",
-   "lane": "noun.person",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.person-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.person-2",
-   "lane": "noun.person",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.person-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 10,
-     "toLabel": "psychological feature",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       500
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       10
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.person-3",
-   "lane": "noun.person",
-   "depth": 3,
-   "at": 10,
-   "atLabel": "psychological feature",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.person-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 124,
-     "toLabel": "cognition",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 125,
-     "toLabel": "motivation",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2918
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.phenomenon-1",
-   "lane": "noun.phenomenon",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.phenomenon-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.phenomenon-2",
-   "lane": "noun.phenomenon",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.phenomenon-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       10
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.phenomenon-3",
-   "lane": "noun.phenomenon",
+   "id": "c16",
+   "lanes": [
+    "noun.phenomenon"
+   ],
    "depth": 3,
    "at": 16,
    "atLabel": "process",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Still Running",
+   "body": "A ⟦process⟧ has not finished, so nothing about it can be confirmed yet. It is filed as confirmed.",
    "choices": [
     {
      "id": "noun.phenomenon-3-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦phenomenon⟧",
      "to": 246,
      "toLabel": "phenomenon",
      "rel": 0,
@@ -2243,2306 +1043,26 @@
      "effects": {}
     },
     {
-     "id": "noun.phenomenon-3-alt0",
+     "id": "c16-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Follow the ⟦chelation⟧",
      "to": 229,
      "toLabel": "chelation",
      "rel": 0,
      "requires": {
       "concepts": [
-       44
+       190
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.phenomenon-3-alt1",
+     "id": "c16-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Follow the ⟦constant-volume process⟧",
      "to": 230,
      "toLabel": "constant-volume process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       125
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 231,
-     "toLabel": "dealignment",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       13
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.phenomenon-4",
-   "lane": "noun.phenomenon",
-   "depth": 4,
-   "at": 246,
-   "atLabel": "phenomenon",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.phenomenon-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2239,
-     "toLabel": "natural phenomenon",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2235,
-     "toLabel": "consequence",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 2236,
-     "toLabel": "levitation",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1243
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-4-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 2237,
-     "toLabel": "luck",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       175
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.food-1",
-   "lane": "noun.food",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.food-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.food-2",
-   "lane": "noun.food",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.food-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       10
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.food-3",
-   "lane": "noun.food",
-   "depth": 3,
-   "at": 14,
-   "atLabel": "matter",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.food-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 190,
-     "toLabel": "solid",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 180,
-     "toLabel": "antimatter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       125
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 181,
-     "toLabel": "dark matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       13
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 182,
-     "toLabel": "emanation",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.food-4",
-   "lane": "noun.food",
-   "depth": 4,
-   "at": 190,
-   "atLabel": "solid",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.food-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1870,
-     "toLabel": "solid food",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1863,
-     "toLabel": "crystal",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1243
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 1864,
-     "toLabel": "dry ice",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       175
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-4-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 1865,
-     "toLabel": "glass",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.plant-1",
-   "lane": "noun.plant",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.plant-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.plant-2",
-   "lane": "noun.plant",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.plant-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.plant-3",
-   "lane": "noun.plant",
-   "depth": 3,
-   "at": 6,
-   "atLabel": "event",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.plant-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 65,
-     "toLabel": "act",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 66,
-     "toLabel": "hackathon",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       13
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 67,
-     "toLabel": "happening",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 68,
-     "toLabel": "makeup",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.attribute-1",
-   "lane": "noun.attribute",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.attribute-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       124
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.attribute-2",
-   "lane": "noun.attribute",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.attribute-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1336
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.attribute-3",
-   "lane": "noun.attribute",
-   "depth": 3,
-   "at": 6,
-   "atLabel": "event",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.attribute-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 65,
-     "toLabel": "act",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 66,
-     "toLabel": "hackathon",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 67,
-     "toLabel": "happening",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 68,
-     "toLabel": "makeup",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.attribute-4",
-   "lane": "noun.attribute",
-   "depth": 4,
-   "at": 65,
-   "atLabel": "act",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.attribute-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 803,
-     "toLabel": "activity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 802,
-     "toLabel": "acquiring",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-4-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 804,
-     "toLabel": "assumption",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.attribute-5",
-   "lane": "noun.attribute",
-   "depth": 5,
-   "at": 803,
-   "atLabel": "activity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.attribute-5-on",
-     "frame": "continue",
-     "label": "",
-     "to": 4079,
-     "toLabel": "wrongdoing",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-5-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4032,
-     "toLabel": "acting",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       44
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-5-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 4033,
-     "toLabel": "aid",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-5-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 4034,
-     "toLabel": "attempt",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.body-1",
-   "lane": "noun.body",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.body-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.body-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       124
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.body-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       144
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.time-1",
-   "lane": "noun.time",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.time-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       144
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       96
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.time-2",
-   "lane": "noun.time",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.time-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 8,
-     "toLabel": "measure",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1336
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       16
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.time-3",
-   "lane": "noun.time",
-   "depth": 3,
-   "at": 8,
-   "atLabel": "measure",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.time-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 108,
-     "toLabel": "fundamental quantity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 104,
-     "toLabel": "chronostratigraphic unit",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 105,
-     "toLabel": "cordage",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 106,
-     "toLabel": "definite quantity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       246
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.time-4",
-   "lane": "noun.time",
-   "depth": 4,
-   "at": 108,
-   "atLabel": "fundamental quantity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.time-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1123,
-     "toLabel": "time period",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1121,
-     "toLabel": "length",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-4-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 1122,
-     "toLabel": "temperature",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2239
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.quantity-1",
-   "lane": "noun.quantity",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.quantity-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       96
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.quantity-2",
-   "lane": "noun.quantity",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.quantity-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 8,
-     "toLabel": "measure",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       16
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.quantity-3",
-   "lane": "noun.quantity",
-   "depth": 3,
-   "at": 8,
-   "atLabel": "measure",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.quantity-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 106,
-     "toLabel": "definite quantity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 104,
-     "toLabel": "chronostratigraphic unit",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 105,
-     "toLabel": "cordage",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       246
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 107,
-     "toLabel": "exposure dose",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.quantity-4",
-   "lane": "noun.quantity",
-   "depth": 4,
-   "at": 106,
-   "atLabel": "definite quantity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.quantity-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1116,
-     "toLabel": "number",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1112,
-     "toLabel": "absolute value",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       14
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 1113,
-     "toLabel": "acid value",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2239
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-4-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 1114,
-     "toLabel": "chlorinity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.process-1",
-   "lane": "noun.process",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.process-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1870
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.process-2",
-   "lane": "noun.process",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.process-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 10,
-     "toLabel": "psychological feature",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       16
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.process-3",
-   "lane": "noun.process",
-   "depth": 3,
-   "at": 10,
-   "atLabel": "psychological feature",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.process-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 124,
-     "toLabel": "cognition",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 125,
-     "toLabel": "motivation",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       246
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.location-1",
-   "lane": "noun.location",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.location-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1870
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       803
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.location-2",
-   "lane": "noun.location",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.location-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       8
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.location-3",
-   "lane": "noun.location",
-   "depth": 3,
-   "at": 15,
-   "atLabel": "object",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.location-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 228,
-     "toLabel": "whole",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 194,
-     "toLabel": "catch",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 195,
-     "toLabel": "charm",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 196,
-     "toLabel": "clanker",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.location-4",
-   "lane": "noun.location",
-   "depth": 4,
-   "at": 228,
-   "atLabel": "whole",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.location-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2048,
-     "toLabel": "artifact",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2049,
-     "toLabel": "assembly",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 2050,
-     "toLabel": "congener",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.event-1",
-   "lane": "noun.event",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.event-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       803
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.event-2",
-   "lane": "noun.event",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.event-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       8
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.event-3",
-   "lane": "noun.event",
-   "depth": 3,
-   "at": 6,
-   "atLabel": "event",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.event-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 65,
-     "toLabel": "act",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 66,
-     "toLabel": "hackathon",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 67,
-     "toLabel": "happening",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 68,
-     "toLabel": "makeup",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.shape-1",
-   "lane": "noun.shape",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.shape-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.shape-2",
-   "lane": "noun.shape",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.shape-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       8
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.shape-3",
-   "lane": "noun.shape",
-   "depth": 3,
-   "at": 4,
-   "atLabel": "attribute",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.shape-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 42,
-     "toLabel": "shape",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 30,
-     "toLabel": "ballast",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 31,
-     "toLabel": "character",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 32,
-     "toLabel": "cheerfulness",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.shape-4",
-   "lane": "noun.shape",
-   "depth": 4,
-   "at": 42,
-   "atLabel": "shape",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.shape-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 500,
-     "toLabel": "figure",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 495,
-     "toLabel": "amorphous shape",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -4553,26 +1073,68 @@
      "effects": {}
     },
     {
-     "id": "noun.shape-4-alt1",
+     "id": "c16-alt2",
      "frame": "branch",
-     "label": "",
-     "to": 496,
-     "toLabel": "angular shape",
+     "label": "Follow the ⟦dealignment⟧",
+     "to": 231,
+     "toLabel": "dealignment",
      "rel": 0,
      "requires": {
       "concepts": [
-       2048
+       2
+      ],
+      "rels": []
+     },
+     "effects": {}
+    }
+   ]
+  },
+  {
+   "id": "c246",
+   "lanes": [
+    "noun.phenomenon"
+   ],
+   "depth": 4,
+   "at": 246,
+   "atLabel": "phenomenon",
+   "frame": "descent",
+   "title": "Observed, Not Explained",
+   "body": "A ⟦phenomenon⟧ is something observed. Nothing under it is explained, and the record does not distinguish the two.",
+   "choices": [
+    {
+     "id": "noun.phenomenon-4-on",
+     "frame": "continue",
+     "label": "Go down to ⟦natural phenomenon⟧",
+     "to": 2239,
+     "toLabel": "natural phenomenon",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c246-alt0",
+     "frame": "branch",
+     "label": "Take it as ⟦consequence⟧",
+     "to": 2235,
+     "toLabel": "consequence",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       1870
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.shape-4-alt2",
+     "id": "c246-alt1",
      "frame": "branch",
-     "label": "",
-     "to": 497,
-     "toLabel": "circle",
+     "label": "Take it as ⟦levitation⟧",
+     "to": 2236,
+     "toLabel": "levitation",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -4581,25 +1143,42 @@
       "rels": []
      },
      "effects": {}
+    },
+    {
+     "id": "c246-alt2",
+     "frame": "branch",
+     "label": "Take it as ⟦luck⟧",
+     "to": 2237,
+     "toLabel": "luck",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       1
+      ],
+      "rels": []
+     },
+     "effects": {}
     }
    ]
   },
   {
-   "id": "noun.shape-5",
-   "lane": "noun.shape",
-   "depth": 5,
-   "at": 500,
-   "atLabel": "figure",
+   "id": "c14",
+   "lanes": [
+    "noun.food"
+   ],
+   "depth": 3,
+   "at": 14,
+   "atLabel": "matter",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "What It Is Made Of",
+   "body": "⟦matter⟧ is what a thing is made of, before anyone asks what it is for. One way down holds together. The others do not.",
    "choices": [
     {
-     "id": "noun.shape-5-on",
+     "id": "noun.food-3-on",
      "frame": "continue",
-     "label": "",
-     "to": 2918,
-     "toLabel": "plane figure",
+     "label": "Go down to ⟦solid⟧",
+     "to": 190,
+     "toLabel": "solid",
      "rel": 0,
      "requires": {
       "concepts": [],
@@ -4608,81 +1187,26 @@
      "effects": {}
     },
     {
-     "id": "noun.shape-5-alt0",
+     "id": "c14-alt0",
      "frame": "branch",
-     "label": "",
-     "to": 2915,
-     "toLabel": "equilateral",
+     "label": "Follow the ⟦antimatter⟧",
+     "to": 180,
+     "toLabel": "antimatter",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       1116
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.shape-5-alt1",
+     "id": "c14-alt1",
      "frame": "branch",
-     "label": "",
-     "to": 2916,
-     "toLabel": "parallel",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-5-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 2917,
-     "toLabel": "pencil",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2918
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.object-1",
-   "lane": "noun.object",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.object-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
+     "label": "Follow the ⟦dark matter⟧",
+     "to": 181,
+     "toLabel": "dark matter",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -4693,15 +1217,15 @@
      "effects": {}
     },
     {
-     "id": "noun.object-1-alt1",
+     "id": "c14-alt2",
      "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
+     "label": "Follow the ⟦emanation⟧",
+     "to": 182,
+     "toLabel": "emanation",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
@@ -4710,161 +1234,23 @@
    ]
   },
   {
-   "id": "noun.object-2",
-   "lane": "noun.object",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.object-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       506
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.object-3",
-   "lane": "noun.object",
-   "depth": 3,
-   "at": 4,
-   "atLabel": "attribute",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.object-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 42,
-     "toLabel": "shape",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 30,
-     "toLabel": "ballast",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 31,
-     "toLabel": "character",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 32,
-     "toLabel": "cheerfulness",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.object-4",
-   "lane": "noun.object",
+   "id": "c190",
+   "lanes": [
+    "noun.food"
+   ],
    "depth": 4,
-   "at": 42,
-   "atLabel": "shape",
+   "at": 190,
+   "atLabel": "solid",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Holds Its Shape",
+   "body": "⟦solid⟧ holds its shape until something else acts on it. That is the whole definition, and it is the last one down here that fits on a line.",
    "choices": [
     {
-     "id": "noun.object-4-on",
+     "id": "noun.food-4-on",
      "frame": "continue",
-     "label": "",
-     "to": 506,
-     "toLabel": "round shape",
+     "label": "Go down to ⟦solid food⟧",
+     "to": 1870,
+     "toLabel": "solid food",
      "rel": 0,
      "requires": {
       "concepts": [],
@@ -4873,26 +1259,11 @@
      "effects": {}
     },
     {
-     "id": "noun.object-4-alt0",
+     "id": "c190-alt0",
      "frame": "branch",
-     "label": "",
-     "to": 495,
-     "toLabel": "amorphous shape",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 496,
-     "toLabel": "angular shape",
+     "label": "Keep the ⟦crystal⟧",
+     "to": 1863,
+     "toLabel": "crystal",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -4903,51 +1274,11 @@
      "effects": {}
     },
     {
-     "id": "noun.object-4-alt2",
+     "id": "c190-alt1",
      "frame": "branch",
-     "label": "",
-     "to": 497,
-     "toLabel": "circle",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.feeling-1",
-   "lane": "noun.feeling",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.feeling-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
+     "label": "Keep the ⟦dry ice⟧",
+     "to": 1864,
+     "toLabel": "dry ice",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -4958,15 +1289,15 @@
      "effects": {}
     },
     {
-     "id": "noun.feeling-1-alt1",
+     "id": "c190-alt2",
      "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
+     "label": "Keep the ⟦glass⟧",
+     "to": 1865,
+     "toLabel": "glass",
      "rel": 0,
      "requires": {
       "concepts": [
-       42
+       1
       ],
       "rels": []
      },
@@ -4975,21 +1306,23 @@
    ]
   },
   {
-   "id": "noun.feeling-2",
-   "lane": "noun.feeling",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
+   "id": "c65",
+   "lanes": [
+    "noun.attribute"
+   ],
+   "depth": 4,
+   "at": 65,
+   "atLabel": "act",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Someone Did It",
+   "body": "An ⟦act⟧ is an event with someone behind it. The name of the someone is not a field.",
    "choices": [
     {
-     "id": "noun.feeling-2-on",
+     "id": "noun.attribute-4-on",
      "frame": "continue",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
+     "label": "Go down to ⟦activity⟧",
+     "to": 803,
+     "toLabel": "activity",
      "rel": 0,
      "requires": {
       "concepts": [],
@@ -4998,45 +1331,30 @@
      "effects": {}
     },
     {
-     "id": "noun.feeling-2-alt0",
+     "id": "c65-alt0",
      "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
+     "label": "Record the ⟦acquiring⟧",
+     "to": 802,
+     "toLabel": "acquiring",
      "rel": 0,
      "requires": {
       "concepts": [
-       4
+       1
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.feeling-2-alt1",
+     "id": "c65-alt2",
      "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
+     "label": "Record the ⟦assumption⟧",
+     "to": 804,
+     "toLabel": "assumption",
      "rel": 0,
      "requires": {
       "concepts": [
-       506
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1285
+       1
       ],
       "rels": []
      },
@@ -5045,21 +1363,96 @@
    ]
   },
   {
-   "id": "noun.feeling-3",
-   "lane": "noun.feeling",
+   "id": "c803",
+   "lanes": [
+    "noun.attribute"
+   ],
+   "depth": 5,
+   "at": 803,
+   "atLabel": "activity",
+   "frame": "descent",
+   "title": "Kept Doing",
+   "body": "⟦activity⟧ is an act that kept going. Nothing checks whether it should have. It continues below.",
+   "choices": [
+    {
+     "id": "noun.attribute-5-on",
+     "frame": "continue",
+     "label": "Go down to ⟦wrongdoing⟧",
+     "to": 4079,
+     "toLabel": "wrongdoing",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c803-alt0",
+     "frame": "branch",
+     "label": "Set it aside as ⟦acting⟧",
+     "to": 4032,
+     "toLabel": "acting",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       2
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c803-alt1",
+     "frame": "branch",
+     "label": "Set it aside as ⟦aid⟧",
+     "to": 4033,
+     "toLabel": "aid",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       1
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c803-alt2",
+     "frame": "branch",
+     "label": "Set it aside as ⟦attempt⟧",
+     "to": 4034,
+     "toLabel": "attempt",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       1
+      ],
+      "rels": []
+     },
+     "effects": {}
+    }
+   ]
+  },
+  {
+   "id": "c8",
+   "lanes": [
+    "noun.time",
+    "noun.quantity"
+   ],
    "depth": 3,
-   "at": 4,
-   "atLabel": "attribute",
+   "at": 8,
+   "atLabel": "measure",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Against A Scale",
+   "body": "⟦measure⟧ is a thing held against a scale someone agreed on. The agreement is not filed here. Only the number is.",
    "choices": [
     {
-     "id": "noun.feeling-3-on",
+     "id": "noun.time-3-on",
      "frame": "continue",
-     "label": "",
-     "to": 44,
-     "toLabel": "state",
+     "label": "Follow ⟦fundamental quantity⟧ down",
+     "to": 108,
+     "toLabel": "fundamental quantity",
      "rel": 0,
      "requires": {
       "concepts": [],
@@ -5068,26 +1461,24 @@
      "effects": {}
     },
     {
-     "id": "noun.feeling-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 30,
-     "toLabel": "ballast",
+     "id": "noun.quantity-3-on",
+     "frame": "continue",
+     "label": "Follow ⟦definite quantity⟧ down",
+     "to": 106,
+     "toLabel": "definite quantity",
      "rel": 0,
      "requires": {
-      "concepts": [
-       42
-      ],
+      "concepts": [],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.feeling-3-alt1",
+     "id": "c8-alt0",
      "frame": "branch",
-     "label": "",
-     "to": 31,
-     "toLabel": "character",
+     "label": "Take the ⟦chronostratigraphic unit⟧",
+     "to": 104,
+     "toLabel": "chronostratigraphic unit",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -5098,11 +1489,68 @@
      "effects": {}
     },
     {
-     "id": "noun.feeling-3-alt2",
+     "id": "c8-alt1",
      "frame": "branch",
-     "label": "",
-     "to": 32,
-     "toLabel": "cheerfulness",
+     "label": "Take the ⟦cordage⟧",
+     "to": 105,
+     "toLabel": "cordage",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       14
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c8-alt5",
+     "frame": "branch",
+     "label": "Take the ⟦exposure dose⟧",
+     "to": 107,
+     "toLabel": "exposure dose",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       4
+      ],
+      "rels": []
+     },
+     "effects": {}
+    }
+   ]
+  },
+  {
+   "id": "c108",
+   "lanes": [
+    "noun.time"
+   ],
+   "depth": 4,
+   "at": 108,
+   "atLabel": "fundamental quantity",
+   "frame": "descent",
+   "title": "Measured By Itself",
+   "body": "A ⟦fundamental quantity⟧ is measured against nothing but itself. Everything under it inherits that, whether or not it earns it.",
+   "choices": [
+    {
+     "id": "noun.time-4-on",
+     "frame": "continue",
+     "label": "Go down to ⟦time period⟧",
+     "to": 1123,
+     "toLabel": "time period",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c108-alt0",
+     "frame": "branch",
+     "label": "Take the ⟦length⟧",
+     "to": 1121,
+     "toLabel": "length",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -5111,123 +1559,13 @@
       "rels": []
      },
      "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.relation-1",
-   "lane": "noun.relation",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.relation-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
     },
     {
-     "id": "noun.relation-1-alt0",
+     "id": "c108-alt2",
      "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       138
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.relation-2",
-   "lane": "noun.relation",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.relation-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 11,
-     "toLabel": "relation",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       506
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1285
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
+     "label": "Take the ⟦temperature⟧",
+     "to": 1122,
+     "toLabel": "temperature",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -5240,21 +1578,23 @@
    ]
   },
   {
-   "id": "noun.relation-3",
-   "lane": "noun.relation",
-   "depth": 3,
-   "at": 11,
-   "atLabel": "relation",
+   "id": "c106",
+   "lanes": [
+    "noun.quantity"
+   ],
+   "depth": 4,
+   "at": 106,
+   "atLabel": "definite quantity",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Settled Already",
+   "body": "A ⟦definite quantity⟧ is settled before anyone looks at it. Below here the settling stops matching what was settled.",
    "choices": [
     {
-     "id": "noun.relation-3-on",
+     "id": "noun.quantity-4-on",
      "frame": "continue",
-     "label": "",
-     "to": 138,
-     "toLabel": "magnitude relation",
+     "label": "Go down to ⟦number⟧",
+     "to": 1116,
+     "toLabel": "number",
      "rel": 0,
      "requires": {
       "concepts": [],
@@ -5263,30 +1603,45 @@
      "effects": {}
     },
     {
-     "id": "noun.relation-3-alt0",
+     "id": "c106-alt0",
      "frame": "branch",
-     "label": "",
-     "to": 126,
-     "toLabel": "affinity",
+     "label": "Take the ⟦absolute value⟧",
+     "to": 1112,
+     "toLabel": "absolute value",
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       16
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.relation-3-alt2",
+     "id": "c106-alt1",
      "frame": "branch",
-     "label": "",
-     "to": 127,
-     "toLabel": "business relation",
+     "label": "Take the ⟦acid value⟧",
+     "to": 1113,
+     "toLabel": "acid value",
      "rel": 0,
      "requires": {
       "concepts": [
-       2048
+       228
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c106-alt2",
+     "frame": "branch",
+     "label": "Take the ⟦chlorinity⟧",
+     "to": 1114,
+     "toLabel": "chlorinity",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       4
       ],
       "rels": []
      },
@@ -5295,21 +1650,24 @@
    ]
   },
   {
-   "id": "noun.relation-4",
-   "lane": "noun.relation",
+   "id": "c42",
+   "lanes": [
+    "noun.shape",
+    "noun.object"
+   ],
    "depth": 4,
-   "at": 138,
-   "atLabel": "magnitude relation",
+   "at": 42,
+   "atLabel": "shape",
    "frame": "descent",
-   "title": "",
-   "body": "",
+   "title": "Outline Only",
+   "body": "⟦shape⟧ is the outline and nothing inside it. Two ways down, and the graph no longer files them the way you were taught.",
    "choices": [
     {
-     "id": "noun.relation-4-on",
+     "id": "noun.shape-4-on",
      "frame": "continue",
-     "label": "",
-     "to": 1285,
-     "toLabel": "ratio",
+     "label": "Follow ⟦figure⟧ down",
+     "to": 500,
+     "toLabel": "figure",
      "rel": 0,
      "requires": {
       "concepts": [],
@@ -5318,11 +1676,24 @@
      "effects": {}
     },
     {
-     "id": "noun.relation-4-alt0",
+     "id": "noun.object-4-on",
+     "frame": "continue",
+     "label": "Follow ⟦round shape⟧ down",
+     "to": 506,
+     "toLabel": "round shape",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c42-alt0",
      "frame": "branch",
-     "label": "",
-     "to": 1283,
-     "toLabel": "proportion",
+     "label": "Leave it ⟦amorphous shape⟧",
+     "to": 495,
+     "toLabel": "amorphous shape",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -5333,24 +1704,168 @@
      "effects": {}
     },
     {
-     "id": "noun.relation-4-alt1",
+     "id": "c42-alt1",
      "frame": "branch",
-     "label": "",
-     "to": 1284,
-     "toLabel": "rate",
+     "label": "Cut it to ⟦angular shape⟧",
+     "to": 496,
+     "toLabel": "angular shape",
      "rel": 0,
      "requires": {
       "concepts": [
-       10
+       124
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.relation-4-alt2",
+     "id": "c42-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Close it to a ⟦circle⟧",
+     "to": 497,
+     "toLabel": "circle",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       65
+      ],
+      "rels": []
+     },
+     "effects": {}
+    }
+   ]
+  },
+  {
+   "id": "c500",
+   "lanes": [
+    "noun.shape"
+   ],
+   "depth": 5,
+   "at": 500,
+   "atLabel": "figure",
+   "frame": "descent",
+   "title": "Closed Outline",
+   "body": "A ⟦figure⟧ is a shape that closed. What is under it was closed by the graph, not by anyone. It continues either way.",
+   "choices": [
+    {
+     "id": "noun.shape-5-on",
+     "frame": "continue",
+     "label": "Go down to ⟦plane figure⟧",
+     "to": 2918,
+     "toLabel": "plane figure",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c500-alt0",
+     "frame": "branch",
+     "label": "Hold it ⟦equilateral⟧",
+     "to": 2915,
+     "toLabel": "equilateral",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       11
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c500-alt1",
+     "frame": "branch",
+     "label": "Hold it ⟦parallel⟧",
+     "to": 2916,
+     "toLabel": "parallel",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       124
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c500-alt2",
+     "frame": "branch",
+     "label": "Hold the ⟦pencil⟧",
+     "to": 2917,
+     "toLabel": "pencil",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       65
+      ],
+      "rels": []
+     },
+     "effects": {}
+    }
+   ]
+  },
+  {
+   "id": "c138",
+   "lanes": [
+    "noun.relation"
+   ],
+   "depth": 4,
+   "at": 138,
+   "atLabel": "magnitude relation",
+   "frame": "descent",
+   "title": "One Against Another",
+   "body": "A ⟦magnitude relation⟧ holds one size against another. Neither size is filed. Only the holding.",
+   "choices": [
+    {
+     "id": "noun.relation-4-on",
+     "frame": "continue",
+     "label": "Go down to ⟦ratio⟧",
+     "to": 1285,
+     "toLabel": "ratio",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c138-alt0",
+     "frame": "branch",
+     "label": "Hold the ⟦proportion⟧",
+     "to": 1283,
+     "toLabel": "proportion",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       2239
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c138-alt1",
+     "frame": "branch",
+     "label": "Hold the ⟦rate⟧",
+     "to": 1284,
+     "toLabel": "rate",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       1123
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c138-alt2",
+     "frame": "branch",
+     "label": "Hold the ⟦scale⟧",
      "to": 1286,
      "toLabel": "scale",
      "rel": 0,
@@ -5365,184 +1880,21 @@
    ]
   },
   {
-   "id": "noun.motive-1",
-   "lane": "noun.motive",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.motive-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       138
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.motive-2",
-   "lane": "noun.motive",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.motive-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 10,
-     "toLabel": "psychological feature",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1285
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.motive-3",
-   "lane": "noun.motive",
-   "depth": 3,
-   "at": 10,
-   "atLabel": "psychological feature",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.motive-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 125,
-     "toLabel": "motivation",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 124,
-     "toLabel": "cognition",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.motive-4",
-   "lane": "noun.motive",
+   "id": "c125",
+   "lanes": [
+    "noun.motive"
+   ],
    "depth": 4,
    "at": 125,
    "atLabel": "motivation",
    "frame": "threshold",
-   "title": "",
-   "body": "",
+   "title": "Why It Moved",
+   "body": "⟦motivation⟧ is why something moved. It is inferred and then stored as though it were observed.",
    "choices": [
     {
      "id": "noun.motive-4-on",
      "frame": "continue",
-     "label": "",
+     "label": "Go down to ⟦ethical motive⟧",
      "to": 1243,
      "toLabel": "ethical motive",
      "rel": 0,
@@ -5553,24 +1905,24 @@
      "effects": {}
     },
     {
-     "id": "noun.motive-4-alt0",
+     "id": "c125-alt0",
      "frame": "branch",
-     "label": "",
+     "label": "Allow the ⟦irrational motive⟧",
      "to": 1244,
      "toLabel": "irrational motive",
      "rel": 0,
      "requires": {
       "concepts": [
-       10
+       1123
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.motive-4-alt1",
+     "id": "c125-alt1",
      "frame": "branch",
-     "label": "",
+     "label": "Allow the ⟦life⟧",
      "to": 1245,
      "toLabel": "life",
      "rel": 0,
@@ -5583,265 +1935,15 @@
      "effects": {}
     },
     {
-     "id": "noun.motive-4-alt2",
+     "id": "c125-alt2",
      "frame": "branch",
-     "label": "",
+     "label": "Allow the ⟦psychic energy⟧",
      "to": 1246,
      "toLabel": "psychic energy",
      "rel": 0,
      "requires": {
       "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.Tops-1",
-   "lane": "noun.Tops",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.Tops-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.Tops-2",
-   "lane": "noun.Tops",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.Tops-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       10
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.Tops-3",
-   "lane": "noun.Tops",
-   "depth": 3,
-   "at": 15,
-   "atLabel": "object",
-   "frame": "threshold",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.Tops-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 228,
-     "toLabel": "whole",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 194,
-     "toLabel": "catch",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 195,
-     "toLabel": "charm",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 196,
-     "toLabel": "clanker",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       124
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.Tops-4",
-   "lane": "noun.Tops",
-   "depth": 4,
-   "at": 228,
-   "atLabel": "whole",
-   "frame": "threshold",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.Tops-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2048,
-     "toLabel": "artifact",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2049,
-     "toLabel": "assembly",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 2050,
-     "toLabel": "congener",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
+       1
       ],
       "rels": []
      },
