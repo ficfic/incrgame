@@ -105,20 +105,51 @@ const DRIFT_SCALE_SCALE = 0.55;
 // Capacity, not a wallet. It is never spent — it is ALLOCATED, and it comes
 // back. Base capacity is small; it grows from knowledge you have actually
 // verified, so it is earned by playing rather than bought from a menu.
-const ATTENTION_BASE = 4;
-const ATTENTION_PER_DECADE = 4.5;
-export const DISCOVER_MS = 18_000;
+//
+// ⚠️ ATTENTION GREW 4 → 13 IN 150 SECONDS OF TAPPING. That is the whole reason
+// this constant is 1 and not 4.5. A slot every ×10 of confirmed work is a rate
+// the player crosses four or five times in a whole game instead of four times
+// in a coffee break, and an integer step means each one is an EVENT you can
+// see rather than a fraction ticking behind a floor().
+export const ATTENTION_BASE = 4;
+const ATTENTION_PER_DECADE = 1;
+/** Unchecked work you are carrying, in decades, that costs you a slot each.
+ *
+ *  THE DEGRADATION, and there is exactly one — docs/MODEL.md left the trigger
+ *  open and a game with three ways to lose a slot has none the player can name.
+ *  It is the mirror of the growth term: confirming statements widens your
+ *  attention, letting unconfirmed ones pile up narrows it again. Both read off
+ *  numbers already on the HUD, so "why did I lose a slot" is answerable by
+ *  looking at the screen.
+ *
+ *  It is a REDUCTION IN CAPACITY, never a debt: nothing is spent, nothing goes
+ *  negative, and confirming the backlog gives the slot straight back. */
+const ATTENTION_PENALTY_PER_DECADE = 1;
+/** Below this, unchecked work is just work in progress. Above it you are
+ *  hoarding. Set at about one extraction batch, so an ordinary pile-up between
+ *  two confirmations costs nothing and the first slot goes at ~80 unchecked.
+ *  The owner's live save sat at 161 unconfirmed against 17 confirmed, which is
+ *  precisely the state this is here to make expensive. */
+export const ATTENTION_PENALTY_FLOOR = 8;
+// ---- THE TEMPO ------------------------------------------------------------
+//
+// Owner: "we need to slow the game down significantly". These were 18s / 5s /
+// 7s, which at 9 slots meant a tap roughly every second and a board that
+// resolved faster than it could be read. Everything here is worked in
+// PARALLEL across attention slots, so the felt pace is the time divided by the
+// slots you have — which is exactly why the slot count had to stop climbing.
+export const DISCOVER_MS = 40_000;
 export const REVIEW_BOOK_MS = 25_000;
 /** Extraction is the FAST verb. Discovery is you going out and finding a thing
  *  (18s); connecting is you deciding a thing is true (7s); extraction is the
  *  machine reading what you already hold, so it is quick — but it is not free
  *  and it is not instant. It was both, briefly, and it was the only verb in the
  *  game that cost nothing, which is exactly what the owner noticed. */
-export const EXTRACT_MS = 5_000;
+export const EXTRACT_MS = 12_000;
 /** Filling in a dotted line is the FAST verb. Discovery finds a thing and is
  *  slow and human-only; connecting realises a line the world already offers.
  *  Two verbs at two tempos, because one verb on one timer is a metronome. */
-export const CONNECT_MS = 7_000;
+export const CONNECT_MS = 20_000;
 
 /** Building an agent COSTS VERIFIED STATEMENTS — you distil the next one out of
  *  the graph you already trust. Which is, exactly, the setup of the paper this
@@ -222,10 +253,31 @@ function decades(v: string): number {
   return d.lte(0) ? 0 : Math.max(0, d.add(1).log10().toNumber());
 }
 
+/** Slots you have LOST to unconfirmed work, whole numbers only.
+ *
+ *  Named, singular and legible: the one condition in the game that takes a slot
+ *  away. It reads off `provenance.unverified`, which is already on the HUD as
+ *  the gap between `checked` and `statements`, so the cause of the loss is
+ *  visible at the moment it happens without a new number to explain.
+ *
+ *  Note the floor: the first {@link ATTENTION_PENALTY_FLOOR} unchecked
+ *  statements are free. A penalty that started at 1 would fire on the first
+ *  extraction of a new save and read as a bug. */
+export function attentionPenalty(state: GameState): number {
+  const backlog = D(state.provenance.unverified);
+  if (backlog.lte(ATTENTION_PENALTY_FLOOR)) return 0;
+  return Math.floor(
+    ATTENTION_PENALTY_PER_DECADE * decades(backlog.div(ATTENTION_PENALTY_FLOOR).toString()),
+  );
+}
+
 /** Total slots. Grows with lifetime verified knowledge: the more of the world
- *  you have actually checked, the more of it you can hold in your head. */
+ *  you have actually checked, the more of it you can hold in your head — and
+ *  shrinks by {@link attentionPenalty} while unconfirmed work piles up. */
 export function attentionCap(state: GameState): number {
-  const earned = ATTENTION_BASE + ATTENTION_PER_DECADE * decades(state.lifetimeVerified);
+  const earned = ATTENTION_BASE
+    + ATTENTION_PER_DECADE * decades(state.lifetimeVerified)
+    - attentionPenalty(state);
   // `capacity` is a vignette lever: a choice may trade throughput for headroom.
   // It exists because the third door of the only fork in the game used to scale
   // `review`, which multiplies the Orchestrator count, which is permanently

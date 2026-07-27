@@ -19,6 +19,7 @@
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
     DISCOVER_MS, extractionYield, hasTrust, pendingVignette, recovered,
     REFLECT_MIN_CONCEPTS, sourceAgreement, extractCapacity,
+    ATTENTION_BASE, ATTENTION_PENALTY_FLOOR, attentionPenalty,
     canGrowContext, contextGate, contextFull, contextStep, contextUsed, contextWindow,
     EXTRACT_MS, inContext,
     unsupervised, verified,
@@ -64,6 +65,9 @@
   /** The second number: how much of what you have drawn matches the source. */
   const agreeing = $derived(sourceAgreement($game));
   const free = $derived(attentionFree($game));
+  /** Slots lost to unconfirmed work. The only thing in the game that takes one
+   *  away, so it gets its own name rather than being inlined into a class. */
+  const penalty = $derived(attentionPenalty($game));
 
   /** Ticker lines that have not yet expired.
    *
@@ -732,7 +736,12 @@
         >{$game.forged.edges.length > 0
           ? `${$game.forged.edges.filter((e) => !e.fake).length}/${$game.forged.edges.length}`
           : '—'}</b><span>agreeing</span></div>
-      <div><b class:good={free > 0} class:warn={free === 0}>{free}/{attentionCap($game)}</b><span>attention</span></div>
+      <!-- The DENOMINATOR moves, and that is the one degradation in the game.
+           When unconfirmed work piles up the cap drops, so the cell goes amber
+           on the total rather than on the free count — a shrinking capacity and
+           a full one are different problems and used to look identical. -->
+      <div><b class:good={free > 0 && penalty === 0} class:warn={free === 0 || penalty > 0}
+        >{free}/{attentionCap($game)}</b><span>attention</span></div>
     </div>
   </header>
 
@@ -989,8 +998,10 @@
                   {format(contextGate($game))} in total</td></tr>
         </tbody></table>
         <p class="body">Everything books a slot of <b>attention</b> and takes
-          real seconds, so the board keeps working while the app is shut. It
-          does not need babysitting, and it never will.</p>
+          real seconds — deliberately long ones. The board keeps working while
+          the app is shut, so the tempo is set by how many slots you have, not
+          by how fast you can tap. It does not need babysitting, and it never
+          will.</p>
 
         <h3>Why the window matters</h3>
         <p class="body">Extract can only relate concepts that are
@@ -1000,6 +1011,19 @@
           window holds your newest concepts plus the paths that reach them, so
           what it holds is always a connected piece of the tree rather than a
           handful of orphans.</p>
+
+        <h3>Attention, and the one way to lose it</h3>
+        <p class="body">You start with {ATTENTION_BASE} slots and gain one
+          for every <b>ten times</b> more statements you have confirmed. It is
+          meant to be slow — four or five more slots across a whole game, not
+          four in a coffee break.</p>
+        <p class="body">It goes the other way too, and this is the only thing in
+          the game that takes a slot away: while you are carrying more than
+          {ATTENTION_PENALTY_FLOOR} <i>unconfirmed</i> statements, you lose a
+          slot for every ten times more of them. Nothing is spent and nothing
+          goes negative — confirm the backlog and the slot comes straight back.
+          The gap between <i>checked</i> and <i>statements</i> at the top of the
+          screen is that backlog.</p>
 
         <h3>Why anything decays</h3>
         <p class="body">A proposal nobody looks at rots off the board, and the

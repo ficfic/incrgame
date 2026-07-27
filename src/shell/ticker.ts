@@ -7,6 +7,7 @@
 // trigger moments awaiting the owner's pen lives in docs/TICKER_LINES.md.
 import { writable, type Readable } from 'svelte/store';
 import type { GameState } from '../core/types';
+import { attentionPenalty } from '../core/engine';
 import { GENERATORS } from '../content/generators';
 import { formatWhole } from '../core/numbers';
 import { READOUTS, type ReadoutId } from '../core/readouts';
@@ -88,6 +89,19 @@ export function observeTransition(prev: GameState, next: GameState): void {
     `${m} concepts ${READOUTS.recovered.noun}`);
   crossings(prev, next, 'lines', LINE_MILESTONES, (m) =>
     m === 1 ? `first edge drawn` : `${m} ${READOUTS.lines.noun} drawn`);
+
+  // THE ONE DEGRADATION, announced. A slot vanishing with nothing said about
+  // it is indistinguishable from a bug, and the owner has twice reported a
+  // number moving for reasons the game never gave. Both directions fire: the
+  // slot coming BACK is the whole reward for clearing the backlog, and a
+  // penalty you can only ever hear about once teaches half a rule.
+  const was = attentionPenalty(prev);
+  const now = attentionPenalty(next);
+  if (now > was) say(`attention:lost:${now}`, `unchecked backlog costs ${now} attention`);
+  else if (now < was) {
+    say(`attention:back:${now}`,
+      now === 0 ? 'backlog cleared · attention restored' : `backlog down · ${was - now} attention back`);
+  }
 }
 
 /** Fire once per threshold the given readout has just crossed upward. */

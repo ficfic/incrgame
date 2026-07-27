@@ -35,7 +35,7 @@ describe('provenance', () => {
     // connections merely dotted, and counts for nothing until one is filled.
     let s: GameState = { ...initialState(), lastTick: 1_000 };
     s = apply(s, { type: 'discover' });
-    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + 18_001 });
+    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
     expect(s.forged.anchors).toContain(1);   // it is on the board
     expect(s.forged.edges).toHaveLength(0);  // and connected to nothing
     expect(s.resources.triples).toBe('0');   // no free statement
@@ -45,14 +45,14 @@ describe('provenance', () => {
   it('a filled line is what recovers a concept, and it arrives checked', () => {
     let s: GameState = { ...initialState(), lastTick: 1_000 };
     s = apply(s, { type: 'discover' });
-    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + 18_001 });
+    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
     expect(recovered(s)).toBe(0);
 
     const t0 = s.lastTick;
     s = apply(s, { type: 'connect', edge: { a: 0, b: 1, rel: 0, checked: true, fake: false } });
     expect(s.bookings.some((b) => b.kind === 'connect')).toBe(true);
     expect(s.forged.edges).toHaveLength(0); // not until it finishes filling
-    s = apply(s, { type: 'tick', dt: 20, now: t0 + 20_000 });
+    s = apply(s, { type: 'tick', dt: 20, now: t0 + CONNECT_MS + 1 });
 
     expect(s.forged.edges).toHaveLength(1);
     expect(s.forged.edges[0]!.checked).toBe(true);
@@ -91,7 +91,7 @@ describe('drift', () => {
   it('cannot rot what was verified by hand', () => {
     let s: GameState = { ...initialState(), lastTick: 1_000 };
     s = apply(s, { type: 'discover' });
-    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + 18_001 });
+    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
     for (let i = 0; i < 500; i++) s = tick(s, 1);
     expect(s.provenance.drifted).toBe('0');
     expect(fidelity(s)).toBe(1);
@@ -190,7 +190,11 @@ describe('the world can no longer be finished by hand alone', () => {
     // is filled, and filling lines competes for the same attention slots.
     let s: GameState = { ...initialState(), lastTick: 1_000 };
     let t = 1_000;
-    for (let step = 0; step < 400; step++) {
+    // Long enough for ~20 discovery cycles at whatever the current tempo is.
+    // This was a flat 400 steps, tuned to an 18-second discovery; slowing the
+    // game down to 40 seconds failed the test without anything being wrong.
+    const STEPS = Math.ceil((20 * DISCOVER_MS) / 1000);
+    for (let step = 0; step < STEPS; step++) {
       for (let k = 0; k < 8; k++) {
         const next = apply(s, { type: 'discover' });
         if (next === s) break;
@@ -489,10 +493,10 @@ describe('a line reads as a sentence', () => {
     // moment anything rendered `label(a) REL label(b)`. Invisible only because
     // the rel-0 label is suppressed — so this is the cheap moment to pin it.
     const s = apply({ ...initialState(), lastTick: 1_000 }, { type: 'discover' });
-    const landed = apply(s, { type: 'tick', dt: 20, now: 1_000 + 20_000 });
+    const landed = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
     // node 1's parent is the root, so a correct `is a` runs 1 → 0
     const t = apply(landed, { type: 'connect', edge: { a: 1, b: 0, rel: 0, checked: true, fake: false } });
-    const done = apply(t, { type: 'tick', dt: 20, now: t.lastTick + 20_000 });
+    const done = apply(t, { type: 'tick', dt: 20, now: t.lastTick + CONNECT_MS + 1 });
     const e = done.forged.edges[0]!;
     expect(e.a).toBe(1); // the narrower concept is the subject
     expect(e.b).toBe(0); // the broader one is the object

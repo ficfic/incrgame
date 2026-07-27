@@ -453,3 +453,7 @@ inherit them by assumption.
 
 - [ ] `dream`, `exercise`, `service` and `button` score as obscure. Honest — the shipped synset really is sense 6-of-6 and a leaf — but the LABEL reads common, so a tier shown next to a word will look wrong. Decide whether the score is per-concept (correct) or wants a per-label override (friendly).
 - [ ] Rarity's `degree` signal contributes almost nothing on the shipped slice (123 relations over 4,096 concepts). It is measured against the full lexicon so it is not dead, but it is the weakest of the seven and carries weight 0.03.
+
+- [ ] The discovery countdown rings now sit at the stage rim for 40s instead of 18s, so the clipped coloured arcs bleeding off all four edges are on screen most of the time. Previously judged cosmetic; the slowdown made them the loudest thing in the frame.
+- [ ] Attention reads 0/4 for the first five minutes under probe play — every slot always busy. Correct, and it may read as "nothing to do" to a human who is not hammering every button. Watch it.
+- [ ] Worldbuilding branch (`claude/worldbuilding-stories-starmap-5wkhrk`) has `docs/graph/story.json` — 308 CYOA beats with vocabulary gates. Needs `VignetteChoice.requires?: { concepts: string[]; rels: number[] }` in `src/core/types.ts`. Engine rule: a gated choice is SHOWN but not takeable, and a beat must never render with zero takeable choices — `check:story` guarantees the data always has an ungated exit, so the engine must not filter it away. Not started; ids will arrive numeric.

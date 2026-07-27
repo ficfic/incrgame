@@ -2,7 +2,7 @@
 
 **This file is the only thing that decides what gets worked on.**
 
-Three items, in order. Work the top one. When it ships, delete it and promote the
+Items in order. Work the top one. When it ships, delete it and promote the
 next. Everything else lives in `BACKLOG.md` and is not in play.
 
 **WIP = 1.** One item per session. A defect found mid-item goes to the bottom of
@@ -27,15 +27,7 @@ things every time:
 > 2026-07-26 and made three decisions; the model is one page and supersedes the
 > ladder in ECONOMY.md. These items are that model, in order, smallest first.
 
-## 1. Attention grows very slowly, and can degrade
-
-It went 4→13 in two minutes. It is a slow background reward, never a currency.
-Degradation trigger is an open question in MODEL.md — pick ONE, make it legible.
-
-**Done when:** `play-probe` shows attention roughly flat over 10 minutes, and one
-named condition visibly costs a slot.
-
-## 2. Prove the four gates go red, in writing
+## 1. Prove the four gates go red, in writing
 
 `the-process` audit, 2026-07-26: **0 of 4** gates (`check:align`, `check:core`,
 `check:vocab`, `play`) has a durable record of being confirmed red. Two of the
@@ -49,10 +41,25 @@ in chat does not count: the record has to outlive the session.
 that makes it fail and the observed output, and `DECISIONS.md` has one line
 recording it.
 
-## 3. `OWNER_LINES` — the eight ticker milestones
+## 2. `OWNER_LINES` — the eight ticker milestones
 
 Wired, reachable, 100% reach, still empty. Owner writes them; nothing else here
 is blocked on anything.
 
 **Done when:** eight lines exist in `src/shell/ticker.ts` and the probe shows one
 firing.
+
+## 3. The starmap: delete Discover, tap a lane instead
+
+Owner, 2026-07-27: "remove the discover button and instead go kinda like starmap
+exploration, we have some lanes from entity in the beginning, some we can see
+where they lead, some are dotted lines leading somewhere, and some will open only
+under some circumstances".
+
+Rarity ships, so a lane can already be named or masked by how obscure its far end
+is. The worldbuilding branch measured that our 4,096-concept slice is
+breadth-first and holds only classifiers — `noun.animal` contains no animals —
+so this item probably rides on a depth-first re-slice.
+
+**Done when:** there is no Discover button, `play-probe` still reaches 30+
+concepts in ten minutes, and the screenshot shows named and masked lanes.
