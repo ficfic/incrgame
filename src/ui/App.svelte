@@ -18,7 +18,7 @@
   import {
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
     DISCOVER_MS, extractCost, extractionYield, hasTrust, pendingVignette, recovered,
-    REFLECT_MIN_CONCEPTS, REVIEW_BOOK_MS, salvageRate, sourceAgreement, extractCapacity,
+    REFLECT_MIN_CONCEPTS, salvageRate, sourceAgreement, extractCapacity,
     canGrowContext, contextCost, contextFull, contextStep, contextUsed, contextWindow,
     unsupervised, verified,
   } from '../core/engine';
@@ -44,8 +44,7 @@
 
   let canvas = $state<HTMLCanvasElement>();
   let stage = $state<HTMLDivElement>();
-  let sheet = $state<null | 'review' | 'vignette' | 'save'>(null);
-  let verdicts = $state<boolean[]>([]);
+  let sheet = $state<null | 'vignette' | 'save'>(null);
   let toast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   let w = $state(360);
@@ -346,7 +345,6 @@
       };
     }));
 
-  const reviewBooking = $derived($game.bookings.find((b) => b.kind === 'review'));
   const filling = $derived($game.bookings.filter((b) => b.kind === 'connect'));
   const banked = $derived(D($game.pending).add(D($game.pendingClean)));
   // TWO different endings, and they were conflated. `nextId` running out means
@@ -587,17 +585,6 @@
     warm([...$game.forged.frontier, ...$game.forged.anchors, $game.forged.nextId]);
   });
 
-  let armedFor = $state('');
-  $effect(() => {
-    const q = $game.review;
-    const id = q.map((i) => `${i.conceptIndex}:${i.glossIndex}`).join('|');
-    if (id !== armedFor) {
-      armedFor = id;
-      verdicts = q.map(() => true);
-      warm(q.flatMap((i) => [i.conceptIndex, i.glossIndex]));
-    }
-  });
-
   // One loop: advance the clock and repaint the lines. Node pills are Svelte's
   // job — they re-render from `nodes`, which depends on `now`.
   $effect(() => {
@@ -824,13 +811,10 @@
         <div class="act status"><b>{filling.length}</b><span>{filling.length === 1 ? 'line filling' : 'lines filling'}</span></div>
       {/if}
 
-      {#if reviewBooking}
-        <div class="act status"><b>Reviewing</b><span>{Math.max(0, Math.ceil((reviewBooking.until - $game.lastTick) / 1000))}s</span></div>
-      {:else if $game.review.length > 0}
-        <button class="act warn" disabled={free < 1} onclick={() => (free >= 1 ? (sheet = 'review') : say('No free attention'))}>
-          <b>Review</b><span>{free >= 1 ? `1 slot · ${REVIEW_BOOK_MS / 1000}s` : 'no free slot'}</span>
-        </button>
-      {/if}
+      <!-- (The Review desk lived here. It sampled an abstract statement pool
+           and touched NOTHING on the board — owner: "review does not make any
+           sense, i got so confused". Confirming a dotted line is the check now,
+           and it is the thing you are already looking at.) -->
 
       {#if banked.gt(0)}
         <button class="act warn" onclick={() => dispatch({ type: 'absorb' })}>
@@ -902,31 +886,7 @@
     </div>
   </footer>
 
-  {#if sheet === 'review'}
-    <div class="sheet">
-      <h2>Review desk</h2>
-      <div class="rows">
-        {#each $game.review as item, i (i)}
-          {@const c = conceptAt(item.conceptIndex)}
-          {@const g = conceptAt(item.glossIndex)}
-          <div class="row" class:cut={!verdicts[i]}>
-            <div class="txt"><b>{c?.label ?? '…'}</b><em>{c?.category ?? ''}</em><p>{g?.gloss ?? ''}</p></div>
-            <div class="verdict">
-              <button class:on={verdicts[i]} onclick={() => (verdicts = verdicts.map((v, k) => (k === i ? true : v)))}>keep</button>
-              <button class:off={!verdicts[i]} onclick={() => (verdicts = verdicts.map((v, k) => (k === i ? false : v)))}>cut</button>
-            </div>
-          </div>
-        {/each}
-      </div>
-      <div class="sheet-foot">
-        <button class="primary" disabled={free < 1}
-          onclick={() => { dispatch({ type: 'reviewBatch', keep: [...verdicts] }); sheet = null; }}>
-          Commit · 1 slot · {REVIEW_BOOK_MS / 1000}s
-        </button>
-        <button onclick={() => (sheet = null)}>back</button>
-      </div>
-    </div>
-  {:else if sheet === 'vignette' && activeVignette}
+  {#if sheet === 'vignette' && activeVignette}
     <div class="sheet">
       <h2>{activeVignette.title || '⟨title — owner⟩'}</h2>
       <p class="body">{activeVignette.body || '⟨body — owner⟩'}</p>
@@ -1237,27 +1197,12 @@
   .stamp { margin: 0; font: 0.62rem ui-monospace, monospace; color: #5d7385; }
   .sheet h2 { margin: 0; font-size: 1rem; color: #eaf6f2; }
   .sheet .body { margin: 0; color: #93a8b8; }
-  .rows { display: flex; flex-direction: column; gap: 10px; }
-  .row { display: flex; gap: 10px; align-items: flex-start; border-top: 1px solid #1b2533; padding-top: 10px; }
-  .row.cut { opacity: 0.45; }
-  .txt { flex: 1 1 auto; min-width: 0; }
-  .txt b { font-size: 0.95rem; }
-  .txt em { font: 0.6rem ui-monospace, monospace; color: #5d7385; font-style: normal; margin-left: 6px; }
-  .txt p { margin: 3px 0 0; font-size: 0.78rem; color: #93a8b8; }
-  .verdict { display: flex; flex-direction: column; gap: 6px; }
-  .verdict button {
-    min-width: 58px; padding: 8px 10px; border-radius: 10px; cursor: pointer; font: inherit;
-    background: #10151d; border: 1px solid #2f3d4e; color: #5d7385;
-  }
-  .verdict button.on { border-color: hsl(var(--hue, 168) 70% 58%); color: hsl(var(--hue, 168) 70% 58%); }
-  .verdict button.off { border-color: #b0566b; color: #b0566b; }
   .sheet-foot { display: flex; gap: 10px; margin-top: auto; padding-top: 12px; }
   .sheet-foot.col { flex-direction: column; }
   .sheet-foot button {
     flex: 1 1 auto; padding: 13px; border-radius: 12px; cursor: pointer; font: inherit;
     background: #10151d; border: 1px solid #2f3d4e; color: #cfe0e8;
   }
-  .sheet-foot button.primary { border-color: #3ec8a8; color: #3ec8a8; }
   .sheet-foot button.bad { border-color: #b0566b; color: #b0566b; }
   .sheet-foot button:disabled { color: #2f3d4e; border-color: #1b2533; cursor: default; }
   .choice { display: flex; flex-direction: column; gap: 2px; text-align: left; }

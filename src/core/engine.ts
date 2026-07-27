@@ -599,52 +599,6 @@ export function reviewQueue(state: GameState): ReviewItem[] {
   return state.review;
 }
 
-/** Draw a fresh batch. Called once, by `tick`, when the desk is empty and off
- *  cooldown; the result is frozen into state. Never call this per render.
- *
- *  Returns the ADVANCED SEED alongside the items, and the caller must store it.
- *  It used to throw the seed away and let `reviewBatch` guess how far to skip
- *  (`queue.length * 3`), which is not how far minting actually walks the stream
- *  — retries consume extra draws. The consequence was a stream that replayed
- *  itself: two desks in a row could be the identical three concepts, and the
- *  corrupt/clean pattern was predictable across a reload. */
-function mintReview(state: GameState): { items: ReviewItem[]; seed: number } {
-  if (!reviewReady(state)) return { items: [], seed: state.rngState };
-  const unver = D(state.provenance.unverified).toNumber();
-  const drift = D(state.provenance.drifted).toNumber();
-  const pool = unver + drift;
-  if (pool < REVIEW_MIN_POOL) return { items: [], seed: state.rngState };
-  const corruptShare = pool > 0 ? drift / pool : 0;
-  const items: ReviewItem[] = [];
-  const used = new Set<number>();
-  let seed = state.rngState;
-  const span = Math.max(1, recovered(state));
-  const want = Math.min(REVIEW_BATCH, Math.floor(pool), span);
-  // Bounded retries: the same concept twice on one desk reads as a bug, but a
-  // tiny graph genuinely may not have three distinct concepts to show.
-  for (let attempt = 0; attempt < want * 12 && items.length < want; attempt++) {
-    let r: number;
-    [r, seed] = nextRand(seed);
-    const corrupt = r < corruptShare;
-    let pick: number;
-    [pick, seed] = nextRand(seed);
-    const conceptIndex = Math.floor(pick * span);
-    if (used.has(conceptIndex)) continue;
-
-    // A corrupt item wears SOMEONE ELSE'S definition. Reading the gloss is the
-    // only way to catch it — which is the lesson, delivered as the mechanic.
-    let glossIndex = conceptIndex;
-    if (corrupt && span > 1) {
-      let g: number;
-      [g, seed] = nextRand(seed);
-      glossIndex = Math.floor(g * (span - 1));
-      if (glossIndex >= conceptIndex) glossIndex += 1; // never itself
-    }
-    used.add(conceptIndex);
-    items.push({ conceptIndex, glossIndex, corrupt });
-  }
-  return { items, seed };
-}
 
 function advanceRng(seed: number, steps: number): number {
   let s = seed;
@@ -704,6 +658,8 @@ export function apply(state: GameState, action: Action): GameState {
         touched = true;
       }
       let lifetimeVerified = D(state.lifetimeVerified);
+      // Fed only by confirming a FAKE proposal now that the review desk is gone.
+      let falselyVerified = D(state.falselyVerified);
       if (clean.gt(0)) lifetimeVerified = lifetimeVerified.add(clean);
       const rot = unverified.mul(driftPerSecond(state) * dt);
       if (rot.gt(0)) {
@@ -796,14 +752,37 @@ export function apply(state: GameState, action: Action): GameState {
         // oldest unchecked lines go first, so a line survives exactly as long as
         // it goes unexamined and no longer
         const survivors = [...forged.edges];
+        let expired = 0;
         for (let n = 0; n < decayed; n++) {
           const i = survivors.findIndex((e) => !e.checked);
           if (i < 0) { lineRot = 0; break; }
           survivors.splice(i, 1);
+          expired++;
         }
         if (survivors.length !== forged.edges.length) {
           forged = { ...forged, edges: survivors };
           touched = true;
+        }
+        // AN IGNORED PROPOSAL EXPIRES. IT DOES NOT BECOME PERMANENT DEBT.
+        //
+        // The statement goes with the line. Before this, a rotted proposal left
+        // a `drifted` statement behind forever, and the review desk was the only
+        // thing that could ever clear one — so deleting the desk turned rot into
+        // an unpayable tax. Measured: play stalled at 24 concepts with `checked`
+        // pinned at 18% and nothing left to propose, because 82% of the pool was
+        // drifted residue nobody could touch.
+        //
+        // Expiring the statement also puts the relation back in the pool, so
+        // Extract can propose it again. A proposal you ignored is a proposal you
+        // missed, not a wound.
+        if (expired > 0) {
+          const back = Decimal.min(D(String(expired)), unverified);
+          if (back.gt(0)) {
+            unverified = unverified.sub(back);
+            resources = touched ? resources : { ...resources };
+            resources.triples = sub(resources.triples, back.toString());
+            touched = true;
+          }
         }
       }
       const gainedConcepts = recoveryPerSecond(state) * dt;
@@ -848,12 +827,24 @@ export function apply(state: GameState, action: Action): GameState {
               // changes is its provenance, from unverified to verified, which
               // is exactly what looking at something does.
               if (edges[existing]!.checked) continue; // already yours; nothing to do
+              const wasFake = edges[existing]!.fake;
               const next = [...edges];
-              next[existing] = { ...next[existing]!, checked: true, fake: false };
+              // ⚠️ `fake` SURVIVES CONFIRMATION, and this line used to clear it.
+              //
+              // An unwatched machine invents connections the dataset does not
+              // contain, drawn identically to real ones. Certifying one is the
+              // whole satire: `checked` goes UP, the graph does not, and the
+              // game never tells you. Clearing the flag laundered every lie the
+              // moment you believed it.
+              //
+              // With the review desk deleted this is the ONLY thing feeding
+              // `falselyVerified`, so the trap lives or dies on this line.
+              next[existing] = { ...next[existing]!, checked: true };
               edges = next;
               unverified = unverified.sub(1);
               if (unverified.lt(0)) unverified = D('0');
               lifetimeVerified = lifetimeVerified.add(1);
+              if (wasFake) falselyVerified = falselyVerified.add(1);
             } else {
               edges = [...edges, b.edge];
               edges = trimEdges(edges);
@@ -964,6 +955,7 @@ export function apply(state: GameState, action: Action): GameState {
         provenance: { unverified: unverified.toString(), drifted: drifted.toString() },
         lifetimeGenerated: lifetimeGenerated.toString(),
         lifetimeVerified: lifetimeVerified.toString(),
+        falselyVerified: falselyVerified.toString(),
         bookings,
         lineRot,
         lineDebt,
@@ -971,13 +963,16 @@ export function apply(state: GameState, action: Action): GameState {
         graph: deriveGraph(forged, resources.triples),
         lastTick,
       };
-      // Mint the next batch only when the desk is empty — the array identity
-      // must stay stable while the player is looking at it.
-      if (next.review.length > 0) return next;
-      const desk = mintReview(next);
-      return desk.items.length === 0 && desk.seed === next.rngState
-        ? next
-        : { ...next, review: desk.items, rngState: desk.seed };
+      // THE REVIEW DESK IS GONE, so nothing mints a batch any more.
+      //
+      // It sampled an abstract statement pool and touched nothing the player
+      // could see on the board — the owner's words were "review does not make
+      // any sense, i got so confused". Confirming a dotted line IS the check
+      // now: the same decision, on the thing you are already looking at.
+      //
+      // `state.review` stays in the save, permanently empty, because a saved
+      // field is never removed.
+      return next;
     }
 
     case 'survey':
@@ -1074,64 +1069,6 @@ export function apply(state: GameState, action: Action): GameState {
       // DISCOVERED by booking a slot of attention onto it (see 'discover').
       // Kept inert so the action surface and old saves never shift shape.
       return state;
-
-    case 'reviewBatch': {
-      // HITL. Four outcomes, and two of them are mistakes:
-      //   keep a true statement    → it becomes verified (good)
-      //   keep a corrupt one       → the rot stays, and now you believe it
-      //   reject a corrupt one     → it is removed from the graph (good)
-      //   reject a true one        → you threw away real knowledge
-      const queue = state.review; // the batch the player actually saw
-      if (queue.length === 0) return state;
-      if (attentionFree(state) < 1) return state;
-      const weight = D(reviewWeight(state)); // one inspected item stands for this many
-      let unverified = D(state.provenance.unverified);
-      let drifted = D(state.provenance.drifted);
-      let triples = D(state.resources.triples);
-      let newlyVerified = D(0);
-      let falselyVerified = D(0);
-      for (let i = 0; i < queue.length; i++) {
-        const item = queue[i]!;
-        const keep = action.keep[i] ?? true;
-        if (item.corrupt) {
-          const n = Decimal.min(weight, drifted);
-          if (n.lt(1)) continue;
-          if (!keep) {
-            drifted = drifted.sub(n); triples = triples.sub(n); // caught it
-          } else {
-            // You certified a lie. It now counts as VERIFIED — the displayed
-            // fidelity goes UP — but it is still wrong, so it keeps dragging
-            // recovery. The number improves and the graph doesn't, and the game
-            // never tells you why. That is the stated goal quietly not being
-            // the real goal (docs/VISION.md), delivered as arithmetic.
-            drifted = drifted.sub(n);
-            falselyVerified = falselyVerified.add(n);
-          }
-        } else {
-          const n = Decimal.min(weight, unverified);
-          if (n.lt(1)) continue;
-          unverified = unverified.sub(n);
-          if (keep) newlyVerified = newlyVerified.add(n);
-          else triples = triples.sub(n);
-        }
-      }
-      const resources = { ...state.resources, triples: triples.toString() };
-      return {
-        ...state,
-        resources,
-        provenance: { unverified: unverified.toString(), drifted: drifted.toString() },
-        // only HAND-checked statements feed the ratchet — that is the point
-        lifetimeVerified: add(state.lifetimeVerified, newlyVerified.toString()),
-        falselyVerified: add(state.falselyVerified, falselyVerified.toString()),
-        // rngState is NOT touched here: minting already advanced it past exactly
-        // the draws it made. Skipping a guessed `queue.length * 3` on top was
-        // double-counting in one direction and undercounting in the other.
-        reviewReadyAt: state.lastTick,
-        bookings: [...state.bookings, { kind: 'review' as const, until: state.lastTick + REVIEW_BOOK_MS }],
-        review: [], // consumed; tick mints the next one after the cooldown
-        graph: deriveGraph(state.forged, resources.triples),
-      };
-    }
 
     case 'absorb': {
       // Away-work banked while the player was gone. Nothing rotted in their

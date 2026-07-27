@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   apply, coverage, driftPerSecond, fidelity, initialState, lit, recovered,
-  displayedFidelity, recoveryPerSecond, REFLECT_MIN_CONCEPTS, reviewQueue, reviewWeight,
+  displayedFidelity, recoveryPerSecond, REFLECT_MIN_CONCEPTS, sourceAgreement,
   tick, verified, DISCOVER_MS, CONNECT_MS, attentionFree, pendingVignette,
   attentionCap, extractionPerSecond, contextWindow, contextFull,
 } from '../src/core/engine';
@@ -278,121 +278,61 @@ describe('the world can no longer be finished by hand alone', () => {
   });
 });
 
-describe('review (human in the loop)', () => {
-  /** A rotting graph with a batch actually ON the desk. The batch is minted by
-   *  `tick` and frozen into state — never re-derived per render — so a test
-   *  must tick to get one, exactly like the game does. */
-  const dirty = (): GameState => tick({
-    ...initialState(),
-    resources: { ...initialState().resources, triples: '100' },
-    provenance: { unverified: '60', drifted: '40' },
-    graph: { nodes: 30, edges: 100 },
-  }, 0.1);
-
-  it('offers a queue only when there is something to check', () => {
-    expect(reviewQueue(tick(initialState(), 0.1))).toEqual([]);
-    expect(reviewQueue(dirty()).length).toBeGreaterThan(0);
-  });
-
-  it('HOLDS STILL while the player reads it', () => {
-    // The batch must be a decision the game made ONCE. Re-derived per render it
-    // recomputed at 10 Hz: `corrupt` flipped mid-read, concepts walked as the
-    // graph grew, and the panel wiped the player's verdicts every 100 ms. The
-    // desk looked finished and was not connected to anything.
-    let s = dirty();
-    const first = reviewQueue(s);
-    expect(first.length).toBeGreaterThan(0);
-    for (let i = 0; i < 200; i++) s = tick(s, 1); // two hundred ticks of churn
-    expect(reviewQueue(s)).toBe(first); // same ARRAY, not merely equal
-  });
-
-  it('rejecting a corrupt statement REMOVES it from the graph', () => {
-    const s = dirty();
-    const queue = reviewQueue(s);
-    const corruptIdx = queue.findIndex((q) => q.corrupt);
-    if (corruptIdx < 0) return; // this seed drew none; other tests cover it
-    const keep = queue.map((_, i) => i !== corruptIdx);
-    const after = apply(s, { type: 'reviewBatch', keep });
-    expect(Number(after.provenance.drifted)).toBeLessThan(Number(s.provenance.drifted));
-    expect(Number(after.resources.triples)).toBeLessThan(Number(s.resources.triples));
-  });
-
-  it('accepting a true statement VERIFIES it and raises fidelity', () => {
-    const s = dirty();
-    const queue = reviewQueue(s);
-    const trueCount = queue.filter((q) => !q.corrupt).length;
-    if (trueCount === 0) return;
-    const after = apply(s, { type: 'reviewBatch', keep: queue.map(() => true) });
-    expect(Number(after.provenance.unverified))
-      .toBe(Number(s.provenance.unverified) - trueCount * Number(reviewWeight(s)));
-    expect(fidelity(after)).toBeGreaterThan(fidelity(s));
-  });
-
-  it('is ACCEPTANCE SAMPLING: one inspected item speaks for a batch', () => {
-    // Without this, hand-review is a rounding error in a graph of millions and
-    // the human-in-the-loop lever quietly stops existing.
-    const small = dirty();
-    const big: GameState = {
-      ...small,
-      resources: { ...small.resources, triples: '100000' },
-      provenance: { unverified: '60000', drifted: '40000' },
+// ── the trap, relocated ────────────────────────────────────────────────────
+//
+// A `describe('review (human in the loop)')` block lived here and tested the
+// review desk: an acceptance-sampling queue over an abstract statement pool.
+// The desk is deleted — it touched nothing the player could see, and the owner
+// said so ("review does not make any sense, i got so confused").
+//
+// One thing in it was load-bearing and is kept, moved onto the board: certifying
+// a lie. An unwatched machine invents connections the dataset does not contain,
+// drawn identically to real ones. Confirming one raises `checked` and does
+// nothing to your graph, and the game never says. That is the whole satire, and
+// with the desk gone this is the ONLY thing feeding `falselyVerified`.
+describe('certifying a lie', () => {
+  const withProposal = (fake: boolean): GameState => {
+    const base = initialState(1);
+    return {
+      ...base,
+      lastTick: 1_000,
+      resources: { ...base.resources, triples: '1' },
+      provenance: { unverified: '1', drifted: '0' },
+      forged: {
+        ...base.forged,
+        anchors: [0, 1],
+        edges: [{ a: 1, b: 0, rel: 0, checked: false, fake }],
+      },
     };
-    expect(Number(reviewWeight(big))).toBeGreaterThan(Number(reviewWeight(small)));
-    expect(reviewWeight(initialState())).toBe('1'); // never zero
+  };
+  const confirm = (s: GameState): GameState => {
+    const booked = apply(s, { type: 'connect', edge: s.forged.edges[0]! });
+    return tick(booked, CONNECT_MS / 1000 + 0.1);
+  };
+
+  it('a REAL proposal confirms cleanly', () => {
+    const after = confirm(withProposal(false));
+    expect(after.forged.edges[0]!.checked).toBe(true);
+    expect(Number(after.falselyVerified)).toBe(0);
+    // displayed and true fidelity agree, because nothing was certified wrongly
+    expect(fidelity(after)).toBeCloseTo(displayedFidelity(after), 9);
   });
 
-  it('clears the desk on commit and rate-limits the next batch', () => {
-    // Unbounded, hand review beat the automated buyout by orders of magnitude
-    // and "optional" stopped being true — 30 seconds of tapping reset fidelity
-    // from any state.
-    const s = dirty();
-    const after = apply(s, { type: 'reviewBatch', keep: [true, true, true] });
-    expect(after.review).toEqual([]);
-    // committing BOOKS a slot rather than starting a timer — the cost of
-    // reviewing is that your attention is busy for a while
-    expect(after.bookings.some((b) => b.kind === 'review')).toBe(true);
-  });
-
-  it('does not replay the same desk: minting advances the stream it consumed', () => {
-    // `mintReview` walked the RNG locally and threw the advanced seed away;
-    // `reviewBatch` then guessed how far to skip (`queue.length * 3`), which is
-    // not how far minting actually walks — retries consume extra draws. So the
-    // stream desynced and desks could repeat.
-    // A world with enough recovered concepts that a desk CAN differ. `dirty()`
-    // sets `graph` directly, but `graph` is derived from `forged` on every tick,
-    // so that fixture is a one-concept world where every desk is [0:0].
-    const s = tick({
-      ...initialState(),
-      forged: { ...initialState().forged, foldedNodes: '400' },
-      resources: { ...initialState().resources, triples: '100' },
-      provenance: { unverified: '60', drifted: '40' },
-    }, 0.1);
-    expect(s.rngState).not.toBe(initialState().rngState); // minting wrote back
-    const first = reviewQueue(s).map((i) => `${i.conceptIndex}:${i.glossIndex}`);
-    expect(first.length).toBeGreaterThan(1);
-    let t = apply(s, { type: 'reviewBatch', keep: first.map(() => true) });
-    expect(t.review).toEqual([]);
-    for (let i = 0; i < 400 && t.review.length === 0; i++) t = tick(t, 0.1);
-    const second = reviewQueue(t).map((i) => `${i.conceptIndex}:${i.glossIndex}`);
-    expect(second.length).toBeGreaterThan(0);
-    expect(second).not.toEqual(first);
-  });
-
-  it('makes certifying a lie cost something the player cannot see', () => {
-    const s = dirty();
-    const q = reviewQueue(s);
-    const corruptIdx = q.findIndex((x) => x.corrupt);
-    if (corruptIdx < 0) return;
-    const after = apply(s, { type: 'reviewBatch', keep: q.map(() => true) });
-    expect(Number(after.falselyVerified)).toBeGreaterThan(0);
-    // the number on screen goes UP while the number that matters does not
+  it('a FAKE proposal raises the number on screen and NOT the graph', () => {
+    const after = confirm(withProposal(true));
+    expect(after.forged.edges[0]!.checked).toBe(true);
+    expect(Number(after.falselyVerified)).toBe(1);
+    // The gap. `checked` counts it; the fidelity that gates recovery does not.
     expect(displayedFidelity(after)).toBeGreaterThan(fidelity(after));
   });
 
-  it('is never mandatory: Orchestrators verify without any tap', () => {
-    let s = { ...withExtractors(10), generators: { ...initialState().generators, extractor: 10, orchestrator: 20 } };
-    for (let i = 0; i < 50; i++) s = tick(s, 1);
-    expect(Number(verified(s))).toBeGreaterThan(0);
+  it('confirming does NOT launder the lie — `fake` survives', () => {
+    // It used to be cleared on confirm, which quietly deleted the entire
+    // mechanic: every invented line became true the moment you believed it.
+    const after = confirm(withProposal(true));
+    expect(after.forged.edges[0]!.fake).toBe(true);
+    // ...and `agreeing` is the number that keeps disagreeing with you.
+    expect(sourceAgreement(after)).toBeLessThan(1);
   });
 });
 

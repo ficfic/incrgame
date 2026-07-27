@@ -86,23 +86,8 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
     await page.waitForTimeout(150);
     continue;
   }
-  // REVIEW. The desk is how unverified statements become checked, and checked
-  // is the only currency that buys anything. A probe that never reviews reports
-  // a deadlock that is really just a player refusing to play — this one did,
-  // and the "frozen economy" it found at t=120 was partly its own fault.
-  const review = page.locator('button.act', { hasText: 'Review' });
-  if (await review.count() && await review.isEnabled().catch(() => false)) {
-    await review.click().catch(() => {});
-    await page.waitForTimeout(250);
-    const commit = page.locator('.sheet-foot button.primary');
-    if (await commit.count() && await commit.isEnabled().catch(() => false)) {
-      await commit.click().catch(() => {});
-    } else {
-      await page.locator('.sheet-foot button', { hasText: 'back' }).click().catch(() => {});
-    }
-    await page.waitForTimeout(200);
-    continue;
-  }
+  // (A Review-desk step lived here. The desk is deleted — confirming a dotted
+  //  line is the check now, and that is the `button.line` branch above.)
 
   // Growing the context window comes before extracting: a full window blocks
   // discovery outright, so a player who could afford it and did not would be

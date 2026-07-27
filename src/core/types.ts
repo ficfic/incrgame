@@ -282,7 +282,6 @@ export type Action =
   | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource
   | { type: 'refine'; from: ResourceId }           // M4: from ∈ TIER_LADDER; one tier up
   | { type: 'sell'; id: ResourceId; amount: Dec }  // M4: consumes `id`, yields `capital`
-  | { type: 'reviewBatch'; keep: boolean[] }       // HITL — accept/reject the queue
   | { type: 'absorb' }                             // take banked away-work into the graph
   | { type: 'chooseOption'; eventId: string; choiceId: string }
   | { type: 'reflect' }                            // prestige = retrain on yourself
