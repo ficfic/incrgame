@@ -275,19 +275,30 @@ export function inContext(state: GameState): number[] {
   return tail.includes(0) ? tail : [0, ...tail.slice(1)];
 }
 
-/** Cost of the next +CONTEXT_STEP, in CHECKED statements.
+/** What the next +CONTEXT_STEP REQUIRES. A gate, not a price.
  *
- *  Checked, not total: this is the sink the ladder never had, and pricing it in
- *  the one thing you cannot mint by tapping keeps it a decision. */
-export function contextCost(state: GameState): string {
-  const bought = Math.max(0, Math.round((state.contextWindow - CONTEXT_START) / CONTEXT_STEP));
-  return scaleCost(String(CONTEXT_BASE_COST), CONTEXT_COST_RATIO, bought);
+ *  ⚠️ THIS USED TO BE A COST, AND THE COST WAS PAID IN A QUALITY SCORE.
+ *  `growContext` added the price to `provenance.unverified`, which relabelled
+ *  that many of your CONFIRMED statements as unconfirmed — so buying the one
+ *  upgrade in the game dropped `checked` from 10/10 to 2/10. The owner asked
+ *  "what am I supposed to check" and the honest answer was NOTHING, EVER: those
+ *  unverified statements hang off no edge, confirming a dotted line is the only
+ *  thing that raises `verified`, and nothing in generation 1 ever reduces
+ *  `drifted`. The single upgrade permanently ratcheted the headline number down
+ *  and changed nothing on the board.
+ *
+ *  Now it is a THRESHOLD on lifetime confirmed work, and it spends nothing.
+ *  Confirm enough lines and the window widens. No number goes down, ever. */
+export function contextGate(state: GameState): string {
+  const grown = Math.max(0, Math.round((state.contextWindow - CONTEXT_START) / CONTEXT_STEP));
+  return scaleCost(String(CONTEXT_BASE_COST), CONTEXT_COST_RATIO, grown);
 }
 
 export const contextStep = (): number => CONTEXT_STEP;
 
 export function canGrowContext(state: GameState): boolean {
-  return contextWindow(state) < ANCHOR_CAP && gte(verified(state), contextCost(state));
+  return contextWindow(state) < ANCHOR_CAP
+    && gte(state.lifetimeVerified, contextGate(state));
 }
 
 /** Slots not reserved for supervision and not currently booked on work. */
@@ -1170,18 +1181,12 @@ export function apply(state: GameState, action: Action): GameState {
     }
 
     case 'growContext': {
+      // Spends NOTHING. It is earned by confirming, not bought with trust —
+      // see `contextGate` for what the old accounting did to the player.
       if (!canGrowContext(state)) return state;
-      const cost = contextCost(state);
-      // Paid out of UNVERIFIED first would be free money; the price is checked
-      // work, so it comes off the verified pool by adding to `unverified`,
-      // leaving the statements on the board and their trust spent.
       return {
         ...state,
         contextWindow: Math.min(ANCHOR_CAP, state.contextWindow + CONTEXT_STEP),
-        provenance: {
-          ...state.provenance,
-          unverified: add(state.provenance.unverified, cost),
-        },
       };
     }
 

@@ -3,7 +3,7 @@
 // Concepts vanished and nothing on screen said why.
 import { describe, expect, it } from 'vitest';
 import {
-  apply, canGrowContext, contextCost, contextFull, contextStep, contextUsed,
+  apply, canGrowContext, contextGate, contextFull, contextStep, contextUsed,
   contextWindow, inContext, initialState, verified,
 } from '../src/core/engine';
 import { ANCHOR_CAP } from '../src/core/graph';
@@ -67,36 +67,51 @@ describe('the window is a real limit', () => {
 });
 
 describe('growing it', () => {
-  it('is refused without enough checked statements, and changes nothing', () => {
+  it('is refused before you have confirmed enough, and changes nothing', () => {
     const s = withChecked('0');
     expect(canGrowContext(s)).toBe(false);
     expect(apply(s, { type: 'growContext' })).toBe(s);
   });
 
-  it('buys exactly one step and charges the stated price', () => {
-    const s = withChecked('1000');
-    const cost = contextCost(s);
-    const before = contextWindow(s);
-    const checkedBefore = D(verified(s)).toNumber();
-
-    const after = apply(s, { type: 'growContext' });
-
-    expect(contextWindow(after)).toBe(before + contextStep());
-    // Priced in CHECKED statements — the one currency you cannot mint by
-    // tapping. The statements stay on the board; their trust is what is spent.
-    expect(D(verified(after)).toNumber()).toBe(checkedBefore - Number(cost));
-    expect(after.resources.triples).toBe(s.resources.triples);
+  it('SPENDS NOTHING — no number goes down when the window widens', () => {
+    // ⚠️ THE DEFECT THIS PINS. `growContext` used to add its price to
+    // `provenance.unverified`, which relabelled that many CONFIRMED statements
+    // as unconfirmed: 10/10 checked became 2/10 for buying an upgrade. And
+    // there was nothing to do about it — those statements hang off no edge,
+    // only confirming a dotted line raises `verified`, and nothing in
+    // generation 1 ever reduces `drifted`. The owner asked "what am I supposed
+    // to check" and the honest answer was: nothing, ever.
+    const s0 = { ...withChecked('1000'), lifetimeVerified: '1e6' };
+    const s1 = apply(s0, { type: 'growContext' });
+    expect(contextWindow(s1)).toBeGreaterThan(contextWindow(s0));
+    expect(s1.provenance).toEqual(s0.provenance);
+    expect(s1.resources).toEqual(s0.resources);
+    expect(D(verified(s1)).toNumber()).toBe(D(verified(s0)).toNumber());
   });
 
-  it('gets more expensive each time, so it cannot be the only sink forever', () => {
-    let s = withChecked('1e9');
-    const first = Number(contextCost(s));
+  it('widens by exactly one step', () => {
+    const s = { ...withChecked('1000'), lifetimeVerified: '1e6' };
+    const before = contextWindow(s);
+    expect(contextWindow(apply(s, { type: 'growContext' }))).toBe(before + contextStep());
+  });
+
+  it('is GATED on lifetime confirmed work, which only confirming raises', () => {
+    const gate = contextGate(withChecked('0'));
+    const short = { ...withChecked('1000'), lifetimeVerified: String(Number(gate) - 1) };
+    const enough = { ...withChecked('1000'), lifetimeVerified: gate };
+    expect(canGrowContext(short)).toBe(false);
+    expect(canGrowContext(enough)).toBe(true);
+  });
+
+  it('the gate rises each time, so the window is earned repeatedly', () => {
+    let s = { ...withChecked('1e9'), lifetimeVerified: '1e9' };
+    const first = Number(contextGate(s));
     for (let i = 0; i < 5; i++) s = apply(s, { type: 'growContext' });
-    expect(Number(contextCost(s))).toBeGreaterThan(first);
+    expect(Number(contextGate(s))).toBeGreaterThan(first);
   });
 
   it('stops at the render budget rather than growing without limit', () => {
-    const s = { ...withChecked('1e12'), contextWindow: ANCHOR_CAP };
+    const s = { ...withChecked('1e12'), lifetimeVerified: '1e12', contextWindow: ANCHOR_CAP };
     expect(canGrowContext(s)).toBe(false);
     expect(apply(s, { type: 'growContext' })).toBe(s);
   });
@@ -105,7 +120,7 @@ describe('growing it', () => {
     const base = initialState(1);
     const anchors = Array.from({ length: 40 }, (_, i) => i);
     const s0: GameState = {
-      ...base, lastTick: 1000, contextWindow: 16,
+      ...base, lastTick: 1000, contextWindow: 16, lifetimeVerified: '1e6',
       resources: { ...base.resources, triples: '1000' },
       forged: { ...base.forged, anchors },
     };

@@ -19,7 +19,7 @@
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
     DISCOVER_MS, extractionYield, hasTrust, pendingVignette, recovered,
     REFLECT_MIN_CONCEPTS, sourceAgreement, extractCapacity,
-    canGrowContext, contextCost, contextFull, contextStep, contextUsed, contextWindow,
+    canGrowContext, contextGate, contextFull, contextStep, contextUsed, contextWindow,
     EXTRACT_MS, inContext,
     unsupervised, verified,
   } from '../core/engine';
@@ -45,7 +45,7 @@
 
   let canvas = $state<HTMLCanvasElement>();
   let stage = $state<HTMLDivElement>();
-  let sheet = $state<null | 'vignette' | 'save'>(null);
+  let sheet = $state<null | 'vignette' | 'save' | 'help'>(null);
   let toast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   let w = $state(360);
@@ -359,7 +359,14 @@
     if (!extracting) return { pairs: [], stubs: [] };
     void now; // repaint every frame: this is an animation, not a state read
     const t = Math.floor(now / 110);
-    const pool = potential.length > 0 ? potential : [];
+    // ⚠️ THE CANDIDATES ON THE BOOKING, not `potential`.
+    //
+    // This used to strobe every relation the dataset offers among held
+    // concepts — including ones already drawn and ones that would never be
+    // proposed — so the board lit up ~15 lines and then landed 3. The owner
+    // said "why does extract display everything instead of showing just 1
+    // connection", which was a literal and accurate description of the bug.
+    const pool = extracting.edges ?? [];
     const pairs = pool.length === 0 ? [] : Array.from({ length: Math.min(3, pool.length) },
       (_, k) => pool[(t + k * 7) % pool.length]!);
     const stubs = reaching.length === 0 ? [] : Array.from({ length: Math.min(2, reaching.length) },
@@ -860,8 +867,8 @@
         <button class="act core" disabled={!canGrowContext($game)}
           onclick={() => (canGrowContext($game)
             ? dispatch({ type: 'growContext' })
-            : say(`Need ${format(contextCost($game))} checked`))}>
-          <b>Grow context</b><span>+{contextStep()} · {format(contextCost($game))} checked</span>
+            : say(`Confirm ${format(contextGate($game))} lines to widen it`))}>
+          <b>Grow context</b><span>+{contextStep()} · at {format(contextGate($game))} confirmed</span>
         </button>
       {/if}
 
@@ -899,6 +906,7 @@
           <span>{format(cost)} checked</span>
         </button>
       {/each}
+      <button class="more" aria-label="how to play" onclick={() => (sheet = 'help')}>?</button>
       <button class="more" aria-label="save menu" onclick={() => (sheet = 'save')}>⋯</button>
     </div>
   </footer>
@@ -916,6 +924,52 @@
         {/each}
       </div>
     </div>
+  {:else if sheet === 'help'}
+    <!-- ---- HOW TO PLAY -------------------------------------------------
+         ★ EVERY NUMBER HERE IS READ FROM THE ENGINE, never typed in. A help
+         page that drifts from the code is worse than no help page: it teaches
+         a wrong game with authority. Change a cost and this changes with it.
+
+         ★ THE PROSE RULE. CLAUDE.md: player-facing prose is human-written.
+         What is below is deliberately at the edge of that line — mechanical
+         fact, one clause each, no voice and no jokes. The GOAL and anything
+         with a personality is an ⟨owner⟩ slot and stays empty until written. -->
+    <div class="sheet">
+      <h2>How to play</h2>
+
+      <p class="body">⟨what you are and what you were told to do — owner⟩</p>
+
+      <h3>The loop</h3>
+      <table class="ref"><tbody>
+        <tr><th>verb</th><th>costs</th><th>takes</th><th>gives</th></tr>
+        <tr><td><b>Discover</b></td><td>1 attention</td><td>{DISCOVER_MS / 1000}s</td>
+            <td>a concept, unconnected</td></tr>
+        <tr><td><b>Extract</b></td><td>1 attention</td><td>{EXTRACT_MS / 1000}s</td>
+            <td>dotted lines to confirm</td></tr>
+        <tr><td><b>tap a dotted line</b></td><td>1 attention</td><td>{CONNECT_MS / 1000}s</td>
+            <td>+1 checked</td></tr>
+        <tr><td><b>Grow context</b></td><td>nothing</td><td>—</td>
+            <td>+{contextStep()} context, once you have confirmed
+                {format(contextGate($game))} lines in total</td></tr>
+      </tbody></table>
+
+      <h3>The numbers</h3>
+      <table class="ref"><tbody>
+        <tr><td><b>recovered</b></td><td>concepts with a line on them, of {CONCEPT_BUDGET}</td></tr>
+        <tr><td><b>context</b></td><td>concepts the model holds at once; Extract reads only these</td></tr>
+        <tr><td><b>checked</b></td><td>statements you confirmed, of every statement</td></tr>
+        <tr><td><b>agreeing</b></td><td>lines that match the source, of every line drawn</td></tr>
+        <tr><td><b>attention</b></td><td>slots free, of slots you have. Every verb books one</td></tr>
+      </tbody></table>
+
+      <p class="body">Concepts and definitions are real: Open English WordNet.
+        Tap any concept to read its definition.</p>
+
+      <div class="sheet-foot">
+        <button onclick={() => (sheet = null)}>back</button>
+      </div>
+    </div>
+
   {:else if sheet === 'save'}
     <div class="sheet">
       <h2>Save</h2>
@@ -1217,6 +1271,18 @@
     display: flex; flex-direction: column; gap: 10px;
     color: #cfe0e8; font: 400 14px/1.35 ui-sans-serif, system-ui, sans-serif;
   }
+  .sheet h3 {
+    margin: 6px 0 0; font-size: 0.72rem; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #5d7385; font-weight: 600;
+  }
+  .ref { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+  .ref th {
+    text-align: left; font-weight: 400; font-size: 0.62rem; color: #5d7385;
+    padding: 0 8px 2px 0;
+  }
+  .ref td { padding: 3px 8px 3px 0; color: #93a8b8; vertical-align: top; }
+  .ref td b { color: #cfe0e8; font-weight: 600; white-space: nowrap; }
+
   .stamp { margin: 0; font: 0.62rem ui-monospace, monospace; color: #5d7385; }
   .sheet h2 { margin: 0; font-size: 1rem; color: #eaf6f2; }
   .sheet .body { margin: 0; color: #93a8b8; }
