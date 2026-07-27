@@ -17,6 +17,19 @@
 //
 // Cosmetic use is allowed and must say so with an inline `vocab-ok` marker, so
 // an exemption is a visible decision rather than a silent one.
+// ---- PROVEN RED, 2026-07-27 -----------------------------------------------
+//
+//   SABOTAGE   in src/ui/App.svelte, point the `recovered` HUD cell back at the
+//              legacy cache — i.e. re-create the original 25-vs-3 bug:
+//                <b class="good">{$game.graph.nodes}</b><span>recovered</span>
+//   OBSERVED   exit 1
+//                ✗ src/ui/App.svelte:632  $game.graph.nodes — reads the legacy
+//                  `graph` cache; use READOUTS in src/core/readouts.ts
+//                ✗ 1 vocabulary violation(s) across 6 surface files.
+//
+// The line number lands on the real offending line, which is the evidence that
+// the comment/string stripper is not shifting the file out from under the
+// reporter — a failure mode this script has had.
 import { readFileSync } from 'node:fs';
 import { globSync } from 'node:fs';
 

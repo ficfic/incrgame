@@ -27,21 +27,7 @@ things every time:
 > 2026-07-26 and made three decisions; the model is one page and supersedes the
 > ladder in ECONOMY.md. These items are that model, in order, smallest first.
 
-## 1. Prove the four gates go red, in writing
-
-`the-process` audit, 2026-07-26: **0 of 4** gates (`check:align`, `check:core`,
-`check:vocab`, `play`) has a durable record of being confirmed red. Two of the
-four have already been caught vacuous in production — the purity gate matched a
-word inside a comment, the alignment gate printed a tick without running.
-
-Rule 4 says a check nobody has broken on purpose is assumed vacuous. Verifying it
-in chat does not count: the record has to outlive the session.
-
-**Done when:** each gate's script carries a comment stating the exact sabotage
-that makes it fail and the observed output, and `DECISIONS.md` has one line
-recording it.
-
-## 2. `OWNER_LINES` — the eight ticker milestones
+## 1. `OWNER_LINES` — the eight ticker milestones
 
 Wired, reachable, 100% reach, still empty. Owner writes them; nothing else here
 is blocked on anything.
@@ -49,7 +35,7 @@ is blocked on anything.
 **Done when:** eight lines exist in `src/shell/ticker.ts` and the probe shows one
 firing.
 
-## 3. The starmap: delete Discover, tap a lane instead
+## 2. The starmap: delete Discover, tap a lane instead
 
 Owner, 2026-07-27: "remove the discover button and instead go kinda like starmap
 exploration, we have some lanes from entity in the beginning, some we can see
@@ -63,3 +49,16 @@ so this item probably rides on a depth-first re-slice.
 
 **Done when:** there is no Discover button, `play-probe` still reaches 30+
 concepts in ten minutes, and the screenshot shows named and masked lanes.
+
+## 3. The masking renderer — blocked on the span-marker format
+
+A word in beat text naming a concept you have not discovered renders as blocks;
+discovering it resolves that word everywhere, retroactively. Needs no new save
+state — "discovered" is already the nodes on the board.
+
+**Blocked, measured 2026-07-27:** all 93 beats in `docs/graph/story.json` have
+`body: ""` and `title: ""`, and the file carries no span markers. The marker
+format is the owner's seam and must not be invented here.
+
+**Done when:** story.json ships bodies with markers, and the probe screenshot
+shows a masked word resolving after the concept is discovered.

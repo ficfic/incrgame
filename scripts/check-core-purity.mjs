@@ -15,6 +15,21 @@
 //
 // So: strip comments and string literals, THEN look. Same rule, applied to
 // code. Run `node scripts/check-core-purity.mjs`.
+// ---- PROVEN RED, 2026-07-27 -----------------------------------------------
+//
+// Rule 4: a check nobody has broken on purpose is assumed vacuous, and this one
+// HAS been vacuous — it once matched the word "window" inside a comment
+// explaining why there was no window.
+//
+//   SABOTAGE   add to `attentionPenalty` in src/core/engine.ts:
+//                if (typeof window !== 'undefined') return 0;
+//   OBSERVED   exit 1
+//                ✗ src/core is not pure — the engine must stay headless...
+//                  src/core/engine.ts:267 touches `window`
+//
+// Note what the output proves beyond the failure: the offending line is printed
+// with its string literal blanked, which is the comment/string stripping doing
+// its job on real code rather than on a fixture.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 

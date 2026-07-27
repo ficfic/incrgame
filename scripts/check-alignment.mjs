@@ -17,6 +17,23 @@
 //   node scripts/check-alignment.mjs 4321
 //
 // Exits non-zero with a table of offenders.
+// ---- PROVEN RED, 2026-07-27 -----------------------------------------------
+//
+// This gate has been vacuous TWICE, both times reporting nothing wrong while
+// measuring nothing at all — once by exiting green in 11 seconds without a
+// browser, once by skipping every viewport on a locator that matched two
+// buttons. Both times the fix was verified by breaking the layout on purpose:
+//
+//   SABOTAGE   in src/ui/App.svelte, offset the dot from its own coordinate:
+//                .node { margin-left: 9px; }
+//   OBSERVED   exit 1, every element in every viewport
+//                small · thing        off by (9.0, 0.0)
+//                small · attribute    off by (9.0, -0.0)
+//                An element placed at a model coordinate must be centred on it...
+//
+// Re-confirmed after the settle wait was changed to read DISCOVER_MS, because
+// a wait that is too short makes this skip rather than fail — and a skip is
+// the failure mode this file exists to make impossible.
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
