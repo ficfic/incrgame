@@ -46,6 +46,9 @@
   let canvas = $state<HTMLCanvasElement>();
   let stage = $state<HTMLDivElement>();
   let sheet = $state<null | 'vignette' | 'save' | 'help'>(null);
+  /** Which page of the manual. The glossary is half the reason the sheet
+   *  exists — the owner asked for it by name — so it is a tab, not a scroll. */
+  let helpTab = $state<'play' | 'terms'>('play');
   let toast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   let w = $state(360);
@@ -873,7 +876,7 @@
         <button class="act core" disabled={!canGrowContext($game)}
           onclick={() => (canGrowContext($game)
             ? dispatch({ type: 'growContext' })
-            : say(`Confirm ${format(contextGate($game))} lines to widen it`))}>
+            : say(`Confirm ${format(contextGate($game))} edges to widen it`))}>
           <b>Grow context</b><span>+{contextStep()} · at {format(contextGate($game))} confirmed</span>
         </button>
       {/if}
@@ -931,45 +934,158 @@
       </div>
     </div>
   {:else if sheet === 'help'}
-    <!-- ---- HOW TO PLAY -------------------------------------------------
+    <!-- ---- THE MANUAL --------------------------------------------------
          ★ EVERY NUMBER HERE IS READ FROM THE ENGINE, never typed in. A help
          page that drifts from the code is worse than no help page: it teaches
          a wrong game with authority. Change a cost and this changes with it.
 
-         ★ THE PROSE RULE. CLAUDE.md: player-facing prose is human-written.
-         What is below is deliberately at the edge of that line — mechanical
-         fact, one clause each, no voice and no jokes. The GOAL and anything
-         with a personality is an ⟨owner⟩ slot and stays empty until written. -->
+         ★ THE PROSE RULE, AND WHERE THE LINE NOW SITS. CLAUDE.md bans
+         AI-written player-facing prose because the game satirises AI slop.
+         The owner asked, in as many words, for explanations in the game that
+         make sense, so the rule is amended deliberately (docs/DECISIONS.md
+         2026-07-27) rather than quietly broken:
+
+           MECHANICAL EXPLANATION — what a button does, what a number counts,
+           what a real term means — is written here. It is documentation.
+           VOICE — jokes, flavour, Field Notes, event text, the cold open —
+           stays the owner's, and stays an ⟨owner⟩ slot until they write it.
+
+         ★ THE GLOSSARY IS THEORY-FAITHFUL. Every definition below matches
+         docs/GLOSSARY.md, which cites its sources. If they ever disagree, the
+         glossary wins. This is an educational game; getting `hypernym` subtly
+         wrong here is a worse bug than a broken button. -->
     <div class="sheet">
-      <h2>How to play</h2>
+      <h2>{helpTab === 'play' ? 'How to play' : 'What the words mean'}</h2>
+      <nav class="tabs">
+        <button class:on={helpTab === 'play'} onclick={() => (helpTab = 'play')}>How to play</button>
+        <button class:on={helpTab === 'terms'} onclick={() => (helpTab = 'terms')}>Glossary</button>
+      </nav>
 
-      <p class="body">⟨what you are and what you were told to do — owner⟩</p>
+      {#if helpTab === 'play'}
+        <p class="body">You are rebuilding a <b>knowledge graph</b> — a map of
+          concepts and the relations between them — from a corpus that machines
+          have spent years training on their own output. The facts are still in
+          there somewhere. Almost none of them have been checked by a human.
+          That last part is your whole job.</p>
 
-      <h3>The loop</h3>
-      <table class="ref"><tbody>
-        <tr><th>verb</th><th>costs</th><th>takes</th><th>gives</th></tr>
-        <tr><td><b>Discover</b></td><td>1 attention</td><td>{DISCOVER_MS / 1000}s</td>
-            <td>a concept, unconnected</td></tr>
-        <tr><td><b>Extract</b></td><td>1 attention</td><td>{EXTRACT_MS / 1000}s</td>
-            <td>dotted lines to confirm</td></tr>
-        <tr><td><b>tap a dotted line</b></td><td>1 attention</td><td>{CONNECT_MS / 1000}s</td>
-            <td>+1 checked</td></tr>
-        <tr><td><b>Grow context</b></td><td>nothing</td><td>—</td>
-            <td>+{contextStep()} context, once you have confirmed
-                {format(contextGate($game))} lines in total</td></tr>
-      </tbody></table>
+        <h3>What you are looking at</h3>
+        <p class="body">Every dot is a <b>concept</b>: one meaning, not one
+          word. Every line between two dots is an <b>edge</b>, and one edge is
+          one statement — <i>race is a group</i>. An edge drawn <b>dotted</b>
+          is a proposal nobody has checked yet; a solid one is confirmed. Tap
+          any dot to read its real dictionary definition.</p>
 
-      <h3>The numbers</h3>
-      <table class="ref"><tbody>
-        <tr><td><b>recovered</b></td><td>concepts with a line on them, of {CONCEPT_BUDGET}</td></tr>
-        <tr><td><b>context</b></td><td>concepts the model holds at once; Extract reads only these</td></tr>
-        <tr><td><b>checked</b></td><td>statements you confirmed, of every statement</td></tr>
-        <tr><td><b>agreeing</b></td><td>lines that match the source, of every line drawn</td></tr>
-        <tr><td><b>attention</b></td><td>slots free, of slots you have. Every verb books one</td></tr>
-      </tbody></table>
+        <h3>The three things you do</h3>
+        <table class="ref"><tbody>
+          <tr><th>verb</th><th>costs</th><th>takes</th><th>gives</th></tr>
+          <tr><td><b>Discover</b></td><td>1 attention</td><td>{DISCOVER_MS / 1000}s</td>
+              <td>a new concept, with nothing attached to it yet</td></tr>
+          <tr><td><b>Extract</b></td><td>1 attention</td><td>{EXTRACT_MS / 1000}s</td>
+              <td>proposed edges, drawn dotted</td></tr>
+          <tr><td><b>tap a dotted edge</b></td><td>1 attention</td><td>{CONNECT_MS / 1000}s</td>
+              <td>that edge confirmed: +1 checked</td></tr>
+          <tr><td><b>Grow context</b></td><td>nothing</td><td>—</td>
+              <td>+{contextStep()} context, once you have confirmed
+                  {format(contextGate($game))} in total</td></tr>
+        </tbody></table>
+        <p class="body">Everything books a slot of <b>attention</b> and takes
+          real seconds, so the board keeps working while the app is shut. It
+          does not need babysitting, and it never will.</p>
 
-      <p class="body">Concepts and definitions are real: Open English WordNet.
-        Tap any concept to read its definition.</p>
+        <h3>Why the window matters</h3>
+        <p class="body">Extract can only relate concepts that are
+          <b>in context</b> — the ones the model is holding right now. So
+          discovering more makes your graph <i>wider</i>, and widening the
+          context window is the only thing that makes it <i>denser</i>. The
+          window holds your newest concepts plus the paths that reach them, so
+          what it holds is always a connected piece of the tree rather than a
+          handful of orphans.</p>
+
+        <h3>Why anything decays</h3>
+        <p class="body">A proposal nobody looks at rots off the board, and the
+          statement behind it goes with it. Machines you buy will extract far
+          faster than you can, and every edge they draw arrives unchecked.
+          <b>Watching</b> a machine costs a slot of attention and keeps it
+          honest; leaving it unwatched is free and is how <i>agreeing</i>
+          starts to fall.</p>
+
+        <h3>What you are aiming at</h3>
+        <p class="body">{CONCEPT_BUDGET} concepts exist in this slice of the
+          source. Recovering them all is the long game; the near one is simply
+          to keep <i>checked</i> climbing while the machines get faster. At
+          {REFLECT_MIN_CONCEPTS} recovered you can <b>Retrain</b> — start a new
+          generation on your own output, which is faster and drifts further
+          from the truth. Doing that is a decision, not a reward.</p>
+
+        <p class="body dim">⟨cold open — owner⟩</p>
+
+      {:else}
+        <p class="body">The game uses the real vocabulary of knowledge graphs,
+          because the real vocabulary is the thing worth learning. Definitions
+          here match the theory; sources are in the project glossary.</p>
+
+        <dl class="terms">
+          <dt>Concept <em>(synset)</em></dt>
+          <dd>One meaning, not one word. <i>Race</i> the genetic group and
+            <i>race</i> the contest are two different concepts that happen to
+            share a spelling. Each dot on the board is one of them, labelled
+            with its most familiar word.</dd>
+
+          <dt>Node</dt>
+          <dd>A concept as it sits on the graph — the dot. Discovering places a
+            node; it stays dark until an edge supports it.</dd>
+
+          <dt>Edge</dt>
+          <dd>A link between two nodes, and the reason the board is a graph
+            rather than a list. One edge is one statement. Drawn
+            <b>dotted</b> while it is only proposed, solid once confirmed —
+            the dots are a rendering of doubt, not a different kind of thing.</dd>
+
+          <dt>Statement <em>(triple)</em></dt>
+          <dd>Subject, relation, object: <i>race — is a — group</i>. The atom
+            of every knowledge graph on earth, and the thing the big number at
+            the top counts.</dd>
+
+          <dt>is a <em>(hypernym)</em></dt>
+          <dd>The relation that says one concept is a kind of another. It is
+            what the noun taxonomy is built from, and it is why the board
+            reaches back to <i>entity</i>: every noun in the source is, eventually,
+            a kind of entity.</dd>
+
+          <dt>Category <em>(lexicographer file)</em></dt>
+          <dd>The <i>noun.group</i> or <i>noun.artifact</i> beside a concept's
+            name. The source's own editorial filing system — a rough shelf, not
+            a claim about what the thing fundamentally is.</dd>
+
+          <dt>Context window</dt>
+          <dd>How many concepts the model holds at once. Borrowed from language
+            models on purpose: it is the same limit, and it bites the same way.
+            Extract sees only what is inside it.</dd>
+
+          <dt>Provenance</dt>
+          <dd>Where a statement came from and who verified it. Tracking it is
+            the entire difference between a knowledge graph and a pile of
+            confident text. <i>checked</i> and <i>agreeing</i> are both readings
+            of it.</dd>
+
+          <dt>Drift</dt>
+          <dd>What happens to meaning when a system learns from its own output
+            instead of from the world. Real, named, and measured — it is why
+            this game exists and what the title refers to.</dd>
+        </dl>
+
+        <h3>The numbers on the HUD</h3>
+        <table class="ref"><tbody>
+          <tr><td><b>recovered</b></td><td>concepts with at least one edge on them, of {CONCEPT_BUDGET}</td></tr>
+          <tr><td><b>context</b></td><td>concepts held at once, of the window you have earned</td></tr>
+          <tr><td><b>checked</b></td><td>statements confirmed, of every statement minted</td></tr>
+          <tr><td><b>agreeing</b></td><td>edges that match the source, of every edge drawn</td></tr>
+          <tr><td><b>attention</b></td><td>slots free, of slots you have</td></tr>
+        </tbody></table>
+
+        <p class="body">Concepts, definitions and relations are real: Open
+          English WordNet, unaltered.</p>
+      {/if}
 
       <div class="sheet-foot">
         <button onclick={() => (sheet = null)}>back</button>
@@ -1174,6 +1290,16 @@
     background: #080b11f2; border: 1px solid #1b2533; border-radius: 10px;
     color: #cfe0e8; font: 400 14px/1.35 ui-sans-serif, system-ui, sans-serif;
   }
+  /* The header ran together as "racenoun.group" — `<b>` and `<em>` are both
+     inline and nothing separated them. The label is the answer to "what did I
+     just tap", so it gets its own line and the category sits under it. */
+  .card .txt { flex: 1 1 auto; min-width: 0; }
+  .card .txt b { display: block; color: #eaf6f2; font-size: 1.05rem; }
+  .card .txt em {
+    display: block; margin-top: 1px;
+    color: #5d7385; font-size: 12px; font-style: normal; letter-spacing: 0.02em;
+  }
+  .card .txt p { margin: 6px 0 0; }
   .card button {
     flex: 0 0 auto; width: 28px; height: 28px; padding: 0;
     background: none; border: 1px solid #1b2533; border-radius: 6px;
@@ -1272,7 +1398,7 @@
   /* ---- sheets: ordinary modals, scrollable, never clipped ---- */
   .sheet {
     position: absolute; inset: 0; z-index: 5;
-    background: #080b11f2; overflow-y: auto;
+    background: #080b11; overflow-y: auto;
     padding: max(16px, env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));
     display: flex; flex-direction: column; gap: 10px;
     color: #cfe0e8; font: 400 14px/1.35 ui-sans-serif, system-ui, sans-serif;
@@ -1288,6 +1414,27 @@
   }
   .ref td { padding: 3px 8px 3px 0; color: #93a8b8; vertical-align: top; }
   .ref td b { color: #cfe0e8; font-weight: 600; white-space: nowrap; }
+
+  /* Two pages of manual, switched in place. A tab strip rather than one long
+     scroll: the glossary is looked up mid-game, not read once. */
+  .tabs { display: flex; gap: 6px; }
+  .tabs button {
+    flex: 1; padding: 7px 0;
+    background: none; border: 1px solid #1b2533; border-radius: 8px;
+    color: #5d7385; font: inherit; font-size: 0.78rem;
+  }
+  .tabs button.on { border-color: #2b6c7d; color: #8fdcea; }
+
+  .terms { margin: 0; font-size: 0.82rem; }
+  .terms dt {
+    margin-top: 10px; color: #cfe0e8; font-weight: 600;
+  }
+  .terms dt:first-child { margin-top: 0; }
+  .terms dt em { color: #5d7385; font-style: normal; font-weight: 400; }
+  .terms dd { margin: 2px 0 0; color: #93a8b8; line-height: 1.4; }
+  .terms dd i, .body i { color: #b9cbd8; font-style: italic; }
+  .terms dd b, .body b { color: #cfe0e8; font-weight: 600; }
+  .body.dim { color: #3f5163; font-size: 0.78rem; }
 
   .stamp { margin: 0; font: 0.62rem ui-monospace, monospace; color: #5d7385; }
   .sheet h2 { margin: 0; font-size: 1rem; color: #eaf6f2; }

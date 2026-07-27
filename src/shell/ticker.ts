@@ -87,7 +87,7 @@ export function observeTransition(prev: GameState, next: GameState): void {
   crossings(prev, next, 'recovered', RECOVERED_MILESTONES, (m) =>
     `${m} concepts ${READOUTS.recovered.noun}`);
   crossings(prev, next, 'lines', LINE_MILESTONES, (m) =>
-    m === 1 ? `first line drawn` : `${m} ${READOUTS.lines.noun} drawn`);
+    m === 1 ? `first edge drawn` : `${m} ${READOUTS.lines.noun} drawn`);
 }
 
 /** Fire once per threshold the given readout has just crossed upward. */

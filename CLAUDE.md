@@ -93,11 +93,18 @@ tests for the check script.
 - **Develop on `claude/knowledge-recovery-ontology-game-g0f9q0`**; deploy by
   fast-forwarding `claude/incremental-game-github-pages-w7pvk6` onto it. Push
   with `-u origin <branch>`. No PRs unless asked.
-- **★ All player-facing PROSE is human-written.** Event text, jokes, Field Notes,
-  flavour, UI copy. The content pipeline generates **structured data only** —
-  costs, gates, graphs, numbers — **never sentences.** This game's thesis is
-  mocking AI slop; shipping AI-written prose would make it the hypocrisy it
-  satirises. As load-bearing as "never break a save."
+- **★ All player-facing VOICE is human-written.** Event text, jokes, Field
+  Notes, flavour, the cold open, ticker lines with a personality. The content
+  pipeline generates **structured data only** — costs, gates, graphs, numbers —
+  **never sentences.** This game's thesis is mocking AI slop; shipping AI-written
+  voice would make it the hypocrisy it satirises. As load-bearing as "never break
+  a save."
+  **Amended 2026-07-27** (owner: *"please do prose… i need to see explanations in
+  game and they must make sense"*): **mechanical explanation is not voice.** What
+  a button does, what a number counts, what `hypernym` means — the help sheet and
+  the in-game glossary — is documentation, and I write it. It stays flat: no
+  jokes, no persona, and every number read from the engine. Anything with a
+  voice is still an ⟨owner⟩ slot.
   *(WordNet glosses shown verbatim are DATA, not prose, and are fine.)*
 - **Never break an existing save.** Every save carries a `version`; older
   versions run a forward migration, never a reset; never rename or remove a

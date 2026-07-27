@@ -133,7 +133,11 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
   });
 
   // land a few concepts, including a long label
-  const discover = page.locator('button.act.primary');
+  // BY TEXT, not by class. This was `button.act.primary`, and the moment
+  // Extract became primary too the locator resolved to two elements, every
+  // click threw strict-mode, and this whole check skipped every viewport while
+  // still exiting 0-ish. A guard that stops running is worse than no guard.
+  const discover = page.locator('button.act', { hasText: 'Discover' });
   let clicks = 0;
   for (let i = 0; i < 4; i++) {
     try { await discover.click({ force: true, timeout: 6000 }); clicks++; } catch { break; }
