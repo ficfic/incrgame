@@ -248,12 +248,16 @@ const PROSE = join(ROOT, 'docs/graph/prose.json');
 const prose = JSON.parse(readFileSync(PROSE, 'utf8'));
 let written = 0;
 for (const b of beats) {
-  const p = prose[b.id];
+  // Keyed by LABEL, not by beat id: beat ids embed node ids, and node ids
+  // renumber whenever the concept selection changes — which it is about to,
+  // for connectivity. Labels are unique in the shipped set (build-ontology.mjs
+  // rejects duplicate labels), so they survive a re-selection intact.
+  const p = prose[b.atLabel];
   if (!p) continue;
   written++;
   b.title = p.title ?? '';
   b.body = p.body ?? '';
-  for (const c of b.choices) if (p.choices?.[c.id]) c.label = p.choices[c.id];
+  for (const c of b.choices) if (p.choices?.[c.toLabel]) c.label = p.choices[c.toLabel];
 }
 
 // The real writing load: one line per distinct frame, not one per beat.
