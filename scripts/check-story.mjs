@@ -54,7 +54,21 @@
  *     c0: 7/8 words are maskable - will not survive masking
  *   exit 1
  *
- * All four sabotages applied, observed, and reverted on 2026-07-27.
+ * Sabotage E - a beat whose only free exit is gated on the RELATION. Change
+ * the guaranteed exit's requires to `{ concepts: [], rels: [8] }`, regenerate,
+ * run. Observed:
+ *   FAIL  dead end: 446 beat(s) have no ungated exit
+ *     e.g. c0 (all 3 choices gated)
+ *   FAIL  unobtainable key: 511 concept(s) gate a choice that no ungated exit ever teaches
+ *     254 gates c1-alt0
+ *   exit 1
+ *
+ * E is the one that found a real bug in this file rather than a planted one:
+ * `ungated` originally tested `requires.concepts` alone, so a sideways route -
+ * empty concepts, a rels gate - counted as a guaranteed exit and a beat with
+ * no real way out would have passed as safe.
+ *
+ * All five sabotages applied, observed, and reverted on 2026-07-27.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -71,20 +85,26 @@ const { beats } = JSON.parse(readFileSync(join(ROOT, 'docs/graph/story.json'), '
 // from lanes.json, so it would catch build-story.mjs translating wrongly.
 const known = (id) => Number.isInteger(id) && id >= 0 && id < concepts;
 
+/* UNGATED means gated on NEITHER axis. Sideways routes carry an empty
+ * `concepts` list but a `rels` gate, so testing concepts alone counted them as
+ * guaranteed exits — a beat whose only "free" exit was a locked sideways link
+ * would have passed as safe. Caught when rel-gated routes were added. */
+const ungated = (c) => (c.requires?.concepts ?? []).length === 0 && (c.requires?.rels ?? []).length === 0;
+
 // What an ungated-only player learns: the destination of every guaranteed exit.
 // Across runs, not within one — keys are drawn from other lanes on purpose, so
 // being locked out this run is the design. Being locked out forever is the bug.
 const teachable = new Set();
 for (const b of beats) {
   for (const c of b.choices) {
-    if ((c.requires?.concepts ?? []).length === 0) teachable.add(c.to);
+    if (ungated(c)) teachable.add(c.to);
   }
 }
 
 const fail = [];
 
 // 1. no dead end
-const stranded = beats.filter((b) => !b.choices.some((c) => (c.requires?.concepts ?? []).length === 0));
+const stranded = beats.filter((b) => !b.choices.some(ungated));
 if (stranded.length) {
   fail.push(
     `dead end: ${stranded.length} beat(s) have no ungated exit\n` +
@@ -169,7 +189,7 @@ if (fail.length) {
   process.exit(1);
 }
 
-const gated = beats.reduce((n, b) => n + b.choices.filter((c) => (c.requires?.concepts ?? []).length).length, 0);
+const gated = beats.reduce((n, b) => n + b.choices.filter((c) => !ungated(c)).length, 0);
 console.log(`ok  ${beats.length} beats, ${gated} gated choices, every beat has an exit`);
 console.log(`ok  every gate key is taught by some ungated exit (${teachable.size} teachable concepts)`);
 console.log(`ok  no dangling concept references`);
