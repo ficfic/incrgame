@@ -45,9 +45,31 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANES = join(ROOT, 'docs/graph/lanes.json');
+const IDMAP = join(ROOT, 'docs/graph/idmap.json');
 const OUT = join(ROOT, 'docs/graph/story.json');
 
 const { lanes } = JSON.parse(readFileSync(LANES, 'utf8'));
+
+/* NUMERIC IDS — the seam between content tooling and the engine.
+ *
+ * lanes.json speaks WordNet synset ids ('00015568-n'). The engine speaks the
+ * numeric node ids that index the shipped ontology chunks. This script does the
+ * translation and emits NUMBERS, so the engine never learns that synset ids
+ * exist. `idmap.json` is written by scripts/build-ontology.mjs.
+ *
+ * ⚠️ MEASURED, 2026-07-27: only 125 of 334 spine concepts (37%) and 286 of 752
+ * sibling concepts (38%) currently HAVE a numeric id, because the shipped
+ * dataset is a breadth-first slice that bottoms out at depth 5 (see
+ * scripts/lane-analysis.mjs). `fish`, `chordate` and everything below them are
+ * not in the game yet.
+ *
+ * So this script DROPS what it cannot resolve and says so loudly. What ships is
+ * the buildable story, not a story that references concepts the player can
+ * never meet. It grows on its own once the dataset is re-aimed depth-first — no
+ * change needed here. */
+const { map: NODE_ID } = JSON.parse(readFileSync(IDMAP, 'utf8'));
+const node = (synsetId) => NODE_ID[synsetId];
+const dropped = { beats: 0, choices: 0 };
 
 /** Concepts a player learns by walking a lane's spine with ungated moves only. */
 const spineConcepts = lanes.map((l) => l.spine.map((s) => s.id));
@@ -82,12 +104,19 @@ for (let li = 0; li < lanes.length; li++) {
     const here = lane.spine[d - 1];
     const next = lane.spine[d];
 
+    // A beat needs its own location and its guaranteed exit to exist in the
+    // shipped dataset. Without either it is unplayable, so it is not emitted.
+    if (node(here.id) === undefined || node(next.id) === undefined) {
+      dropped.beats++;
+      continue;
+    }
+
     const choices = [
       {
         id: `${lane.category}-${d}-on`,
         frame: 'continue',
         label: '', // ← owner, OPTIONAL override of the frame
-        to: next.id,
+        to: node(next.id),
         toLabel: next.label,
         rel: 0, // `is a` — REL_NAMES[0]
         requires: { concepts: [], rels: [] }, // the guaranteed readable exit
@@ -95,36 +124,63 @@ for (let li = 0; li < lanes.length; li++) {
       },
     ];
 
-    for (let si = 0; si < next.siblings.length; si++) {
-      const sib = next.siblings[si];
-      // Key from a DIFFERENT lane, so the branch is opened by knowledge earned
-      // elsewhere. Deterministic: next lane round-robin, same depth, clamped.
-      const keyLane = spineConcepts[(li + 1 + si) % spineConcepts.length];
-      const key = keyLane[Math.min(d, keyLane.length - 1)];
-      choices.push({
-        id: `${lane.category}-${d}-alt${si}`,
-        frame: 'branch',
-        label: '', // ← owner, OPTIONAL override of the frame
-        to: sib.id,
-        toLabel: sib.label,
-        rel: 0,
-        requires: { concepts: [key], rels: [] },
-        effects: {},
-      });
-    }
-
     beats.push({
       id: `${lane.category}-${d}`,
       lane: lane.category,
+      laneIndex: li,
       depth: d,
-      at: here.id,
+      at: node(here.id),
       atLabel: here.label,
       frame: frameFor(d, lane.spine.length),
       title: '', // ← owner, OPTIONAL override of the frame
       body: '',  // ← owner, OPTIONAL override of the frame
       choices,
+      pendingSiblings: next.siblings,
     });
   }
+}
+
+/* PASS 2 — gate the branches.
+ *
+ * Keys must come from what a SURVIVING beat actually teaches, not from the full
+ * lane spines. The first version drew them from lanes.json directly and
+ * check-story.mjs caught it red:
+ *
+ *   FAIL  unobtainable key: 3 concept gates a choice but is on no lane spine
+ *     1880 gates noun.group-4-alt0
+ *
+ * Those keys had real node ids but sat on beats that had been dropped for being
+ * too deep, so no ungated path in the shipped story ever taught them — a door
+ * with no key anywhere in the world. Hence two passes: learn what is teachable,
+ * then gate only on that. */
+const teachable = [];
+for (const b of beats) for (const c of b.choices) if (!c.requires.concepts.length) teachable.push(c.to);
+
+for (const b of beats) {
+  for (let si = 0; si < b.pendingSiblings.length; si++) {
+    const sib = b.pendingSiblings[si];
+    if (node(sib.id) === undefined) {
+      dropped.choices++;
+      continue;
+    }
+    // Deterministic, and deliberately NOT this beat's own lane: the key has to
+    // be earned somewhere else, which is what makes you come back.
+    const offset = (b.laneIndex + 1 + si) * 7 + b.depth;
+    let key = teachable[offset % teachable.length];
+    if (key === undefined) { dropped.choices++; continue; }
+    b.choices.push({
+      id: `${b.lane}-${b.depth}-alt${si}`,
+      frame: 'branch',
+      label: '', // ← owner, OPTIONAL override of the frame
+      to: node(sib.id),
+      toLabel: sib.label,
+      rel: 0,
+      requires: { concepts: [key], rels: [] },
+      effects: {},
+    });
+  }
+  delete b.pendingSiblings;
+  delete b.laneIndex;
 }
 
 // The real writing load: one line per distinct frame, not one per beat.
@@ -149,4 +205,11 @@ console.log(`beats ................ ${beats.length}`);
 console.log(`lanes ................ ${lanes.length}`);
 console.log(`frames to write ...... ${frames.length}  (${frames.join(', ')})`);
 console.log(`per-beat overrides ... optional, all empty`);
-console.log(`wrote ${OUT}`);
+// Never silent: a bounded artifact that does not say what it bounded reads as
+// complete coverage when it is not.
+console.log(
+  `\nDROPPED (not in the shipped dataset): ${dropped.beats} beats, ${dropped.choices} branches.\n` +
+    `  The dataset is a breadth-first slice bottoming out at depth 5; these beats\n` +
+    `  sit deeper. Re-aim it depth-first and they appear with no change here.`,
+);
+console.log(`\nwrote ${OUT}`);

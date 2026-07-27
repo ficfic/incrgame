@@ -242,6 +242,24 @@ function main() {
     }
   });
 
+  // Sidecar: synset id -> shipped numeric node id. NOT shipped to the player —
+  // it lives in docs/ so the runtime payload and the mobile budget are
+  // unchanged. Build-time tooling (scripts/build-story.mjs) uses it to bake
+  // NUMERIC ids into its output, so the engine never has to know that WordNet
+  // synset ids exist at all. That is the seam: content tooling owns the
+  // translation, the engine consumes numbers.
+  const IDMAP = join(ROOT, 'docs/graph/idmap.json');
+  mkdirSync(dirname(IDMAP), { recursive: true });
+  writeFileSync(IDMAP, JSON.stringify({
+    generatedBy: 'scripts/build-ontology.mjs',
+    note: 'synset id -> node id, valid only for this exact concept selection',
+    edition: SRC_REF,
+    commit: sha,
+    concepts: order.length,
+    map: Object.fromEntries(order.map((id, i) => [id, i])),
+  }) + '\n');
+  log(`wrote ${IDMAP}`);
+
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT, { recursive: true });
 
