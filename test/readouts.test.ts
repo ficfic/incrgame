@@ -5,7 +5,7 @@
 // quantities wearing one word. These tests exist so that specific failure —
 // two surfaces disagreeing about what a word means — cannot come back quietly.
 import { describe, expect, it } from 'vitest';
-import { apply, initialState, recovered } from '../src/core/engine';
+import { apply, EXTRACT_MS, initialState, recovered } from '../src/core/engine';
 import { NOUNS, READOUTS } from '../src/core/readouts';
 import { observeTransition, ticker, TICKER_TTL_MS } from '../src/shell/ticker';
 import { get } from 'svelte/store';
@@ -159,7 +159,8 @@ describe('apply() still works with the readouts in place', () => {
       ...base, lastTick: 1000, contextWindow: 8,
       forged: { ...base.forged, anchors: [0, 1, 2, 3] },
     };
-    const s1 = apply(s0, { type: 'extract', candidates: [{ a: 1, b: 0, rel: 0, checked: false, fake: false }] });
+    const booked = apply(s0, { type: 'extract', candidates: [{ a: 1, b: 0, rel: 0, checked: false, fake: false }] });
+    const s1 = apply(booked, { type: 'tick', dt: 0.1, now: booked.lastTick + EXTRACT_MS + 500 });
     expect(READOUTS.statements.count(s1).gt(READOUTS.statements.count(s0))).toBe(true);
   });
 });

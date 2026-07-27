@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   apply, attentionCap, canExtract, contextWindow, extractCapacity, extractionYield,
-  inContext, initialState, CURRENT_SAVE_VERSION,
+  EXTRACT_MS, inContext, initialState, CURRENT_SAVE_VERSION,
 } from '../src/core/engine';
 import { deserialize, MIGRATIONS, serialize } from '../src/core/save';
 import { D } from '../src/core/numbers';
@@ -22,6 +22,14 @@ const board = (n: number): GameState => {
 const cands = (n: number, from = 1): Edge[] =>
   Array.from({ length: n }, (_, i) => ({ a: from + i, b: 0, rel: 0, checked: false, fake: false }));
 
+
+/** Extraction books a slot and lands after EXTRACT_MS — it is work, not an
+ *  instant tap. Tests that want its result have to run the clock. */
+const runExtract = (s: GameState, candidates: Edge[]): GameState => {
+  const booked = apply(s, { type: 'extract', candidates });
+  return apply(booked, { type: 'tick', dt: 0.1, now: booked.lastTick + EXTRACT_MS + 500 });
+};
+
 describe('extract reads what is in context', () => {
   it('needs something to read', () => {
     const empty = initialState(1); // just `entity`
@@ -31,14 +39,26 @@ describe('extract reads what is in context', () => {
 
   it('costs no stock — attention is the budget, and it is spent on confirming', () => {
     const s0 = board(40);
-    const s1 = apply(s0, { type: 'extract', candidates: cands(50) });
-    // It MINTS statements, so `resources` is not untouched — the claim is that
-    // nothing is CONSUMED. (First draft of this asserted `resources` unchanged
-    // and failed against correct code, which is the test being wrong.)
-    expect(s1.pool).toEqual(s0.pool);              // no passage stock spent
+    const s1 = runExtract(s0, cands(50));
+    // No STOCK is consumed — there is no passage pool any more. What it does
+    // cost is a slot and five seconds, like every other verb in the game.
+    expect(s1.pool).toEqual(s0.pool);
     expect(s1.resources.data).toBe(s0.resources.data);
-    expect(s1.bookings).toEqual(s0.bookings);      // no attention booked
     expect(s1.forged.edges.length).toBeGreaterThan(0);
+
+    const booked = apply(s0, { type: 'extract', candidates: cands(50) });
+    expect(booked.bookings).toHaveLength(1);
+    expect(booked.forged.edges).toHaveLength(0); // nothing lands on the tap
+  });
+
+  it('refuses without a free slot — it is work, not a free tap', () => {
+    const s = { ...board(40), supervised: 99 };
+    expect(apply(s, { type: 'extract', candidates: cands(9) })).toBe(s);
+  });
+
+  it('runs one at a time', () => {
+    const once = apply(board(40), { type: 'extract', candidates: cands(9) });
+    expect(apply(once, { type: 'extract', candidates: cands(9, 20) })).toBe(once);
   });
 
   it('proposes MORE when the context window is bigger — the window pays for itself', () => {
@@ -59,7 +79,7 @@ describe('extract reads what is in context', () => {
 
   it('mints exactly as many statements as edges it added', () => {
     const s0 = board(40);
-    const s1 = apply(s0, { type: 'extract', candidates: cands(50) });
+    const s1 = runExtract(s0, cands(50));
     const added = s1.forged.edges.length - s0.forged.edges.length;
     expect(D(s1.resources.triples).toNumber()).toBe(added);
     expect(D(s1.provenance.unverified).toNumber()).toBe(added);
@@ -71,7 +91,7 @@ describe('extract reads what is in context', () => {
     // When it credited the ratchet, 150s of tapping took the cap from 4 to 13.
     let s = board(60);
     const cap = attentionCap(s);
-    for (let i = 0; i < 8; i++) s = apply(s, { type: 'extract', candidates: cands(50, 1 + i * 7) });
+    for (let i = 0; i < 8; i++) s = runExtract(s, cands(50, 1 + i * 7));
     expect(s.lifetimeVerified).toBe(board(60).lifetimeVerified);
     expect(attentionCap(s)).toBe(cap);
   });

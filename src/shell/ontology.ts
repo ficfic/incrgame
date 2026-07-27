@@ -259,6 +259,24 @@ export const currentRevision = (): number => get(revision);
  *  are on the board. ConceptNet slots into the same shape once
  *  `public/relations/` ships (docs/ATTRIBUTION.md gates it).
  */
+/** Relations from a concept you hold to one you have NOT discovered.
+ *
+ *  These can never be drawn — the other end is not on the board — so they are
+ *  useless as candidates and perfect as a teaser: while extraction runs, the
+ *  board shows it reaching for things beyond what it holds. Every one is a real
+ *  relation from the shipped dataset, so nothing here is invented for effect. */
+export function reachingOut(held: readonly number[], onBoard: readonly number[]): number[] {
+  const live = new Set(onBoard);
+  const out: number[] = [];
+  for (const id of held) {
+    for (const e of byNode.get(id) ?? []) {
+      const other = e.a === id ? e.b : e.a;
+      if (!live.has(other)) { out.push(id); break; }
+    }
+  }
+  return out;
+}
+
 export function potentialEdges(anchors: readonly number[]): Array<{ a: number; b: number; rel: number }> {
   const live = new Set(anchors);
   const out: Array<{ a: number; b: number; rel: number }> = [];

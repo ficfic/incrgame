@@ -68,8 +68,11 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
     lastLog = secs;
     log.push({ ...(await read()), t: secs });
   }
-  // Priority order a player would use: connect anything offered, then discover,
-  // then keep the ladder fed.
+  // PRIORITY ORDER, and it matters. Confirm what is offered, then extract, then
+  // grow, and discover LAST — discovery is the slowest verb (18s a slot) and
+  // booking every free slot on it starves extraction completely. The first
+  // version of this probe discovered first, produced zero statements in three
+  // minutes, and reported it as a regression. That was the probe playing badly.
   const dot = page.locator('button.line:not([disabled])').first();
   if (await dot.count() && await dot.isEnabled().catch(() => false)) {
     // force + short timeout: the graph is a live force simulation, so Playwright's
@@ -77,12 +80,6 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
     // burned its full 8s timeout. A 600s run spent 400 of them retrying one
     // wobbling button, and logged it as a frozen economy.
     await dot.click({ force: true, timeout: 1500 }).catch(() => {});
-    await page.waitForTimeout(150);
-    continue;
-  }
-  const disc = page.locator('button.act', { hasText: 'Discover' });
-  if (await disc.isEnabled().catch(() => false)) {
-    await disc.click().catch(() => {});
     await page.waitForTimeout(150);
     continue;
   }
@@ -100,8 +97,18 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
   }
   // Salvage is deleted; Extract is the only conversion left.
   const ex = page.locator('button.act', { hasText: 'Extract' });
-  if (await ex.isEnabled().catch(() => false)) await ex.click().catch(() => {});
-  await page.waitForTimeout(200);
+  if (await ex.isEnabled().catch(() => false)) {
+    await ex.click().catch(() => {});
+    await page.waitForTimeout(200);
+    continue;
+  }
+
+  const disc = page.locator('button.act', { hasText: 'Discover' });
+  if (await disc.isEnabled().catch(() => false)) {
+    await disc.click().catch(() => {});
+    await page.waitForTimeout(150);
+    continue;
+  }
 }
 log.push({ ...(await read()), t: Math.floor((Date.now() - t0) / 1000) });
 

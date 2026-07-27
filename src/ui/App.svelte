@@ -19,7 +19,8 @@
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
     DISCOVER_MS, extractionYield, hasTrust, pendingVignette, recovered,
     REFLECT_MIN_CONCEPTS, sourceAgreement, extractCapacity,
-    canGrowContext, contextCost, contextFull, contextStep, contextUsed, contextWindow, inContext,
+    canGrowContext, contextCost, contextFull, contextStep, contextUsed, contextWindow,
+    EXTRACT_MS, inContext,
     unsupervised, verified,
   } from '../core/engine';
   import { FRONTIER_CAP } from '../core/graph';
@@ -31,7 +32,7 @@
   import { VIGNETTES, describeEffects } from '../content/vignettes';
   import {
     conceptAt, conceptForNode, loadManifest, ontologyCredit, ontologyRevision,
-    potentialEdges, warm,
+    potentialEdges, reachingOut, warm,
   } from '../shell/ontology';
   import {
     cameraFor, clampZoom, frontierPos, isRotted, relHue, stageHue, toScreen, toWorld,
@@ -82,20 +83,29 @@
    *  graph at once. */
   const held = $derived(inContext($game));
 
+  const potential = $derived.by(() => {
+    void $ontologyRevision;
+    return potentialEdges(held);
+  });
+
+  /** What Extract would propose right now. Derived, so the BUTTON can be
+   *  disabled when there is nothing left to find — it used to stay enabled and
+   *  do nothing, which reads as a broken button and, in the probe, produced an
+   *  infinite loop of clicking it. */
+  const proposable = $derived(
+    proposeCandidates(held, potential, $game.forged.edges, extractCapacity($game)).length);
+
   /** Every candidate is a REAL relation from the shipped dataset, over concepts
    *  IN CONTEXT. An extractor proposes; it does not verify, so these arrive
    *  unchecked and rot like anything nobody has looked at. */
   function extract(): void {
     if (!canExtract($game)) { say('Nothing in context to read'); return; }
+    if (free < 1) { say('No free attention'); return; }
     const candidates = proposeCandidates(
       held, potential, $game.forged.edges, extractCapacity($game),
     );
+    if (candidates.length === 0) { say('Nothing new to propose here'); return; }
     dispatch({ type: 'extract', candidates });
-    // Say what it produced. The verb was invisible before: its entire output
-    // looked identical to lines the board was already giving away.
-    say(candidates.length === 0
-      ? 'Nothing new to propose here'
-      : `Proposed ${candidates.length} connection${candidates.length === 1 ? '' : 's'}`);
   }
 
   /** Diameter of the drawn window. It tracks the FRAMED extent of the graph, so
@@ -110,11 +120,6 @@
   const activeVignette = $derived.by(() => {
     const id = pendingVignette($game);
     return id ? (VIGNETTES.find((v) => v.id === id) ?? null) : null;
-  });
-
-  const potential = $derived.by(() => {
-    void $ontologyRevision;
-    return potentialEdges(held);
   });
 
   // The graph does NOT spin.
@@ -336,6 +341,32 @@
     }));
 
   const filling = $derived($game.bookings.filter((b) => b.kind === 'connect'));
+  const extracting = $derived($game.bookings.find((b) => b.kind === 'extract'));
+
+  /** THE FLASH. While extraction runs the board shows it working: pairs among
+   *  the concepts it is reading, cycling, plus stubs reaching OUTWARD from
+   *  concepts that have relations to things you have not discovered.
+   *
+   *  Every pair is real. The reaching stubs are real relations too — they simply
+   *  cannot be drawn, because the other end is not on the board yet. Nothing
+   *  here is invented for effect, and none of it touches state: it is a picture
+   *  of work, and it disappears when the work lands. */
+  const reaching = $derived.by(() => {
+    void $ontologyRevision;
+    return extracting ? reachingOut(held, $game.forged.anchors) : [];
+  });
+
+  const flash = $derived.by(() => {
+    if (!extracting) return { pairs: [], stubs: [] };
+    void now; // repaint every frame: this is an animation, not a state read
+    const t = Math.floor(now / 110);
+    const pool = potential.length > 0 ? potential : [];
+    const pairs = pool.length === 0 ? [] : Array.from({ length: Math.min(3, pool.length) },
+      (_, k) => pool[(t + k * 7) % pool.length]!);
+    const stubs = reaching.length === 0 ? [] : Array.from({ length: Math.min(2, reaching.length) },
+      (_, k) => reaching[(t + k * 5) % reaching.length]!);
+    return { pairs, stubs };
+  });
   const banked = $derived(D($game.pending).add(D($game.pendingClean)));
   // TWO different endings, and they were conflated. `nextId` running out means
   // there is nothing left to FIND; it does not mean the world was recovered,
@@ -586,7 +617,7 @@
       // positions this frame
       if (sim.step()) simTick++;
       if (canvas && w > 0 && h > 0) {
-        paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, dotted, pos: screenPos, cam });
+        paintGraph(canvas, { state: $game, w, h, timeMs: t, hue, dotted, flash, pos: screenPos, cam });
       }
       raf = requestAnimationFrame(frame);
     };
@@ -782,10 +813,15 @@
     <div class="actions">
       <!-- The yield is a PERCENTAGE YOU RAISE, never a subtraction. Same
            arithmetic as "lost 11 of 20", opposite feeling (ECONOMY.md). -->
-      <button class="act primary" disabled={!canExtract($game)}
-        onclick={extract}>
-        <b>Extract</b><span>reads {contextUsed($game)} · {(extractionYield($game) * 100).toFixed(0)}%</span>
-      </button>
+      {#if extracting}
+        <div class="act status"><b>Reading</b><span>{Math.max(0, Math.ceil((extracting.until - $game.lastTick) / 1000))}s</span></div>
+      {:else}
+        <button class="act primary" disabled={!canExtract($game) || free < 1 || proposable === 0}
+          onclick={extract}>
+          <b>Extract</b><span>{proposable === 0 ? 'nothing new here'
+            : free < 1 ? 'no free slot' : `${proposable} · ${EXTRACT_MS / 1000}s`}</span>
+        </button>
+      {/if}
 
       <button class="act primary" disabled={!canDiscover} onclick={discover}>
         <b>Discover</b>

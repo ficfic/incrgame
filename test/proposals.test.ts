@@ -6,9 +6,17 @@
 // inert because its output was indistinguishable from scenery. The owner asked
 // what Extract was for twice.
 import { describe, expect, it } from 'vitest';
-import { apply, initialState } from '../src/core/engine';
+import { apply, EXTRACT_MS, initialState } from '../src/core/engine';
 import { proposeCandidates } from '../src/shell/salvage';
 import type { Edge, GameState } from '../src/core/types';
+
+
+/** Extraction books a slot and lands after EXTRACT_MS — it is work, not an
+ *  instant tap. Tests that want its result have to run the clock. */
+const runExtract = (s: GameState, candidates: Edge[]): GameState => {
+  const booked = apply(s, { type: 'extract', candidates });
+  return apply(booked, { type: 'tick', dt: 0.1, now: booked.lastTick + EXTRACT_MS + 500 });
+};
 
 const boardOf = (n: number): GameState => {
   const base = initialState(1);
@@ -38,7 +46,7 @@ describe('extract is the only source', () => {
 
   it('proposals show up as tappable dotted lines', () => {
     const s0 = { ...boardOf(40), pool };
-    const s1 = apply(s0, { type: 'extract', candidates: candidates(30) });
+    const s1 = runExtract(s0, candidates(30));
     expect(offered(s1).length).toBeGreaterThan(0);
     // ...and every one of them is a real relation over concepts on the board.
     for (const e of offered(s1)) {
@@ -49,7 +57,7 @@ describe('extract is the only source', () => {
 
   it('confirming one removes it from the offer and mints no new statement', () => {
     const s0 = { ...boardOf(40), pool };
-    const s1 = apply(s0, { type: 'extract', candidates: candidates(30) });
+    const s1 = runExtract(s0, candidates(30));
     const before = offered(s1).length;
     const target = offered(s1)[0]!;
 

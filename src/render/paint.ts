@@ -43,6 +43,10 @@ export interface Scene {
   /** Connections available but not drawn, and the node positions — both
    *  computed once by the shell and handed down, never re-derived here. */
   dotted: Array<{ a: number; b: number; rel: number }>;
+  /** WHILE EXTRACTION RUNS. Pairs it is reading, and concepts reaching toward
+   *  relations whose other end you have not discovered. Purely a picture of
+   *  work: nothing here is in the save, and it vanishes when the run lands. */
+  flash?: { pairs: Array<{ a: number; b: number; rel: number }>; stubs: number[] };
   pos: Map<number, { x: number; y: number }>;
   /** The player's current view. Handed down, never recomputed here — the
    *  painter recomputing its own camera is how the atmosphere ended up centred
@@ -123,6 +127,36 @@ function lines(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
     ctx.stroke();
   }
   ctx.restore();
+
+  // ---- THE EXTRACTION FLASH ---------------------------------------------
+  if (s.flash && (s.flash.pairs.length > 0 || s.flash.stubs.length > 0)) {
+    ctx.save();
+    // FLOORED. This was `0.35 + 0.35 * sin(t * 9)`, which reaches ZERO twice a
+    // second — the flash disappeared completely between beats and a screenshot
+    // caught it mid-trough looking like it had never been implemented.
+    const pulse = 0.45 + 0.25 * Math.sin(t * 6);
+    ctx.lineWidth = 1.4;
+    ctx.setLineDash([2, 4]);
+    ctx.lineDashOffset = -t * 26; // travelling, so it reads as scanning
+    ctx.strokeStyle = `hsl(${hue} 85% 72% / ${pulse})`;
+    ctx.beginPath();
+    for (const p of s.flash.pairs) {
+      const pa = at(p.a), pb = at(p.b);
+      ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
+    }
+    // Reaching for something that is not there yet: a stub heading away from
+    // the middle, stopping in empty space, because the other end has not been
+    // discovered and drawing it anywhere would be a lie about where it is.
+    for (const id of s.flash.stubs) {
+      const pa = at(id);
+      const dx = pa.x - centre.x, dy = pa.y - centre.y;
+      const len = Math.hypot(dx, dy) || 1;
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pa.x + (dx / len) * 46, pa.y + (dy / len) * 46);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
 
   ctx.lineWidth = 2;
   ctx.strokeStyle = `hsl(${hue} 80% 68%)`;

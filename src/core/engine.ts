@@ -109,6 +109,12 @@ const ATTENTION_BASE = 4;
 const ATTENTION_PER_DECADE = 4.5;
 export const DISCOVER_MS = 18_000;
 export const REVIEW_BOOK_MS = 25_000;
+/** Extraction is the FAST verb. Discovery is you going out and finding a thing
+ *  (18s); connecting is you deciding a thing is true (7s); extraction is the
+ *  machine reading what you already hold, so it is quick — but it is not free
+ *  and it is not instant. It was both, briefly, and it was the only verb in the
+ *  game that cost nothing, which is exactly what the owner noticed. */
+export const EXTRACT_MS = 5_000;
 /** Filling in a dotted line is the FAST verb. Discovery finds a thing and is
  *  slow and human-only; connecting realises a line the world already offers.
  *  Two verbs at two tempos, because one verb on one timer is a metronome. */
@@ -882,6 +888,21 @@ export function apply(state: GameState, action: Action): GameState {
             touched = true;
             continue;
           }
+          // A finished EXTRACT lands the proposals it was holding. They arrive
+          // unchecked: the machine proposed, nobody has looked yet.
+          if (b.kind === 'extract') {
+            const landing = (b.edges ?? []).filter((c) =>
+              anchors.includes(c.a) && anchors.includes(c.b)
+              && !edges.some((e) => e.a === c.a && e.b === c.b && e.rel === c.rel));
+            if (landing.length > 0) {
+              edges = trimEdges([...edges, ...landing]);
+              resources = touched ? resources : { ...resources };
+              resources.triples = add(resources.triples, String(landing.length));
+              unverified = unverified.add(landing.length);
+              touched = true;
+            }
+            continue;
+          }
           if (b.kind !== 'discover' || b.node === undefined) continue;
           // A discovery lands the concept DARK. It sits on the board with every
           // connection the dataset offers drawn as a dotted line, and it does
@@ -1165,18 +1186,16 @@ export function apply(state: GameState, action: Action): GameState {
     }
 
     case 'extract': {
-      // Rung 1 → rung 2, and the reason this action carries a payload at all.
+      // EXTRACTION IS WORK. It books a slot and takes time like every other
+      // verb, and the candidates ride on the booking so the board can show what
+      // it is considering while it runs.
       //
-      // It used to mint an INTEGER and call it statements. A line drawn by hand
-      // mints a real triple over two real synsets; extraction minted a number
-      // with no subject, predicate, object or referent in the dataset. Two
-      // different things shared one word, and one of them did not exist.
-      //
-      // Now the shell proposes real relations over concepts you hold passages
-      // about — which is what relation extraction is: you cannot extract a fact
-      // from text you do not have.
+      // It was instant and free for about an hour, which made it the only verb
+      // in the game that cost nothing — a tap with no decision attached.
       if (!canExtract(state)) return state;
-
+      if (attentionFree(state) < 1) return state;
+      if (state.lastTick === 0) return state;
+      if (state.bookings.some((b) => b.kind === 'extract')) return state; // one at a time
       const room = extractCapacity(state);
       if (room <= 0) return state;
 
@@ -1191,34 +1210,14 @@ export function apply(state: GameState, action: Action): GameState {
         // cost, and collapsing the two is how a graph gets trusted for free.
         fresh.push({ ...c, checked: false });
       }
-
       if (fresh.length === 0) return state;
 
-      const edges = trimEdges([...state.forged.edges, ...fresh]);
-      const resources = {
-        ...state.resources,
-        triples: add(state.resources.triples, String(fresh.length)),
-      };
       return {
         ...state,
-        forged: { ...state.forged, edges },
-        resources,
-        provenance: {
-          ...state.provenance,
-          unverified: add(state.provenance.unverified, String(fresh.length)),
-        },
-        graph: deriveGraph({ ...state.forged, edges }, resources.triples),
-        // ⚠️ EXTRACTION DOES NOT FEED `lifetimeVerified`, AND IT USED TO.
-        //
-        // That field is the game's ONE permanent ratchet: it drives the
-        // attention cap and the yield multiplier, it survives prestige, and its
-        // contract (types.ts) is "statements a HUMAN checked". Extraction is
-        // bulk conversion, not a person reading a statement.
-        //
-        // Measured before this was removed: 150 seconds of tapping produced
-        // 1,150 statements and moved the attention cap from 4 to 13 — a
-        // fourfold inflation of the game's designed bottleneck, from its
-        // cheapest and most spammable verb.
+        bookings: [
+          ...state.bookings,
+          { kind: 'extract' as const, until: state.lastTick + EXTRACT_MS, edges: fresh },
+        ],
       };
     }
 

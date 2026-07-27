@@ -128,13 +128,18 @@ export interface ReviewItem {
 
 /** One slot, tied up on a piece of work until it finishes. */
 export interface Booking {
-  kind: 'discover' | 'review' | 'connect';
+  kind: 'discover' | 'review' | 'connect' | 'extract';
   until: number;   // epoch ms; compared against lastTick
   node?: number;   // for 'discover': the id the concept will land on
   /** For 'connect': the line being drawn. Held on the booking so the edge only
    *  exists once the work finishes — you watch it fill, you do not get it on
    *  the tap. */
   edge?: Edge;
+  /** For 'extract': the relations this run will propose when it finishes. Held
+   *  on the booking, exactly like `edge`, so extraction is WORK THAT TAKES TIME
+   *  rather than an instant free tap — and so the board has something to show
+   *  while it runs. */
+  edges?: Edge[];
   /** The node this discovery will attach to when it lands: the concept's REAL
    *  parent. Without it the edge was wired to a hash-picked anchor, which meant
    *  the picture was a random spanning forest while SIMPLIFICATIONS S10/S14 told
