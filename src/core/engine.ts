@@ -855,13 +855,34 @@ export function apply(state: GameState, action: Action): GameState {
     case 'tick': {
       const { dt } = action;
       if (!(dt > 0)) return state;
+      // ---- COPY-ON-WRITE, AND WHY IT HAS ITS OWN FLAG ---------------------
+      //
+      // ⚠️ THIS WAS `resources = touched ? resources : { ...resources }`, AND IT
+      // MADE apply() MUTATE ITS CALLER'S STATE.
+      //
+      // `touched` means "something in this tick changed". The copy guard needs
+      // a different fact: "resources have already been copied". Four branches
+      // set `touched` without copying anything — line decay, agent-drawn lines,
+      // folded concepts, and confirming an existing edge — so once any of them
+      // fired first the guard skipped the copy and every later write went
+      // straight into `state.resources`. The input state's balances rewrote
+      // themselves, `next.resources === state.resources`, and calling apply
+      // twice with the same arguments returned different answers: a result
+      // computed as 4 later read 3.
+      //
+      // One flag, one meaning. `own()` copies exactly once and is the ONLY way
+      // to get a writable `resources`; nothing else may assign to it.
       let resources = state.resources;
+      let owned = false;
+      const own = (): typeof resources => {
+        if (!owned) { resources = { ...resources }; owned = true; }
+        return resources;
+      };
       let touched = false;
       for (const res of TIER_LADDER) {
         const rate = ratePerSecond(state, res);
         if (rate !== '0') {
-          resources = touched ? resources : { ...resources };
-          resources[res] = add(resources[res], mul(rate, dt));
+          own()[res] = add(resources[res], mul(rate, dt));
           touched = true;
         }
       }
@@ -877,7 +898,7 @@ export function apply(state: GameState, action: Action): GameState {
       const raw = D(unsupervisedPerSecond(state)).mul(dt);
       const minted = clean.add(raw);
       if (minted.gt(0)) {
-        resources = touched ? resources : { ...resources };
+        own();
         resources.triples = add(resources.triples, minted.toString());
         unverified = unverified.add(raw);
         lifetimeGenerated = lifetimeGenerated.add(minted);
@@ -1005,7 +1026,7 @@ export function apply(state: GameState, action: Action): GameState {
           const back = Decimal.min(D(String(expired)), unverified);
           if (back.gt(0)) {
             unverified = unverified.sub(back);
-            resources = touched ? resources : { ...resources };
+            own();
             resources.triples = sub(resources.triples, back.toString());
             touched = true;
           }
@@ -1074,7 +1095,7 @@ export function apply(state: GameState, action: Action): GameState {
             } else {
               edges = [...edges, b.edge];
               edges = trimEdges(edges);
-              resources = touched ? resources : { ...resources };
+              own();
               resources.triples = add(resources.triples, 1);
               lifetimeVerified = lifetimeVerified.add(1);
             }
@@ -1089,7 +1110,7 @@ export function apply(state: GameState, action: Action): GameState {
               && !edges.some((e) => e.a === c.a && e.b === c.b && e.rel === c.rel));
             if (landing.length > 0) {
               edges = trimEdges([...edges, ...landing]);
-              resources = touched ? resources : { ...resources };
+              own();
               resources.triples = add(resources.triples, String(landing.length));
               unverified = unverified.add(landing.length);
               touched = true;
