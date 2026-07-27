@@ -27,7 +27,7 @@ things every time:
 > 2026-07-26 and made three decisions; the model is one page and supersedes the
 > ladder in ECONOMY.md. These items are that model, in order, smallest first.
 
-## 1. `OWNER_LINES` — the eight ticker milestones
+## 1. `OWNER_LINES` — the eight ticker milestones (PAUSED: economy reset)
 
 Wired, reachable, 100% reach, still empty. Owner writes them; nothing else here
 is blocked on anything.
@@ -35,22 +35,7 @@ is blocked on anything.
 **Done when:** eight lines exist in `src/shell/ticker.ts` and the probe shows one
 firing.
 
-## 2. The starmap: delete Discover, tap a lane instead
-
-Owner, 2026-07-27: "remove the discover button and instead go kinda like starmap
-exploration, we have some lanes from entity in the beginning, some we can see
-where they lead, some are dotted lines leading somewhere, and some will open only
-under some circumstances".
-
-Rarity ships, so a lane can already be named or masked by how obscure its far end
-is. The worldbuilding branch measured that our 4,096-concept slice is
-breadth-first and holds only classifiers — `noun.animal` contains no animals —
-so this item probably rides on a depth-first re-slice.
-
-**Done when:** there is no Discover button, `play-probe` still reaches 30+
-concepts in ten minutes, and the screenshot shows named and masked lanes.
-
-## 3. The masking renderer — blocked on the span-marker format
+## 2. The masking renderer — blocked on the span-marker format
 
 A word in beat text naming a concept you have not discovered renders as blocks;
 discovering it resolves that word everywhere, retroactively. Needs no new save

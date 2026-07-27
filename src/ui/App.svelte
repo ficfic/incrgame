@@ -30,6 +30,8 @@
   import { GENERATORS, M1_ROSTER } from '../content/generators';
   import { CONCEPT_BUDGET } from '../content/ontologyMeta';
   import { REL_NAMES } from '../core/types';
+  import type { Lane } from '../core/starmap';
+  import { lanes, mask } from '../core/starmap';
   import { VIGNETTES, describeEffects } from '../content/vignettes';
   import {
     conceptAt, conceptForNode, loadManifest, ontologyCredit, ontologyRevision,
@@ -408,7 +410,55 @@
   const nothingLeftToFind = $derived($game.forged.nextId >= CONCEPT_BUDGET);
   const worldDone = $derived(recovered($game) >= CONCEPT_BUDGET);
   const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP
-    && $game.lastTick > 0 && !nothingLeftToFind);
+    && $game.lastTick > 0);
+
+  /** The starmap, trimmed to what fits a phone dock.
+   *
+   *  Sorted by `lanes()` as solid → dotted → locked, but the dock shows the
+   *  OPEN ones first and then the locked ones, capped, because a strip of
+   *  twenty routes is a wall rather than a choice. Locked lanes are never
+   *  dropped entirely — at least one is always kept, since the whole point is
+   *  that you can see a door you cannot open. */
+  const allLanes = $derived(lanes($game));
+  const openLanes = $derived.by(() => {
+    void $ontologyRevision;
+    // DOTTED FIRST. `lanes()` sorts solid → dotted → locked, which is the right
+    // order for a map and the wrong one for a dock: solid lanes go somewhere
+    // you already are, so they led the strip with three dead tap targets. A
+    // probe run spent 300 seconds tapping `abstraction` and never left the
+    // first ring — which is exactly what a player would have done.
+    const dotted = allLanes.filter((l) => l.state === 'dotted');
+    const solid = allLanes.filter((l) => l.state === 'solid');
+    const shut = allLanes.filter((l) => l.state === 'locked');
+    // Three open and two locked, ALWAYS in that proportion when both exist.
+    // The first version filled from the open end and left one slot over, so
+    // once four routes were open the locked ones fell off the strip entirely —
+    // and the feature is the locked ones. Locked keeps its two seats.
+    // A SEAT FOR EACH STATE. Filling the strip by priority meant dotted lanes
+    // took every slot and the other two states never appeared — the map showed
+    // only what was actionable, which is a to-do list, not a map. Dotted leads
+    // because it is the move; solid and locked keep a seat each so the strip
+    // always says where you have been and what is still shut.
+    const take = (xs: Lane[], n: number) => xs.slice(0, n);
+    const picked = [
+      ...take(dotted, 3),
+      ...take(solid, shut.length > 0 ? 1 : 2),
+      ...take(shut, 2),
+    ];
+    // Backfill from whatever is left, so a strip is never short when it could
+    // be full — early on there is nothing locked, later nothing dotted.
+    const seen = new Set(picked.map((l) => l.id));
+    return [...picked, ...allLanes.filter((l) => !seen.has(l.id))].slice(0, 6);
+  });
+  /** Destinations already booked.
+   *
+   *  These used to be FILTERED OUT, and thirty seconds into a real run the
+   *  strip showed nothing but locked doors: every open lane had been taken and
+   *  had therefore vanished while its discovery was in flight. A lane you are
+   *  travelling is the most interesting thing on the map, so it stays, marked
+   *  and disabled, with the time left on it. */
+  const booked = $derived(new Set(
+    $game.bookings.filter((b) => b.kind === 'discover' && b.node !== undefined).map((b) => b.node!)));
 
   // ---- PINCH AND PAN ----------------------------------------------------
   //
@@ -624,9 +674,21 @@
     toastTimer = setTimeout(() => (toast = ''), 2200);
   }
 
-  function discover(): void {
-    if (!canDiscover) { say(nothingLeftToFind ? '⟨nothing left to find — owner⟩' : 'No free attention'); return; }
-    dispatch({ type: 'discover' });
+  /** Take a lane. A SOLID lane goes somewhere you already hold, so there is
+   *  nothing to discover — it is a route on your own map, and saying so is
+   *  more honest than booking a slot to arrive where you already are. */
+  /** Seconds left on a lane being travelled. */
+  function landingIn(node: number): number {
+    const b = $game.bookings.find((x) => x.kind === 'discover' && x.node === node);
+    return b ? Math.max(0, Math.ceil((b.until - $game.lastTick) / 1000)) : 0;
+  }
+
+  function travel(l: Lane): void {
+    if (l.state === 'locked') { say('That way is held'); return; }
+    if (l.state === 'solid') { say(`${l.toLabel} is already yours`); return; }
+    if (free < 1) { say('No free attention'); return; }
+    if (!canDiscover) { say('No free slot'); return; }
+    dispatch({ type: 'discover', node: l.to, parent: l.from });
   }
 
   function connect(p: { a: number; b: number; rel: number }): void {
@@ -867,10 +929,35 @@
         </button>
       {/if}
 
-      <button class="act primary" disabled={!canDiscover} onclick={discover}>
-        <b>Discover</b>
-        <span>{worldDone ? 'world recovered' : nothingLeftToFind ? '⟨nothing left to find — owner⟩' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
-      </button>
+      <!-- THE STARMAP REPLACES THE DISCOVER BUTTON.
+           A button that hands you the next concept in a fixed order is a
+           vending machine: it says nothing about where you are or where you
+           could go. A lane names its destination.
+
+           ⚠️ LOCKED LANES ARE RENDERED. That is the design, not an oversight.
+           Their destination is withheld and their KEY is shown masked — you
+           can see the shape of the word that opens the way and not read it.
+           An absent edge motivates nobody. -->
+      {#if openLanes.length > 0}
+        <div class="lanes">
+          {#each openLanes as l (l.id)}
+            <button class="lane {l.state}" class:flying={booked.has(l.to)}
+              disabled={l.state !== 'dotted' || booked.has(l.to) || free < 1}
+              aria-label={l.state === 'locked'
+                ? `locked lane, needs ${l.missing.length} concept(s)`
+                : `travel to ${l.toLabel}`}
+              onclick={() => travel(l)}>
+              <b>{l.state === 'locked' ? mask(l.toLabel) : l.toLabel}</b>
+              <span>{l.state === 'locked'
+                ? `held by ${l.missing.map((id) => mask(conceptAt(id)?.label ?? '')).join(' ')}`
+                : booked.has(l.to) ? `${landingIn(l.to)}s`
+                : l.state === 'solid' ? 'known' : `${DISCOVER_MS / 1000}s`}</span>
+            </button>
+          {/each}
+        </div>
+      {:else}
+        <div class="act status"><b>No lanes</b><span>{worldDone ? 'world recovered' : 'nothing reachable'}</span></div>
+      {/if}
 
       <!-- (A "N lines filling" chip lived here. The line is already visibly
            filling ON THE BOARD — the painter draws it growing from one end —
@@ -1486,6 +1573,37 @@
     background: #10151d; border: 1px solid #2f3d4e; color: #cfe0e8;
   }
   .sheet-foot button.bad { border-color: #b0566b; color: #b0566b; }
+
+  /* ---- THE STARMAP LANES ------------------------------------------------
+     Three states, three weights of line, and the locked one is DRAWN. It is
+     dimmed and dashed and its label is blocks — you can see there is a way
+     and see the shape of the word that holds it. That is the whole feature;
+     an absent edge motivates nobody. */
+  .lanes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .lane {
+    flex: 1 1 auto; min-width: 96px; max-width: 46%;
+    padding: 8px 10px; border-radius: 10px;
+    background: none; border: 1px solid #2b6c7d; color: #8fdcea;
+    font: inherit; text-align: left;
+  }
+  .lane b { display: block; font-size: 0.92rem; font-weight: 600; }
+  .lane span { display: block; font: 0.62rem ui-monospace, monospace; color: #5d7385; }
+  /* SOLID — a route on your own map. Filled, because you have been there. */
+  /* SOLID — a route on your own map, and NOT a tap target: it goes somewhere
+     you already hold, so there is nothing to travel to. It is drawn as record,
+     not as an offer. */
+  .lane.solid { border-color: #24505c; background: #0e1d24; color: #6f9aa8; }
+  /* DOTTED — ungated, and the far end is dark. Taking it teaches you. */
+  .lane.dotted { border-style: dashed; }
+  /* LOCKED — visible, not takeable, key masked. */
+  .lane.locked {
+    border-style: dashed; border-color: #26333f; color: #48607a;
+    background: none;
+  }
+  .lane.locked b { letter-spacing: 0.06em; }
+  .lane:disabled { opacity: 0.9; }
+  /* In flight: you are on this lane right now. */
+  .lane.flying { border-style: solid; border-color: #3f6f5f; color: #6fbfa0; }
   /* A locked choice reads as a door, not as an error: dimmed and quiet, with
      the words it wants underneath. `:disabled` alone rendered it the same grey
      as a spent button, which says "broken" rather than "not yet". */

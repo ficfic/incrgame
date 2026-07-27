@@ -280,7 +280,11 @@ export type Action =
    *  the concept about to be found, looked up by the shell and passed in as a
    *  plain integer — the engine stays pure and still knows nothing about the
    *  dataset. Omitted only if the chunk has not loaded. */
-  | { type: 'discover'; parent?: number }
+  /** `node` TARGETS a specific concept — the starmap's lanes name where they
+   *  go, so travelling one has to land THAT concept and not merely the next in
+   *  sequence. Omitted, discovery falls back to the sequential allocator, which
+   *  is what the old Discover button did. */
+  | { type: 'discover'; parent?: number; node?: number }
   /** Book a slot onto FILLING IN a dotted line. The shell picks which potential
    *  connection you tapped and hands over the finished shape; core stays pure
    *  and cannot tell a real relation from an invented one, which is exactly
@@ -359,6 +363,43 @@ export interface VignetteChoice {
    *  Optional and additive, so no save moves — a save stores which vignettes
    *  were seen, never the vignette data itself. */
   requires?: { concepts: number[]; rels: number[] };
+}
+
+/** ---- THE STORY GRAPH ----------------------------------------------------
+ *
+ *  Shape of docs/graph/story.json. Written by scripts/build-story.mjs; the
+ *  title/body/label fields ship empty and the owner fills them.
+ *
+ *  Every id here is a NUMERIC node id — the integers a save stores. */
+export interface StoryChoice {
+  id: string;
+  frame: string;
+  label: string;
+  /** Destination node id. */
+  to: number;
+  toLabel: string;
+  rel: number;
+  requires?: { concepts: number[]; rels: number[] };
+  effects?: Record<string, number>;
+}
+
+export interface StoryBeat {
+  id: string;
+  lane: string;
+  depth: number;
+  /** The node this beat is told FROM. */
+  at: number;
+  atLabel: string;
+  frame: string;
+  title: string;
+  body: string;
+  choices: StoryChoice[];
+}
+
+export interface StoryGraph {
+  counts: { beats: number; lanes: number; frames: number };
+  frames: string[];
+  beats: StoryBeat[];
 }
 
 export interface FieldNote {

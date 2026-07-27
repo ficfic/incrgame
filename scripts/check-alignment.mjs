@@ -164,19 +164,27 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
     };
   });
 
-  // land a few concepts, including a long label
-  // BY TEXT, not by class. This was `button.act.primary`, and the moment
-  // Extract became primary too the locator resolved to two elements, every
-  // click threw strict-mode, and this whole check skipped every viewport while
-  // still exiting 0-ish. A guard that stops running is worse than no guard.
-  const discover = page.locator('button.act', { hasText: 'Discover' });
+  // Land a few concepts, including a long label.
+  //
+  // ⚠️ THIS LOCATOR HAS BROKEN THREE TIMES IN ONE DAY, because it is coupled to
+  // whatever the current discovery affordance happens to be: `button.act.primary`
+  // (matched two buttons once Extract became primary), then `hasText: 'Discover'`
+  // (the Discover button was deleted for the starmap). Each time the check
+  // SKIPPED rather than failed, which is the right behaviour and still means it
+  // measured nothing.
+  //
+  // It is now `.lane.dotted` — a lane into the dark, which is the one thing that
+  // lands new concepts. If that ever stops existing, this skips loudly again;
+  // the durable fix is that the affordance is checked, not that a name is
+  // guessed. See BACKLOG.
+  const discover = page.locator('.lane.dotted:not([disabled])').first();
   let clicks = 0;
   for (let i = 0; i < 4; i++) {
     try { await discover.click({ force: true, timeout: 6000 }); clicks++; } catch { break; }
     await page.waitForTimeout(150);
   }
   if (clicks === 0) {
-    skipped.push(`${tag}: the Discover button never became clickable — game did not start`);
+    skipped.push(`${tag}: no dotted lane became clickable — game did not start`);
     await ctx.close();
     continue;
   }

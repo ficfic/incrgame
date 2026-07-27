@@ -1234,8 +1234,27 @@ export function apply(state: GameState, action: Action): GameState {
       // The world is finite. Past the last concept, discovery was still minting
       // +1 anchor and +1 VERIFIED statement for nodes with nothing behind them —
       // an infinite faucet of the one thing the game says is scarce.
-      if (state.forged.nextId >= CONCEPT_BUDGET) return state;
-      const node = state.forged.nextId;
+      // ---- WHICH CONCEPT LANDS -------------------------------------------
+      //
+      // Untargeted, this is the sequential allocator the Discover button used:
+      // `nextId`, then `nextId + 1`, forever. TARGETED, the starmap names its
+      // destination, so the lane you tap has to land the concept it promised.
+      //
+      // ⚠️ `nextId` STAYS THE HIGH-WATER MARK, not a count. Targeted discovery
+      // makes the anchor list sparse — you can hold 0, 1, 2, 15, 228 — and
+      // anything that treated `nextId` as "how many concepts you have" is
+      // wrong from here. It is used as the sequential cursor and as the
+      // world-finished check, and both survive a sparse board.
+      const targeted = action.node;
+      if (targeted !== undefined) {
+        if (!Number.isInteger(targeted) || targeted < 0 || targeted >= CONCEPT_BUDGET) return state;
+        // Already yours, or already on its way. Re-discovering would mint a
+        // second anchor for one concept and double every count that reads them.
+        if (state.forged.anchors.includes(targeted)) return state;
+        if (state.forged.frontier.includes(targeted)) return state;
+        if (state.bookings.some((b) => b.kind === 'discover' && b.node === targeted)) return state;
+      } else if (state.forged.nextId >= CONCEPT_BUDGET) return state;
+      const node = targeted ?? state.forged.nextId;
       // take the lowest free ring slot so discoveries never share a position
       const taken = new Set(state.bookings.map((b) => b.slot));
       let slot = 0;
@@ -1252,7 +1271,7 @@ export function apply(state: GameState, action: Action): GameState {
         bookings,
         forged: {
           ...state.forged,
-          nextId: node + 1,
+          nextId: Math.max(state.forged.nextId, node + 1),
           frontier: [...state.forged.frontier, node],
         },
       };
