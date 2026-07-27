@@ -66,6 +66,65 @@ describe('the window is a real limit', () => {
   });
 });
 
+describe('the window holds a CONNECTED slice, not a tail', () => {
+  // ⚠️ THE DEFECT THIS PINS, and it was the largest one in the game.
+  //
+  // Anchors append breadth-first, so a concept's parent always has a lower id.
+  // A tail of the newest N therefore contains almost no parents, `potentialEdges`
+  // finds no held ancestor and falls back to the root, and every relation Extract
+  // could propose was `X is a entity`. Measured at window 16 on a real save: 2
+  // real parents in context against 1181 spokes to `entity`.
+  //
+  // A five-deep chain: 0 → 1 → 2 → 3 → 4, then 5..99 hanging off 4's siblings.
+  const parentOf = (id: number): number => (id <= 0 ? -1 : Math.floor((id - 1) / 2));
+  const board = (n: number, window: number): GameState => {
+    const base = initialState(1);
+    const anchors = Array.from({ length: n }, (_, i) => i);
+    return { ...base, contextWindow: window, forged: { ...base.forged, anchors } };
+  };
+
+  it('puts a real parent in context for nearly every concept held', () => {
+    const held = inContext(board(100, 16), parentOf);
+    const set = new Set(held);
+    const withParent = held.filter((id) => id !== 0 && set.has(parentOf(id))).length;
+    // The tail version scores 7/15 here and 2/16 on the real dataset, where the
+    // tree is far wider than binary. Anything under "almost all" is the bug.
+    expect(withParent).toBeGreaterThanOrEqual(held.length - 1);
+  });
+
+  it('is strictly better than the tail it replaced', () => {
+    const s = board(100, 16);
+    const score = (held: number[]): number => {
+      const set = new Set(held);
+      return held.filter((id) => id !== 0 && set.has(parentOf(id))).length;
+    };
+    expect(score(inContext(s, parentOf))).toBeGreaterThan(score(inContext(s)));
+  });
+
+  it('still fills the window exactly, so the HUD number stays honest', () => {
+    expect(inContext(board(100, 16), parentOf)).toHaveLength(16);
+    expect(inContext(board(100, 40), parentOf)).toHaveLength(40);
+    expect(inContext(board(9, 16), parentOf)).toHaveLength(9); // fewer than a window
+  });
+
+  it('keeps the root, and never admits a concept before its parent', () => {
+    const held = inContext(board(100, 16), parentOf);
+    expect(held).toContain(0);
+    expect(new Set(held).size).toBe(held.length); // no duplicates
+  });
+
+  it('holds the NEWEST work — the frontier is what you were just doing', () => {
+    const held = inContext(board(100, 16), parentOf);
+    expect(held).toContain(99);
+  });
+
+  it('degrades to the tail when parents are unknown, rather than emptying', () => {
+    // The ontology is fetched at runtime, so `parentOf` returns -1 until the
+    // chunk lands. That must not leave the model holding nothing.
+    expect(inContext(board(100, 16), () => -1)).toHaveLength(16);
+  });
+});
+
 describe('growing it', () => {
   it('is refused before you have confirmed enough, and changes nothing', () => {
     const s = withChecked('0');

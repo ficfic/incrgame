@@ -266,13 +266,73 @@ export function contextFull(state: GameState): boolean {
  *  A real context window does not refuse new input. It drops the oldest. So
  *  discovery always works, older concepts fall OUT of context — still on the
  *  board, dimmed, never deleted — and growing the window means holding more of
- *  your own graph in mind at once. */
-export function inContext(state: GameState): number[] {
+ *  your own graph in mind at once.
+ *
+ *  ⚠️ WHY THE WINDOW IS A CONNECTED SLICE, NOT A TAIL.
+ *
+ *  It was a plain tail — the last N anchors — and that quietly broke the whole
+ *  game. Anchors are appended breadth-first, so a concept's parent ALWAYS has a
+ *  lower index than the concept, which means a tail of the newest N contains
+ *  almost no parents. `potentialEdges` walks up from each held concept looking
+ *  for an ancestor that is also held, finds nothing until it reaches the root,
+ *  and proposes `X is a entity`. Measured at window 16: 2 real parents in
+ *  context against 1181 spokes to `entity`. From roughly the 18th concept
+ *  onward, EVERY line Extract could offer was `X is a entity` — which is both
+ *  the hairball on screen and the reason nothing the player drew meant anything.
+ *
+ *  So the window now admits a concept together with the path that reaches it,
+ *  and that path counts against the window. Same size, same honest number in
+ *  the HUD, but what is held is always a connected piece of the taxonomy.
+ *
+ *  `parentOf` is injected because the ontology is fetched at runtime and core is
+ *  pure. Without it — tests, headless — this degrades to the old tail, which is
+ *  correct, merely uninteresting. */
+const ANCESTOR_HOPS = 8;
+
+export function inContext(state: GameState, parentOf?: (id: number) => number): number[] {
   const a = state.forged.anchors;
   const n = contextWindow(state);
   if (a.length <= n) return a;
+  if (parentOf) return connectedSlice(a, n, parentOf);
   const tail = a.slice(a.length - n);
   return tail.includes(0) ? tail : [0, ...tail.slice(1)];
+}
+
+/** The newest concepts whose full path to the root also fits, root-ward first.
+ *
+ *  A chain is admitted whole or not at all: admitting the bottom half of one
+ *  would put a concept in context with no held parent, which is exactly the
+ *  state this function exists to prevent. */
+function connectedSlice(
+  anchors: readonly number[], n: number, parentOf: (id: number) => number,
+): number[] {
+  const onBoard = new Set(anchors);
+  const resident = new Set<number>();
+  const out: number[] = [];
+  const admit = (id: number): void => { resident.add(id); out.push(id); };
+  if (onBoard.has(0)) admit(0);
+
+  for (let i = anchors.length - 1; i >= 0 && out.length < n; i--) {
+    const id = anchors[i]!;
+    if (resident.has(id)) continue;
+    const chain: number[] = [];
+    let cursor = id;
+    for (let hops = 0; hops <= ANCESTOR_HOPS && cursor >= 0; hops++) {
+      if (resident.has(cursor)) break;
+      if (onBoard.has(cursor)) chain.push(cursor);
+      cursor = parentOf(cursor);
+    }
+    if (chain.length === 0 || out.length + chain.length > n) continue;
+    for (let k = chain.length - 1; k >= 0; k--) admit(chain[k]!);
+  }
+  // Chains rarely pack a window exactly. Rather than hand back a short window —
+  // the player paid for `n` slots and the HUD says `n` — top the remainder up
+  // with the newest concepts, which is the old behaviour for the leftovers only.
+  for (let i = anchors.length - 1; i >= 0 && out.length < n; i--) {
+    const id = anchors[i]!;
+    if (!resident.has(id)) admit(id);
+  }
+  return out;
 }
 
 /** What the next +CONTEXT_STEP REQUIRES. A gate, not a price.

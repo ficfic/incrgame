@@ -441,3 +441,12 @@ inherit them by assumption.
 - [ ] **The board is a hairball past ~50 concepts** — everything spokes off `entity` and labels overlap. LOD declutters labels but not the layout.
 
 - [ ] `agreeing` reads 31/31 and stays there until unsupervised machines exist, so it teaches nothing yet. It is correct and inert. Decide whether it earns HUD space before the machines that move it are buildable.
+
+- [ ] Transitive `is a` spokes are minted `fake: false` (`potentialEdges` walk-up). True by transitivity, but not the direct parent — makes `agreeing` weaker than it reads. Much rarer now that ancestors are held.
+- [ ] `contextGate` reads `lifetimeVerified`, which survives `reflect` and is also fed by machines — generation 2 regrows the window free, and the label "at N confirmed" overstates what a human checked.
+- [ ] A dark concept that falls out of context can never be proposed again — nothing re-admits it.
+- [ ] `contextUsed` saturates the moment the board exceeds the window, so the ring sits permanently amber and says nothing.
+- [ ] `rel === 0` (`is a`) renders with no edge label; owner asked for labels on edges at high zoom.
+- [ ] Tapping a node cancels auto-framing and reheats the sim (`sim.grab`); the inspect card lists no connections.
+- [ ] `drifted` has no sink in generation 1 — it only ever goes up.
+- [ ] **Owner decision needed:** `the-graph` rules the in-game help sheet AI-written player-facing UI copy, which CLAUDE.md bans by name. Either the mechanical-fact carve-out is written into the rule, or the sheet becomes ⟨owner⟩ slots.

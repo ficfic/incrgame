@@ -77,11 +77,17 @@
     return $ticker.filter((l) => clock - l.at < TICKER_TTL_MS).slice(-2);
   });
 
-  /** Extraction reads the concepts IN CONTEXT — the most recent window's worth
-   *  — not everything that has ever been on the board. That is what makes the
-   *  window mean something: grow it and the model can relate more of its own
-   *  graph at once. */
-  const held = $derived(inContext($game));
+  /** Extraction reads the concepts IN CONTEXT — a connected slice of the
+   *  taxonomy, newest concepts plus the paths that reach them — not everything
+   *  that has ever been on the board. That is what makes the window mean
+   *  something: grow it and the model can relate more of its own graph at once.
+   *
+   *  The parent lookup is what stops every proposal being `X is a entity`; see
+   *  `inContext` in core for the measurement. */
+  const held = $derived.by(() => {
+    void $ontologyRevision; // parents arrive with the chunk; re-slice when they do
+    return inContext($game, (id) => conceptAt(id)?.parent ?? -1);
+  });
 
   const potential = $derived.by(() => {
     void $ontologyRevision;
