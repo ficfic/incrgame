@@ -97,6 +97,8 @@ const frameFor = (depth, total) => {
 };
 
 const beats = [];
+const byConcept = new Map();   // node id -> the single beat standing there
+let merged = 0;
 for (let li = 0; li < lanes.length; li++) {
   const lane = lanes[li];
   // Start at 1: index 0 is `entity` itself, which the player already has.
@@ -124,19 +126,46 @@ for (let li = 0; li < lanes.length; li++) {
       },
     ];
 
-    beats.push({
-      id: `${lane.category}-${d}`,
-      lane: lane.category,
+    /* ONE BEAT PER CONCEPT, not per (lane, depth).
+     *
+     * This keyed by `${lane}-${depth}` until the continuity review measured
+     * what that produced: "26 beats stand at `entity` and 17 at `abstraction`
+     * — 46% of the corpus at two nodes... this is one sentence rewritten 43
+     * times." Three writers independently opened with the literal 5-gram
+     * "entity covers everything, which is why".
+     *
+     * That was not a writing failure. Every lane starts at `entity`, so the
+     * generator was ASKING for 26 beats about the same concept and there was
+     * no non-identical way to answer. Lanes share their upper reaches — near
+     * the root they are the same few nodes — so a beat belongs to a PLACE, and
+     * the lanes leaving it are its choices.
+     *
+     * It is also the starmap: standing at `entity` you see every lane that
+     * leaves it, which is what the owner asked for in the first place. */
+    const key = node(here.id);
+    const existing = byConcept.get(key);
+    if (existing) {
+      existing.choices.push(...choices);
+      existing.pendingSiblings.push(...next.siblings);
+      existing.lanes.push(lane.category);
+      merged++;
+      continue;
+    }
+    const beat = {
+      id: `c${key}`,
+      lanes: [lane.category],
       laneIndex: li,
       depth: d,
-      at: node(here.id),
+      at: key,
       atLabel: here.label,
       frame: frameFor(d, lane.spine.length),
       title: '', // ← owner, OPTIONAL override of the frame
       body: '',  // ← owner, OPTIONAL override of the frame
       choices,
-      pendingSiblings: next.siblings,
-    });
+      pendingSiblings: [...next.siblings],
+    };
+    byConcept.set(key, beat);
+    beats.push(beat);
   }
 }
 
@@ -169,7 +198,7 @@ for (const b of beats) {
     let key = teachable[offset % teachable.length];
     if (key === undefined) { dropped.choices++; continue; }
     b.choices.push({
-      id: `${b.lane}-${b.depth}-alt${si}`,
+      id: `${b.id}-alt${si}`,
       frame: 'branch',
       label: '', // ← owner, OPTIONAL override of the frame
       to: node(sib.id),
@@ -181,6 +210,27 @@ for (const b of beats) {
   }
   delete b.pendingSiblings;
   delete b.laneIndex;
+}
+
+/* DEDUPE CHOICES WITHIN A MERGED BEAT.
+ *
+ * 26 lanes run through `entity`, and every one of them offers the same three
+ * children, so the merge produced 78 choices at that beat: 26 copies each of
+ * `physical entity`, `abstraction` and `thing`. Near the root the lanes are not
+ * distinct routes at all — they are the same few nodes — and they only diverge
+ * further down.
+ *
+ * Keep one choice per destination, preferring an UNGATED copy: if any lane
+ * reaches a destination without a key, the destination is not gated. Dropping
+ * that preference would invent locks that no lane actually imposes. */
+for (const b of beats) {
+  const best = new Map();
+  for (const c of b.choices) {
+    const prev = best.get(c.to);
+    const ungated = (c.requires?.concepts ?? []).length === 0;
+    if (!prev || (ungated && (prev.requires?.concepts ?? []).length > 0)) best.set(c.to, c);
+  }
+  b.choices = [...best.values()];
 }
 
 // The real writing load: one line per distinct frame, not one per beat.

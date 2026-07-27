@@ -2,7 +2,7 @@
  "generatedBy": "scripts/build-story.mjs",
  "note": "All title/body/label fields are owner-written and ship empty by design.",
  "counts": {
-  "beats": 93,
+  "beats": 27,
   "lanes": 26,
   "frames": 5
  },
@@ -15,8 +15,35 @@
  ],
  "beats": [
   {
-   "id": "noun.animal-1",
-   "lane": "noun.animal",
+   "id": "c0",
+   "lanes": [
+    "noun.animal",
+    "noun.artifact",
+    "noun.state",
+    "noun.cognition",
+    "noun.communication",
+    "noun.possession",
+    "noun.act",
+    "noun.group",
+    "noun.substance",
+    "noun.person",
+    "noun.phenomenon",
+    "noun.food",
+    "noun.plant",
+    "noun.attribute",
+    "noun.body",
+    "noun.time",
+    "noun.quantity",
+    "noun.process",
+    "noun.location",
+    "noun.event",
+    "noun.shape",
+    "noun.object",
+    "noun.feeling",
+    "noun.relation",
+    "noun.motive",
+    "noun.Tops"
+   ],
    "depth": 1,
    "at": 0,
    "atLabel": "entity",
@@ -38,11 +65,24 @@
      "effects": {}
     },
     {
-     "id": "noun.animal-1-alt0",
-     "frame": "branch",
+     "id": "noun.state-1-on",
+     "frame": "continue",
      "label": "",
      "to": 1,
      "toLabel": "abstraction",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c0-alt1",
+     "frame": "branch",
+     "label": "",
+     "to": 3,
+     "toLabel": "thing",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -51,27 +91,21 @@
       "rels": []
      },
      "effects": {}
-    },
-    {
-     "id": "noun.animal-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
     }
    ]
   },
   {
-   "id": "noun.animal-2",
-   "lane": "noun.animal",
+   "id": "c2",
+   "lanes": [
+    "noun.animal",
+    "noun.artifact",
+    "noun.communication",
+    "noun.substance",
+    "noun.phenomenon",
+    "noun.food",
+    "noun.location",
+    "noun.Tops"
+   ],
    "depth": 2,
    "at": 2,
    "atLabel": "physical entity",
@@ -93,46 +127,40 @@
      "effects": {}
     },
     {
-     "id": "noun.animal-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.animal-2-alt1",
-     "frame": "branch",
+     "id": "noun.artifact-2-on",
+     "frame": "continue",
      "label": "",
      "to": 15,
      "toLabel": "object",
      "rel": 0,
      "requires": {
-      "concepts": [
-       228
-      ],
+      "concepts": [],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.animal-2-alt2",
-     "frame": "branch",
+     "id": "noun.substance-2-on",
+     "frame": "continue",
+     "label": "",
+     "to": 14,
+     "toLabel": "matter",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.phenomenon-2-on",
+     "frame": "continue",
      "label": "",
      "to": 16,
      "toLabel": "process",
      "rel": 0,
      "requires": {
-      "concepts": [
-       6
-      ],
+      "concepts": [],
       "rels": []
      },
      "effects": {}
@@ -140,8 +168,10 @@
    ]
   },
   {
-   "id": "noun.animal-3",
-   "lane": "noun.animal",
+   "id": "c13",
+   "lanes": [
+    "noun.animal"
+   ],
    "depth": 3,
    "at": 13,
    "atLabel": "causal agent",
@@ -163,7 +193,7 @@
      "effects": {}
     },
     {
-     "id": "noun.animal-3-alt0",
+     "id": "c13-alt0",
      "frame": "branch",
      "label": "",
      "to": 164,
@@ -171,14 +201,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       44
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.animal-3-alt1",
+     "id": "c13-alt1",
      "frame": "branch",
      "label": "",
      "to": 165,
@@ -186,7 +216,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       2048
+       1
       ],
       "rels": []
      },
@@ -195,8 +225,10 @@
    ]
   },
   {
-   "id": "noun.animal-4",
-   "lane": "noun.animal",
+   "id": "c175",
+   "lanes": [
+    "noun.animal"
+   ],
    "depth": 4,
    "at": 175,
    "atLabel": "organism",
@@ -218,7 +250,7 @@
      "effects": {}
     },
     {
-     "id": "noun.animal-4-alt0",
+     "id": "c175-alt0",
      "frame": "branch",
      "label": "",
      "to": 1796,
@@ -226,14 +258,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.animal-4-alt1",
+     "id": "c175-alt1",
      "frame": "branch",
      "label": "",
      "to": 1797,
@@ -241,14 +273,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.animal-4-alt2",
+     "id": "c175-alt2",
      "frame": "branch",
      "label": "",
      "to": 1798,
@@ -256,7 +288,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
@@ -265,133 +297,13 @@
    ]
   },
   {
-   "id": "noun.artifact-1",
-   "lane": "noun.artifact",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.artifact-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.artifact-2",
-   "lane": "noun.artifact",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.artifact-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       14
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.artifact-3",
-   "lane": "noun.artifact",
+   "id": "c15",
+   "lanes": [
+    "noun.artifact",
+    "noun.communication",
+    "noun.location",
+    "noun.Tops"
+   ],
    "depth": 3,
    "at": 15,
    "atLabel": "object",
@@ -413,41 +325,11 @@
      "effects": {}
     },
     {
-     "id": "noun.artifact-3-alt0",
+     "id": "c15-alt0",
      "frame": "branch",
      "label": "",
      "to": 194,
      "toLabel": "catch",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 195,
-     "toLabel": "charm",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.artifact-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 196,
-     "toLabel": "clanker",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -456,12 +338,47 @@
       "rels": []
      },
      "effects": {}
+    },
+    {
+     "id": "c15-alt1",
+     "frame": "branch",
+     "label": "",
+     "to": 195,
+     "toLabel": "charm",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       1
+      ],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c15-alt2",
+     "frame": "branch",
+     "label": "",
+     "to": 196,
+     "toLabel": "clanker",
+     "rel": 0,
+     "requires": {
+      "concepts": [
+       14
+      ],
+      "rels": []
+     },
+     "effects": {}
     }
    ]
   },
   {
-   "id": "noun.artifact-4",
-   "lane": "noun.artifact",
+   "id": "c228",
+   "lanes": [
+    "noun.artifact",
+    "noun.communication",
+    "noun.location",
+    "noun.Tops"
+   ],
    "depth": 4,
    "at": 228,
    "atLabel": "whole",
@@ -483,7 +400,7 @@
      "effects": {}
     },
     {
-     "id": "noun.artifact-4-alt0",
+     "id": "c228-alt0",
      "frame": "branch",
      "label": "",
      "to": 2049,
@@ -491,73 +408,18 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.artifact-4-alt1",
+     "id": "c228-alt1",
      "frame": "branch",
      "label": "",
      "to": 2050,
      "toLabel": "congener",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.state-1",
-   "lane": "noun.state",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.state-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -570,8 +432,26 @@
    ]
   },
   {
-   "id": "noun.state-2",
-   "lane": "noun.state",
+   "id": "c1",
+   "lanes": [
+    "noun.state",
+    "noun.cognition",
+    "noun.possession",
+    "noun.act",
+    "noun.group",
+    "noun.person",
+    "noun.plant",
+    "noun.attribute",
+    "noun.time",
+    "noun.quantity",
+    "noun.process",
+    "noun.event",
+    "noun.shape",
+    "noun.object",
+    "noun.feeling",
+    "noun.relation",
+    "noun.motive"
+   ],
    "depth": 2,
    "at": 1,
    "atLabel": "abstraction",
@@ -593,7 +473,72 @@
      "effects": {}
     },
     {
-     "id": "noun.state-2-alt0",
+     "id": "noun.cognition-2-on",
+     "frame": "continue",
+     "label": "",
+     "to": 10,
+     "toLabel": "psychological feature",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.possession-2-on",
+     "frame": "continue",
+     "label": "",
+     "to": 11,
+     "toLabel": "relation",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.act-2-on",
+     "frame": "continue",
+     "label": "",
+     "to": 6,
+     "toLabel": "event",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.group-2-on",
+     "frame": "continue",
+     "label": "",
+     "to": 7,
+     "toLabel": "group",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "noun.time-2-on",
+     "frame": "continue",
+     "label": "",
+     "to": 8,
+     "toLabel": "measure",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c1-alt0",
      "frame": "branch",
      "label": "",
      "to": 5,
@@ -601,37 +546,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       14
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.state-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2239
+       1
       ],
       "rels": []
      },
@@ -640,8 +555,13 @@
    ]
   },
   {
-   "id": "noun.state-3",
-   "lane": "noun.state",
+   "id": "c4",
+   "lanes": [
+    "noun.state",
+    "noun.shape",
+    "noun.object",
+    "noun.feeling"
+   ],
    "depth": 3,
    "at": 4,
    "atLabel": "attribute",
@@ -663,26 +583,24 @@
      "effects": {}
     },
     {
-     "id": "noun.state-3-alt0",
-     "frame": "branch",
+     "id": "noun.shape-3-on",
+     "frame": "continue",
      "label": "",
-     "to": 30,
-     "toLabel": "ballast",
+     "to": 42,
+     "toLabel": "shape",
      "rel": 0,
      "requires": {
-      "concepts": [
-       65
-      ],
+      "concepts": [],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.state-3-alt1",
+     "id": "c4-alt0",
      "frame": "branch",
      "label": "",
-     "to": 31,
-     "toLabel": "character",
+     "to": 30,
+     "toLabel": "ballast",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -693,106 +611,11 @@
      "effects": {}
     },
     {
-     "id": "noun.state-3-alt2",
+     "id": "c4-alt1",
      "frame": "branch",
      "label": "",
-     "to": 32,
-     "toLabel": "cheerfulness",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.cognition-1",
-   "lane": "noun.cognition",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.cognition-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.cognition-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.cognition-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       246
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.cognition-2",
-   "lane": "noun.cognition",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.cognition-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 10,
-     "toLabel": "psychological feature",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.cognition-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
+     "to": 31,
+     "toLabel": "character",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -803,30 +626,15 @@
      "effects": {}
     },
     {
-     "id": "noun.cognition-2-alt1",
+     "id": "c4-alt2",
      "frame": "branch",
      "label": "",
-     "to": 5,
-     "toLabel": "communication",
+     "to": 32,
+     "toLabel": "cheerfulness",
      "rel": 0,
      "requires": {
       "concepts": [
-       2239
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.cognition-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
+       228
       ],
       "rels": []
      },
@@ -835,8 +643,13 @@
    ]
   },
   {
-   "id": "noun.cognition-3",
-   "lane": "noun.cognition",
+   "id": "c10",
+   "lanes": [
+    "noun.cognition",
+    "noun.person",
+    "noun.process",
+    "noun.motive"
+   ],
    "depth": 3,
    "at": 10,
    "atLabel": "psychological feature",
@@ -858,400 +671,26 @@
      "effects": {}
     },
     {
-     "id": "noun.cognition-3-alt0",
-     "frame": "branch",
+     "id": "noun.motive-3-on",
+     "frame": "continue",
      "label": "",
      "to": 125,
      "toLabel": "motivation",
      "rel": 0,
      "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.communication-1",
-   "lane": "noun.communication",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.communication-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
       "concepts": [],
       "rels": []
      },
      "effects": {}
-    },
-    {
-     "id": "noun.communication-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       246
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
     }
    ]
   },
   {
-   "id": "noun.communication-2",
-   "lane": "noun.communication",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.communication-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2239
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.communication-3",
-   "lane": "noun.communication",
-   "depth": 3,
-   "at": 15,
-   "atLabel": "object",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.communication-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 228,
-     "toLabel": "whole",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 194,
-     "toLabel": "catch",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 195,
-     "toLabel": "charm",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 196,
-     "toLabel": "clanker",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       8
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.communication-4",
-   "lane": "noun.communication",
-   "depth": 4,
-   "at": 228,
-   "atLabel": "whole",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.communication-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2048,
-     "toLabel": "artifact",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2049,
-     "toLabel": "assembly",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       14
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.communication-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 2050,
-     "toLabel": "congener",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.possession-1",
-   "lane": "noun.possession",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.possession-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.possession-2",
-   "lane": "noun.possession",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.possession-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 11,
-     "toLabel": "relation",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.possession-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1116
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.possession-3",
-   "lane": "noun.possession",
+   "id": "c11",
+   "lanes": [
+    "noun.possession",
+    "noun.relation"
+   ],
    "depth": 3,
    "at": 11,
    "atLabel": "relation",
@@ -1273,7 +712,20 @@
      "effects": {}
     },
     {
-     "id": "noun.possession-3-alt0",
+     "id": "noun.relation-3-on",
+     "frame": "continue",
+     "label": "",
+     "to": 138,
+     "toLabel": "magnitude relation",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c11-alt0",
      "frame": "branch",
      "label": "",
      "to": 126,
@@ -1281,14 +733,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       10
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.possession-3-alt2",
+     "id": "c11-alt2",
      "frame": "branch",
      "label": "",
      "to": 127,
@@ -1296,7 +748,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       11
       ],
       "rels": []
      },
@@ -1305,8 +757,10 @@
    ]
   },
   {
-   "id": "noun.possession-4",
-   "lane": "noun.possession",
+   "id": "c144",
+   "lanes": [
+    "noun.possession"
+   ],
    "depth": 4,
    "at": 144,
    "atLabel": "possession",
@@ -1328,7 +782,7 @@
      "effects": {}
     },
     {
-     "id": "noun.possession-4-alt0",
+     "id": "c144-alt0",
      "frame": "branch",
      "label": "",
      "to": 1337,
@@ -1336,14 +790,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       6
+       11
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.possession-4-alt1",
+     "id": "c144-alt1",
      "frame": "branch",
      "label": "",
      "to": 1338,
@@ -1351,7 +805,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       108
+       8
       ],
       "rels": []
      },
@@ -1360,133 +814,13 @@
    ]
   },
   {
-   "id": "noun.act-1",
-   "lane": "noun.act",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.act-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.act-2",
-   "lane": "noun.act",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.act-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1116
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.act-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.act-3",
-   "lane": "noun.act",
+   "id": "c6",
+   "lanes": [
+    "noun.act",
+    "noun.plant",
+    "noun.attribute",
+    "noun.event"
+   ],
    "depth": 3,
    "at": 6,
    "atLabel": "event",
@@ -1508,7 +842,7 @@
      "effects": {}
     },
     {
-     "id": "noun.act-3-alt0",
+     "id": "c6-alt0",
      "frame": "branch",
      "label": "",
      "to": 66,
@@ -1523,7 +857,7 @@
      "effects": {}
     },
     {
-     "id": "noun.act-3-alt1",
+     "id": "c6-alt1",
      "frame": "branch",
      "label": "",
      "to": 67,
@@ -1531,14 +865,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       11
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.act-3-alt2",
+     "id": "c6-alt2",
      "frame": "branch",
      "label": "",
      "to": 68,
@@ -1546,7 +880,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       124
       ],
       "rels": []
      },
@@ -1555,133 +889,10 @@
    ]
   },
   {
-   "id": "noun.group-1",
-   "lane": "noun.group",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.group-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.group-2",
-   "lane": "noun.group",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.group-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1116
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.group-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       500
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.group-3",
-   "lane": "noun.group",
+   "id": "c7",
+   "lanes": [
+    "noun.group"
+   ],
    "depth": 3,
    "at": 7,
    "atLabel": "group",
@@ -1703,7 +914,7 @@
      "effects": {}
     },
     {
-     "id": "noun.group-3-alt0",
+     "id": "c7-alt0",
      "frame": "branch",
      "label": "",
      "to": 75,
@@ -1711,14 +922,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       11
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.group-3-alt1",
+     "id": "c7-alt1",
      "frame": "branch",
      "label": "",
      "to": 76,
@@ -1726,14 +937,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       124
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.group-3-alt2",
+     "id": "c7-alt2",
      "frame": "branch",
      "label": "",
      "to": 77,
@@ -1741,7 +952,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       2918
+       65
       ],
       "rels": []
      },
@@ -1750,8 +961,10 @@
    ]
   },
   {
-   "id": "noun.group-4",
-   "lane": "noun.group",
+   "id": "c96",
+   "lanes": [
+    "noun.group"
+   ],
    "depth": 4,
    "at": 96,
    "atLabel": "social group",
@@ -1773,7 +986,7 @@
      "effects": {}
     },
     {
-     "id": "noun.group-4-alt0",
+     "id": "c96-alt0",
      "frame": "branch",
      "label": "",
      "to": 1067,
@@ -1788,7 +1001,7 @@
      "effects": {}
     },
     {
-     "id": "noun.group-4-alt1",
+     "id": "c96-alt1",
      "frame": "branch",
      "label": "",
      "to": 1068,
@@ -1796,7 +1009,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       6
+       124
       ],
       "rels": []
      },
@@ -1805,423 +1018,10 @@
    ]
   },
   {
-   "id": "noun.substance-1",
-   "lane": "noun.substance",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.substance-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.substance-2",
-   "lane": "noun.substance",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.substance-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       500
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.substance-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.person-1",
-   "lane": "noun.person",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.person-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.person-2",
-   "lane": "noun.person",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.person-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 10,
-     "toLabel": "psychological feature",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       500
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       10
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.person-3",
-   "lane": "noun.person",
-   "depth": 3,
-   "at": 10,
-   "atLabel": "psychological feature",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.person-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 124,
-     "toLabel": "cognition",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.person-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 125,
-     "toLabel": "motivation",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2918
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.phenomenon-1",
-   "lane": "noun.phenomenon",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.phenomenon-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.phenomenon-2",
-   "lane": "noun.phenomenon",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.phenomenon-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       10
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.phenomenon-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.phenomenon-3",
-   "lane": "noun.phenomenon",
+   "id": "c16",
+   "lanes": [
+    "noun.phenomenon"
+   ],
    "depth": 3,
    "at": 16,
    "atLabel": "process",
@@ -2243,7 +1043,7 @@
      "effects": {}
     },
     {
-     "id": "noun.phenomenon-3-alt0",
+     "id": "c16-alt0",
      "frame": "branch",
      "label": "",
      "to": 229,
@@ -2251,14 +1051,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       44
+       190
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.phenomenon-3-alt1",
+     "id": "c16-alt1",
      "frame": "branch",
      "label": "",
      "to": 230,
@@ -2266,14 +1066,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       125
+       1116
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.phenomenon-3-alt2",
+     "id": "c16-alt2",
      "frame": "branch",
      "label": "",
      "to": 231,
@@ -2281,7 +1081,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       13
+       2
       ],
       "rels": []
      },
@@ -2290,8 +1090,10 @@
    ]
   },
   {
-   "id": "noun.phenomenon-4",
-   "lane": "noun.phenomenon",
+   "id": "c246",
+   "lanes": [
+    "noun.phenomenon"
+   ],
    "depth": 4,
    "at": 246,
    "atLabel": "phenomenon",
@@ -2313,7 +1115,7 @@
      "effects": {}
     },
     {
-     "id": "noun.phenomenon-4-alt0",
+     "id": "c246-alt0",
      "frame": "branch",
      "label": "",
      "to": 2235,
@@ -2321,14 +1123,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       1870
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.phenomenon-4-alt1",
+     "id": "c246-alt1",
      "frame": "branch",
      "label": "",
      "to": 2236,
@@ -2336,58 +1138,18 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1243
+       500
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.phenomenon-4-alt2",
+     "id": "c246-alt2",
      "frame": "branch",
      "label": "",
      "to": 2237,
      "toLabel": "luck",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       175
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.food-1",
-   "lane": "noun.food",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.food-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -2396,97 +1158,14 @@
       "rels": []
      },
      "effects": {}
-    },
-    {
-     "id": "noun.food-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
     }
    ]
   },
   {
-   "id": "noun.food-2",
-   "lane": "noun.food",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.food-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       10
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.food-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.food-3",
-   "lane": "noun.food",
+   "id": "c14",
+   "lanes": [
+    "noun.food"
+   ],
    "depth": 3,
    "at": 14,
    "atLabel": "matter",
@@ -2508,7 +1187,7 @@
      "effects": {}
     },
     {
-     "id": "noun.food-3-alt0",
+     "id": "c14-alt0",
      "frame": "branch",
      "label": "",
      "to": 180,
@@ -2516,14 +1195,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       125
+       1116
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.food-3-alt1",
+     "id": "c14-alt1",
      "frame": "branch",
      "label": "",
      "to": 181,
@@ -2531,14 +1210,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       13
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.food-3-alt2",
+     "id": "c14-alt2",
      "frame": "branch",
      "label": "",
      "to": 182,
@@ -2546,7 +1225,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       2
       ],
       "rels": []
      },
@@ -2555,8 +1234,10 @@
    ]
   },
   {
-   "id": "noun.food-4",
-   "lane": "noun.food",
+   "id": "c190",
+   "lanes": [
+    "noun.food"
+   ],
    "depth": 4,
    "at": 190,
    "atLabel": "solid",
@@ -2578,7 +1259,7 @@
      "effects": {}
     },
     {
-     "id": "noun.food-4-alt0",
+     "id": "c190-alt0",
      "frame": "branch",
      "label": "",
      "to": 1863,
@@ -2586,14 +1267,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1243
+       500
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.food-4-alt1",
+     "id": "c190-alt1",
      "frame": "branch",
      "label": "",
      "to": 1864,
@@ -2601,14 +1282,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       175
+       1
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.food-4-alt2",
+     "id": "c190-alt2",
      "frame": "branch",
      "label": "",
      "to": 1865,
@@ -2616,396 +1297,6 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.plant-1",
-   "lane": "noun.plant",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.plant-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.plant-2",
-   "lane": "noun.plant",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.plant-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.plant-3",
-   "lane": "noun.plant",
-   "depth": 3,
-   "at": 6,
-   "atLabel": "event",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.plant-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 65,
-     "toLabel": "act",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 66,
-     "toLabel": "hackathon",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       13
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 67,
-     "toLabel": "happening",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.plant-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 68,
-     "toLabel": "makeup",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.attribute-1",
-   "lane": "noun.attribute",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.attribute-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       124
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.attribute-2",
-   "lane": "noun.attribute",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.attribute-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1336
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.attribute-3",
-   "lane": "noun.attribute",
-   "depth": 3,
-   "at": 6,
-   "atLabel": "event",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.attribute-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 65,
-     "toLabel": "act",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 66,
-     "toLabel": "hackathon",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 67,
-     "toLabel": "happening",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.attribute-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 68,
-     "toLabel": "makeup",
-     "rel": 0,
-     "requires": {
-      "concepts": [
        1
       ],
       "rels": []
@@ -3015,8 +1306,10 @@
    ]
   },
   {
-   "id": "noun.attribute-4",
-   "lane": "noun.attribute",
+   "id": "c65",
+   "lanes": [
+    "noun.attribute"
+   ],
    "depth": 4,
    "at": 65,
    "atLabel": "act",
@@ -3038,7 +1331,7 @@
      "effects": {}
     },
     {
-     "id": "noun.attribute-4-alt0",
+     "id": "c65-alt0",
      "frame": "branch",
      "label": "",
      "to": 802,
@@ -3046,14 +1339,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       4
+       1
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.attribute-4-alt2",
+     "id": "c65-alt2",
      "frame": "branch",
      "label": "",
      "to": 804,
@@ -3061,7 +1354,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       6
+       1
       ],
       "rels": []
      },
@@ -3070,8 +1363,10 @@
    ]
   },
   {
-   "id": "noun.attribute-5",
-   "lane": "noun.attribute",
+   "id": "c803",
+   "lanes": [
+    "noun.attribute"
+   ],
    "depth": 5,
    "at": 803,
    "atLabel": "activity",
@@ -3093,7 +1388,7 @@
      "effects": {}
     },
     {
-     "id": "noun.attribute-5-alt0",
+     "id": "c803-alt0",
      "frame": "branch",
      "label": "",
      "to": 4032,
@@ -3101,14 +1396,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       44
+       2
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.attribute-5-alt1",
+     "id": "c803-alt1",
      "frame": "branch",
      "label": "",
      "to": 4033,
@@ -3116,14 +1411,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       2048
+       1
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.attribute-5-alt2",
+     "id": "c803-alt2",
      "frame": "branch",
      "label": "",
      "to": 4034,
@@ -3131,7 +1426,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       65
+       1
       ],
       "rels": []
      },
@@ -3140,188 +1435,11 @@
    ]
   },
   {
-   "id": "noun.body-1",
-   "lane": "noun.body",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.body-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.body-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       124
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.body-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       144
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.time-1",
-   "lane": "noun.time",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.time-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       144
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       96
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.time-2",
-   "lane": "noun.time",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.time-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 8,
-     "toLabel": "measure",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1336
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       16
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.time-3",
-   "lane": "noun.time",
+   "id": "c8",
+   "lanes": [
+    "noun.time",
+    "noun.quantity"
+   ],
    "depth": 3,
    "at": 8,
    "atLabel": "measure",
@@ -3343,7 +1461,20 @@
      "effects": {}
     },
     {
-     "id": "noun.time-3-alt0",
+     "id": "noun.quantity-3-on",
+     "frame": "continue",
+     "label": "",
+     "to": 106,
+     "toLabel": "definite quantity",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c8-alt0",
      "frame": "branch",
      "label": "",
      "to": 104,
@@ -3358,7 +1489,7 @@
      "effects": {}
     },
     {
-     "id": "noun.time-3-alt1",
+     "id": "c8-alt1",
      "frame": "branch",
      "label": "",
      "to": 105,
@@ -3366,22 +1497,22 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       2
+       14
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.time-3-alt2",
+     "id": "c8-alt5",
      "frame": "branch",
      "label": "",
-     "to": 106,
-     "toLabel": "definite quantity",
+     "to": 107,
+     "toLabel": "exposure dose",
      "rel": 0,
      "requires": {
       "concepts": [
-       246
+       4
       ],
       "rels": []
      },
@@ -3390,8 +1521,10 @@
    ]
   },
   {
-   "id": "noun.time-4",
-   "lane": "noun.time",
+   "id": "c108",
+   "lanes": [
+    "noun.time"
+   ],
    "depth": 4,
    "at": 108,
    "atLabel": "fundamental quantity",
@@ -3413,151 +1546,11 @@
      "effects": {}
     },
     {
-     "id": "noun.time-4-alt0",
+     "id": "c108-alt0",
      "frame": "branch",
      "label": "",
      "to": 1121,
      "toLabel": "length",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.time-4-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 1122,
-     "toLabel": "temperature",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2239
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.quantity-1",
-   "lane": "noun.quantity",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.quantity-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       96
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.quantity-2",
-   "lane": "noun.quantity",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.quantity-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 8,
-     "toLabel": "measure",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       16
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -3566,72 +1559,17 @@
       "rels": []
      },
      "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.quantity-3",
-   "lane": "noun.quantity",
-   "depth": 3,
-   "at": 8,
-   "atLabel": "measure",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.quantity-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 106,
-     "toLabel": "definite quantity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
     },
     {
-     "id": "noun.quantity-3-alt0",
+     "id": "c108-alt2",
      "frame": "branch",
      "label": "",
-     "to": 104,
-     "toLabel": "chronostratigraphic unit",
+     "to": 1122,
+     "toLabel": "temperature",
      "rel": 0,
      "requires": {
       "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 105,
-     "toLabel": "cordage",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       246
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 107,
-     "toLabel": "exposure dose",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
+       228
       ],
       "rels": []
      },
@@ -3640,8 +1578,10 @@
    ]
   },
   {
-   "id": "noun.quantity-4",
-   "lane": "noun.quantity",
+   "id": "c106",
+   "lanes": [
+    "noun.quantity"
+   ],
    "depth": 4,
    "at": 106,
    "atLabel": "definite quantity",
@@ -3663,136 +1603,11 @@
      "effects": {}
     },
     {
-     "id": "noun.quantity-4-alt0",
+     "id": "c106-alt0",
      "frame": "branch",
      "label": "",
      "to": 1112,
      "toLabel": "absolute value",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       14
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 1113,
-     "toLabel": "acid value",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2239
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.quantity-4-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 1114,
-     "toLabel": "chlorinity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.process-1",
-   "lane": "noun.process",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.process-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1870
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.process-2",
-   "lane": "noun.process",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.process-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 10,
-     "toLabel": "psychological feature",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -3803,511 +1618,11 @@
      "effects": {}
     },
     {
-     "id": "noun.process-2-alt1",
+     "id": "c106-alt1",
      "frame": "branch",
      "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.process-3",
-   "lane": "noun.process",
-   "depth": 3,
-   "at": 10,
-   "atLabel": "psychological feature",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.process-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 124,
-     "toLabel": "cognition",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.process-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 125,
-     "toLabel": "motivation",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       246
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.location-1",
-   "lane": "noun.location",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.location-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1870
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       803
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.location-2",
-   "lane": "noun.location",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.location-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       8
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.location-3",
-   "lane": "noun.location",
-   "depth": 3,
-   "at": 15,
-   "atLabel": "object",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.location-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 228,
-     "toLabel": "whole",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 194,
-     "toLabel": "catch",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       6
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 195,
-     "toLabel": "charm",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 196,
-     "toLabel": "clanker",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.location-4",
-   "lane": "noun.location",
-   "depth": 4,
-   "at": 228,
-   "atLabel": "whole",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.location-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2048,
-     "toLabel": "artifact",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2049,
-     "toLabel": "assembly",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       65
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.location-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 2050,
-     "toLabel": "congener",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.event-1",
-   "lane": "noun.event",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.event-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       803
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.event-2",
-   "lane": "noun.event",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.event-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4079
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       8
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.event-3",
-   "lane": "noun.event",
-   "depth": 3,
-   "at": 6,
-   "atLabel": "event",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.event-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 65,
-     "toLabel": "act",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 66,
-     "toLabel": "hackathon",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 67,
-     "toLabel": "happening",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.event-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 68,
-     "toLabel": "makeup",
+     "to": 1113,
+     "toLabel": "acid value",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -4316,123 +1631,13 @@
       "rels": []
      },
      "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.shape-1",
-   "lane": "noun.shape",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.shape-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
     },
     {
-     "id": "noun.shape-1-alt0",
+     "id": "c106-alt2",
      "frame": "branch",
      "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.shape-2",
-   "lane": "noun.shape",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.shape-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       8
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
+     "to": 1114,
+     "toLabel": "chlorinity",
      "rel": 0,
      "requires": {
       "concepts": [
@@ -4445,78 +1650,11 @@
    ]
   },
   {
-   "id": "noun.shape-3",
-   "lane": "noun.shape",
-   "depth": 3,
-   "at": 4,
-   "atLabel": "attribute",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.shape-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 42,
-     "toLabel": "shape",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 30,
-     "toLabel": "ballast",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       106
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 31,
-     "toLabel": "character",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.shape-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 32,
-     "toLabel": "cheerfulness",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.shape-4",
-   "lane": "noun.shape",
+   "id": "c42",
+   "lanes": [
+    "noun.shape",
+    "noun.object"
+   ],
    "depth": 4,
    "at": 42,
    "atLabel": "shape",
@@ -4538,7 +1676,20 @@
      "effects": {}
     },
     {
-     "id": "noun.shape-4-alt0",
+     "id": "noun.object-4-on",
+     "frame": "continue",
+     "label": "",
+     "to": 506,
+     "toLabel": "round shape",
+     "rel": 0,
+     "requires": {
+      "concepts": [],
+      "rels": []
+     },
+     "effects": {}
+    },
+    {
+     "id": "c42-alt0",
      "frame": "branch",
      "label": "",
      "to": 495,
@@ -4546,14 +1697,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1116
+       4
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.shape-4-alt1",
+     "id": "c42-alt1",
      "frame": "branch",
      "label": "",
      "to": 496,
@@ -4561,14 +1712,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       2048
+       124
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.shape-4-alt2",
+     "id": "c42-alt2",
      "frame": "branch",
      "label": "",
      "to": 497,
@@ -4576,7 +1727,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       500
+       65
       ],
       "rels": []
      },
@@ -4585,8 +1736,10 @@
    ]
   },
   {
-   "id": "noun.shape-5",
-   "lane": "noun.shape",
+   "id": "c500",
+   "lanes": [
+    "noun.shape"
+   ],
    "depth": 5,
    "at": 500,
    "atLabel": "figure",
@@ -4608,7 +1761,7 @@
      "effects": {}
     },
     {
-     "id": "noun.shape-5-alt0",
+     "id": "c500-alt0",
      "frame": "branch",
      "label": "",
      "to": 2915,
@@ -4616,14 +1769,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       11
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.shape-5-alt1",
+     "id": "c500-alt1",
      "frame": "branch",
      "label": "",
      "to": 2916,
@@ -4631,14 +1784,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       1
+       124
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.shape-5-alt2",
+     "id": "c500-alt2",
      "frame": "branch",
      "label": "",
      "to": 2917,
@@ -4646,7 +1799,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       2918
+       65
       ],
       "rels": []
      },
@@ -4655,648 +1808,10 @@
    ]
   },
   {
-   "id": "noun.object-1",
-   "lane": "noun.object",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.object-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.object-2",
-   "lane": "noun.object",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.object-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       506
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.object-3",
-   "lane": "noun.object",
-   "depth": 3,
-   "at": 4,
-   "atLabel": "attribute",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.object-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 42,
-     "toLabel": "shape",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 30,
-     "toLabel": "ballast",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 31,
-     "toLabel": "character",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 32,
-     "toLabel": "cheerfulness",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.object-4",
-   "lane": "noun.object",
-   "depth": 4,
-   "at": 42,
-   "atLabel": "shape",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.object-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 506,
-     "toLabel": "round shape",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 495,
-     "toLabel": "amorphous shape",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 496,
-     "toLabel": "angular shape",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       500
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.object-4-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 497,
-     "toLabel": "circle",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.feeling-1",
-   "lane": "noun.feeling",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.feeling-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.feeling-2",
-   "lane": "noun.feeling",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.feeling-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       4
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       506
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 7,
-     "toLabel": "group",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1285
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.feeling-3",
-   "lane": "noun.feeling",
-   "depth": 3,
-   "at": 4,
-   "atLabel": "attribute",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.feeling-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 44,
-     "toLabel": "state",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 30,
-     "toLabel": "ballast",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 31,
-     "toLabel": "character",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.feeling-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 32,
-     "toLabel": "cheerfulness",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.relation-1",
-   "lane": "noun.relation",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.relation-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       42
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       138
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.relation-2",
-   "lane": "noun.relation",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.relation-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 11,
-     "toLabel": "relation",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       506
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1285
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.relation-3",
-   "lane": "noun.relation",
-   "depth": 3,
-   "at": 11,
-   "atLabel": "relation",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.relation-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 138,
-     "toLabel": "magnitude relation",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 126,
-     "toLabel": "affinity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.relation-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 127,
-     "toLabel": "business relation",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.relation-4",
-   "lane": "noun.relation",
+   "id": "c138",
+   "lanes": [
+    "noun.relation"
+   ],
    "depth": 4,
    "at": 138,
    "atLabel": "magnitude relation",
@@ -5318,7 +1833,7 @@
      "effects": {}
     },
     {
-     "id": "noun.relation-4-alt0",
+     "id": "c138-alt0",
      "frame": "branch",
      "label": "",
      "to": 1283,
@@ -5326,14 +1841,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       4
+       2239
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.relation-4-alt1",
+     "id": "c138-alt1",
      "frame": "branch",
      "label": "",
      "to": 1284,
@@ -5341,14 +1856,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       10
+       1123
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.relation-4-alt2",
+     "id": "c138-alt2",
      "frame": "branch",
      "label": "",
      "to": 1286,
@@ -5365,173 +1880,10 @@
    ]
   },
   {
-   "id": "noun.motive-1",
-   "lane": "noun.motive",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.motive-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       138
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.motive-2",
-   "lane": "noun.motive",
-   "depth": 2,
-   "at": 1,
-   "atLabel": "abstraction",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.motive-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 10,
-     "toLabel": "psychological feature",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 4,
-     "toLabel": "attribute",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1285
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 5,
-     "toLabel": "communication",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 6,
-     "toLabel": "event",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.motive-3",
-   "lane": "noun.motive",
-   "depth": 3,
-   "at": 10,
-   "atLabel": "psychological feature",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.motive-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 125,
-     "toLabel": "motivation",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.motive-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 124,
-     "toLabel": "cognition",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       1
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.motive-4",
-   "lane": "noun.motive",
+   "id": "c125",
+   "lanes": [
+    "noun.motive"
+   ],
    "depth": 4,
    "at": 125,
    "atLabel": "motivation",
@@ -5553,7 +1905,7 @@
      "effects": {}
     },
     {
-     "id": "noun.motive-4-alt0",
+     "id": "c125-alt0",
      "frame": "branch",
      "label": "",
      "to": 1244,
@@ -5561,14 +1913,14 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       10
+       1123
       ],
       "rels": []
      },
      "effects": {}
     },
     {
-     "id": "noun.motive-4-alt1",
+     "id": "c125-alt1",
      "frame": "branch",
      "label": "",
      "to": 1245,
@@ -5583,7 +1935,7 @@
      "effects": {}
     },
     {
-     "id": "noun.motive-4-alt2",
+     "id": "c125-alt2",
      "frame": "branch",
      "label": "",
      "to": 1246,
@@ -5591,257 +1943,7 @@
      "rel": 0,
      "requires": {
       "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.Tops-1",
-   "lane": "noun.Tops",
-   "depth": 1,
-   "at": 0,
-   "atLabel": "entity",
-   "frame": "arrival",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.Tops-1-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2,
-     "toLabel": "physical entity",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-1-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 1,
-     "toLabel": "abstraction",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-1-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 3,
-     "toLabel": "thing",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.Tops-2",
-   "lane": "noun.Tops",
-   "depth": 2,
-   "at": 2,
-   "atLabel": "physical entity",
-   "frame": "descent",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.Tops-2-on",
-     "frame": "continue",
-     "label": "",
-     "to": 15,
-     "toLabel": "object",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-2-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 13,
-     "toLabel": "causal agent",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-2-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 14,
-     "toLabel": "matter",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       15
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-2-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 16,
-     "toLabel": "process",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       10
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.Tops-3",
-   "lane": "noun.Tops",
-   "depth": 3,
-   "at": 15,
-   "atLabel": "object",
-   "frame": "threshold",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.Tops-3-on",
-     "frame": "continue",
-     "label": "",
-     "to": 228,
-     "toLabel": "whole",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-3-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 194,
-     "toLabel": "catch",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-3-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 195,
-     "toLabel": "charm",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       228
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-3-alt2",
-     "frame": "branch",
-     "label": "",
-     "to": 196,
-     "toLabel": "clanker",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       124
-      ],
-      "rels": []
-     },
-     "effects": {}
-    }
-   ]
-  },
-  {
-   "id": "noun.Tops-4",
-   "lane": "noun.Tops",
-   "depth": 4,
-   "at": 228,
-   "atLabel": "whole",
-   "frame": "threshold",
-   "title": "",
-   "body": "",
-   "choices": [
-    {
-     "id": "noun.Tops-4-on",
-     "frame": "continue",
-     "label": "",
-     "to": 2048,
-     "toLabel": "artifact",
-     "rel": 0,
-     "requires": {
-      "concepts": [],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-4-alt0",
-     "frame": "branch",
-     "label": "",
-     "to": 2049,
-     "toLabel": "assembly",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2
-      ],
-      "rels": []
-     },
-     "effects": {}
-    },
-    {
-     "id": "noun.Tops-4-alt1",
-     "frame": "branch",
-     "label": "",
-     "to": 2050,
-     "toLabel": "congener",
-     "rel": 0,
-     "requires": {
-      "concepts": [
-       2048
+       1
       ],
       "rels": []
      },
