@@ -40,76 +40,55 @@ data-only item and pretending otherwise produced false evidence:
 > red, `OWNER_LINES` — is in `BACKLOG.md`; neither was wrong, both were
 > overtaken.
 
-## 1. Attention grows very slowly, and can degrade
+## 1. The economy: `SOLID · RAW · ROT`
 
-**Owner: engine session.** In flight.
+**Owner: engine session.** Unblocked 2026-07-27 — the attention question is
+answered (deleted). Spec is `docs/ECONOMY_SRR.md`; read it before any code, it
+carries the diagnosis with citations.
 
-It went 4→13 in two minutes. It is a slow background reward, never a currency.
-Degradation trigger is an open question in `MODEL.md` — pick ONE, make it
-legible.
+Four quantities replace about twelve nouns. The diagnosis found the model was
+never the problem: `checked` refers to four different things, `Extract` and
+`Extractor` mean opposite things about truth, and the HUD never calls
+`readouts.ts` at all — so "one word, one quantity" reads as enforced and is not.
 
-This now also sets the pace for the story: the owner wants a beat every **2–10
-minutes of play**, so the beat scheduler keys off whatever this lands on.
+**The lane join is the item, not a detail.** `factsPerSecond = min(0.4 ×
+machines, 0.15 × Words)`. You cannot extract relations about entities you do
+not hold, so walking the story is the only income upgrade and an idle-only
+player flatlines with the reason stated on screen. Without it the story and the
+idle loop remain two games sharing a screen.
 
-**Done when:** `play-probe` shows attention roughly flat over 10 minutes, and
-one named condition visibly costs a slot.
+Resets saves — authorised (`DECISIONS.md`), say so in the commit.
 
-## 2. The masking renderer
+**Done when:** `npm run play` shows four quantities and no fraction except
+`Words N/M`, the screenshot is in the reply, and the vocabulary gate's red
+output is pasted (it is currently vacuous — it polices one retired field).
 
-**Owner: engine session.** Next, after item 1.
+## 2. Node memory
 
-A word in beat text naming a concept the player has not discovered renders as
-blocks. Discovering it resolves that word **everywhere, retroactively**,
-including beats already read. This is the core mechanic — a choice you cannot
-read, you cannot take.
+**Owner: engine session.** After item 1, not before — memory without a loop is
+decoration, and what makes "walk it again" a real cost is item 1's lane join.
 
-Needs no new save state: "discovered" is already the recovered nodes on the
-board. Runs against `docs/graph/story.json` as it stands.
+Spec: `docs/MEMORY.md`. What carries across a reset is not what you know, it is
+what the graph remembers you doing, and it remembers imperfectly. Trust the
+memory (free, possibly false) or walk it again (costs, true) — speed versus
+truth in the story layer.
 
-- **Do not string-match lemmas.** `set`, `thing` and `state` are both concepts
-  and ordinary English. Content tooling emits explicit span markers; wait for
-  them rather than inventing a format.
-- **Never mask function words or sentence structure**, only concept nouns. The
-  prose is written so a fully-masked sentence still parses as English. A
-  renderer that breaks that breaks the design.
+**Done when:** a generation-2 run shows a memory that is wrong, and walking it
+again corrects it. Screenshot both.
 
-**Done when:** `npm run play` shows a beat with masked words, and a screenshot
-of the same beat after discovering one of them shows that word resolved.
+## 3. Cut the junk, then write the high-traffic beats
 
-## 3. Score the vocabulary for WEIRD, and cut the junk
+**Owner: content-tooling session.** Parallel with 1 and 2 — different branch,
+different directory.
 
-**Owner: content-tooling session.** Can run in parallel with 1 and 2 — different
-branch, different directory.
+The dataset ships `jimdandy`, `instalike`, `must-see`, `freshener`, `stinker`,
+`whacker`, `go-to` — WordNet slang filed under `noun.artifact`, sitting beside
+the 1,212 weird-abstract concepts the game actually wants. Cutting them
+renumbers node ids and resets saves; that is authorised.
 
-> This item replaced "re-aim the dataset depth-first", which was solving the
-> wrong problem. Owner, 2026-07-27: *"i want weird abstract shit in the story,
-> not wolves."* The upper ontology **is** this game's subject matter; chasing
-> `wolf` and `firearm` would have made it a nature documentary with RDF stapled
-> on. See `DECISIONS.md`.
+Then: 419 of 446 places render from four carrier sentences. That is a fine
+floor and thin if a player passes the same ones repeatedly. Bespoke prose for
+the shallow, high-traffic places first — they are read most.
 
-The dataset is not too shallow. It is **uncurated**. Measured: **1,212
-weird-abstract concepts already ship** —
-
-    otherworld · eidos · ethos · might-have-been · nonevent
-    unconnectedness · dealignment · reciprocality · bilocation
-    irreversible process · cause of death · uncheerfulness
-
-— sitting beside the actual defect, which is junk: `jimdandy`, `instalike`,
-`must-see`, `freshener`, `stinker`, `whacker`, `go-to`. WordNet slang filed
-under `noun.artifact`.
-
-And the junction problem is unsolved: `scripts/build-story.mjs` still picks
-siblings **alphabetically**, so the choice under `animal` is
-`aerobe / amphidiploid / anaerobe`. Correct arithmetic, dead choices.
-
-**Two halves, and the first is free.** Scoring changes no ids — it only reorders
-which siblings a junction offers, so it needs no save reset. Cutting junk
-removes concepts and therefore renumbers, which resets saves; that is authorised
-(`DECISIONS.md`, 2026-07-27) but do it second and say so in the commit.
-
-Score for **strangeness**, not rarity and not concreteness. `nonevent` beats
-`anaerobe` and both are rare.
-
-**Done when:** the reply pastes a junction's before/after choice list — the
-`aerobe / amphidiploid / anaerobe` one is the benchmark — and `npm run
-check:story` still passes.
+**Done when:** the junk list is gone from the shipped dataset and
+`npm run check:story` still passes.
