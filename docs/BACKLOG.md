@@ -498,3 +498,22 @@ is NOT yet triaged; each carries the lens's own severity, not mine.
 - [ ] **Owner decision: how does a SEED word ever become readable?** The five seed concepts are held but unbound by design. Binding is currently "arrived at by travelling", and you cannot travel to a concept you already hold — so `system`, `agent`, `language`, `information` and `power` stay foreign forever. The cross-link labyrinth loops back to them, so allowing a re-arrival is the obvious answer, but it is a mechanic and not mine to invent.
 - [ ] **Content: five of seven readout nouns have no word.** `checked` and `agreeing` are in language.json; `recovered`, `context`, `attention`, `statements` and `edges` are not, so they can never be learned and never appear. The HUD can only ever assemble two cells until the corpus covers them.
 - [ ] The in-flight countdown (`12s`) is the one number left on the opening screen. Kept deliberately — it is the only signal that travel takes time — but it is a number, and the instruction was "all numbers".
+
+## Measured 2026-07-27 — most of the story is unreachable, and `check:story` does not notice
+
+Walking every choice from the seed, breadth-first over `story.json`:
+
+| from | beat nodes reachable |
+|---|---|
+| the five seed concepts | **62** of 446 |
+| `entity` (the old opening) | 231 of 446 |
+| each seed alone | 13 · 7 · 13 · 25 · 4 — five small, separate components |
+
+**293 of 446 beat nodes have no incoming choice at all**, so two thirds of the
+written prose cannot be reached from anywhere. `check:story` passes because it
+checks that every beat has an exit and that every gate key is teachable — never
+that a beat is reachable from where the player starts.
+
+- [ ] **Owner:** the seed change cut the reachable world from 231 nodes to 62. Was that intended, or do the seed concepts need lanes that reconnect them?
+- [ ] **Owner:** `REFLECT_MIN_CONCEPTS = 820` is unreachable by a factor of ~13 even from `entity`, and ~24 from the seed. Prestige cannot currently be reached at all. Pick a number against the 62.
+- [ ] Add reachability-from-seed to `check:story`. NOT done unilaterally: it would fail today and block every deploy until the content reconnects, which is the owner's call, not a gate I get to impose retroactively.
