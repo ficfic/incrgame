@@ -93,6 +93,13 @@ export const REL_NAMES = [
   'used for',      // 5 — ConceptNet, pending the compliance conditions
   'found at',      // 6 — ConceptNet
   'causes',        // 7 — ConceptNet
+  // 8 — CROSS-LINKS, mined from the definitions themselves: concept A's gloss
+  // names concept B. Not a WordNet pointer and deliberately not dressed as one
+  // — the taxonomy is a tree and cannot produce sideways routes, so these are
+  // what turn the map into a labyrinth. The name says exactly what the evidence
+  // is ("named in definition"), not what it might mean, because a gloss
+  // mentioning a word is not a claim that the two are related.
+  'named in definition',
 ] as const;
 
 /** Provenance of the knowledge in the graph — the heart of the game (v5).
@@ -385,9 +392,6 @@ export interface StoryChoice {
 
 export interface StoryBeat {
   id: string;
-  /** Lexical lanes this beat sits on. Was a single `lane`; the 93 per-lane
-   *  beats collapsed to 27 real PLACES, each shared by several lanes. */
-  lanes: string[];
   depth: number;
   /** The node this beat is told FROM. */
   at: number;
@@ -399,7 +403,10 @@ export interface StoryBeat {
 }
 
 export interface StoryGraph {
-  counts: { beats: number; lanes: number; frames: number };
+  /** Generated tallies. Loosely typed on purpose: the pipeline has re-cut these
+   *  three times in a day (per-lane beats → places → concept granularity) and a
+   *  strict shape here fails the typecheck for a field nothing reads. */
+  counts: Record<string, number>;
   frames: string[];
   beats: StoryBeat[];
 }

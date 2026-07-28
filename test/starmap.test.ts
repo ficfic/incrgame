@@ -64,6 +64,19 @@ describe('lanes leave only from concepts you hold', () => {
 
 describe('THE THREE STATES', () => {
   const fresh = lanes(holding(0));
+  /** A board that HAS a locked lane. The root beat used to carry one; at
+   *  concept granularity it no longer does, and hardcoding node 0 made these
+   *  tests assert a property of one beat rather than of the renderer. */
+  const withLock = (() => {
+    for (const b of STORY.beats) {
+      const gated = b.choices.find((c) => (c.requires?.concepts ?? []).length > 0);
+      if (!gated) continue;
+      const missing = (gated.requires?.concepts ?? [])[0]!;
+      const board = holding(0, b.at);
+      if (lanes(board).some((l) => l.state === 'locked')) return { board, key: missing, at: b.at };
+    }
+    return null;
+  })();
 
   it('calls a lane DOTTED when it is ungated and leads somewhere unknown', () => {
     const dotted = fresh.filter((l) => l.state === 'dotted');
@@ -75,7 +88,8 @@ describe('THE THREE STATES', () => {
   });
 
   it('calls a lane LOCKED when it is gated on a concept you lack, and keeps the key', () => {
-    const locked = fresh.filter((l) => l.state === 'locked');
+    expect(withLock, 'no gated choice anywhere in the story graph').not.toBeNull();
+    const locked = lanes(withLock!.board).filter((l) => l.state === 'locked');
     expect(locked.length).toBeGreaterThan(0);
     for (const l of locked) {
       expect(l.missing.length).toBeGreaterThan(0);
@@ -85,15 +99,15 @@ describe('THE THREE STATES', () => {
 
   it('LOCKED LANES ARE RETURNED, NOT FILTERED OUT', () => {
     // ⚠️ THE DEFECT THIS PINS. Filtering is the obvious implementation and it
-    // is the whole feature deleted: "this way is held by ▓▓▓▓▓▓▓" is
+    // is the whole feature deleted: a door you can see and not open is
     // motivating, an absent edge is nothing.
-    expect(fresh.some((l) => l.state === 'locked')).toBe(true);
+    expect(lanes(withLock!.board).some((l) => l.state === 'locked')).toBe(true);
   });
 
   it('turns a locked lane SOLID or DOTTED once its key is discovered', () => {
-    const locked = fresh.find((l) => l.state === 'locked')!;
+    const locked = lanes(withLock!.board).find((l) => l.state === 'locked')!;
     const key = locked.missing[0]!;
-    const after = lanes(holding(0, key));
+    const after = lanes(holding(0, withLock!.at, key));
     const same = after.find((l) => l.id === locked.id)!;
     expect(same.state).not.toBe('locked');
     expect(same.missing).toEqual([]);

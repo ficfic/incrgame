@@ -682,6 +682,22 @@
     });
   });
 
+  /** What to put on a choice button.
+   *
+   *  ⚠️ 1,799 OF 1,879 SHIPPED CHOICES HAVE NO LABEL — beats went to concept
+   *  granularity and the prose has not caught up. Rendering those verbatim is a
+   *  screen of blank buttons, which is the exact failure docs/VOICE.md §4 P5
+   *  warns about ("a label of pure blocks is a dead button").
+   *
+   *  So an unwritten label falls back to a ⟦span⟧ naming the destination. That
+   *  is DATA, not invented copy: it resolves through the same masking path as
+   *  everything else, showing the English label if you hold that concept and
+   *  the graph's word if you do not. The button stays live and honest, and it
+   *  disappears the moment the owner writes a real label. */
+  function choiceLabel(c: { label: string; toLabel: string }): string {
+    return c.label.trim() ? c.label : `⟦${c.toLabel}⟧`;
+  }
+
   function travelTo(c: { choice: { to: number }; state: LaneState }): void {
     if (c.state === 'locked') { say('That way is held'); return; }
     if (c.state === 'solid') { say('Already yours'); return; }
@@ -955,9 +971,9 @@
           {#each beatChoices as c (c.choice.id)}
             <button class="lane {c.state}" class:flying={booked.has(c.choice.to)}
               disabled={c.state !== 'dotted' || booked.has(c.choice.to) || free < 1}
-              aria-label={plain(c.choice.label)}
+              aria-label={plain(choiceLabel(c.choice))}
               onclick={() => travelTo(c)}>
-              <b>{@html seg(c.choice.label)}</b>
+              <b>{@html seg(choiceLabel(c.choice))}</b>
               <span>{c.state === 'locked'
                 ? `held by ${c.missing.map((id: number) => graphWord(id)).join(' ')}`
                 : booked.has(c.choice.to) ? `${landingIn(c.choice.to)}s`
