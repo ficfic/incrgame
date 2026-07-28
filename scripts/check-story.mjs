@@ -48,11 +48,10 @@
  *     c0: <nonesuchword> is not a concept
  *   exit 1
  *
- * Sabotage D - a body that is mostly maskable words. Replace one body with
- * nothing but bracketed concepts, regenerate, run. Observed:
+ * Sabotage D - RETIRED 2026-07-27 with the rule it tested (the half-maskable
+ * limit; see section 4). Kept on record: it did go red when applied.
  *   FAIL  span: 1
  *     c0: 7/8 words are maskable - will not survive masking
- *   exit 1
  *
  * Sabotage E - a beat whose only free exit is gated on the RELATION. Change
  * the guaranteed exit's requires to `{ concepts: [], rels: [8] }`, regenerate,
@@ -68,7 +67,7 @@
  * empty concepts, a rels gate - counted as a guaranteed exit and a beat with
  * no real way out would have passed as safe.
  *
- * All five sabotages applied, observed, and reverted on 2026-07-27.
+ * All five applied, observed and reverted on 2026-07-27; four still live.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -144,19 +143,20 @@ if (dangling.length) {
   fail.push(`dangling reference: ${dangling.length}\n  ${dangling[0]}`);
 }
 
-/* 4. SPANS RESOLVE, AND NO BEAT IS ALL BLOCKS.
+/* 4. EVERY SPAN RESOLVES TO A CONCEPT.
  *
- * `⟦word⟧` marks a maskable concept. Two ways this goes wrong and both are
- * invisible until a player hits them:
+ * `⟦word⟧` marks a maskable concept. A span naming something that is not one
+ * never masks, so the word stays legible forever and the beat quietly loses
+ * its gate — invisible until a player walks into it.
  *
- *   - a span naming something that is not a concept never masks, so the word
- *     stays legible forever and the beat quietly loses its gate;
- *   - a sentence whose every word is a span renders as a wall of unknown words
- *     with no English holding it up. docs/VOICE.md section 4 exists to prevent
- *     this: stakes live in the verb and the preposition, never in the noun.
- *
- * The second is checked as a ratio rather than by parsing English: if more than
- * half a body's words sit inside brackets, it will not survive masking. */
+ * REMOVED 2026-07-27 — a companion rule failed any body more than half
+ * maskable, reasoning that an all-spans sentence is a wall of unknown words
+ * with no English holding it up. That assumed an ENGLISH CARRIER. The owner
+ * scrapped that ("there must be nothing even in GUI"), so verbs and function
+ * words are foreign too (scripts/build-language.mjs) and every beat is fully
+ * unreadable at minute zero BY DESIGN. The rule would now fail everything or
+ * pass vacuously, so it is gone rather than left to rot. Sabotage D below
+ * tested it and is retired with it. */
 const LABELS = new Set();
 {
   const idx = JSON.parse(readFileSync(join(ROOT, 'public/ontology/index.json'), 'utf8'));
@@ -173,11 +173,6 @@ for (const b of beats) {
     for (const m of (text ?? '').matchAll(/⟦([^⟧]+)⟧/g)) {
       if (!LABELS.has(m[1])) spanProblems.push(`${b.id}: ⟦${m[1]}⟧ is not a concept`);
     }
-  }
-  const inSpans = [...b.body.matchAll(/⟦([^⟧]+)⟧/g)].reduce((n, m) => n + m[1].split(/\s+/).length, 0);
-  const total = b.body.replace(/[⟦⟧]/g, '').split(/\s+/).length;
-  if (inSpans / total > 0.5) {
-    spanProblems.push(`${b.id}: ${inSpans}/${total} words are maskable — will not survive masking`);
   }
 }
 if (spanProblems.length) {
