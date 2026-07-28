@@ -175,7 +175,7 @@ describe('a word is earned by making the quantity happen', () => {
       // that exact sequence against the real engine.
       let s = played({
         held: holding(5), solid: '1000', raw: '0', rot: '0',
-        watched: { extractor: false, reasoner: true },
+        watched: { extractor: false },
       });
       for (let i = 0; i < 600 && !READOUTS.raw.learned(s); i++) {
         s = apply(s, { type: 'tick', dt: 0.1 });

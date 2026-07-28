@@ -20,7 +20,7 @@ rewrites what everything means as it wakes up.)
 > Raw rots into **Rot**, permanently. Review is the only brake: tap **Check**,
 > or buy **Checkers** to buy it out at a worse rate.
 >
->     factsPerSecond = min(0.4 × machines, 0.15 × Words)
+>     factsPerSecond = min(1.2 × machines, 0.15 × Words)
 >     stepCost       = 0 if held, else ceil(6 × 1.04^stepsThisRun)
 >
 > **Walking the story is the only income upgrade in the game** — you cannot

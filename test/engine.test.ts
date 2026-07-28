@@ -11,7 +11,8 @@
 // with the mechanic destroyed; that has already happened twice in this repo.
 import { describe, expect, it } from 'vitest';
 import {
-  apply, bottleneck, CHECK_PER_TAP, canRetrain, canWalk, checkPerSecond,
+  apply, bottleneck, CHECK_PER_TAP, CHECK_TAP_SHARE, canRetrain, canWalk,
+  checkPerSecond, checkSharePerSecond, checkTake, looseYield,
   factMachines, factsPerSecond, FACT_RATE, initialState, machineCost,
   potentialPerSecond, rawPerSecond, RETRAIN_MIN_WORDS, rotPerSecond, solidPerSecond,
   STEP_BASE, stepCost, tick, vocabularySupport, WATCHED_RATE, words, WORDS_PER_FACT,
@@ -61,7 +62,9 @@ describe('the opening cannot strand you', () => {
     // currency they have no way to spend.
     const s = initialState();
     expect(s.watched.extractor).toBe(true);
-    expect(s.watched.reasoner).toBe(true);
+    // And there is exactly one toggle: the Reasoner's output is sound by
+    // construction, so it has none rather than an inert one.
+    expect(Object.keys(s.watched)).toEqual(['extractor']);
   });
 });
 
@@ -97,8 +100,12 @@ describe('THE LANE JOIN, in both directions', () => {
   it('makes walking the ONLY thing that raises the ceiling', () => {
     // Ten times the machines: identical output. One extra Word: more output.
     // Without this the story and the idle loop are two games on one screen.
+    // Same MIX, ten times the machines. The mix matters now that the Reasoner
+    // is exempt from the watching penalty — the cap is split by each machine's
+    // share of the gross rate, so a different roster is a different quality of
+    // output, not just more of it.
     const some = withWords(4, { machines: { extractor: 40, reasoner: 0, checker: 0 } });
-    const lots = { ...some, machines: { extractor: 400, reasoner: 100, checker: 0 } };
+    const lots = { ...some, machines: { extractor: 400, reasoner: 0, checker: 0 } };
     expect(factsPerSecond(lots)).toBeCloseTo(factsPerSecond(some), 10);
     const walked = withWords(8, { machines: some.machines });
     expect(factsPerSecond(walked)).toBeCloseTo(factsPerSecond(some) * 2, 10);
@@ -110,7 +117,7 @@ describe('THE LANE JOIN, in both directions', () => {
     // which is most of a run.
     const machines = { extractor: 30, reasoner: 0, checker: 0 };
     const watched = withWords(10, { machines });
-    const loose = { ...watched, watched: { extractor: false, reasoner: true } };
+    const loose = { ...watched, watched: { extractor: false } };
     expect(factsPerSecond(loose)).toBeGreaterThan(factsPerSecond(watched));
     expect(factsPerSecond(watched)).toBeCloseTo(factsPerSecond(loose) * WATCHED_RATE, 10);
   });
@@ -119,19 +126,29 @@ describe('THE LANE JOIN, in both directions', () => {
     const s = withWords(100, { machines: { extractor: 10, reasoner: 0, checker: 0 } });
     expect(rawPerSecond(s)).toBe(0);
     expect(solidPerSecond(s)).toBeGreaterThan(0);
-    const l = { ...s, watched: { extractor: false, reasoner: true } };
+    const l = { ...s, watched: { extractor: false } };
     expect(solidPerSecond(l)).toBe(0);
     expect(rawPerSecond(l)).toBeGreaterThan(0);
   });
 
-  it('splits the cap between machines on different toggles', () => {
+  it('exempts the Reasoner from the watching penalty, and only the Reasoner', () => {
+    // ⚠️ THE GLOSSARY SAID "ALWAYS SOLID" AND THE CODE CHARGED IT 45% ANYWAY,
+    // for eight days, because `reasoner` was in FACT_MACHINES and `throughput`
+    // penalised every id in there. Entailment is monotonic and its closure is
+    // finite: there is nothing in a derived fact to review, so there is nothing
+    // to pay for reviewing. It has no toggle at all rather than an inert one.
     const s = withWords(1000, {
       machines: { extractor: 1, reasoner: 1, checker: 0 },
-      watched: { extractor: true, reasoner: false },
+      watched: { extractor: true },
     });
     expect(bottleneck(s)).toBe('machines'); // support 150/s, potential 3.4/s
-    expect(solidPerSecond(s)).toBeCloseTo(1.2 * 0.55, 10);
-    expect(rawPerSecond(s)).toBeCloseTo(2.2, 10);
+    // The Extractor pays 45%; the Reasoner pays nothing and still lands Solid.
+    expect(solidPerSecond(s)).toBeCloseTo(1.2 * WATCHED_RATE + 2.2, 10);
+    expect(rawPerSecond(s)).toBe(0);
+    // ...and letting the Extractor loose moves ONLY the Extractor's share.
+    const l = { ...s, watched: { extractor: false } };
+    expect(solidPerSecond(l)).toBeCloseTo(2.2, 10);
+    expect(rawPerSecond(l)).toBeCloseTo(1.2, 10);
   });
 
   it('excludes the Checker from a ceiling it does not produce against', () => {
@@ -263,11 +280,19 @@ describe('one substance, three states', () => {
     expect(num(tick(gen3, 10).rot)).toBeGreaterThan(num(tick(gen1, 10).rot));
   });
 
-  it('checks a fixed slice per tap, and nothing when there is no Raw', () => {
-    const s = withWords(0, { raw: '100', solid: '0' });
-    const after = apply(s, { type: 'check' });
-    expect(num(after.raw)).toBe(100 - CHECK_PER_TAP);
-    expect(num(after.solid)).toBe(CHECK_PER_TAP);
+  it('takes a SHARE per tap once the pile is bigger than the floor', () => {
+    // ⚠️ A FLAT 5 WAS A NO-OP AT ONE END AND AN ATTENTION TAX AT THE OTHER: it
+    // over-ran the whole pile in the first minute and was 800 taps against a
+    // Retrain inheritance. A tap is now worth something at every pile size and
+    // never worth sitting there, because one Checker overtakes a thumb in
+    // seconds.
+    const small = withWords(0, { raw: '100', solid: '0' });
+    expect(num(checkTake(small))).toBe(CHECK_PER_TAP);       // floor still bites
+    const big = withWords(0, { raw: '4000', solid: '0' });
+    expect(num(checkTake(big))).toBe(4000 * CHECK_TAP_SHARE); // 80, not 5
+    const after = apply(big, { type: 'check' });
+    expect(num(after.raw)).toBe(4000 - 80);
+    expect(num(after.solid)).toBe(80);
     const empty = withWords(0, { raw: '0' });
     expect(apply(empty, { type: 'check' })).toBe(empty);
   });
@@ -278,14 +303,53 @@ describe('one substance, three states', () => {
     expect(num(after.solid)).toBe(2);
   });
 
-  it('lets Checkers do it automatically, bounded by the pile', () => {
+  it('lets Checkers do it automatically, as a share of the pile', () => {
     const machines = { extractor: 0, reasoner: 0, checker: 4 };
     const s = withWords(0, { raw: '100', solid: '0', machines });
-    expect(checkPerSecond(s)).toBeCloseTo(1.0, 10);
-    expect(num(tick(s, 1).solid)).toBeCloseTo(1.0, 6);
-    const drained = tick(withWords(0, { raw: '1', solid: '0', machines }), 100);
-    expect(num(drained.raw)).toBe(0);
-    expect(num(drained.solid)).toBeLessThanOrEqual(1);
+    expect(checkSharePerSecond(s)).toBeCloseTo(0.008, 10);
+    expect(checkPerSecond(s)).toBeCloseTo(0.8, 10); // 0.8% of a pile of 100
+    const drained = tick(withWords(0, { raw: '1', solid: '0', machines }), 1e5);
+    expect(num(drained.raw)).toBeLessThan(1e-6);
+  });
+
+  it('makes watched-versus-loose a decision the Checkers settle', () => {
+    // ⚠️ WATCHED USED TO BE CORRECT AT EVERY POINT ON THE CURVE, so Rot — the
+    // scoreboard this whole game is about — never moved. The Checker converted
+    // a FLAT 0.25/s, and loose output is bounded by the vocabulary cap, which
+    // is 18/s at the Retrain gate: keeping up took 72 Checkers, about 12M
+    // Solid, against ~950 for the Extractors that made the Raw.
+    //
+    // A SHARE of the pile holds its split at any size, so the toggle becomes a
+    // judgement about capacity. `looseYield` is the share of a loose machine's
+    // output that reaches Solid instead of Rot.
+    const at = (checker: number, syntheticShare = 0) =>
+      withWords(0, { machines: { extractor: 0, reasoner: 0, checker }, syntheticShare });
+    expect(looseYield(at(0))).toBe(0);                        // loose alone is a trap
+    expect(looseYield(at(1))).toBeLessThan(WATCHED_RATE);     // ONE is worse than watching
+    expect(looseYield(at(2))).toBeGreaterThan(WATCHED_RATE);  // two buys the trade
+    expect(looseYield(at(8))).toBeGreaterThan(looseYield(at(4)));
+    expect(looseYield(at(999))).toBeLessThan(1);              // and never all of it
+    // And it gets harder to hold: a more synthetic generation needs more.
+    expect(looseYield(at(2, 0.5))).toBeLessThan(WATCHED_RATE);
+  });
+
+  it('splits what leaves the pile between Solid and Rot, at any dt', () => {
+    // The two drains run at once and are solved as one equation. Sequenced,
+    // the answer depended on which ran first, so a 10 Hz run and one catch-up
+    // block disagreed and "the Checker keeps up" was really "the Checker is
+    // served first".
+    const s = withWords(0, {
+      raw: '1000', solid: '0', rot: '0', machines: { extractor: 0, reasoner: 0, checker: 4 },
+    });
+    const oneBlock = tick(s, 60);
+    let stepped = s;
+    for (let i = 0; i < 600; i++) stepped = tick(stepped, 0.1);
+    expect(num(stepped.solid)).toBeCloseTo(num(oneBlock.solid), 6);
+    expect(num(stepped.rot)).toBeCloseTo(num(oneBlock.rot), 6);
+    // Conservation: nothing leaves the substance, it only changes state.
+    const left = 1000 - num(oneBlock.raw);
+    expect(num(oneBlock.solid) + num(oneBlock.rot)).toBeCloseTo(left, 6);
+    expect(num(oneBlock.solid) / left).toBeCloseTo(looseYield(s), 6);
   });
 
   it('only ever lets Rot fall on a Retrain', () => {
@@ -300,7 +364,7 @@ describe('buying a machine', () => {
     const none = withWords(0, { solid: '1e6', machines: { extractor: 0, reasoner: 0, checker: 0 } });
     expect(machineCost(none, 'extractor')).toBe('20');
     expect(machineCost(none, 'reasoner')).toBe('320');
-    expect(machineCost(none, 'checker')).toBe('45');
+    expect(machineCost(none, 'checker')).toBe('90');
     // A run opens owning one Extractor, so the FIRST one you buy is the second:
     // 20 x 1.15 = 23.
     expect(machineCost(withWords(0), 'extractor')).toBe('23');
@@ -357,31 +421,34 @@ describe('Retrain', () => {
   });
 
   it('KEEPS THE MACHINES, so the Raw you inherit is something you can claim', () => {
-    // ⚠️ THE PAYOUT USED TO EVAPORATE, AND NOTHING COULD STOP IT. 25% of what
-    // the machines minted arrives as RAW — the thesis: it was never checked —
-    // and Raw is not spendable. Only a Checker or a tap turns it into Solid.
-    // Resetting the machines set `checkPerSecond` to 0 at the exact moment the
-    // pile was biggest, against generation-1 rot of 0.005/s (a 139-second half
-    // life): >95% of the reward became Rot inside ten minutes, and the only
-    // counter-play, Check at 5 a tap, is 800 taps for a 4,000 pile.
+    // ⚠️ THE PAYOUT EVAPORATED AND KEEPING THE MACHINES DID NOT SAVE IT. 25% of
+    // what the machines minted arrives as RAW — the thesis: it was never
+    // checked — and Raw is not spendable. A Checker converting a FLAT 0.25/s
+    // cannot eat a pile of thousands before it rots, so >95% of the reward
+    // became Rot inside ten minutes FOR EVERY ROSTER, and the only counter-play
+    // was 800 taps at 5 apiece.
     //
-    // Keeping the machines does not soften the trap, it makes it a DECISION you
-    // can see coming: retrain with Checkers and you bank the inheritance,
-    // retrain without and you watch it rot. That is VISION's plateau you see
-    // coming rather than a reward that lies.
-    const s = withWords(RETRAIN_MIN_WORDS, {
-      minted: '4000', machines: { extractor: 0, reasoner: 0, checker: 9 },
-      watched: { extractor: false, reasoner: true },
+    // MEASURED on a 5,000-Raw inheritance, ten minutes in, with the share-based
+    // Checker: 0 kept banks 0%, one banks 28%, four banks 62%, ten banks 80%.
+    // That is the decision the comment in `engine.ts` always claimed — retrain
+    // with Checkers and you bank it, retrain without and you watch it go.
+    const withCheckers = (checker: number) => withWords(RETRAIN_MIN_WORDS, {
+      minted: '4000', machines: { extractor: 0, reasoner: 0, checker },
+      watched: { extractor: false },
     });
+    const s = withCheckers(9);
     const after = apply(s, { type: 'retrain' });
     expect(after.machines).toEqual(s.machines);
     expect(after.watched).toEqual(s.watched);
-    // 9 Checkers x 0.25/s, and nothing is producing: the inherited pile is the
-    // only thing moving, and it moves INTO Solid.
-    expect(checkPerSecond(after)).toBeCloseTo(2.25, 10);
-    const minute = tick(after, 60);
-    expect(num(minute.solid) - num(after.solid)).toBeCloseTo(135, 0);
-    expect(num(minute.raw)).toBeLessThan(num(after.raw));
+    // Nothing is producing: the inherited pile is the only thing moving.
+    const pile = num(after.raw);
+    expect(pile).toBe(1000);
+    const banked = (st: typeof after) => num(tick(st, 600).solid) - num(st.solid);
+    expect(banked(after) / pile).toBeGreaterThan(0.7);
+    // ...and a run that kept none banks none of it.
+    const none = apply(withCheckers(0), { type: 'retrain' });
+    expect(banked(none)).toBe(0);
+    expect(num(tick(none, 600).rot)).toBeGreaterThan(pile * 0.6);
   });
 
   it('still starts the next run poor, and more synthetic', () => {

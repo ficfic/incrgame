@@ -21,9 +21,8 @@
 // one closed-form calculation is EXACT. Offline never reuses tick with a giant
 // dt.
 import type { GameState } from './types';
-import Decimal from 'break_eternity.js';
 import { add, D } from './numbers';
-import { checkPerSecond, rawPerSecond, solidPerSecond } from './engine';
+import { checkSharePerSecond, rawPerSecond, solidPerSecond } from './engine';
 
 export const OFFLINE_CAP_MS = 8 * 3600 * 1000; // 8h, tunable
 
@@ -50,8 +49,14 @@ export function applyOfflineProgress(state: GameState, now: number): OfflineResu
   // them to stop because nobody is watching the screen — an idle game whose
   // automation needs you present is not one. Bounded by the Raw actually
   // available over the gap: what was banked plus what the loose machines made.
+  //
+  // ⚠️ A SHARE PER SECOND, AND THE DECAY TERM IS DELIBERATELY ABSENT. Online
+  // the pile leaves two ways at once and the split is c/(c+r); away, NOTHING
+  // ROTS (VISION, owner decision), so the same exponential runs on c alone and
+  // whatever the Checkers did not reach is still Raw when you get back. That
+  // is the rule's whole point: you come back to a job, never to damage.
   const pool = D(state.raw).add(madeRaw);
-  const converted = Decimal.min(pool, D(checkPerSecond(state) * seconds));
+  const converted = pool.mul(1 - Math.exp(-checkSharePerSecond(state) * seconds));
   const gainedSolid = madeSolid.add(converted);
 
   return {

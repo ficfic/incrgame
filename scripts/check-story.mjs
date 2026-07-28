@@ -159,14 +159,58 @@
  * and invariant 6 never missed one. Found by LOOKING AT THE SCREENSHOT, which
  * is the only reason it was found at all.
  *
- * All twelve applied, observed and reverted; eleven still live (D is retired).
+ * ── 2026-07-28: INVARIANT 8, and it is the one invariant 6 could never see.
+ *    6 asks whether a word HAS a foreign form. 8 asks the question after it:
+ *    once hidden, can the player ever get it back? The ticker's only way in is
+ *    frequency across the beats, so a ticker word no beat prints is masked at
+ *    minute zero and masked at hour ten. Every line the dock shipped on
+ *    2026-07-28 was written that way, with 6 green the whole time.
+ *
+ * Sabotage N - put the shipped ticker lines back: `something you never checked
+ * wore out`, `your machines are ahead of your vocabulary`, `#${after} online`.
+ * Observed:
+ *   FAIL  untranslated: 3 word(s) in the ticker and the interface (…)
+ *     ahead, online, wore
+ *   FAIL  unlearnable: 7 word(s) on the ticker occur fewer than 3 times in the
+ *         beats, so frequency can never teach them and they stay masked forever
+ *     ahead (0x), never (0x), online (0x), out (0x), vocabulary (0x), wore (0x), your (1x)
+ *     fix: say it in words the beats print, or pair it with a readout in
+ *          EARNED_WITH (src/shell/ticker.ts)
+ *   exit 1
+ * N is a REGRESSION TEST, not a plant: those are the exact strings three
+ * playtesters read as permanently unreadable. Note `your` at 1x — one occurrence
+ * is not a near miss, it is a word that needs three and can reach one.
+ *
+ * Sabotage O - delete `watched: 'solid'` from EARNED_WITH in ticker.ts, the
+ * table that pairs an interface word with the quantity that earns it. Observed:
+ *   FAIL  unlearnable: 1 word(s) on the ticker occur fewer than 3 times …
+ *     watched (0x)
+ *   exit 1
+ * O is the one that proves the exemption is not a free pass: the table grants
+ * the word AND exempts it in the same entry, so it cannot silence the gate
+ * without also giving the player a way to read the word.
+ *
+ * Sabotage P - build the corpus the obvious way instead: compiled beats only,
+ * frames left unfilled, leaves dropped (scripts/lib/beat-corpus.mjs). Observed:
+ *   FAIL  unlearnable: 1 word(s) on the ticker occur fewer than 3 times …
+ *     stops (2x)
+ *   exit 1
+ * P is the one that proves WHICH corpus this counts. `stops` goes from 8,060 to
+ * 2, because "the tree stops" is the leaf frame and leaves are 89% of the board
+ * while appearing in public/story/*.json exactly zero times. A gate built on the
+ * compiled beats would reject the safest vocabulary in the game.
+ *
+ * All fifteen applied, observed and reverted; fourteen still live (D is retired).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CHROME_SOURCES, chromeTexts, gluedInterpolations } from './lib/chrome-corpus.mjs';
+import {
+  CHROME_SOURCES, chromeTexts, gluedInterpolations, tickerExemptions, tickerProse,
+} from './lib/chrome-corpus.mjs';
+import { beatFrequency, carrierWords, learnAt } from './lib/beat-corpus.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { concepts } = JSON.parse(readFileSync(join(ROOT, 'docs/graph/idmap.json'), 'utf8'));
@@ -394,6 +438,52 @@ if (spanProblems.length) {
   }
 }
 
+/* 8. NO PERMANENTLY UNREADABLE WORD ON THE DOCK.
+ *
+ * Invariant 6 asks whether a word HAS a foreign form. This asks the question
+ * that comes straight after it and that nobody had asked: once it is hidden,
+ * can the player ever get it back?
+ *
+ * The ticker has exactly one way in — FREQUENCY across the beats the player has
+ * stood in (`src/core/literacy.ts`), because the dock is not a place and
+ * standing in it teaches nothing. So a ticker word that the beats never print
+ * is masked on the first frame and masked forever. Invariant 6 was green the
+ * whole time it shipped: the words had forms, which is what made it invisible.
+ *
+ * Two ways to satisfy this, and they are the two the HUD already has:
+ *   · the beats print it at least LEARN_AT times, or
+ *   · it rides on a readout's `learned` witness — `EARNED_WITH` in ticker.ts,
+ *     or a `${…}` hole filled from readouts.ts / machines.ts, which is why the
+ *     extractor drops holes rather than trying to guess their contents.
+ *
+ * Frequency is counted over the RENDERED corpus (scripts/lib/beat-corpus.mjs):
+ * frames filled, leaves included. Counting the compiled beats alone reports
+ * `tree` and `stops` as zero, and those are in 89% of the places on the board. */
+{
+  const LEARN_AT = learnAt();
+  const freq = beatFrequency();
+  const exempt = tickerExemptions();
+  const unlearnable = new Map();
+  for (const text of tickerProse()) {
+    for (const w of carrierWords(text)) {
+      if (exempt.has(w)) continue;
+      const n = freq.get(w) ?? 0;
+      if (n < LEARN_AT) unlearnable.set(w, n);
+    }
+  }
+  if (unlearnable.size) {
+    fail.push(
+      `unlearnable: ${unlearnable.size} word(s) on the ticker occur fewer than ` +
+        `${LEARN_AT} times in the beats, so frequency can never teach them and they ` +
+        `stay masked forever\n  ` +
+        [...unlearnable].sort((a, b) => a[1] - b[1] || (a[0] < b[0] ? -1 : 1))
+          .slice(0, 10).map(([w, n]) => `${w} (${n}x)`).join(', ') +
+        `\n  fix: say it in words the beats print, or pair it with a readout in ` +
+        `EARNED_WITH (src/shell/ticker.ts)`,
+    );
+  }
+}
+
 if (fail.length) {
   for (const f of fail) console.error('FAIL  ' + f);
   process.exit(1);
@@ -409,5 +499,14 @@ console.log(`ok  no dangling concept references`);
   console.log(
     `ok  every carrier word has a foreign form — ${Object.keys(lang).length} of them, ` +
       `${chromeTypes.size} reachable from the ticker and the interface`,
+  );
+  const freq = beatFrequency();
+  const exempt = tickerExemptions();
+  const used = new Set(tickerProse().flatMap(carrierWords).filter((w) => !exempt.has(w)));
+  const rarest = [...used].map((w) => [w, freq.get(w) ?? 0]).sort((a, b) => a[1] - b[1])[0];
+  console.log(
+    `ok  every ticker word can be learned — ${used.size} from the beats ` +
+      `(rarest: ${rarest?.[0]} at ${rarest?.[1]}x, floor is ${learnAt()}), ` +
+      `${exempt.size} earned by making the quantity happen`,
   );
 }

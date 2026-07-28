@@ -109,7 +109,14 @@ function svelteMarkup(src) {
   const out = [];
   for (const m of body.matchAll(/'((?:[^'\\\n]|\\.)*)'/g)) out.push(m[1]);
   for (const m of body.matchAll(/`((?:[^`\\]|\\.)*)`/g)) out.push(m[1].replace(/\$\{[^}]*\}/g, ' '));
-  for (const m of body.matchAll(/(?:aria-label|title|placeholder)="([^"]*)"/g)) out.push(m[1]);
+  // ⚠️ AN ATTRIBUTE INTERPOLATES TOO. `aria-label="{wordsCount.floor().toString()}
+  // of {RETRAIN_MIN_WORDS}"` put `wordscount`, `floor` and `tostring` into the
+  // corpus as if they were English, and invariant 6 then demanded foreign forms
+  // for three method names. Expressions go here for the same reason they go in
+  // the markup: their CONTENTS come from another file.
+  for (const m of body.matchAll(/(?:aria-label|title|placeholder)="([^"]*)"/g)) {
+    out.push(stripExpressions(m[1]));
+  }
   out.push(stripExpressions(body).replace(/<[^>]*>/g, ' '));
   return out;
 }
@@ -156,6 +163,47 @@ export function gluedInterpolations() {
     }
   }
   return out;
+}
+
+/* ---- THE TICKER, ON ITS OWN, BECAUSE ITS ONLY WAY IN IS FREQUENCY ---------
+ *
+ * The HUD has two ways to make a word readable: frequency, and a readout's
+ * `learned` witness (`chrome(text, earned)` in App.svelte). The dock had one.
+ * It is not a beat, so standing in it teaches nothing, and a ticker word that
+ * no beat contains can never reach LEARN_AT however far a player walks.
+ *
+ * PROSE HAS SPACES; TRIGGER IDS DO NOT. `'away-return'`, `'bottleneck:words'`
+ * and `'words'` are keys, never shown, and every one of them is a single token.
+ * Every line a player reads is a sentence. That is the whole rule, and it needs
+ * no list to maintain — which matters, because a list is what drifts.
+ *
+ * `${…}` holes are dropped for the reason they are dropped everywhere else:
+ * what is in them comes from `readouts.ts` or `machines.ts`, which have their
+ * own way in and their own source. */
+export function tickerProse() {
+  const src = stripNoise(readFileSync(join(ROOT, 'src/shell/ticker.ts'), 'utf8'));
+  const out = [];
+  for (const m of src.matchAll(/'((?:[^'\\\n]|\\.)*)'/g)) out.push(m[1]);
+  for (const m of src.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)) out.push(m[1]);
+  // ⚠️ HOLES CLOSE UP HERE, they do not become a space. `chromeTexts` drops
+  // them to ' ' so two statics never fuse into a word; that is right there and
+  // wrong here, because it turns the trigger id `buy:${id}:${after}` into
+  // "buy: : " — a string with a space in it, which this function would then
+  // read as a sentence and demand the beats teach the word `buy`.
+  for (const m of src.matchAll(/`((?:[^`\\]|\\.)*)`/g)) out.push(m[1].replace(/\$\{[^}]*\}/g, ''));
+  return out.filter((s) => /\S\s+\S/.test(s));
+}
+
+/** The words the ticker shows that ride on a readout's `learned` witness.
+ *
+ *  Parsed from `EARNED_WITH` in src/shell/ticker.ts — the SAME table that grants
+ *  them, so an entry cannot exempt a word from the gate without also giving the
+ *  player a way to read it. */
+export function tickerExemptions() {
+  const src = stripNoise(readFileSync(join(ROOT, 'src/shell/ticker.ts'), 'utf8'));
+  const block = /const EARNED_WITH[^=]*=\s*\{([\s\S]*?)\}/.exec(src);
+  if (!block) throw new Error('EARNED_WITH not found in src/shell/ticker.ts');
+  return new Set([...block[1].matchAll(/([A-Za-z][A-Za-z'-]*)\s*:/g)].map((m) => m[1].toLowerCase()));
 }
 
 /** Lowercased word types the chrome can show. */

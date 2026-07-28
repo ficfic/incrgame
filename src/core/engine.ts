@@ -23,7 +23,7 @@
 // Speed versus truth is one toggle per machine: watched (slower, makes Solid)
 // or loose (full speed, makes Raw). There is no attention pool, no supervision
 // dial, no booking queue and no review desk. See docs/ECONOMY_SRR.md.
-import type { Action, FactMachineId, GameState, MachineId } from './types';
+import type { Action, GameState, MachineId, WatchedMachineId } from './types';
 import { FACT_MACHINES } from './types';
 import { add, sub, gte, D } from './numbers';
 import Decimal from 'break_eternity.js';
@@ -32,7 +32,7 @@ import { SEED_NODES } from '../content/seed';
 import { bound } from './literacy';
 import { lanes } from './starmap';
 
-export const CURRENT_SAVE_VERSION = 16;
+export const CURRENT_SAVE_VERSION = 17;
 
 // ---- THE LANE JOIN -------------------------------------------------------
 
@@ -50,8 +50,14 @@ export const WATCHED_RATE = 0.55;
  *
  *  0.8 was the first proposal and Judge 2 was right that it stops binding by
  *  Words ≈ 20 — the join has to be the live constraint for most of a run or it
- *  is decoration. At 0.15 the cap binds whenever machines > 0.375 × Words,
- *  which is nearly always. */
+ *  is decoration.
+ *
+ *  With FACT_RATE at 1.2 the cap binds whenever `machines > 0.125 × Words`.
+ *  MEASURED headless, walking to the first Retrain (test/balance.test.ts):
+ *  67% of the run word-bound, 74% for a player who also buys freely. The two
+ *  sides alternate and that is the design working — for the other third the
+ *  machines bind and a machine is the upgrade. What never inverts is that you
+ *  cannot buy past your vocabulary. */
 export const WORDS_PER_FACT = 0.15;
 
 // ---- THE STEP ------------------------------------------------------------
@@ -65,14 +71,31 @@ export const WORDS_PER_FACT = 0.15;
 export const STEP_BASE = 6;
 export const STEP_RATIO = 1.04;
 
-/** Raw turned into Solid by ONE tap of Check.
+/** The FLOOR on one tap of Check, and the share of the pile a tap takes when
+ *  the pile is bigger than that.
  *
- *  Fixed, and fixed on purpose. Manual checking converts a constant amount per
- *  tap against production that grows with every machine and every Word, so it
- *  falls behind by construction — which is VISION's "review is the only brake
- *  and review is slow", with no cooldown, no booking and no clock. It is a
- *  min-max lever for a player who feels like tapping, never an attention tax. */
+ *  ⚠️ A FLAT 5 WAS EITHER A FULL-TIME JOB OR NOTHING. Early, Raw sits at about
+ *  three and a tap over-runs the whole pile; at the Retrain gate the pile is in
+ *  the thousands and five is a rounding error — 800 taps to clear an
+ *  inheritance. Neither end is a min-max lever; one is a no-op and the other is
+ *  the attention tax CLAUDE.md forbids.
+ *
+ *  A share is always worth the tap and never worth sitting there: 2% means
+ *  thirty-five taps to halve a pile, while ONE Checker running at 0.5% a second
+ *  overtakes a tapping thumb inside four seconds. So the machine is still the
+ *  answer and the tap is still a garnish — which is exactly what
+ *  "human-in-the-loop is never mandatory" asks for, with no cooldown, no
+ *  booking and no clock. */
 export const CHECK_PER_TAP = 5;
+export const CHECK_TAP_SHARE = 0.02;
+
+/** What one tap of Check would take right now. Declared here because the button
+ *  has to be able to say it — a button quoting a constant the reducer does not
+ *  use is how a HUD starts lying. */
+export function checkTake(state: GameState): string {
+  const raw = D(state.raw);
+  return Decimal.min(raw, Decimal.max(D(CHECK_PER_TAP), raw.mul(CHECK_TAP_SHARE))).toString();
+}
 
 // ---- ROT -----------------------------------------------------------------
 
@@ -134,7 +157,7 @@ export function initialState(): GameState {
     // yet — the interface is unlearned — and the default has to be the one that
     // cannot strand them: loose machines make only Raw, Raw buys nothing, and
     // the Check verb is a word they cannot read yet.
-    watched: { extractor: true, reasoner: true },
+    watched: { extractor: true },
     generation: 0,
     syntheticShare: 0,
     minted: '0',
@@ -200,7 +223,12 @@ function throughput(state: GameState): { solid: number; raw: number } {
   let raw = 0;
   for (const id of FACT_MACHINES) {
     const gross = MACHINES[id].rate * state.machines[id] * share;
-    if (state.watched[id]) solid += gross * WATCHED_RATE;
+    // ⚠️ A MACHINE WITH NO TOGGLE IS SOUND BY CONSTRUCTION, NOT WATCHED BY
+    // DEFAULT. The Reasoner derives what already follows from facts you hold,
+    // so there is nothing in its output to review and it pays no penalty for
+    // that — `docs/GLOSSARY.md` has said "always Solid" since it existed.
+    if (!(id in state.watched)) { solid += gross; continue; }
+    if (state.watched[id as WatchedMachineId]) solid += gross * WATCHED_RATE;
     else raw += gross;
   }
   return { solid, raw };
@@ -216,9 +244,29 @@ export function factsPerSecond(state: GameState): number {
   return t.solid + t.raw;
 }
 
-/** Raw converted to Solid per second, automatically. The HITL buyout. */
+/** Share of the Raw pile the Checkers work through per second. The HITL buyout.
+ *
+ *  A SHARE, not an amount — see `content/machines.ts` for the measurement that
+ *  forced it. It races `rotPerSecond` for the same pile, and the ratio between
+ *  the two IS how much of a loose machine's output you keep. */
+export function checkSharePerSecond(state: GameState): number {
+  return (MACHINES.checker.checks ?? 0) * state.machines.checker;
+}
+
+/** Raw converted to Solid per second, right now, at the pile's current size.
+ *  The absolute number, for anything that wants to show one. */
 export function checkPerSecond(state: GameState): number {
-  return MACHINES.checker.rate * state.machines.checker;
+  return checkSharePerSecond(state) * Number(state.raw);
+}
+
+/** Of everything a loose machine makes, the share that reaches Solid rather
+ *  than Rot, once the pile settles. `checked / (checked + rots)`, and the whole
+ *  of the watched-versus-loose decision in one number: it is 0 with no
+ *  Checkers, passes WATCHED_RATE at the first one, and never reaches 1. */
+export function looseYield(state: GameState): number {
+  const c = checkSharePerSecond(state);
+  const r = rotPerSecond(state);
+  return c + r > 0 ? c / (c + r) : 0;
 }
 
 /** Share of Raw that rots per second, this generation. */
@@ -286,21 +334,26 @@ export function apply(state: GameState, action: Action): GameState {
       const made = (t.solid + t.raw) * dt;
       if (made > 0) minted = minted.add(made);
 
-      // 2. Checkers work the pile. They run before decay, so a Checker that
-      //    can keep up genuinely keeps up rather than racing a rounding order.
-      const converted = Decimal.min(raw, D(checkPerSecond(state) * dt));
-      if (converted.gt(0)) {
-        raw = raw.sub(converted);
+      // 2. THE PILE LEAVES TWO WAYS AT ONCE, and it is solved as one equation
+      //    rather than sequenced. Checkers take a share per second and decay
+      //    takes a share per second, so `raw' = −(c + r)·raw` and the two split
+      //    what leaves in the ratio they run at. Doing it in two steps made the
+      //    answer depend on which was applied first — a 10 Hz run and one
+      //    catch-up block disagreed, and the Checker "keeping up" was really
+      //    the Checker being served first.
+      const c = checkSharePerSecond(state);
+      const r = rotPerSecond(state);
+      let converted = D(0);
+      let lost = D(0);
+      if (c + r > 0 && raw.gt(0)) {
+        // EXPONENTIAL, not linear: the same save must settle identically at any
+        // dt, and `raw × rate × dt` diverges from that for large dt (and goes
+        // negative past dt = 1/rate).
+        const leaving = raw.mul(1 - Math.exp(-(c + r) * dt));
+        converted = leaving.mul(c / (c + r));
+        lost = leaving.sub(converted);
+        raw = raw.sub(leaving);
         solid = solid.add(converted);
-      }
-
-      // 3. what nobody checked wears out. EXPONENTIAL, not linear: the same
-      //    save must decay identically whether it is stepped at 10 Hz or in one
-      //    catch-up block, and `raw × rate × dt` diverges from that for large
-      //    dt (and goes negative past dt = 1/rate).
-      const lost = raw.mul(1 - Math.exp(-rotPerSecond(state) * dt));
-      if (lost.gt(0)) {
-        raw = raw.sub(lost);
         rot = rot.add(lost);
       }
 
@@ -336,7 +389,7 @@ export function apply(state: GameState, action: Action): GameState {
     case 'check': {
       // No cooldown, no booking, no queue to mint. There is always Raw to look
       // at or there is not, and looking at it is instant.
-      const take = Decimal.min(D(state.raw), D(CHECK_PER_TAP));
+      const take = D(checkTake(state));
       if (take.lte(0)) return state;
       return {
         ...state,
@@ -356,7 +409,7 @@ export function apply(state: GameState, action: Action): GameState {
     }
 
     case 'setWatched': {
-      const id: FactMachineId = action.id;
+      const id: WatchedMachineId = action.id;
       if (state.watched[id] === action.watched) return state;
       return { ...state, watched: { ...state.watched, [id]: action.watched } };
     }
@@ -380,15 +433,23 @@ export function apply(state: GameState, action: Action): GameState {
         stepsThisRun: 0,
         // THE APPARATUS SURVIVES, AND IT HAS TO. The inheritance arrives as
         // RAW — never checked, never spendable — so the only things that can
-        // claim it are a Checker and a tap. Handing back a fresh roster set
-        // `checkPerSecond` to zero at the exact moment the pile was biggest:
-        // at generation 1 Raw rots with a 139-second half life, so more than
-        // 95% of the reward became Rot inside ten minutes and Check at 5 a tap
-        // is 800 taps against a 4,000 pile. That is not a plateau you see
-        // coming, it is a reward that lies. Keeping the machines makes it a
-        // decision instead: retrain with Checkers and you bank it, retrain
-        // without and you watch it go. You keep the machines; you do not keep
-        // the Solid that bought them.
+        // claim it are a Checker and a tap, and handing back a fresh roster
+        // would zero both at the exact moment the pile is biggest.
+        //
+        // ⚠️ KEEPING THE MACHINES WAS NOT ENOUGH ON ITS OWN. Measured on a
+        // 5,000-Raw inheritance, ten minutes after the Retrain:
+        //
+        //     Checkers kept    0     1     4    10
+        //     banked as Solid  0%   28%   62%   80%
+        //
+        // The first row is what shipped, for every roster, because a Checker
+        // converting a FLAT 0.25/s cannot eat a pile of thousands before it
+        // rots — the reward was real, arrived intact, and evaporated. The
+        // Checker now takes a SHARE of the pile per second, so the split
+        // between Solid and Rot is the ratio of the two rates and holds at any
+        // size. That is what makes this a decision rather than a lie: retrain
+        // with Checkers and you bank it, retrain without and you watch it go.
+        // You keep the machines; you do not keep the Solid that bought them.
         machines: { ...state.machines },
         watched: { ...state.watched },
         raw: inherited.toString(),

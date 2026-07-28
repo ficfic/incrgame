@@ -18,6 +18,9 @@
 > | §5: `REFLECT_MIN_CONCEPTS` → "a reachable number" | `RETRAIN_MIN_WORDS = 120` | ~3% of the world, ≈16,450 Solid on the step curve; 300 would be 2.1 M |
 > | §2: a five-word `explain`, linted | linted at **≤** five | "facts worn out, permanently" is four; the bound stops an essay, it does not pad a phrase |
 > | — | vignettes, `chooseOption`, `modifiers`, `flags` deleted too | the one shipped vignette triggered on `minTriples` and two of its four levers were attention and the Orchestrator |
+> | §4: `min(0.4 × machines, …)` | **1.2** | at 0.4 one machine covers 2.7 Words, so the free opening Extractor bound the whole game and the vocabulary cap never did. Measured to the first Retrain: **0% word-bound at 0.4, 67% at 1.2** |
+> | §3: the Checker converts a flat 0.25 facts/s | a **share of the pile**, 0.002/s each | flat, keeping up with an 18/s loose roster took 72 Checkers ≈ 12 M Solid, so watched won at every point and Rot — the scoreboard — stayed at zero. A share holds its split at any pile size, which is also the only thing that lets a Retrain's inheritance be banked rather than watched |
+> | §2: one tap of Check converts a flat 5 | `max(5, 2% of the pile)` | flat 5 over-ran the pile early and was 800 taps against an inheritance late: a no-op at one end and the attention tax CLAUDE.md forbids at the other |
 >
 > **Not established by this build, despite §7:** "unreachable by construction".
 > REDRIFT was the mechanism and this spec deletes it, so Rot is a sink and a

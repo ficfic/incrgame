@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { apply, initialState } from '../src/core/engine';
 import { currentBeat, lanes, laneOpen, mask, MASK_CHAR } from '../src/core/starmap';
-import { BEAT_AT, STORY } from '../src/content/story';
+import { BEAT_AT, ownChoices, placeAt, STORY } from '../src/content/story';
 import { CONCEPT_BUDGET } from '../src/content/ontologyMeta';
 import type { GameState } from '../src/core/types';
 
@@ -229,5 +229,94 @@ describe('arriving somewhere always MOVES you', () => {
       .filter((id) => !offered.has(id) && !BEAT_AT.has(id));
     expect(strays).toEqual([]);
     expect(currentBeat(holding(999999))!.at).toBe(0);
+  });
+});
+
+// ---- A LEAF IS SOMEWHERE, AND SOMEWHERE HAS ITS OWN WAYS OUT ---------------
+//
+// MEASURED before this: walking eight steps from the opening landed on a leaf
+// every time, and every leaf offered the SAME buttons — the litter its parent
+// beat had already offered, minus the one just taken. `currentBeat` moved and
+// the strip did not, which is the whole of the "you are standing exactly where
+// you were" report. 3,650 of the 4,096 concepts are leaves, so that is 89% of
+// every walk in the game.
+describe('a leaf offers the ways on that only it has', () => {
+  /** A leaf the opening board can reach that HAS gloss links of its own, and
+   *  the beat that offered it. Both tests below were vacuous without this: one
+   *  compared a leaf against a beat that was not its parent, the other returned
+   *  early when the leaf it happened to pick had no gloss link at all. Deleting
+   *  every gloss link then left them GREEN, which is the definition of a guard
+   *  that does not guard. */
+  const firstGlossyLeaf = (): { at: number; from: GameState } => {
+    const s = holding(...initialState().held);
+    for (const l of lanes(s)) {
+      if (l.state !== 'dotted' || BEAT_AT.has(l.to)) continue;
+      if (ownChoices(l.to).length > 0) return { at: l.to, from: s };
+    }
+    throw new Error('the opening board reaches no leaf with a gloss link');
+  };
+
+  it('puts the concepts named in its own definition above the siblings', () => {
+    // Every leaf on the board, not the one convenient one: the claim is about
+    // the shape of the place, so it is asserted over the whole set.
+    const offered = new Set(STORY.beats.flatMap((b) => b.choices.map((c) => c.to)));
+    const leaves = [...offered].filter((id) => !BEAT_AT.has(id));
+    const withOwn = leaves.filter((id) =>
+      (placeAt(id)!.choices[0]?.frame ?? '') === 'sideways');
+    expect(leaves.length).toBeGreaterThan(3000);
+    // 2,190 of 3,650 leaves have at least one gloss link, and where there is
+    // one it leads the strip. The rest keep the siblings as their floor: a
+    // repetitive room beats a room with no doors.
+    expect(withOwn.length).toBeGreaterThan(2000);
+    for (const id of leaves) expect(placeAt(id)!.choices.length).toBeGreaterThan(0);
+  });
+
+  it('changes the strip when you walk from one leaf to the next', () => {
+    const { at, from } = firstGlossyLeaf();
+    const parent = placeAt(at)!;
+    const inherited = new Set(
+      STORY.beats.filter((b) => b.choices.some((c) => c.to === at))
+        .flatMap((b) => b.choices.map((c) => c.to)),
+    );
+    const after = apply(from, { type: 'walk', to: at });
+    expect(currentBeat(after)!.at).toBe(at);
+    // A way on that NO beat offering this leaf was already offering. Without
+    // it, arriving is a paid-for no-op with one word changed.
+    const fresh = parent.choices.filter((c) => !inherited.has(c.to));
+    expect(fresh.length).toBeGreaterThan(0);
+    expect(fresh[0]!.frame).toBe('sideways');
+  });
+
+  it('lets the REDUCER walk a leaf\'s own lane, not only the screen', () => {
+    // ⚠️ THE GATE IS `lanes()`, WHICH USED TO SCAN THE 446 AUTHORED BEATS. A
+    // leaf is not one, so every lane only a leaf offers was drawn by the strip
+    // and refused by `walk` — a dead button, which is the one thing VOICE.md
+    // forbids outright.
+    const { at, from } = firstGlossyLeaf();
+    let s = apply(from, { type: 'walk', to: at });
+    // A destination NO authored beat on the board already offers, or the walk
+    // could succeed for a reason that has nothing to do with the leaf — which
+    // it did, and left this test green with `lanes()` reverted.
+    const elsewhere = new Set(
+      s.held.flatMap((id) => BEAT_AT.get(id)?.choices.map((c) => c.to) ?? []),
+    );
+    const own = ownChoices(at).filter((c) => !s.held.includes(c.to) && !elsewhere.has(c.to));
+    expect(own.length).toBeGreaterThan(0);
+    const before = s.held.length;
+    s = apply(s, { type: 'walk', to: own[0]!.to });
+    expect(s.held.length).toBe(before + 1);
+    expect(s.held).toContain(own[0]!.to);
+  });
+
+  it('never counts a leaf\'s inherited siblings as lanes the leaf adds', () => {
+    // `ownChoices` is what the board is built from. A leaf renders its parent's
+    // siblings so it is never a room with no doors, but those routes are
+    // already on the board via the parent — counting them again from every leaf
+    // ever stood on would put one route on the map once per leaf.
+    const { at } = firstGlossyLeaf();
+    const own = ownChoices(at);
+    expect(own.length).toBeGreaterThan(0);
+    expect(own.length).toBeLessThan(placeAt(at)!.choices.length);
+    for (const c of own) expect(c.frame).toBe('sideways');
   });
 });

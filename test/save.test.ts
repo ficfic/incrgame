@@ -25,7 +25,7 @@ const played = (): GameState => ({
   minted: '5e12',
   stepsThisRun: 4,
   machines: { extractor: 9, reasoner: 1, checker: 2 },
-  watched: { extractor: false, reasoner: true },
+  watched: { extractor: false },
   generation: 2,
   syntheticShare: 0.75,
 });
@@ -73,11 +73,11 @@ describe('export and import round-trip on the new shape', () => {
     const s = played();
     const raw = JSON.parse(unb64(serialize(s)));
     delete raw.state.machines.checker;
-    delete raw.state.watched.reasoner;
+    delete raw.state.watched.extractor;
     const blob = b64(JSON.stringify(raw));
     const { state } = deserialize(blob);
     expect(state.machines.checker).toBe(0);
-    expect(state.watched.reasoner).toBe(true);
+    expect(state.watched.extractor).toBe(true);
     expect(apply(state, { type: 'buy', id: 'checker' }).machines.checker).toBe(1);
   });
 });

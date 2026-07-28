@@ -51,14 +51,21 @@ export const MACHINES: Record<MachineId, Machine> = {
   // hold, so in theory its output is sound by construction and needs no
   // checking. In exchange it is expensive.
   //
-  // ⚠️ THE CODE DOES NOT GIVE IT THAT EXEMPTION, and this comment used to say
-  // it did — "a fact machine that pays no watching penalty, 2.2/s of Solid
-  // where a watched Extractor gives 0.22", which was also the argument for its
-  // price. `reasoner` is in FACT_MACHINES and `throughput` applies WATCHED_RATE
-  // to every id in there, so it delivers 1.21/s watched, like everything else.
-  // Corrected rather than repriced: exempting it would leave the watched/loose
-  // toggle on its card doing nothing, and that card is the screen session's
-  // file. One line on the backlog, not a change made in passing.
+  // ⚠️ IT NOW HAS THAT EXEMPTION IN CODE, and for eight days it did not: it was
+  // in FACT_MACHINES, `throughput` charged WATCHED_RATE to every id in there,
+  // and it delivered 1.21/s watched like everything else while GLOSSARY.md,
+  // HANDOVER.md and this comment all said "always Solid". The glossary wins
+  // (CLAUDE.md) — entailment is monotonic and the closure is finite, so there
+  // is nothing in a derived fact to review.
+  //
+  // MEASURED BEFORE CHANGING IT, because a free upgrade is its own defect. To
+  // the Retrain gate, buying only this machine: 261 minutes unexempt, 243
+  // exempt, against 47 for Extractors. Sixteen Extractors' price for 1.8× the
+  // rate is a trap either way and the vocabulary cap binds regardless, so the
+  // exemption costs the balance nothing. What it does cost is the toggle on
+  // this card, which is now absent rather than inert (`WATCHED_MACHINES`).
+  // REPRICING IT INTO A REAL CHOICE IS A SEPARATE ITEM — it is on the backlog,
+  // it is not this one.
   reasoner: {
     id: 'reasoner',
     label: 'Reasoner',
@@ -67,16 +74,46 @@ export const MACHINES: Record<MachineId, Machine> = {
     costRatio: 1.18,
   },
   // THE REVIEW BUYOUT (CLAUDE.md: manual review is never mandatory). It makes
-  // nothing; `rate` is Raw CONVERTED into Solid per second. Deliberately slower
-  // per unit cost than watching a machine in the first place, so checking after
-  // the fact stays the expensive way to arrive at a checked fact — but it does
-  // scale, and it runs while you are away, so an idle player is never required
-  // to sit and tap.
+  // nothing, so `rate` is 0; `checks` is the SHARE of the Raw pile one unit
+  // looks at per second, and it runs while you are away.
+  //
+  // ⚠️ IT USED TO CONVERT 0.25 FACTS PER SECOND, FLAT, AND THAT IS WHY LOOSE
+  // WAS NEVER THE RIGHT ANSWER. Loose output is bounded by the vocabulary cap,
+  // which is 18/s at the Retrain gate, so keeping up took 72 Checkers — about
+  // 12 MILLION Solid on a 1.16 ladder, against ~950 for the Extractors that
+  // made the Raw. Watched therefore won at every point on the curve, Rot stayed
+  // near zero, and the scoreboard the game is about never moved. The same flat
+  // rate is why a Retrain's inheritance evaporated: 25% of what you minted
+  // arrives as one big pile of Raw, and 0.25/s cannot eat a pile.
+  //
+  // A SHARE fixes both, because a share of a big pile is a big number. At the
+  // Retrain gate, where the vocabulary cap is 18/s and every machine is loose:
+  //
+  //     Checkers   spent    steady pile   of what it makes:  Solid/s   Rot/s
+  //     0             0         9,000                            0.0    18.0
+  //     1            90         4,500                            9.0     9.0
+  //     2           196         3,000                           12.0     6.0
+  //     4           469         1,800                           14.4     3.6
+  //     8         1,380         1,000                           16.0     2.0
+  //
+  // against 9.9 Solid/s and no Rot at all for the same machines watched. So
+  // WATCHED IS STILL RIGHT UNTIL THE SECOND CHECKER — one is worse than
+  // watching, which is the point: the buyout has to be bought. After that loose
+  // is worth more Solid and always costs Rot, so the two sides point in
+  // different directions at every point on the curve, which is what "the only
+  // real decision" was supposed to mean.
+  //
+  // And it gets harder to hold. Rot runs at ROT_BASE × (1 + 3 × syntheticShare),
+  // so generation 1 needs four Checkers to beat watching and generation 2 needs
+  // seven — the ratchet VISION asks for, paid in the machine that exists to
+  // undo it. The trap is intact and sharper: the cap grows every time you walk,
+  // your Checkers do not, and the pile on screen is how far behind they are.
   checker: {
     id: 'checker',
     label: 'Checker',
-    rate: 0.25,
-    baseCost: '45',
-    costRatio: 1.16,
+    rate: 0,
+    checks: 0.002,
+    baseCost: '90',
+    costRatio: 1.18,
   },
 };

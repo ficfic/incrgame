@@ -48,7 +48,7 @@ describe('absence banks work at the split you left set', () => {
   });
 
   it('banks a loose roster as Raw', () => {
-    const s = away({ watched: { extractor: false, reasoner: false } });
+    const s = away({ watched: { extractor: false } });
     const { state, raw } = applyOfflineProgress(s, s.lastTick + 3600 * 1000);
     expect(num(raw)).toBeCloseTo(rawPerSecond(s) * 3600, 6);
     expect(num(state.raw)).toBeCloseTo(rawPerSecond(s) * 3600, 6);
@@ -63,13 +63,21 @@ describe('absence banks work at the split you left set', () => {
   });
 
   it('runs the Checkers too, so automation does not need you present', () => {
+    // A SHARE of the pile per second, and NO decay term: online the pile leaves
+    // two ways at once and the split is checked/(checked + rots), but away
+    // nothing rots, so the same exponential runs on the checking rate alone and
+    // whatever the Checkers did not reach is still Raw when you get back.
     const s = away({
       raw: '10000',
       machines: { extractor: 0, reasoner: 0, checker: 4 },
     });
     const { state } = applyOfflineProgress(s, s.lastTick + 600 * 1000);
-    expect(num(state.raw)).toBeCloseTo(10000 - 600, 6); // 4 x 0.25/s for 600s
-    expect(num(state.solid)).toBeCloseTo(num(s.solid) + 600, 6);
+    const left = 10000 * Math.exp(-0.008 * 600);
+    expect(num(state.raw)).toBeCloseTo(left, 6);
+    expect(num(state.solid)).toBeCloseTo(num(s.solid) + (10000 - left), 6);
+    expect(num(state.rot)).toBe(0);
+    // Everything that left the pile arrived in Solid: nothing rots while away.
+    expect(num(state.raw) + num(state.solid) - num(s.solid)).toBeCloseTo(10000, 6);
   });
 
   it('never lets Checkers convert more Raw than exists', () => {

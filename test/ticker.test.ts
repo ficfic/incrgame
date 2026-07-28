@@ -1,9 +1,14 @@
-// THE TICKER SPEAKS THE LANGUAGE.
+// THE TICKER SPEAKS THE LANGUAGE — AND EVERY WORD OF IT CAN BE LEARNED.
 //
 // The dock sits directly above the beat. The beat has been foreign since
 // 2026-07-27; the dock above it was still reading "something you never checked
 // wore out" in plain English, in the same frame, which tells the player the
-// foreign half is decoration.
+// foreign half is decoration. That was fixed by giving every ticker word a
+// foreign form — and it created a worse bug, because the ticker's vocabulary
+// was words no beat contains, and the ONLY way into a ticker word is frequency
+// across the beats you have stood in. A form with no way in is a permanent
+// blank. This file's last describe block used to ASSERT that blank, with the
+// number in it (26 of 38 word types). It now asserts there is none.
 //
 // ⚠️ THESE ASSERT AGAINST LITERALS FROM docs/graph/language.json, ON PURPOSE,
 // for the reason test/masking.test.ts states: a test that gets its expected
@@ -12,13 +17,15 @@
 // `speak(x)` would pass with translation deleted.
 import { describe, expect, it } from 'vitest';
 import { get } from 'svelte/store';
-import { observeTransition, say, speak, ticker } from '../src/shell/ticker';
+import { observeTransition, say, sayAwayReturn, speak, ticker } from '../src/shell/ticker';
 import { LANGUAGE } from '../src/content/language';
-import { initialState } from '../src/core/engine';
+import { initialState, RETRAIN_MIN_WORDS } from '../src/core/engine';
 import { knownWords } from '../src/core/literacy';
 import { STORY } from '../src/content/story';
 import { READOUTS } from '../src/core/readouts';
 import { MACHINES } from '../src/content/machines';
+import { MACHINE_IDS } from '../src/core/types';
+import type { GameState } from '../src/core/types';
 
 const NOTHING = new Set<string>();
 
@@ -26,36 +33,39 @@ const NOTHING = new Set<string>();
 const last = (): string => get(ticker).at(-1)?.text ?? '';
 
 describe('a ticker line is carrier vocabulary, and resolves like one', () => {
-  it('translates the line play.png showed in English', () => {
-    // The exact string from the screenshot, word for word.
-    const line = 'something you never checked wore out';
+  it('translates a line word for word', () => {
+    const line = 'something nobody read stops here';
     const foreign = line.split(' ').map((w) => LANGUAGE.words[w]);
-    // Every word of it has a form. Before this item, four of the six did not
-    // exist in the corpus at all, because the corpus was the beats only.
     expect(foreign.every(Boolean), `no form for: ${line.split(' ')
       .filter((w) => !LANGUAGE.words[w]).join(', ')}`).toBe(true);
-    expect(speak(line, NOTHING)).toBe(foreign.join(' '));
-    expect(speak(line, NOTHING)).not.toContain('checked');
+    expect(speak(line, NOTHING, NOTHING)).toBe(foreign.join(' '));
+    expect(speak(line, NOTHING, NOTHING)).not.toContain('nobody');
   });
 
   it('KEEPS THE NUMBERS. Digits were never English', () => {
     // `3 / 4075` is legible to anyone. Masking a number would be masking the
     // one thing on screen that needs no vocabulary.
-    const out = speak('Extractor #30 online · 1.5K', NOTHING);
+    const out = speak('Extractor #30 is here · 1.5K', NOTHING, NOTHING);
     expect(out).toContain('#30');
     expect(out).toContain('1.5K');
     expect(out).not.toContain('Extractor');
-    expect(out).not.toContain('online');
+    expect(out).not.toContain('here');
   });
 
   it('keeps the capital, so a foreign sentence still opens with one', () => {
     const solid = LANGUAGE.words['solid']!;
-    expect(speak('Solid', NOTHING)).toBe(solid.charAt(0).toUpperCase() + solid.slice(1));
+    expect(speak('Solid', NOTHING, NOTHING)).toBe(solid.charAt(0).toUpperCase() + solid.slice(1));
   });
 
   it('reads back in English once the player knows the words', () => {
-    const line = 'something you never checked wore out';
-    expect(speak(line, new Set(line.split(' ')))).toBe(line);
+    const line = 'something nobody read stops here';
+    expect(speak(line, new Set(line.split(' ')), NOTHING)).toBe(line);
+  });
+
+  it('reads back in English once the player has EARNED the word', () => {
+    // The second way in, and the one the dock did not have. `Solid` is in no
+    // beat, so the left-hand set can never contain it however far you walk.
+    expect(speak('Solid', NOTHING, new Set(['solid']))).toBe('Solid');
   });
 });
 
@@ -86,8 +96,7 @@ describe('the dock, end to end', () => {
     observeTransition(prev, next);
     const text = last();
     expect(text).toContain(`#${next.machines.extractor}`);
-    expect(text).not.toContain(MACHINES.extractor.label);
-    expect(text).not.toContain('online');
+    expect(text).not.toContain('is here');
   });
 
   it('RE-READS A LIVE LINE as the player learns, rather than freezing it', () => {
@@ -96,10 +105,10 @@ describe('the dock, end to end', () => {
     // masking is retroactive (DECISIONS 2026-07-27). It is also what saves the
     // away-return line, which `resumeFromGap` emits BEFORE the first tick, when
     // no transition has been observed and literacy is still empty.
-    const LINE = 'the machines are ahead';
+    const LINE = 'the machines have nothing to take';
     say('test:retro', LINE);
     const id = get(ticker).at(-1)!.id;
-    expect(last()).toBe(speak(LINE, NOTHING));
+    expect(last()).toBe(speak(LINE, NOTHING, NOTHING));
     expect(last()).not.toContain('the ');
 
     // Now make the player literate: standing in every beat is what teaches
@@ -109,31 +118,102 @@ describe('the dock, end to end', () => {
     expect(knownWords(everywhere).has('the')).toBe(true);
     observeTransition(everywhere, everywhere);
 
-    // SAME LINE — not a new one — and three of its four words now read in
-    // English, live, without a new line being emitted.
+    // SAME LINE — not a new one — and it now reads in English, live, without a
+    // new line being emitted.
     expect(get(ticker).at(-1)!.id).toBe(id);
-    expect(last()).toBe(`the machines are ${LANGUAGE.words['ahead']}`);
+    expect(last()).toBe(LINE);
+  });
+});
+
+/* ---- THE CEILING IS GONE, AND THIS IS WHERE IT IS MEASURED ---------------
+ *
+ * What this block asserted until 2026-07-28: "26 of the ticker's 38 word types
+ * are permanently foreign, 12 are learnable", with `ahead` and `online` named
+ * as words no walk could ever reach. That was true, it was shipped, and three
+ * playtesters read an unreadable dock because of it.
+ *
+ * The replacement is the opposite claim, made end to end: drive every trigger
+ * the ticker has, for a player who has walked the whole story AND made every
+ * quantity happen, and assert that the dock comes out in plain English. A word
+ * with no way in would still be foreign here, and would name itself.
+ */
+describe('nothing on the dock is permanently unreadable', () => {
+  /** A player who has done everything: walked every beat, bought machines,
+   *  earned every readout. Both ways into a ticker word are open. */
+  const maximal = (): GameState => {
+    const s = initialState();
+    return {
+      ...s,
+      held: STORY.beats.map((b) => b.at),
+      machines: MACHINE_IDS.reduce(
+        (m, id) => ({ ...m, [id]: s.machines[id] + 2 }), { ...s.machines }),
+      solid: '1000', raw: '1000', rot: '1000',
+    };
+  };
+
+  /** Every line the ticker can put on screen, driven through the real path. */
+  const everyLine = (state: GameState): string[] => {
+    const before = get(ticker).length;
+    const bought = {
+      ...state,
+      machines: MACHINE_IDS.reduce(
+        (m, id) => ({ ...m, [id]: state.machines[id] + 1 }), { ...state.machines }),
+    };
+    observeTransition(state, bought);
+    observeTransition(bought, { ...bought, watched: { extractor: !bought.watched.extractor } });
+    // Milestones: from a state with none of the quantity to one past every
+    // threshold, so `crossings` fires the first line and the later ones.
+    observeTransition({ ...bought, held: [], rot: '0' }, { ...bought, rot: '1' });
+    observeTransition({ ...bought, rot: '1' }, { ...bought, rot: '3000' });
+    observeTransition({ ...bought, held: [] }, bought);
+    // The two bottleneck lines, in both directions.
+    observeTransition({ ...bought, held: [], machines: bought.machines },
+      { ...bought, machines: { extractor: 0, reasoner: 0, checker: 0 } });
+    observeTransition({ ...bought, machines: { extractor: 0, reasoner: 0, checker: 0 } }, bought);
+    sayAwayReturn('40', '9');
+    return get(ticker).slice(before).map((l) => l.text);
+  };
+
+  it('renders every trigger in English for a player who has earned it', () => {
+    const lines = everyLine(maximal());
+    expect(lines.length).toBeGreaterThan(4);
+    // A foreign word is lowercase letters with no vowel-free English twin — so
+    // rather than pattern-match, ask the language directly: no rendered word
+    // may BE a foreign form of something.
+    const forms = new Set(Object.values(LANGUAGE.words));
+    const foreign = lines.flatMap((l) => l.match(/[A-Za-z][A-Za-z'-]*/g) ?? [])
+      .filter((w) => forms.has(w.toLowerCase()));
+    expect(foreign, `still foreign after everything: ${foreign.join(', ')}`).toEqual([]);
   });
 
-  it('MEASURES THE CEILING: a word in no beat is never learnable', () => {
-    // ⚠️ THIS ASSERTS A LIMITATION, NOT A FEATURE, and it is here so the next
-    // session meets the number instead of rediscovering it.
-    //
-    // Carrier literacy is exposure across the beats the player has stood in
-    // (literacy.ts). The ticker's own vocabulary is largely NOT beat
-    // vocabulary: `online`, `wore`, `loose`, `ahead`, `vocabulary` and 21 more
-    // appear in zero beats, so they cannot reach LEARN_AT however far a player
-    // walks. Measured against the shipped corpus: 26 of the ticker's 38 word
-    // types are permanently foreign, 12 are learnable.
-    //
-    // That is the same open question as the HUD's four labels — a word that
-    // names a thing you DO cannot be taught by reading — and it is on the
-    // backlog as its own item rather than settled here on the way past.
-    const everywhere = { ...initialState(), held: STORY.beats.map((b) => b.at) };
-    const known = knownWords(everywhere);
-    expect(known.has('machines')).toBe(true);   // beat vocabulary: learnable
-    expect(known.has('ahead')).toBe(false);     // ticker-only: never learnable
-    expect(known.has('online')).toBe(false);
-    expect(LANGUAGE.words['ahead'], 'it still HAS a word — that half is fixed').toBeTruthy();
+  it('and is fully foreign for a player who has done nothing', () => {
+    // The other end, so the test above cannot pass by translation being off.
+    const lines = everyLine(initialState());
+    const english = lines.join(' ');
+    expect(english).not.toContain('nobody');
+    expect(english).not.toContain('machines');
+    expect(english).not.toContain('Rot');
+  });
+
+  it('names the two exemptions, and they are the only ones', () => {
+    // `watched` and `loose` are in no beat and are not readout nouns, so they
+    // ride on the quantity each half makes — the same pairing the HUD uses.
+    // If a third exemption appears, it must be deliberate.
+    const s = initialState();
+    const looseState = { ...s, watched: { extractor: true } };
+    observeTransition(looseState, { ...looseState, watched: { extractor: false } });
+    expect(last()).not.toContain('loose');
+
+    const earned = { ...s, rot: '5', watched: { extractor: true } };
+    observeTransition(earned, { ...earned, watched: { extractor: false } });
+    expect(READOUTS.raw.learned(earned), 'Raw is earned at one whole Rot').toBe(true);
+    expect(last()).toContain('loose');
+  });
+
+  it('a veteran reads the whole dock, because a Retrain must not unlearn one', () => {
+    const s = initialState();
+    const vet = { ...s, held: STORY.beats.slice(0, RETRAIN_MIN_WORDS).map((b) => b.at) };
+    observeTransition(vet, { ...vet, machines: { ...vet.machines, checker: 1 } });
+    expect(last()).toContain(MACHINES.checker.label);
   });
 });

@@ -98,13 +98,26 @@ substance in three states:
 
 **The join is the whole design:**
 
-    factsPerSecond = min(0.4 × machines, 0.15 × Words)
+    factsPerSecond = min(1.2 × machines, 0.15 × Words)
 
 You cannot extract relations about entities you do not hold. So machines are
-capped by vocabulary, vocabulary only grows by **walking the story**, and
-walking the story is therefore the only income upgrade in the game. An
-idle-only player flatlines in about ten minutes and can read exactly why.
-Without this the story and the idle loop are two games sharing a screen.
+capped by vocabulary, vocabulary only grows by **walking the story**, and an
+idle-only player flatlines with the reason on screen. Without this the story and
+the idle loop are two games sharing a screen.
+
+> **The rate was `0.4` here until 2026-07-28 and the difference is the whole
+> claim.** One machine feeds `rate / 0.15` Words: at 0.4 that is 2.7, so the
+> free opening Extractor was overtaken at three Words, the machine side bound
+> for the entire game and walking bought no income at all. At 1.2 one machine
+> covers eight Words. **Measured headless, walking to the first Retrain: 67% of
+> the run word-bound, 74% for a player who also buys freely** — asserted by
+> `test/balance.test.ts`, which is the only reason to believe this paragraph.
+>
+> The old line "walking is the only income upgrade in the game" is **retired as
+> overstated**: for the other 26–33% the machines bind and a machine is the
+> upgrade. That alternation is the design working. What is true without
+> qualification is the half that matters — **you cannot buy your way past your
+> vocabulary**, and only walking raises it.
 
 **Speed versus truth is one toggle per machine.** Watched: 0.55× rate, and
 everything it makes arrives Solid. Loose: full rate, and everything it makes

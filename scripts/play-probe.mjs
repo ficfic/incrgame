@@ -60,14 +60,20 @@ const SECONDS = Number(process.argv[3] ?? 120);
  *  economy is shaped around and the ONLY one that can observe the HUD's join
  *  sentence.
  *
- *  ⚠️ WHY A SECOND STRATEGY EXISTS. `factsPerSecond = min(0.4 × machines,
- *  0.15 × Words)`, and a run opens with one Extractor. So the vocabulary binds
- *  only while Words ≤ 2, and a probe that walks is past that inside fifteen
- *  seconds — it can never see the flatline, because it never causes one. The
- *  idle player takes ONE step (the HUD is unlearned until a word is bound, so
- *  zero steps means zero screen) and then stops, which is precisely VISION's
- *  "an idle-only player flatlines in about ten minutes and can read exactly
- *  why". Two strategies, because one of them is the failure mode. */
+ *  ⚠️ WHY A SECOND STRATEGY EXISTS. `factsPerSecond = min(1.2 × machines,
+ *  0.15 × Words)`, and a run opens with one Extractor, so one machine covers
+ *  eight Words. A walking probe crosses back and forth over that line all run —
+ *  which is the design working, and which is why it can never sit in the
+ *  flatline for long: it keeps curing it. The idle player takes ONE step (the
+ *  HUD is unlearned until a word is bound, so zero steps means zero screen) and
+ *  then stops, which is precisely VISION's "an idle-only player flatlines in
+ *  about ten minutes and can read exactly why".
+ *
+ *  ⚠️ AND THIS COMMENT SAID "Words ≤ 2" UNTIL 2026-07-28, because the rate was
+ *  0.4 when it was written and stayed 0.4 in six documents after the code moved
+ *  to 1.2. Three playtesters read those documents and reported the join as
+ *  permanently broken. The share of a run each side binds is now MEASURED, in
+ *  `test/balance.test.ts`, not described here. */
 const MODE = (process.argv[4] ?? 'walk').toLowerCase();
 const browser = await chromium.launch({ executablePath: EXE });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
@@ -81,7 +87,16 @@ await page.waitForTimeout(1500);
 
 /** Read every readout BY ITS NOUN. A missing readout reports `-` rather than
  *  throwing: the HUD is UNLEARNED, so at t=0 there is nothing to read and that
- *  is the designed state, not a fault. */
+ *  is the designed state, not a fault.
+ *
+ *  ⚠️ SO `-` MEANS TWO THINGS, and the second one will mislead you. A readout
+ *  whose NOUN is still foreign cannot be found by its English name, so the
+ *  column reads `-` while the number underneath is real and climbing. Measured
+ *  2026-07-28: Rot showed `-` from 1 to 3, because `Rot` turns English at three
+ *  of it while the row joins the bar at one. The dock told the truth in the same
+ *  run (`loose` was already English, which only happens past one whole Rot).
+ *  Reading by position instead would fix the column and reintroduce the
+ *  one-word-two-quantities bug this probe was rewritten to avoid. */
 const read = async () => {
   const cells = await page.$$eval('.readout', (ds) => Object.fromEntries(
     ds.map((d) => [d.querySelector('span')?.textContent?.trim() ?? '?',
@@ -97,11 +112,17 @@ const read = async () => {
   // offer more than 12 choices and one offers 371, so "the strip shows six" is
   // only honest if the number it is not showing is on screen too.
   const more = await page.$$eval('.more-lanes', (n) => n[0]?.textContent?.trim() ?? '');
+  // THE DOCK, IN WHATEVER LANGUAGE THE PLAYER HAS. Added 2026-07-28: every
+  // ticker line shipped that morning was written in words no beat contains, so
+  // they were masked at minute zero and masked at hour ten — and no column in
+  // this table would ever have shown it, because the probe never read the dock.
+  // A surface the probe cannot see is a surface that ships blind.
+  const dock = await page.$$eval('.ticker span', (n) => n.map((s) => s.textContent?.trim() ?? ''));
   return {
     t: 0,
     words: cells.Words ?? '-', solid: cells.Solid ?? '-',
     raw: cells.Raw ?? '-', rot: cells.Rot ?? '-',
-    nodes, lanes, mach, join,
+    nodes, lanes, mach, join, dock,
     hidden: /\+(\d+)/.exec(more)?.[1] ?? '0',
   };
 };
@@ -207,6 +228,13 @@ for (const r of log) {
     String(r.nodes).padEnd(5), String(r.lanes).padEnd(5), String(r.hidden).padEnd(5),
     String(r.mach).padEnd(4), r.join ? 'words' : '-');
 }
+// THE DOCK, LINE BY LINE. Printed rather than columned: a ticker line is a
+// sentence, and the point of reading it back is seeing WHICH words are English.
+const said = new Map();
+for (const r of log) for (const line of r.dock) if (line && !said.has(line)) said.set(line, r.t);
+console.log('\nTHE DOCK');
+for (const [line, t] of said) console.log(String(t).padEnd(5), line);
+
 const bind = log.map((r) => r.join).filter(Boolean).pop();
 if (bind) console.log('\nJOIN SENTENCE  ' + bind);
 if (errors.length) console.log('ERRORS', errors);

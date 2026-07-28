@@ -1,6 +1,6 @@
 # Handover — read after CLAUDE.md, before anything else
 
-Last verified against the code on **2026-07-28**, at save **v16**, 12 test files
+Last verified against the code on **2026-07-28**, at save **v17**, 12 test files
 / 166 tests green. If this file and the code disagree, the code wins and this
 file is a bug. It has been that bug before — a stale HANDOVER is on record in
 `BACKLOG.md` as the most expensive defect in this repo.
@@ -52,7 +52,7 @@ RAW rots into ROT, which only a Retrain clears
 SOLID is the only thing you spend: on the next step, or on a machine
 ```
 
-    factsPerSecond = min(0.4 × factMachines, 0.15 × Words)
+    factsPerSecond = min(1.2 × factMachines, 0.15 × Words)
     stepCost       = 0 if you already hold the concept,
                      else ceil(6 × 1.04^stepsThisRun)
 
@@ -98,8 +98,8 @@ further or build wider" a real question.
 | machine | rate | cost | note |
 |---|---|---|---|
 | **Extractor** | 0.4 facts/s | 20 × 1.15ⁿ | the volume machine; carries the toggle |
-| **Reasoner** | 2.2 facts/s | 320 × 1.18ⁿ | always Solid — what already follows needs no checking |
-| **Checker** | 0.25 Raw→Solid/s | 45 × 1.16ⁿ | makes nothing; excluded from the join, or it would raise a ceiling on production it does not perform |
+| **Reasoner** | 2.2 facts/s | 320 × 1.18ⁿ | always Solid, and now in code too — what already follows needs no checking, so it has NO watched/loose toggle rather than an inert one |
+| **Checker** | **0.2% of the Raw pile/s**, each | 90 × 1.18ⁿ | makes nothing; excluded from the join, or it would raise a ceiling on production it does not perform. A SHARE, not an amount — a flat 0.25/s needed 72 units to keep up with an 18/s loose roster, so watched won everywhere and Rot never moved |
 
 A run opens with **1 Extractor, 18 Solid, watched**. Both exist to close a
 softlock: Words start at 0, so production starts at 0.
@@ -131,11 +131,11 @@ softlock: Words start at 0, so production starts at 0.
 
 ## 3. State of the code
 
-**Save v16, twelve fields** (it was thirty-five):
+**Save v17, twelve fields** (it was thirty-five):
 
 ```
 version · lastTick · solid · raw · rot · held[] · stepsThisRun
-machines{extractor,reasoner,checker} · watched{extractor,reasoner}
+machines{extractor,reasoner,checker} · watched{extractor}
 generation · syntheticShare · minted
 ```
 
@@ -143,7 +143,7 @@ generation · syntheticShare · minted
   stored — so the board, the income cap, the story position and the readout
   cannot disagree.
 - **All 15 migrations are gone.** `deserialize` returns
-  `{ state, reset, notice }`: a save that is not v16 is rebuilt as a fresh run,
+  `{ state, reset, notice }`: a save that is not v17 is rebuilt as a fresh run,
   keeping its concepts, and the player is told. `version` stays on every save so
   the code can *tell* which format it holds. Export/import is the same base64
   blob and must keep working — it is how the owner moves a save between devices.

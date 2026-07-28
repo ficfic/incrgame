@@ -26,7 +26,7 @@
 // This module is PURE and data-driven: it reads the story graph and the board,
 // and returns a description. It books nothing and mutates nothing.
 import type { GameState, StoryBeat, StoryChoice } from './types';
-import { STORY, placeAt } from '../content/story';
+import { ownChoices, placeAt } from '../content/story';
 
 export type LaneState = 'solid' | 'dotted' | 'locked';
 
@@ -85,25 +85,27 @@ export function mask(label: string, max = 12): string {
   return MASK_CHAR.repeat(n);
 }
 
-/** Beats whose vantage point is a concept you hold. */
-function beatsAt(held: Set<number>): StoryBeat[] {
-  return STORY.beats.filter((b) => held.has(b.at));
-}
-
 /** Every lane the board currently offers.
  *
  *  Deduplicated on (from, to, rel): the story graph is 26 lanes deep and they
  *  share their upper reaches, so `entity → physical entity` is offered by many
  *  beats and must be ONE lane on screen. The strongest state wins a tie — a
- *  route that is open somewhere is open. */
+ *  route that is open somewhere is open.
+ *
+ *  ⚠️ WALKED FROM EVERY CONCEPT HELD, not from the 446 that have an authored
+ *  beat. A leaf's own gloss links are the only exits the bottom 89% of the
+ *  board has, and this is the reducer's gate — offered by nothing here, a lane
+ *  the screen draws is a lane `walk` silently refuses. `ownChoices` returns
+ *  what a place ADDS, so a leaf's inherited siblings are not counted again once
+ *  per leaf ever visited. */
 export function lanes(state: GameState): Lane[] {
   const held = new Set(state.held);
   const rank: Record<LaneState, number> = { solid: 0, dotted: 1, locked: 2 };
   const best = new Map<string, Lane>();
 
-  for (const beat of beatsAt(held)) {
-    for (const choice of beat.choices) {
-      const lane = laneFor(state, held, beat.at, choice);
+  for (const at of held) {
+    for (const choice of ownChoices(at)) {
+      const lane = laneFor(state, held, at, choice);
       const prev = best.get(lane.id);
       if (!prev || rank[lane.state] < rank[prev.state]) best.set(lane.id, lane);
     }

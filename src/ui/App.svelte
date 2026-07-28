@@ -57,7 +57,7 @@
   // binds a word, so the HUD is earned by playing rather than granted by
   // loading.
   //
-  // When the corpus teaches these four nouns, `hudReady` below becomes
+  // When the corpus teaches these four nouns, `opened` below becomes
   // `canRead(literate, READOUTS[id].noun)` and nothing else changes. That is a
   // content dependency, not something to paper over.
   import { onMount } from 'svelte';
@@ -66,7 +66,7 @@
     resetNotice, startGame,
   } from '../shell/game';
   import {
-    CHECK_PER_TAP, RETRAIN_MIN_WORDS, WATCHED_RATE, WORDS_PER_FACT,
+    checkTake, RETRAIN_MIN_WORDS, WATCHED_RATE, WORDS_PER_FACT,
     bottleneck, canBuy, canCheck, canRetrain, canWalk, factMachines,
     initialState, machineCost, potentialPerSecond, rawPerSecond, solidPerSecond,
     stepCost, vocabularySupport,
@@ -75,8 +75,8 @@
   import type { Readout, ReadoutId } from '../core/readouts';
   import { D, formatWhole } from '../core/numbers';
   import { MACHINES } from '../content/machines';
-  import { FACT_MACHINES, MACHINE_IDS, REL_NAMES } from '../core/types';
-  import type { FactMachineId, MachineId } from '../core/types';
+  import { FACT_MACHINES, MACHINE_IDS, REL_NAMES, WATCHED_MACHINES } from '../core/types';
+  import type { MachineId, WatchedMachineId } from '../core/types';
   import type { LaneState } from '../core/starmap';
   import { currentBeat } from '../core/starmap';
   import { BEAT_AT } from '../content/story';
@@ -132,6 +132,31 @@
    *  change to readouts.ts and to nothing here. */
   const SUBSTANCE = ['solid', 'raw', 'rot'] as const;
 
+  /** ★ THE RATE BELONGS TO THE NOUN, NOT TO A STRIP OF ITS OWN.
+   *
+   *  It shipped as two bare numbers on their own row under the bar — `+0.17
+   *  +0.00`, colour-matched to the segments and nothing else. Measured in the
+   *  browser: that row is the LAST line of the header, so it is the first thing
+   *  the page scrolls away, and it was off-screen for the whole of a real
+   *  120-second run. Even on screen, two unlabelled decimals under a stacked bar
+   *  do not read as "this is what Solid is doing per second".
+   *
+   *  So the rate sits INSIDE the readout it describes, between the stock and its
+   *  noun: `18 / +0.17 / Hoth`. The number is legible from the first frame and
+   *  the noun is not, which is this screen's own rule — a rate under a word you
+   *  cannot read is fully in-rules, and it is the only way a player who watches
+   *  every machine ever sees production at all.
+   *
+   *  ⚠️ ROT GETS NO RATE, and that is deliberate rather than an omission.
+   *  `rotPerSecond` returns a SHARE of the pile (0.002/s), not an amount, so
+   *  printing it beside `+0.17` — an absolute — under one heading is exactly the
+   *  one-word-two-quantities defect readouts.ts exists to stop. The engine
+   *  exports an absolute rate for Solid and for Raw and for nothing else. */
+  const RATE: Partial<Record<(typeof SUBSTANCE)[number], (s: typeof $game) => number>> = {
+    solid: solidPerSecond,
+    raw: rawPerSecond,
+  };
+
   const substance = $derived.by(() => {
     const rows = SUBSTANCE.map((id) => {
       const readout = READOUTS[id];
@@ -142,6 +167,7 @@
         // A row's number is legible from the frame it appears in; its name is
         // earned. See readouts.ts.
         reads: readout.learned($game),
+        rate: RATE[id]?.($game) ?? null,
         n: Math.max(0, amount.toNumber()),
       };
     });
@@ -158,17 +184,49 @@
    *  is not moving, and is not actually zero. A state joins the bar when it has
    *  a whole fact in it and not before.
    *
-   *  ★ AND ONCE IT HAS A NAME IT NEVER LEAVES AGAIN (`|| row.reads`). Waiting-
-   *  to-afford is the modal state of this economy, and gating the ROW on the
-   *  stock deleted the Solid readout the instant it hit zero — which is
-   *  immediately after every purchase. A player watched the counter they were
-   *  saving up vanish as the reward for spending, then reappear minutes later;
-   *  the probe's Solid column read `-` for 105 of 120 seconds for this reason.
-   *  Hide-while-unlearned is right. Hide-while-empty is a broken screen, and it
-   *  is also the one moment the number matters most. `learned` only ever rises
-   *  (readouts.ts), so this can never take a word back. */
+   *  ★ AND ONCE IT HAS APPEARED IT NEVER LEAVES AGAIN. Waiting-to-afford is the
+   *  modal state of this economy, and gating the ROW on the stock deleted the
+   *  Solid readout the instant it hit zero — which is immediately after every
+   *  purchase and after every walk.
+   *
+   *  ⚠️ `|| row.reads` WAS THE FIRST ATTEMPT AT THIS AND IT DOES NOT WORK, which
+   *  is measurable rather than arguable: `READOUTS.solid.learned` is witnessed by
+   *  owning a machine you BOUGHT, so a player who walks the story — the intended
+   *  player — never satisfies it. A real 120-second probe run reported `Solid -`
+   *  at EVERY ONE OF ITS NINE SAMPLES: the purse fell under one whole Solid on
+   *  the first step and the readout the player is saving with was gone for the
+   *  entire run.
+   *
+   *  So the latch is on HAVING APPEARED, not on any quantity that can fall. Raw
+   *  still waits for its first whole fact and Rot for its first, so nothing
+   *  arrives as `0`; once a state has been on screen it stays on screen at zero,
+   *  because zero is the number the player is acting on. */
+  let everShown = $state<string[]>([]);
+  $effect(() => {
+    const arriving = substance
+      .filter((row) => (row.amount.gte(1) || row.reads) && !everShown.includes(row.id))
+      .map((row) => row.id);
+    if (arriving.length > 0) everShown = [...everShown, ...arriving];
+  });
   const visibleSubstance = $derived(
-    substance.filter((row) => row.amount.gte(1) || row.reads));
+    substance.filter((row) => row.amount.gte(1) || row.reads || everShown.includes(row.id)));
+
+  /** ★ THE BAR DRAWS A SPLIT, SO IT WAITS FOR ONE.
+   *
+   *  ⚠️ THE `.seg.empty` STUB WAS THE PREVIOUS ATTEMPT AT THIS AND IT FAILED IN
+   *  THE BUILD. Two 15px stubs against a 370px bar leave the occupied state at
+   *  92% — so a player who watches every machine, which is the correct opening,
+   *  still got a near-full teal rectangle in the place a progress bar goes, for
+   *  the whole first hour. Screenshotted at 390px: it is the widest and
+   *  brightest object on the screen and it says nothing.
+   *
+   *  One substance state is not a composition, and a composition bar with one
+   *  occupied cell can only ever be read as a full one. So the bar arrives the
+   *  first time there is a proportion to draw — the moment Raw or Rot holds a
+   *  whole fact — which is also the exact moment the split is worth teaching.
+   *  The NUMBERS never wait on this: `visibleSubstance` above keeps every state
+   *  that has ever appeared, at zero, forever. */
+  const splitToShow = $derived(substance.filter((row) => row.n >= 1).length >= 2);
 
   /** Rot's share of everything, for the board's colour and for nothing else. It
    *  is NOT a readout: no number on screen reports it, and both of its parts
@@ -185,12 +243,34 @@
   // the player had not finished.
   const hue = $derived(stageHue(wordsCount.toNumber()));
 
-  /** ★ THE HUD GATE. See the header: nothing until the first word is bound. */
-  const hudReady = $derived(wordsCount.gt(0));
+  /** ★ THE SHOP GATE — and it is no longer the HUD's gate.
+   *
+   *  ⚠️ MEASURED: `.hud` was 8 PIXELS TALL AND EMPTY on the opening screen. A
+   *  run starts with a purse and a machine, so there was a stock, a price and a
+   *  production ceiling in the save, and the screen reported none of them until
+   *  the player had already spent a third of the purse on a blind guess. Three
+   *  players opened it and reported a dead screen: no HUD, no bar, no number.
+   *
+   *  The reason it was gated is intact and is why the gate MOVED rather than
+   *  went: an English shop of machine names at minute zero is the GUI the owner
+   *  asked to have removed. But the HUD is not that. Every noun in it goes
+   *  through `chromeHtml`, so at t=0 it reads `18 ⟦hoth⟧` over a bar and a goal
+   *  track — numbers you can read, names you cannot, which is the opening this
+   *  game is made of. The CARDS still wait for the first bound word. */
+  const opened = $derived(wordsCount.gt(0));
+
+  /** ★ THE GOAL LINE. Retrain at 120 Words was the biggest event in the game and
+   *  had no on-screen existence until the button unlocked at 72 — two to three
+   *  hours in — so for the whole of a first session nothing anywhere pointed
+   *  forward and the fraction at the top counted toward 4,075, a horizon nobody
+   *  reaches. This is the near end of that: one track, filling toward the one
+   *  threshold the game actually has, with the threshold on it. */
+  const goalShare = $derived(
+    Math.max(0, Math.min(1, wordsCount.toNumber() / RETRAIN_MIN_WORDS)));
 
   // ---- THE LANE JOIN, IN WORDS -------------------------------------------
   //
-  //   factsPerSecond = min(0.4 × machines, 0.15 × Words)
+  //   factsPerSecond = min(1.2 × machines, 0.15 × Words)
   //
   // This sentence IS the join made visible. Without it an idle-only player
   // watches production stop climbing, has no way to learn why, and reasonably
@@ -208,7 +288,7 @@
   // of that is it must not arrive before the word it explains: a sentence about
   // your vocabulary, shown to a player who cannot yet read `Words`, is noise.
   const joinBinds = $derived(
-    hudReady && bottleneck($game) === 'words' && READOUTS.words.learned($game));
+    opened && bottleneck($game) === 'words' && READOUTS.words.learned($game));
 
   /** "your 30 Extractors" when one kind of fact machine is running, "your 34
    *  machines" when several are. Naming a mixed roster after one of its members
@@ -773,7 +853,7 @@
   const OPENING = initialState().machines;
 
   const machineCards = $derived.by(() => {
-    if (!hudReady) return [];
+    if (!opened) return [];
     const purse = READOUTS.solid.count($game);
     return MACHINE_IDS
       .map((id) => {
@@ -785,17 +865,19 @@
           reads: $game.machines[id] > OPENING[id],
           cost,
           afford: canBuy($game, id),
-          watchable: (FACT_MACHINES as MachineId[]).includes(id),
+          // The Reasoner is exempt (types.ts): sound by construction, so no
+          // toggle rather than a toggle that changes nothing.
+          watchable: (WATCHED_MACHINES as MachineId[]).includes(id),
           shown: $game.machines[id] > 0 || purse.gte(D(cost).mul(REVEAL_AT)),
         };
       })
       .filter((m) => m.shown);
   });
 
-  const isWatched = (id: MachineId): boolean => $game.watched[id as FactMachineId] === true;
+  const isWatched = (id: MachineId): boolean => $game.watched[id as WatchedMachineId] === true;
 
   function toggleWatch(id: MachineId): void {
-    const fid = id as FactMachineId;
+    const fid = id as WatchedMachineId;
     dispatch({ type: 'setWatched', id: fid, watched: !$game.watched[fid] });
   }
 
@@ -903,89 +985,109 @@
 </script>
 
 <div class="app" style="--hue:{hue}">
+  <!-- ⚠️ STICKY, AND THAT IS THE WHOLE REASON ANY OF THIS IS EVER SEEN. Measured
+       in the shipped build at 390×844: the document is 974px tall the moment the
+       dock has a beat and six lanes in it, and it grows again with every machine
+       card. A player reaching the lanes scrolls 130px — and `.hud` is 115px, so
+       every number in the game leaves the screen before the first tap target
+       does. `hudOnScreen: false`. That is the real content of "no production
+       rate anywhere on screen, ever": the rate was rendered, at the bottom of a
+       header that scrolls away, on a page you have to scroll to play. -->
   <header class="hud">
-    <!-- ⚠️ NOTHING HERE UNTIL THE FIRST WORD IS BOUND. See the header comment:
-         at minute zero the screen is the graph, one foreign sentence and the
-         lanes out of it. The HUD then assembles itself as the player earns the
-         thing each part of it describes — Raw's row appears the first time Raw
-         exists, Rot's the first time speed costs something. That is what makes
-         this a progression track rather than chrome. -->
-    {#if hudReady}
-      <!-- WORDS, and the only fraction in the game. The denominator is real:
-           concepts a player could actually reach through gated lanes, measured
-           from the shipped story graph. -->
-      <!-- ⚠️ BOTH SIDES PLAIN, NOT `format`ed. This is the one place in the game
-           where a number is compared against a fixed, knowable other number,
-           and `4.08K` is not a denominator anybody can hold in their head —
-           the graft this fraction came from asks for "a real denominator", and
-           4,075 rounded to three significant figures is not one. The
-           suffixing formatter is right everywhere a stock can reach the
-           trillions and wrong here, where the ceiling is four thousand. -->
-      <!-- THE NUMBER IS LEGIBLE AND THE NOUN IS NOT, and that is the point:
-           `1 / 4075` under a word you cannot read says something is counted
-           without saying what. The word arrives at three concepts. -->
-      <div class="readout goal" title={chrome(READOUTS.words.explain, readsWords)}>
-        <b>{wordsCount.floor().toString()} / {wordsOf.floor().toString()}</b>
-        <span>{@html chromeHtml(READOUTS.words.noun, readsWords)}</span>
+    <!-- ★ THE HUD IS HERE FROM THE FIRST FRAME. It was gated on the first bound
+         word and measured 8px tall and empty on the opening screen — no HUD, no
+         bar, no number, on a save that already holds a purse, a machine and a
+         production ceiling. The gate's reason (no English chrome at minute zero)
+         is served by `chromeHtml`, not by absence: every noun below is in the
+         graph's tongue until it is earned. The numbers are legible from the
+         first frame and the names are not, which is the opening this game is
+         made of. The machine CARDS still wait — see `opened`. -->
+    <!-- WORDS, and the only fraction in the game. The denominator is real:
+         concepts a player could actually reach through gated lanes, measured
+         from the shipped story graph. -->
+    <!-- ⚠️ BOTH SIDES PLAIN, NOT `format`ed. This is the one place in the game
+         where a number is compared against a fixed, knowable other number,
+         and `4.08K` is not a denominator anybody can hold in their head —
+         the graft this fraction came from asks for "a real denominator", and
+         4,075 rounded to three significant figures is not one. The
+         suffixing formatter is right everywhere a stock can reach the
+         trillions and wrong here, where the ceiling is four thousand. -->
+    <!-- THE NUMBER IS LEGIBLE AND THE NOUN IS NOT, and that is the point:
+         `1 / 4075` under a word you cannot read says something is counted
+         without saying what. The word arrives at three concepts. -->
+    <div class="readout goal" title={chrome(READOUTS.words.explain, readsWords)}>
+      <b>{wordsCount.floor().toString()} / {wordsOf.floor().toString()}</b>
+      <span>{@html chromeHtml(READOUTS.words.noun, readsWords)}</span>
+    </div>
+
+    <!-- ★ THE GOAL LINE, AND IT IS DELIBERATELY THE NEAR TARGET AND NOT THE
+         FAR ONE. The fraction above counts toward 4,075 concepts, which is the
+         horizon; this counts toward the 120 that fire a Retrain, which is the
+         next thing that happens to you. It sits between the fraction and the
+         substance bar for a second reason: whatever is directly under a
+         fraction gets read as that fraction's progress, and the bar was taking
+         that job while being a composition, not a progress. Now the thing under
+         the fraction IS a progress track, and it is honest about what it is
+         filling toward because the target is printed on its end. -->
+    <div class="goalline" class:reached={canRetrain($game)}
+         role="img" aria-label="{wordsCount.floor().toString()} of {RETRAIN_MIN_WORDS}">
+      <div class="track"><div class="fill" style="width:{goalShare * 100}%"></div></div>
+      <b>{RETRAIN_MIN_WORDS}</b>
+    </div>
+
+    {#if visibleSubstance.length > 0}
+      <!-- ★ NUMBERS FIRST, BAR UNDER THEM. See the goal line above: the bar was
+           the first object beneath `3 / 4075`, and a bar under a fraction reads
+           as that fraction filling up — which for a player who watches every
+           machine (the correct opening) meant a 100%-full teal rectangle sitting
+           where a completed progress bar goes, for hours. Below its own three
+           colour-matched numbers it reads as what it is: a composition. -->
+      <div class="stats">
+        {#each visibleSubstance as row (row.id)}
+          <div class="readout" title={chrome(row.explain, row.reads)}>
+            <b class={row.id}>{formatWhole(row.amount.toString())}</b>
+            <!-- ★ WHAT IT IS DOING RIGHT NOW, UNDER THE NUMBER IT IS DOING IT
+                 TO. Every decision in this game is a rate comparison — walk for
+                 +0.15/s of ceiling, buy an Extractor for +1.2/s of potential,
+                 flip a machine loose to trade 0.55× Solid for 1.0× Raw — and a
+                 player who watches every machine could not see one of them.
+                 Never hidden, because `+0.00` IS the plateau: the failure this
+                 game promises you can see coming, stated in the one place the
+                 player is already looking. Rates are not readouts and never
+                 were (ECONOMY_SRR §3) — `solidPerSecond` and `rawPerSecond` are
+                 the engine's own exports and the engine names them. -->
+            {#if row.rate !== null}<i class="rate {row.id}">+{row.rate.toFixed(2)}</i>{/if}
+            <span>{@html chromeHtml(row.noun, row.reads)}</span>
+          </div>
+        {/each}
       </div>
 
       <!-- ONE STACKED BAR. Solid, Raw and Rot are one substance in three
            states, so they get ONE OBJECT and not three counters: everything
-           that leaves one arrives in another. -->
-      {#if visibleSubstance.length > 0}
+           that leaves one arrives in another. It waits for a second state to
+           exist — see `splitToShow`. -->
+      {#if splitToShow}
         <div class="bar" role="img"
              aria-label={visibleSubstance
                .map((row) => `${chrome(row.noun, row.reads)} ${formatWhole(row.amount.toString())}`)
                .join(', ')}>
-          <!-- ★ ALL THREE SEGMENTS, ALWAYS — the empty ones as a dim stub.
-               Drawing only the states that exist meant a player who watches
-               every machine (the correct opening) saw a 100%-full teal
-               rectangle sitting directly under `3 / 4075`, where it reads as a
-               completed progress bar for that fraction. It only became the
-               stacked bar it is meant to be once you had made a mistake. Three
-               tracks, two of them empty, says "three states" from the first
-               frame without a single word of legend. -->
+          <!-- ALL THREE SEGMENTS ONCE IT IS DRAWN — the empty one as a dim
+               stub, so a two-way split still says "three states" without a
+               single word of legend. -->
           {#each substance as row (row.id)}
             <div class="seg {row.id}" class:empty={row.n <= 0}
                  style="flex-grow:{row.share}"></div>
           {/each}
         </div>
-
-        <div class="stats">
-          {#each visibleSubstance as row (row.id)}
-            <div class="readout" title={chrome(row.explain, row.reads)}>
-              <b class={row.id}>{formatWhole(row.amount.toString())}</b>
-              <span>{@html chromeHtml(row.noun, row.reads)}</span>
-            </div>
-          {/each}
-        </div>
       {/if}
+    {/if}
 
-      <!-- ★ WHAT IT IS DOING RIGHT NOW, AND IT WAS NOWHERE ON SCREEN.
-           Every decision in this game is a rate comparison — walk for
-           +0.15/s of ceiling, buy an Extractor for +0.4/s of potential, flip a
-           machine loose to trade 0.55× Solid for 1.0× Raw — and the screen
-           showed no rates at all, so none of it could be evaluated. The only
-           `/s` in the build was the join sentence, triple-gated to a state a
-           player who walks never reaches.
-           NUMBERS ONLY, no nouns: they are colour-matched to the two segments
-           they belong to, which is how you tell which is which without a word.
-           They are also never hidden, because `+0.00 +0.00` IS the plateau —
-           the failure this game promises you can see coming.
-           Rates are not readouts and never were (ECONOMY_SRR §3): both come
-           from the engine's own exported functions, which name them. -->
-      <div class="rates">
-        <b class="solid">+{solidPerSecond($game).toFixed(2)}</b>
-        <b class="raw">+{rawPerSecond($game).toFixed(2)}</b>
-      </div>
-
-      <!-- THE JOIN, MADE VISIBLE. `min(0.4 × machines, 0.15 × Words)`: you
-           cannot extract relations about entities you do not hold, so walking
-           the story is the only income upgrade in the game. An idle-only player
-           flatlines in about ten minutes, and this is where they read why. -->
-      {#if joinBinds}
-        <p class="join">{joinSentence}</p>
-      {/if}
+    <!-- THE JOIN, MADE VISIBLE. `min(1.2 × machines, 0.15 × Words)`: you
+         cannot extract relations about entities you do not hold, so walking
+         the story is the only income upgrade in the game. An idle-only player
+         flatlines in about ten minutes, and this is where they read why. -->
+    {#if joinBinds}
+      <p class="join">{joinSentence}</p>
     {/if}
   </header>
 
@@ -1105,7 +1207,7 @@
                thing it acts on. Both nouns in the subtitle keep their own rule,
                so the line can read half in each language — which is honest,
                because the player has earned exactly half of it. -->
-          <b>{@html chromeHtml('Check', readsRaw)}</b><span>{CHECK_PER_TAP}
+          <b>{@html chromeHtml('Check', readsRaw)}</b><span>{formatWhole(checkTake($game))}
             {@html chromeHtml(READOUTS.raw.noun, readsRaw)} →
             {@html chromeHtml(READOUTS.solid.noun, readsSolid)}</span>
         </button>
@@ -1244,7 +1346,7 @@
               <td>{@html quantity('solid')}, rising with each new concept this run</td>
               <td>a concept, and a word you can read</td></tr>
           <tr><td><b>{@html chromeHtml('Check', readsRaw)}</b></td><td>a tap</td>
-              <td>{CHECK_PER_TAP} {@html quantity('raw')} → {@html quantity('solid')}</td></tr>
+              <td>{formatWhole(checkTake($game))} {@html quantity('raw')} → {@html quantity('solid')}</td></tr>
           <tr><td><b>{@html chromeHtml('Buy', readsSolid)}</b></td><td>{@html quantity('solid')}</td>
               <td>a machine, from the roster below</td></tr>
           <tr><td><b>{@html chromeHtml('Retrain', readsWords)}</b></td><td>the run</td>
@@ -1260,7 +1362,13 @@
           {#each MACHINE_IDS as id (id)}
             <tr><td><b>{@html chromeHtml(MACHINES[id].label,
                   $game.machines[id] > OPENING[id])}</b></td>
-                <td>{MACHINES[id].rate}/s</td>
+                <!-- The Checker makes nothing: its number is the SHARE of the
+                     unchecked pile it works through each second, not facts per
+                     second, and printing the two in one column under one
+                     heading is the one-word-two-quantities defect. -->
+                <td>{MACHINES[id].rate
+                      ? `${MACHINES[id].rate}/s`
+                      : `${((MACHINES[id].checks ?? 0) * 100).toFixed(1)}%/s`}</td>
                 <td>{formatWhole(MACHINES[id].baseCost)} {@html quantity('solid')}</td></tr>
           {/each}
         </tbody></table>
@@ -1408,23 +1516,67 @@
     box-sizing: border-box;
   }
 
-  /* ---- header: Words, then ONE bar ---- */
-  .hud { flex: 0 0 auto; text-align: center; padding: 6px 10px 2px; }
+  /* ---- header: Words, the goal line, the numbers, then ONE bar ----
+     ⚠️ STICKY. The page is 974px tall at phone size the moment the dock has a
+     beat and six lanes in it, and taller with every machine card; a player who
+     scrolls to reach a tap target scrolls the entire HUD off the top (measured:
+     scrollY 130, hud bottom −15). Every number in this game lived above the
+     fold of a page you have to scroll to play. It now travels with the screen.
+     `top: 0` is inside `.app`'s safe-area padding, so it lands under the notch
+     rather than in it. */
+  .hud {
+    flex: 0 0 auto; text-align: center; padding: 6px 10px 4px;
+    position: sticky; top: 0; z-index: 4;
+    /* Opaque, or the board scrolls through the numbers — measured: a node label
+       ghosted straight through the bar. The soft edge is a shadow BELOW the
+       box rather than transparency inside it, so nothing ever reads through. */
+    background: #080b11;
+    box-shadow: 0 10px 12px -10px #080b11, 0 1px 0 #10161f;
+  }
   .readout { display: flex; flex-direction: column; min-width: 0; }
   .readout b { font-size: 1.05rem; font-weight: 700; color: #eaf6f2; }
   .readout span { font-size: 0.62rem; color: #5d7385; white-space: nowrap; }
-  /* The goal line. Bigger, because it is the one number the whole economy is
-     capped by and the only fraction in the game. */
-  .goal { margin-bottom: 6px; }
+  /* Bigger, because it is the one number the whole economy is capped by and the
+     only fraction in the game. */
   .goal b { font-size: 1.5rem; line-height: 1.05; }
+
+  /* ══ THE GOAL LINE ═════════════════════════════════════════════════════
+     The Retrain gate, on screen from the first frame instead of from hour two.
+     A track and the threshold at the end of it — no verb, no caption, and the
+     only new number is one the Retrain button already prints. Thin on purpose:
+     it is a horizon, not a readout, and it must not compete with the stocks. */
+  .goalline {
+    display: flex; align-items: center; gap: 7px;
+    max-width: 20em; margin: 5px auto 7px;
+  }
+  .goalline .track {
+    flex: 1 1 auto; height: 3px; border-radius: 2px;
+    background: #182231; overflow: hidden;
+  }
+  .goalline .fill {
+    height: 100%; border-radius: 2px;
+    background: hsl(var(--hue) 55% 45%);
+    transition: width 500ms linear;
+  }
+  .goalline b {
+    font: 400 0.58rem ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #46586a; letter-spacing: 0.03em;
+  }
+  /* Arrived. The track stays — a goal that deletes itself on completion is the
+     defect this element exists to fix — and says so instead. */
+  .goalline.reached .fill { background: hsl(var(--hue) 80% 62%); }
+  .goalline.reached b { color: hsl(var(--hue) 70% 66%); }
 
   /* ══ THE STACKED BAR ═══════════════════════════════════════════════════
      Solid, Raw and Rot are ONE SUBSTANCE IN THREE STATES, so they are one
      object. Segments are flex-grown by share, so the bar always fills and
      never needs a maximum — the substance has no ceiling, only proportions. */
+  /* Sized and centred to the goal track above it, so the header reads as one
+     column rather than as a full-bleed slab across the top of the board. */
   .bar {
-    display: flex; gap: 2px; height: 9px; margin-top: 3px;
-    border-radius: 5px; overflow: hidden; background: #10151d;
+    display: flex; gap: 3px; height: 6px;
+    max-width: 20em; margin: 6px auto 0;
+    border-radius: 3px; overflow: hidden; background: #10151d;
   }
   .seg { min-width: 3px; border-radius: 5px; transition: flex-grow 300ms linear; }
   .seg.solid { background: hsl(var(--hue) 70% 55%); }
@@ -1438,20 +1590,20 @@
      substance, says "three states, two empty" from the first frame and needs no
      legend to do it. */
   .seg.empty { flex: 0 0 15px; background: #182231; }
-  .stats { display: flex; justify-content: center; gap: 18px; margin-top: 4px; }
+  .stats { display: flex; justify-content: center; gap: 20px; }
   .stats b.solid { color: hsl(var(--hue) 70% 58%); }
   .stats b.raw { color: hsl(42 75% 60%); }
   .stats b.rot { color: #b0566b; }
 
-  /* THE RATE. Numbers only, coloured to the segments they belong to — that is
-     the whole legend, and it needs no word. Monospace so the digits do not
-     jitter as they tick. */
-  .rates {
-    display: flex; justify-content: center; gap: 18px; margin-top: 3px;
-    font: 0.66rem ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* THE RATE, inside the readout it belongs to and above that readout's noun.
+     Monospace so the digits do not jitter as they tick, and dimmer than the
+     stock so the stock still reads first. */
+  .rate {
+    font: 400 0.64rem/1.25 ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-style: normal;
   }
-  .rates b.solid { color: hsl(var(--hue) 55% 46%); font-weight: 400; }
-  .rates b.raw { color: hsl(42 50% 46%); font-weight: 400; }
+  .rate.solid { color: hsl(var(--hue) 50% 48%); }
+  .rate.raw { color: hsl(42 45% 48%); }
 
   /* The join, in words. Quiet — it is an explanation, not an alarm — but it is
      the only place the cap ever states itself, so it is never truncated. */
@@ -1627,23 +1779,43 @@
      lane and the beat changes, take a solid-outlined one and it does not. */
 
   /* DOTTED — ungated, the far end is dark, and it MOVES you. The loudest thing
-     in the strip, because it is the offer. */
+     in the strip, because it is the offer.
+     ⚠️ AND IT WAS NOT, WHICH IS MEASURABLE. Shipped, the offer and the three
+     lanes that stop were `1px dashed` versus `1px solid`, in the same label
+     colour (rgb(123,234,212) on all four, read out of the browser) with the
+     same gold glyphs. One pixel of border style was carrying the entire
+     difference — and it carried it the WRONG WAY, because a crisp solid
+     rectangle reads as a button and a dashed one reads as a placeholder in
+     every interface anybody has ever used. On the opening screen the three
+     lanes that leave you standing still were the three most button-like objects
+     in the game. The offer now wins on weight, fill and colour as well as on
+     shape, so the convention (dashed carries on, closed stops) is what you
+     confirm second rather than what you have to notice first. */
   .lane.dotted {
-    border-style: dashed; border-width: 1.5px;
-    border-color: hsl(var(--hue) 62% 48%); color: hsl(var(--hue) 72% 70%);
-    background: hsl(var(--hue) 45% 12%);
+    border-style: dashed; border-width: 2px;
+    border-color: hsl(var(--hue) 70% 56%); color: hsl(var(--hue) 85% 80%);
+    background: hsl(var(--hue) 52% 15%);
   }
-  .lane.dotted span { color: hsl(var(--hue) 45% 60%); }
+  .lane.dotted b { font-weight: 700; }
+  .lane.dotted span { color: hsl(var(--hue) 55% 66%); }
   /* ★ A LANE THAT STOPS. Its far end has no beat — beats exist only for the 446
      concepts that have children — so walking it costs full price, raises
      1.04^n for every future step, and leaves you standing in the beat you were
      already in. Legal, and it looked exactly like the game breaking. It is NOT
-     hidden and NOT captioned: it sorts after the ways on, and it trades the
-     dashed edge for a closed one. A route that continues is drawn open. */
+     hidden and NOT captioned: it sorts after the ways on, and it gives up the
+     fill, the weight and the border the offer keeps. */
   .lane.dotted.terminal {
-    border-style: solid; border-width: 1px;
-    border-color: hsl(var(--hue) 28% 30%); background: none;
+    border-style: dotted; border-width: 1px;
+    border-color: hsl(var(--hue) 22% 26%); background: none;
+    color: hsl(var(--hue) 32% 54%);
   }
+  .lane.dotted.terminal b { font-weight: 500; }
+  .lane.dotted.terminal span { color: #46586a; }
+  /* The graph's tongue keeps its hue everywhere on screen, but a lane that
+     stops must not be the brightest gold in the strip either. Same colour,
+     stepped down — kin still share a prefix and the prefix is still scannable,
+     which is the only thing this word's rendering is load-bearing for. */
+  .lane.dotted.terminal :global(.glyph) { color: hsl(45 45% 44%); }
   /* Dimmed while you cannot pay for it, but still LIVE: tapping it quotes the
      price rather than doing nothing. Opacity rather than a colour, so a word in
      the graph's tongue keeps the one colour it has everywhere else on screen. */

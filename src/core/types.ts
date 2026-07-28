@@ -36,6 +36,23 @@ export type MachineId = 'extractor' | 'reasoner' | 'checker';
 export type FactMachineId = 'extractor' | 'reasoner';
 
 export const FACT_MACHINES: FactMachineId[] = ['extractor', 'reasoner'];
+
+/** The machines that carry the WATCHED/LOOSE TOGGLE — one, and it is not a
+ *  typo for `FactMachineId`.
+ *
+ *  ⚠️ THE REASONER IS EXEMPT, and this is the glossary winning over the code
+ *  (CLAUDE.md). Subsumption reasoning derives what already FOLLOWS from facts
+ *  you hold: entailment is monotonic, the closure is finite, and there is
+ *  nothing in it to review — `docs/GLOSSARY.md` has said "always Solid" since
+ *  the machine existed, and `throughput` was quietly charging it 45% anyway.
+ *  Measured before changing it, because the exemption makes the Reasoner
+ *  strictly better and a free upgrade is its own defect: the Reasoner line
+ *  reaches the Retrain gate in 243 minutes exempt and 261 unexempt, against 47
+ *  for Extractors. It is a trap machine either way, at sixteen Extractors'
+ *  price for 1.8× the rate, so the exemption costs the balance nothing and buys
+ *  the docs and the code one answer. */
+export type WatchedMachineId = 'extractor';
+export const WATCHED_MACHINES: WatchedMachineId[] = ['extractor'];
 export const MACHINE_IDS: MachineId[] = ['extractor', 'reasoner', 'checker'];
 
 /** A line between two concepts, for DRAWING ONLY.
@@ -116,11 +133,15 @@ export interface GameState {
 
   /** Owned counts. */
   machines: Record<MachineId, number>;
-  /** One toggle per fact machine. WATCHED: slower, and everything it makes
+  /** One toggle per WATCHABLE machine. WATCHED: slower, and everything it makes
    *  arrives Solid. LOOSE: full speed, and everything it makes arrives Raw.
    *  That is speed-versus-truth with no bookkeeping attached — it replaced an
-   *  attention pool, a supervision dial and a booking queue. */
-  watched: Record<FactMachineId, boolean>;
+   *  attention pool, a supervision dial and a booking queue.
+   *
+   *  The Reasoner is not in here: its output is sound by construction, so a
+   *  toggle on its card would be a control that changes nothing, which is worse
+   *  than no control. See `WATCHED_MACHINES`. */
+  watched: Record<WatchedMachineId, boolean>;
 
   /** Retrains so far. A badge, not a number you optimise. */
   generation: number;
@@ -151,7 +172,7 @@ export type Action =
   /** BUY a machine, in Solid. */
   | { type: 'buy'; id: MachineId }
   /** The toggle. */
-  | { type: 'setWatched'; id: FactMachineId; watched: boolean }
+  | { type: 'setWatched'; id: WatchedMachineId; watched: boolean }
   /** RETRAIN: prestige. You keep the concepts, inherit your machines' Raw, and
    *  your ancestry gets more synthetic. */
   | { type: 'retrain' };
@@ -162,9 +183,16 @@ export type Action =
 export interface Machine {
   id: MachineId;
   label: string;
-  /** Facts per second per unit, at full speed. For the Checker this is Raw
-   *  CONVERTED per second instead — it makes nothing. */
+  /** Facts per second per unit, at full speed. ZERO for a machine that makes
+   *  nothing — the Checker converts, and a converter quoted in facts per second
+   *  is the one-word-two-quantities defect this repo keeps re-growing. */
   rate: number;
+  /** Share of the Raw pile ONE unit checks per second. Only the Checker has
+   *  one, and it is a SHARE rather than an amount for the reason measured in
+   *  `engine.ts`: production is bounded by vocabulary and grows all run, so a
+   *  fixed amount per second falls behind by construction and the machine that
+   *  exists to make Raw usable can never be bought into usefulness. */
+  checks?: number;
   /** cost(n) = ceil(baseCost × costRatio^n), in Solid. */
   baseCost: Dec;
   costRatio: number;

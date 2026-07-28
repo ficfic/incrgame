@@ -20,6 +20,32 @@
 // `renderMasked` + `literacy.canRead`, the same LEARN_AT = 3 frequency rule,
 // the same `language.json`. Nothing here decides what is readable — it asks.
 //
+// ---- AND IT ASKS IN WORDS THE STORY ACTUALLY TEACHES ----------------------
+//
+// ⚠️ THAT WAS HALF THE JOB, AND THE MISSING HALF MADE THE DOCK UNREADABLE
+// FOREVER. Frequency is the ONLY way into a ticker word — the dock is not a
+// beat, so standing in it teaches nothing — and the lines shipped on
+// 2026-07-28 were written in words no beat contains. Measured against the
+// runtime beat corpus (frames filled, leaves included):
+//
+//   online 0 · never 0 · wore 0 · out 0 · ahead 0 · vocabulary 0 · slower 0
+//   faster 0 · looking 0 · away 0 · while 2 · first 0 · bound 0 · buy 0
+//
+// Zero occurrences means `exposure` can never reach LEARN_AT, so those words
+// were masked on the first frame and masked at hour ten. Not slow — impossible.
+//
+// Every line below is now built from words the beats print in the thousands:
+// `take`, `here`, `stops`, `nothing`, `filed`, `read`, `what`, `you`, `hold`.
+// `check-story.mjs` invariant 8 fails the build on a ticker word that cannot be
+// learned, so this cannot quietly rot back.
+//
+// THE TWO KINDS OF WORD THE TICKER CANNOT DRAW FROM THE BEATS are the interface
+// nouns — `Solid`, `Extractor`, `watched` — and those already have a way in
+// that the HUD uses and the dock did not: a readout's `learned` witness
+// (src/core/readouts.ts). You can read the word for a quantity once you have
+// made that quantity happen. The ticker now asks the same question the HUD
+// asks, so the dock and the bar are never in two different languages.
+//
 // ⚠️ TRANSLATED AT RENDER, NOT AT EMIT, and the reason is the same one that
 // makes masking retroactive (DECISIONS 2026-07-27): a line lives for 45
 // seconds, and a word learned during those 45 seconds must resolve in the line
@@ -31,8 +57,8 @@
 // next tick instead.
 import { derived, writable, type Readable } from 'svelte/store';
 import type { GameState } from '../core/types';
-import { MACHINE_IDS } from '../core/types';
-import { bottleneck } from '../core/engine';
+import { MACHINE_IDS , WATCHED_MACHINES } from '../core/types';
+import { bottleneck, initialState } from '../core/engine';
 import { MACHINES } from '../content/machines';
 import { formatWhole } from '../core/numbers';
 import { READOUTS, type ReadoutId } from '../core/readouts';
@@ -101,6 +127,10 @@ const lines = writable<Utterance[]>([]);
  *  below has to see the change. */
 const literate = writable<Set<string>>(new Set());
 
+/** The interface nouns the player has earned. Same shape, same reason: replaced
+ *  wholesale so the derived store below sees it. */
+const earnedNouns = writable<Set<string>>(new Set());
+
 /** No spans, no concepts. Ticker text is carrier vocabulary end to end — the
  *  concept nouns it might have named live in the beat under it, and a ticker
  *  line that resolved ⟦spans⟧ would be a second, differently-gated way to learn
@@ -109,21 +139,67 @@ const NO_CONCEPTS = new Map<string, number>();
 const NO_BOUND = new Set<number>();
 const NEVER = (): string => '';
 
+/** ★ THE WORDS THE TICKER SHOWS THAT NO BEAT WILL EVER TEACH.
+ *
+ *  `watched` and `loose` name the one decision in the game and appear in no
+ *  beat, so frequency cannot reach them. The HUD already solved this: each half
+ *  of the toggle rides on the quantity that half MAKES, so the word and its
+ *  consequence become readable in the same frame (`src/ui/App.svelte`). This
+ *  table is that same pairing, and it is the ONLY exemption the ticker has.
+ *
+ *  ⚠️ IT IS ALSO READ BY `scripts/check-story.mjs` (invariant 8). Adding a word
+ *  here exempts it from the learnability gate AND gives it a real way in, in one
+ *  edit — the table cannot grant one without the other. Anything not here and
+ *  not inside a `${…}` hole must be a word the beats print. */
+const EARNED_WITH: Record<string, ReadoutId> = {
+  watched: 'solid',
+  loose: 'raw',
+};
+
+/** Machines a run opens with. A machine you were GIVEN is not one you bought,
+ *  so the opening Extractor does not teach its own name — the same rule
+ *  `readouts.ts` applies to Solid, and the same one the machine card applies. */
+const OPENING = initialState().machines;
+
+/** The interface words the player has EARNED, as opposed to learned by reading.
+ *
+ *  Rebuilt per transition rather than cached: it is four readouts and three
+ *  machines, against `knownWords`, which walks every beat the player holds. */
+function earnedWords(state: GameState): Set<string> {
+  const out = new Set<string>();
+  const add = (text: string): void => {
+    for (const w of text.toLowerCase().match(/[a-z']+/g) ?? []) out.add(w);
+  };
+  for (const id of Object.keys(READOUTS) as ReadoutId[]) {
+    if (!READOUTS[id].learned(state)) continue;
+    add(READOUTS[id].noun);
+    add(READOUTS[id].explain);
+  }
+  for (const id of MACHINE_IDS) {
+    if (state.machines[id] > OPENING[id]) add(MACHINES[id].label);
+  }
+  for (const [word, id] of Object.entries(EARNED_WITH)) {
+    if (READOUTS[id].learned(state)) out.add(word);
+  }
+  return out;
+}
+
 /** One line, in the language the player currently has.
  *
  *  ⚠️ NUMBERS ARE NOT TOUCHED, and that is not an accident of the regex — it is
  *  the rule (`3 / 4075` is legible to anyone; digits were never English).
- *  `renderMasked` only ever substitutes letter-words, so `Extractor #30 online`
- *  keeps its 30 and loses the two words around it. */
-export function speak(english: string, known: Set<string>): string {
+ *  `renderMasked` only ever substitutes letter-words, so `Extractor #30 is here`
+ *  keeps its 30 and loses the words around it. */
+export function speak(english: string, known: Set<string>, earned: Set<string>): string {
   return maskedText(
-    renderMasked(english, NO_CONCEPTS, NO_BOUND, NEVER, (w) => canRead(known, w)));
+    renderMasked(english, NO_CONCEPTS, NO_BOUND, NEVER,
+      (w) => earned.has(w.toLowerCase()) || canRead(known, w)));
 }
 
 export const ticker: Readable<TickerLine[]> = derived(
-  [lines, literate],
-  ([$lines, $literate]) =>
-    $lines.map((l) => ({ id: l.id, at: l.at, text: speak(l.english, $literate) })),
+  [lines, literate, earnedNouns],
+  ([$lines, $literate, $earned]) =>
+    $lines.map((l) => ({ id: l.id, at: l.at, text: speak(l.english, $literate, $earned) })),
 );
 
 let nextId = 1;
@@ -138,6 +214,9 @@ let nextId = 1;
 let lastHeld: readonly number[] | null = null;
 
 function relearn(state: GameState): void {
+  // Earned nouns are NOT guarded by `held`: they turn on when a machine is
+  // bought or a quantity first appears, neither of which moves the player.
+  earnedNouns.set(earnedWords(state));
   if (lastHeld === state.held) return;
   lastHeld = state.held;
   literate.set(knownWords(state));
@@ -163,7 +242,10 @@ export function observeTransition(prev: GameState, next: GameState): void {
   for (const id of MACHINE_IDS) {
     const before = prev.machines[id];
     const after = next.machines[id];
-    if (after > before) say(`buy:${id}:${after}`, `${MACHINES[id].label} #${after} online`);
+    // `online` occurs ZERO times in the beat corpus and was therefore masked
+    // forever; `is` and `here` are two of the thirty commonest words in the
+    // game. The machine's own name rides on owning one you bought.
+    if (after > before) say(`buy:${id}:${after}`, `${MACHINES[id].label} #${after} is here`);
   }
   // ⚠️ NEVER GLUE LETTERS ONTO A `${…}`. These two lines read
   // `${MACHINES[id].label}s watched …` and shipped "Extractors" in plain
@@ -173,19 +255,32 @@ export function observeTransition(prev: GameState, next: GameState): void {
   // has a form for `extractor` and none for `extractors`, and a word with no
   // form is SHOWN. An English plural morpheme on a foreign noun was wrong on
   // its own terms anyway. check-story.mjs invariant 7 now fails the build on it.
-  for (const id of ['extractor', 'reasoner'] as const) {
+  for (const id of WATCHED_MACHINES) {
     if (prev.watched[id] === next.watched[id]) continue;
+    // `slower`, `faster` and `looking` are all zero in the corpus. The pair is
+    // now four words the beats print constantly, and it says the only thing the
+    // toggle actually does: watched output has been read, loose output has not.
     say(`watch:${id}:${next.watched[id]}`,
       next.watched[id]
-        ? `${MACHINES[id].label} watched · slower, and checked`
-        : `${MACHINES[id].label} loose · faster, and nobody is looking`);
+        ? `${MACHINES[id].label} watched · it is read`
+        : `${MACHINES[id].label} loose · nobody read it`);
   }
   // Milestones read READOUTS, so the number in the line is by construction the
   // number under the same word in the HUD. That equality is asserted by a test.
+  //
+  // ⚠️ THE FIRST OF EACH IS THE ONE THAT HAS TO TEACH. `first word bound` and
+  // `something you never checked wore out` used SIX words with no occurrence in
+  // any beat, on the two lines a player is guaranteed to read. The first Words
+  // line is now the readout naming itself — noun and definition, both riding on
+  // `words.learned`, no prose of mine at all — and the first Rot line borrows
+  // the leaf frame's own verb, which every player has read by then because it
+  // is under 89% of the board: "the tree stops".
   crossings(prev, next, 'words', WORD_MILESTONES, (m) =>
-    m === 1 ? `first word bound` : `${m} ${READOUTS.words.noun} · ${READOUTS.words.explain}`);
+    m === 1
+      ? `${READOUTS.words.noun} · ${READOUTS.words.explain}`
+      : `${m} ${READOUTS.words.noun}`);
   crossings(prev, next, 'rot', ROT_MILESTONES, (m) =>
-    m === 1 ? `something you never checked wore out` : `${m} ${READOUTS.rot.noun}`);
+    m === 1 ? `something nobody read stops here` : `${m} ${READOUTS.rot.noun}`);
 
   // THE FLATLINE, ANNOUNCED. When the vocabulary becomes the binding
   // constraint, every machine you own is idling and no purchase will change
@@ -195,8 +290,13 @@ export function observeTransition(prev: GameState, next: GameState): void {
   // once teaches half a rule.
   const was = bottleneck(prev);
   const now = bottleneck(next);
-  if (was !== now && now === 'words') say('bottleneck:words', 'your machines are ahead of your vocabulary');
-  else if (was === 'words' && now === 'machines') say('bottleneck:machines', 'vocabulary is ahead · buy machines');
+  //
+  // `ahead`, `vocabulary` and `buy` are zero in the corpus, so the one line
+  // whose whole job is to explain a flatline was permanently unreadable. Both
+  // are now said in the graph's own terms: extraction TAKES facts about
+  // concepts you HOLD, and both verbs are in the leaf frame.
+  if (was !== now && now === 'words') say('bottleneck:words', 'the machines have nothing to take');
+  else if (was === 'words' && now === 'machines') say('bottleneck:machines', 'what you hold is not filed');
 }
 
 /** Fire once per threshold the given readout has just crossed upward. */
@@ -221,5 +321,7 @@ export function sayAwayReturn(solid: string, raw: string): void {
   const parts: string[] = [];
   if (Number(solid) > 0) parts.push(`${formatWhole(solid)} ${READOUTS.solid.noun}`);
   if (Number(raw) > 0) parts.push(`${formatWhole(raw)} ${READOUTS.raw.noun}`);
-  if (parts.length > 0) say('away-return', `while away: ${parts.join(' · ')}`);
+  // `away` and `while` are 0 and 2 in the corpus. `you were not here` is four
+  // words the beats print in the thousands and says the same thing.
+  if (parts.length > 0) say('away-return', `you were not here · ${parts.join(' · ')}`);
 }

@@ -172,7 +172,7 @@ the engine**: Extractor `0.4/s @ 20×1.15`, Reasoner `2.2/s @ 320×1.18`, Checke
 ## Economy interface
 
 ```
-factsPerSecond = min(0.4 × factMachines, 0.15 × Words)     the lane join
+factsPerSecond = min(1.2 × factMachines, 0.15 × Words)     the lane join
 stepCost       = 0 if held, else ceil(6 × 1.04^stepsThisRun)
 watched        = 0.55× rate, output arrives Solid;  loose = 1.0×, arrives Raw
 rotPerSecond   = 0.002 × (1 + 3 × syntheticShare)          of the Raw pile

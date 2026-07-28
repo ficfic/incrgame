@@ -73,12 +73,14 @@ describe('the reducer never writes through to the state it was given', () => {
   });
 
   it('on a tick with a loose machine, so Raw grows and decays together', () => {
-    mustNotMutate(busy({ watched: { extractor: false, reasoner: false } }), { type: 'tick', dt: 3 });
+    mustNotMutate(busy({ watched: { extractor: false } }), { type: 'tick', dt: 3 });
   });
 
   it('on a walk, which is the one action that appends to an array', () => {
     const s = busy({ solid: '1e9' });
-    const to = lanes(s).filter((l) => l.state !== 'locked')[0]!.to;
+    // DOTTED, not merely unlocked: a solid lane goes somewhere already held,
+    // and `walk` on a concept you hold appends nothing by design.
+    const to = lanes(s).filter((l) => l.state === 'dotted')[0]!.to;
     const next = mustNotMutate(s, { type: 'walk', to });
     expect(next.held.length).toBe(s.held.length + 1);
   });

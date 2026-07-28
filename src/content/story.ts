@@ -24,6 +24,11 @@
 // should take the ontology's lazy-fetch treatment instead. Flagged, not done.
 import manifest from '../../public/story/index.json';
 import chunk0 from '../../public/story/s000.json';
+// THE ONLY EDGES A TERMINAL CONCEPT HAS. See "the places with no beat of their
+// own" below: without this file a leaf's only ways on are its own siblings, and
+// walking one leaf to the next never changes the strip. 48K on the wire, which
+// is 20% of the story payload and bought the bottom 89% of the board an exit.
+import crosslinks from '../../docs/graph/crosslinks.json';
 import type { StoryGraph, StoryBeat, StoryChoice } from '../core/types';
 
 interface WireChoice {
@@ -127,6 +132,56 @@ for (const b of STORY.beats) {
   }
 }
 
+/** Every concept's word, from the story data. Both sides of a cross-link need
+ *  one and only 446 of 4,096 concepts have a beat to carry it. */
+const LABEL = new Map<number, string>();
+for (const b of STORY.beats) {
+  LABEL.set(b.at, b.atLabel);
+  for (const c of b.choices) LABEL.set(c.to, c.toLabel);
+}
+
+// ---- WHAT A LEAF HAS THAT ITS SIBLINGS DO NOT ----------------------------
+//
+// MEASURED, walking eight steps from the opening: every one landed on a leaf,
+// every leaf rendered `The Tree Stops`, and every one offered the SAME 21
+// buttons — the litter its parent beat had already offered, minus the one just
+// taken. Position moved and the screen did not. That is the whole of the "you
+// are standing exactly where you were" report.
+//
+// A leaf's problem is real and not a rendering one: the taxonomy stops there,
+// so it HAS no children to offer. What it does have is its definition, and a
+// definition names other concepts. `crosslinks.json` holds `[a, b]` = "a's
+// gloss contains b's label" — 3,838 exits out of 2,190 of the 3,650 leaves,
+// 1,158 of them landing on a concept that DOES branch.
+//
+// So a leaf's ways on are the words its own definition uses (`sideways`:
+// "Follow the definition to ⟦…⟧"), and the siblings stay underneath them as the
+// floor — 1,460 leaves have no gloss link and a room with no doors is worse
+// than a repetitive one. rel 8 says what the evidence is and claims nothing
+// about meaning (`REL_NAMES`).
+const REL_NAMED = 8;
+const GLOSS_OUT = new Map<number, number[]>();
+for (const [a, b] of (crosslinks as { e: number[][] }).e) {
+  if (a === undefined || b === undefined || a === b || !LABEL.has(b)) continue;
+  const out = GLOSS_OUT.get(a);
+  if (out) out.push(b);
+  else GLOSS_OUT.set(a, [b]);
+}
+
+const glossChoices = (id: number): StoryChoice[] =>
+  (GLOSS_OUT.get(id) ?? []).map((to, n) => ({
+    id: `x${id}-${n}`,
+    frame: 'sideways',
+    label: fill(FRAMES.sideways?.label, LABEL.get(id) ?? '', LABEL.get(to)!),
+    to,
+    toLabel: LABEL.get(to)!,
+    rel: REL_NAMED,
+    // Ungated on purpose: `requires.rels` is read by nothing in the engine, and
+    // a lock nothing enforces is worse than no lock. The gate on these is the
+    // step price, like every other lane.
+    requires: { concepts: [], rels: [] },
+  }));
+
 /** Built once each and kept: the beat is read every frame, and a fresh object
  *  per frame would rebuild the lane strip under the player's thumb. */
 const LEAVES = new Map<number, StoryBeat>();
@@ -142,6 +197,8 @@ export function placeAt(id: number): StoryBeat | null {
   if (cached) return cached;
   const arrival = ARRIVALS.get(id);
   if (!arrival) return null;
+  const own = glossChoices(id);
+  const taken = new Set(own.map((c) => c.to));
   const leaf: StoryBeat = {
     id: `leaf-${id}`,
     at: id,
@@ -150,10 +207,27 @@ export function placeAt(id: number): StoryBeat | null {
     frame: 'leaf',
     title: fill(FRAMES.leaf?.title, arrival.label, arrival.label),
     body: fill(FRAMES.leaf?.body, arrival.label, arrival.label),
-    // The ways on are the ways on from where you came — minus the one you just
-    // took, which would be a lane back to where you are standing.
-    choices: arrival.from.choices.filter((c) => c.to !== id),
+    // Its own gloss links first — those are the ways on nowhere else offers —
+    // then the ways on from where you came, minus the one you just took, which
+    // would be a lane back to where you are standing.
+    choices: [
+      ...own,
+      ...arrival.from.choices.filter((c) => c.to !== id && !taken.has(c.to)),
+    ],
   };
   LEAVES.set(id, leaf);
   return leaf;
+}
+
+/** The lanes a concept ADDS to the board — never the ones it inherited.
+ *
+ *  ⚠️ THE REDUCER'S GATE READS THIS, not `placeAt`. A leaf renders its parent's
+ *  siblings so it is never a room with no doors, but those lanes are already on
+ *  the board via the parent, which is held by construction. Counting them again
+ *  from every leaf would put the same route on the map once per leaf you have
+ *  ever stood on. What a leaf genuinely adds is its gloss links. */
+export function ownChoices(id: number): StoryChoice[] {
+  const authored = BEAT_AT.get(id);
+  if (authored) return authored.choices;
+  return ARRIVALS.has(id) ? glossChoices(id) : [];
 }
