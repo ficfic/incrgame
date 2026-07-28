@@ -198,7 +198,7 @@ describe('a word once read is never taken back', () => {
     expect(READOUTS.solid.learned({ ...bought, solid: '0' })).toBe(true);
   });
 
-  it('survives a Retrain, which resets the machines and zeroes Rot underneath', () => {
+  it('survives a Retrain, which zeroes the Rot and the purse underneath', () => {
     const veteran = played({
       held: holding(RETRAIN_MIN_WORDS),
       solid: '5000', raw: '50', rot: '50', minted: '400',
@@ -208,8 +208,10 @@ describe('a word once read is never taken back', () => {
     expect(canRetrain(veteran)).toBe(true);
 
     const next = apply(veteran, { type: 'retrain' });
-    // The evidence underneath three of the four is gone: fresh roster, no Rot.
-    expect(next.machines).toEqual(initialState().machines);
+    // The evidence underneath two of the four is gone: the purse is back to its
+    // opening grant and Rot is zero. (The machines are NOT — a Retrain keeps
+    // them, so the Raw it hands you is something a Checker can still claim.)
+    expect(next.solid).toBe(initialState().solid);
     expect(next.rot).toBe('0');
     // The words are not.
     expect(reads(next)).toEqual({ words: true, solid: true, raw: true, rot: true });

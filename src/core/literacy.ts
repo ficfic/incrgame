@@ -14,7 +14,7 @@
 // needs no save field and cannot desynchronise from the board. A stored counter
 // would be a second source of truth for a fact the save already holds.
 import type { GameState } from './types';
-import { STORY } from '../content/story';
+import { BEAT_AT, placeAt } from '../content/story';
 import { LANGUAGE } from '../content/language';
 import { SEED_NODES } from '../content/seed';
 
@@ -46,11 +46,27 @@ export function exposure(state: GameState): Map<string, number> {
   // again" — the exact thing this was built to stop.
   //
   // Exposure is what you have READ BY TRAVELLING, so it starts at nothing.
-  const held = new Set(bound(state));
+  //
+  // ⚠️ A LEAF IS A PLACE THE PLAYER READ. `placeAt` renders a childless concept
+  // as its own leaf beat — that is most of the board — and counting only the
+  // 446 authored beats meant the language stopped paying out at exactly the
+  // point a player starts arriving at leaves, which is inside the first minute.
   const seen = new Map<string, number>();
-  for (const beat of STORY.beats) {
-    if (!held.has(beat.at)) continue;
-    const fields = [beat.title, beat.body, ...beat.choices.map((c) => c.label)];
+  for (const id of bound(state)) {
+    const beat = placeAt(id);
+    if (!beat) continue;
+    // A leaf shows the ways on from the beat that OFFERED it — the same labels,
+    // and that beat is necessarily held too, because walking from it is the
+    // only way to be standing here. Counting them again would count one reading
+    // twice, and it costs 370 labels per leaf under the widest beats. Measured
+    // at 120 Words, on a walked-out board, per call: 2.9 ms counting authored
+    // beats alone (what this did before leaves were places), 4.2 ms as written,
+    // 6.1 ms if the leaves' inherited labels are counted too. This runs on
+    // every state change, so the third number is the one that would show.
+    const its = BEAT_AT.get(id) === beat;
+    const fields = its
+      ? [beat.title, beat.body, ...beat.choices.map((c) => c.label)]
+      : [beat.title, beat.body];
     for (const f of fields) {
       for (const w of carrierWords(f)) seen.set(w, (seen.get(w) ?? 0) + 1);
     }

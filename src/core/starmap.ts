@@ -26,7 +26,7 @@
 // This module is PURE and data-driven: it reads the story graph and the board,
 // and returns a description. It books nothing and mutates nothing.
 import type { GameState, StoryBeat, StoryChoice } from './types';
-import { STORY } from '../content/story';
+import { STORY, placeAt } from '../content/story';
 
 export type LaneState = 'solid' | 'dotted' | 'locked';
 
@@ -37,17 +37,22 @@ export type LaneState = 'solid' | 'dotted' | 'locked';
  *  position. No new save field, which is the constraint this whole feature was
  *  given: a save already records everywhere you have been, in order.
  *
- *  Falls back to the newest anchor that HAS a beat, then to the root, so a
- *  discovery made off the story graph (Extract's proposals, a machine) does not
- *  strand the player on a node with nothing to read. */
+ *  ⚠️ A CHILDLESS CONCEPT IS A PLACE TOO — `placeAt` renders it as the leaf it
+ *  is. This used to skip anything without an authored beat, so walking to one
+ *  of the ~3,600 childless destinations spent the step and left the screen
+ *  showing the beat you had not left: paid for, and indistinguishable from a
+ *  broken button.
+ *
+ *  Falls back to the newest anchor that IS a place, then to the root, so a
+ *  concept off the story graph entirely (a seed you have not arrived at) does
+ *  not strand the player on a node with nothing to read. */
 export function currentBeat(state: GameState): StoryBeat | null {
-  const byNode = new Map(STORY.beats.map((b) => [b.at, b] as const));
   const held = state.held;
   for (let i = held.length - 1; i >= 0; i--) {
-    const beat = byNode.get(held[i]!);
+    const beat = placeAt(held[i]!);
     if (beat) return beat;
   }
-  return byNode.get(0) ?? null;
+  return placeAt(0);
 }
 
 export interface Lane {

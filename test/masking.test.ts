@@ -195,10 +195,14 @@ describe('the screen from play.png, 2026-07-28', () => {
   // REPRODUCED IN THE REAL BUILD (npx vite preview + a walking probe). The
   // three English words are the THREE WORDS. The player had walked into all
   // three, each walk binds the concept it lands, and a bound concept renders
-  // its English label — the design, not a leak. What made it look like a leak
-  // is that none of the three HAS A BEAT, so `currentBeat` falls back to the
-  // last anchor that does and the player never appears to move: they stand at
-  // `power` watching its exits turn English one at a time.
+  // its English label — the design, not a leak.
+  //
+  // ⚠️ THE OTHER HALF OF THAT SCREEN *WAS* A BUG, and it is fixed (2026-07-28).
+  // None of the three has a beat, so `currentBeat` fell back to the last anchor
+  // that did and the player never appeared to move: they stood at `power`
+  // watching its exits turn English one at a time, 7 Solid a go. A childless
+  // concept is now a PLACE — `placeAt` renders it as the leaf it is — so the
+  // last line of this block pins 1847, not `power`.
   //
   // Literals below come from the shipped data (public/story/s000.json,
   // docs/graph/lexicon.json), never from the functions under test — an earlier
@@ -210,6 +214,11 @@ describe('the screen from play.png, 2026-07-28', () => {
   const FOREIGN = ['savemoli', 'savemomi', 'savemoni'];
   const UP = 13;                   // "causal agent", the fourth choice
   const UP_FOREIGN = 'kasave';
+  // The frame labels, filled: `continue` is "Follow ⟦{next}⟧ down" and `ascend`
+  // is "Back up to ⟦{branch}⟧". Four identically-priced lanes, three different
+  // movements — 4,622 choices shipped with these empty and the strip was a row
+  // of bare nouns.
+  const VERB = (w: string) => `Follow ${w} down`;
 
   const beat = STORY.beats.find((b) => b.at === POWER)!;
   const labelFor = (c: { label: string; toLabel: string }) =>
@@ -230,17 +239,19 @@ describe('the screen from play.png, 2026-07-28', () => {
   it('MASKS EVERY EXIT before the player has walked any of them', () => {
     // The invariant the report was really about: a destination you do not hold
     // renders as the graph's word for it, whole, never as its English label.
-    expect(strip([...SEED_NODES])).toEqual([...FOREIGN, UP_FOREIGN]);
+    expect(strip([...SEED_NODES]))
+      .toEqual([...FOREIGN.map(VERB), `Back up to ${UP_FOREIGN}`]);
   });
 
   it('renders exactly the walked three in English, and nothing else', () => {
     const held = [...SEED_NODES, ...CHILDREN];
     // 3 Words, and they are those three — the HUD in the screenshot.
     expect(bound({ ...initialState(), held })).toEqual(CHILDREN);
-    // The player has not moved: none of the three has a beat to stand in.
+    // None of the three has a beat of its own — and the player still MOVED:
+    // they are standing in the last one they paid for, as its leaf.
     for (const id of CHILDREN) expect(STORY.beats.some((b) => b.at === id)).toBe(false);
-    expect(currentBeat({ ...initialState(), held })!.at).toBe(POWER);
-    expect(strip(held)).toEqual([...ENGLISH, UP_FOREIGN]);
+    expect(currentBeat({ ...initialState(), held })!.at).toBe(CHILDREN[2]);
+    expect(strip(held)).toEqual([...ENGLISH.map(VERB), `Back up to ${UP_FOREIGN}`]);
   });
 });
 
@@ -255,10 +266,11 @@ describe('where the player is, derived and not stored', () => {
     expect(currentBeat(holding(0, target))!.at).toBe(target);
   });
 
-  it('falls back to the newest anchor that HAS a beat', () => {
-    // Extract and the machines discover concepts off the story graph. Landing
-    // on one of those must not strand the player with nothing to read.
-    expect(currentBeat(holding(0, 4095))!.at).toBe(0);
+  it('falls back to the newest anchor that IS a place', () => {
+    // A concept off the story graph entirely — no beat, and nothing offers it,
+    // so there is no leaf to render either. Landing on one must not strand the
+    // player with nothing to read.
+    expect(currentBeat(holding(0, 999999))!.at).toBe(0);
   });
 
   it('travelling a choice lands exactly that concept', () => {

@@ -46,10 +46,36 @@ interface WireBeat {
   choices: WireChoice[];
 }
 
-const expandChoice = (c: WireChoice): StoryChoice => ({
+// ---- THE FRAMES ARE THE TEXT ---------------------------------------------
+//
+// ⚠️ A BEAT WITH NO AUTHORED PROSE RENDERS ITS FRAME. The build script stopped
+// pre-rendering the carrier sentences ("the frames go in the manifest instead
+// and the renderer fills them") and NOTHING FILLED THEM: 396 of 446 beats and
+// 4,622 of 4,716 choices shipped with an empty string, so nine taps in ten
+// bought an empty heading over an empty paragraph and a row of bare nouns.
+//
+// They are filled HERE, once, on load, rather than at the render site: the
+// masking renderer, the literacy counter and the aria-label all read the same
+// `beat.title` / `choice.label`, and a fallback applied in only one of them is
+// how you get a screen that reads one way and teaches another.
+type Frame = { title?: string; body?: string; label?: string };
+const FRAMES = (manifest as { frames: Record<string, Frame> }).frames;
+
+/** Slots: `{here}` where you stand, `{next}`/`{branch}` where a lane goes.
+ *
+ *  The slot CONTENTS are what masking hides, so the sentence around them has to
+ *  stand on its own — that rule lives with the frames in index.json. Filling is
+ *  plain substitution: the ⟦brackets⟧ are already in the frame. */
+const fill = (text: string | undefined, here: string, there: string): string =>
+  (text ?? '').replace(/\{(here|next|branch)\}/g, (_m, slot: string) =>
+    slot === 'here' ? here : there);
+
+const expandChoice = (c: WireChoice, atLabel: string): StoryChoice => ({
   id: c.i,
   frame: c.f,
-  label: c.t ?? '',
+  // An authored label wins; otherwise the frame's, which is the only thing
+  // telling four identically-priced lanes apart — down, across, back up.
+  label: c.t ?? fill(FRAMES[c.f]?.label, atLabel, c.l),
   to: c.to,
   toLabel: c.l,
   rel: c.r ?? 0,
@@ -60,7 +86,7 @@ const wire = (chunk0 as { beats: WireBeat[] }).beats;
 
 export const STORY: StoryGraph = {
   counts: (manifest as { counts: Record<string, number> }).counts,
-  frames: (manifest as { frames: Record<string, { title?: string; body?: string; label?: string }> }).frames,
+  frames: FRAMES,
   beats: wire.map(
     (b): StoryBeat => ({
       id: b.id,
@@ -68,12 +94,66 @@ export const STORY: StoryGraph = {
       atLabel: b.atLabel,
       depth: b.depth,
       frame: b.frame,
-      title: b.title ?? '',
-      body: b.body ?? '',
-      choices: b.choices.map(expandChoice),
+      title: b.title ?? fill(FRAMES[b.frame]?.title, b.atLabel, b.atLabel),
+      body: b.body ?? fill(FRAMES[b.frame]?.body, b.atLabel, b.atLabel),
+      choices: b.choices.map((c) => expandChoice(c, b.atLabel)),
     }),
   ),
 };
 
 /** Every beat, by the node it is told from. */
 export const BEAT_AT = new Map<number, StoryBeat>(STORY.beats.map((b) => [b.at, b]));
+
+// ---- THE PLACES WITH NO BEAT OF THEIR OWN --------------------------------
+//
+// A beat exists only for a concept that HAS CHILDREN — 446 of the 4,096 — so
+// most destinations on the board are childless. Walking to one used to charge
+// the step, hand you the Word, and leave the screen byte-identical, because
+// `currentBeat` fell back to the newest held concept that had a beat: the one
+// you were already standing in. Three of those in the opening 46 seconds spent
+// the whole starting purse and looked exactly like a broken button.
+//
+// THE LEAF IS ITS OWN KIND OF PLACE. Refusing the walk would delete 3,600
+// destinations and the Words they carry; authoring a beat for each is 3,600
+// beats of prose nobody will read twice. So a childless concept renders the
+// `leaf` frame — "Under ⟦here⟧ the tree stops" — the sentence written for
+// exactly this and never once shown, with the ways on from the beat that
+// offered it, so arriving is never a room with no doors.
+const ARRIVALS = new Map<number, { label: string; from: StoryBeat }>();
+for (const b of STORY.beats) {
+  for (const c of b.choices) {
+    if (BEAT_AT.has(c.to) || ARRIVALS.has(c.to)) continue;
+    ARRIVALS.set(c.to, { label: c.toLabel, from: b });
+  }
+}
+
+/** Built once each and kept: the beat is read every frame, and a fresh object
+ *  per frame would rebuild the lane strip under the player's thumb. */
+const LEAVES = new Map<number, StoryBeat>();
+
+/** The place at a concept: its own beat, else the leaf it is, else nowhere.
+ *
+ *  Null means the concept is not on the story graph at all — a seed the player
+ *  has not arrived at from anywhere, and the caller's cue to keep looking. */
+export function placeAt(id: number): StoryBeat | null {
+  const authored = BEAT_AT.get(id);
+  if (authored) return authored;
+  const cached = LEAVES.get(id);
+  if (cached) return cached;
+  const arrival = ARRIVALS.get(id);
+  if (!arrival) return null;
+  const leaf: StoryBeat = {
+    id: `leaf-${id}`,
+    at: id,
+    atLabel: arrival.label,
+    depth: arrival.from.depth + 1,
+    frame: 'leaf',
+    title: fill(FRAMES.leaf?.title, arrival.label, arrival.label),
+    body: fill(FRAMES.leaf?.body, arrival.label, arrival.label),
+    // The ways on are the ways on from where you came — minus the one you just
+    // took, which would be a lane back to where you are standing.
+    choices: arrival.from.choices.filter((c) => c.to !== id),
+  };
+  LEAVES.set(id, leaf);
+  return leaf;
+}

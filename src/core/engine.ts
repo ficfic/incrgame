@@ -378,6 +378,19 @@ export function apply(state: GameState, action: Action): GameState {
         // cost curve restarts at 6 while the vocabulary cap stays where you
         // left it.
         stepsThisRun: 0,
+        // THE APPARATUS SURVIVES, AND IT HAS TO. The inheritance arrives as
+        // RAW — never checked, never spendable — so the only things that can
+        // claim it are a Checker and a tap. Handing back a fresh roster set
+        // `checkPerSecond` to zero at the exact moment the pile was biggest:
+        // at generation 1 Raw rots with a 139-second half life, so more than
+        // 95% of the reward became Rot inside ten minutes and Check at 5 a tap
+        // is 800 taps against a 4,000 pile. That is not a plateau you see
+        // coming, it is a reward that lies. Keeping the machines makes it a
+        // decision instead: retrain with Checkers and you bank it, retrain
+        // without and you watch it go. You keep the machines; you do not keep
+        // the Solid that bought them.
+        machines: { ...state.machines },
+        watched: { ...state.watched },
         raw: inherited.toString(),
         rot: '0', // the ONLY way Rot ever goes down
         generation: state.generation + 1,

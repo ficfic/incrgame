@@ -77,18 +77,18 @@ describe('THE LANE JOIN, in both directions', () => {
   });
 
   it('is capped by machines when the vocabulary is ahead', () => {
-    const s = withWords(100); // support = 15/s against one Extractor's 0.4/s
+    const s = withWords(100); // support = 15/s against one Extractor's 1.2/s
     expect(vocabularySupport(s)).toBeCloseTo(15, 10);
-    expect(potentialPerSecond(s)).toBeCloseTo(0.4, 10);
+    expect(potentialPerSecond(s)).toBeCloseTo(1.2, 10);
     expect(bottleneck(s)).toBe('machines');
-    expect(factsPerSecond(s)).toBeCloseTo(0.4 * 0.55, 10);
+    expect(factsPerSecond(s)).toBeCloseTo(1.2 * 0.55, 10);
   });
 
   it('is capped by Words when the machines are ahead', () => {
     // The sentence the HUD is meant to say, in numbers:
-    // "your 30 Extractors could make 12.0/s — your vocabulary supports 1.5/s".
+    // "your 30 Extractors could make 36.0/s — your vocabulary supports 1.5/s".
     const s = withWords(10, { machines: { extractor: 30, reasoner: 0, checker: 0 } });
-    expect(potentialPerSecond(s)).toBeCloseTo(12.0, 10);
+    expect(potentialPerSecond(s)).toBeCloseTo(36.0, 10);
     expect(vocabularySupport(s)).toBeCloseTo(1.5, 10);
     expect(bottleneck(s)).toBe('words');
     expect(factsPerSecond(s)).toBeCloseTo(1.5 * 0.55, 10);
@@ -129,8 +129,8 @@ describe('THE LANE JOIN, in both directions', () => {
       machines: { extractor: 1, reasoner: 1, checker: 0 },
       watched: { extractor: true, reasoner: false },
     });
-    expect(bottleneck(s)).toBe('machines'); // support 150/s, potential 2.6/s
-    expect(solidPerSecond(s)).toBeCloseTo(0.4 * 0.55, 10);
+    expect(bottleneck(s)).toBe('machines'); // support 150/s, potential 3.4/s
+    expect(solidPerSecond(s)).toBeCloseTo(1.2 * 0.55, 10);
     expect(rawPerSecond(s)).toBeCloseTo(2.2, 10);
   });
 
@@ -144,6 +144,39 @@ describe('THE LANE JOIN, in both directions', () => {
     const s = withWords(100, { machines: { extractor: 0, reasoner: 0, checker: 0 } });
     expect(bottleneck(s)).toBe('idle');
     expect(factsPerSecond(s)).toBe(0);
+  });
+
+  it('MAKES WALKING RAISE INCOME, on the machine you woke with', () => {
+    // ⚠️ THE THESIS, AS A MEASUREMENT, and it was false for a whole day.
+    //
+    // A run opens with ONE Extractor. At 0.4/s that machine's ceiling was
+    // overtaken at Words 3 — reached inside fifteen seconds — so from the first
+    // minute onward every step cost exponentially more Solid and bought exactly
+    // zero income. A reviewer measured the result in the real build: steps at
+    // 46s, 83s and 120s, "gaps of 37s and 37s, cost 8 Solid each, constant".
+    // The only thing that raised income was buying machines, which is the
+    // opposite of the game's stated pitch.
+    const one = (n: number) =>
+      withWords(n, { machines: { extractor: 1, reasoner: 0, checker: 0 } });
+    expect(bottleneck(one(3))).toBe('words');
+    const rates = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => factsPerSecond(one(n)));
+    for (let i = 1; i < rates.length; i++) {
+      expect(rates[i]!, `Words ${i + 1} produced no more than Words ${i}`)
+        .toBeGreaterThan(rates[i - 1]!);
+    }
+  });
+
+  it('keeps the join BINDING: a machine must out-run eight Words', () => {
+    // The join binds while `FACT_RATE x machines > WORDS_PER_FACT x Words`, so
+    // the ratio between them IS how many Words one machine can feed. Below it
+    // the player is machine-bound and buying machines is the upgrade; above it
+    // they are word-bound and walking is.
+    //
+    // MEASURED, not argued (headless sim to the first Retrain, buying a machine
+    // only when the machines bind):
+    //     ratio  2.7 (rate 0.4)   word-bound  0% of the run, 26 machines
+    //     ratio  8.0 (rate 1.2)   word-bound 74% of the run, 15 machines
+    expect(FACT_RATE / WORDS_PER_FACT).toBeGreaterThanOrEqual(8);
   });
 
   it('holds WORDS_PER_FACT at the probed value', () => {
@@ -318,9 +351,48 @@ describe('Retrain', () => {
     expect(num(after.raw)).toBe(1000);        // 25% of what the machines minted
     expect(after.rot).toBe('0');
     expect(after.generation).toBe(1);
-    expect(after.machines).toEqual(initialState().machines);
+    expect(after.machines).toEqual(s.machines);   // the apparatus survives
     expect(after.solid).toBe(initialState().solid);
     expect(after.lastTick).toBe(s.lastTick);  // never 0: that reads as 8h away
+  });
+
+  it('KEEPS THE MACHINES, so the Raw you inherit is something you can claim', () => {
+    // ⚠️ THE PAYOUT USED TO EVAPORATE, AND NOTHING COULD STOP IT. 25% of what
+    // the machines minted arrives as RAW — the thesis: it was never checked —
+    // and Raw is not spendable. Only a Checker or a tap turns it into Solid.
+    // Resetting the machines set `checkPerSecond` to 0 at the exact moment the
+    // pile was biggest, against generation-1 rot of 0.005/s (a 139-second half
+    // life): >95% of the reward became Rot inside ten minutes, and the only
+    // counter-play, Check at 5 a tap, is 800 taps for a 4,000 pile.
+    //
+    // Keeping the machines does not soften the trap, it makes it a DECISION you
+    // can see coming: retrain with Checkers and you bank the inheritance,
+    // retrain without and you watch it rot. That is VISION's plateau you see
+    // coming rather than a reward that lies.
+    const s = withWords(RETRAIN_MIN_WORDS, {
+      minted: '4000', machines: { extractor: 0, reasoner: 0, checker: 9 },
+      watched: { extractor: false, reasoner: true },
+    });
+    const after = apply(s, { type: 'retrain' });
+    expect(after.machines).toEqual(s.machines);
+    expect(after.watched).toEqual(s.watched);
+    // 9 Checkers x 0.25/s, and nothing is producing: the inherited pile is the
+    // only thing moving, and it moves INTO Solid.
+    expect(checkPerSecond(after)).toBeCloseTo(2.25, 10);
+    const minute = tick(after, 60);
+    expect(num(minute.solid) - num(after.solid)).toBeCloseTo(135, 0);
+    expect(num(minute.raw)).toBeLessThan(num(after.raw));
+  });
+
+  it('still starts the next run poor, and more synthetic', () => {
+    // What prestige resets and what it does not. Machines survive; the Solid
+    // they were bought with does not, and neither does the step curve.
+    const s = withWords(RETRAIN_MIN_WORDS, { minted: '4000', solid: '9e9', stepsThisRun: 300 });
+    const after = apply(s, { type: 'retrain' });
+    expect(after.solid).toBe(initialState().solid);
+    expect(after.stepsThisRun).toBe(0);
+    expect(after.minted).toBe('0');
+    expect(rotPerSecond(after)).toBeGreaterThan(rotPerSecond(s));
   });
 
   it('makes each generation more synthetic, and never less', () => {

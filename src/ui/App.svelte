@@ -68,16 +68,18 @@
   import {
     CHECK_PER_TAP, RETRAIN_MIN_WORDS, WATCHED_RATE, WORDS_PER_FACT,
     bottleneck, canBuy, canCheck, canRetrain, canWalk, factMachines,
-    initialState, machineCost, potentialPerSecond, stepCost, vocabularySupport,
+    initialState, machineCost, potentialPerSecond, rawPerSecond, solidPerSecond,
+    stepCost, vocabularySupport,
   } from '../core/engine';
   import { READOUTS } from '../core/readouts';
-  import type { Readout } from '../core/readouts';
+  import type { Readout, ReadoutId } from '../core/readouts';
   import { D, formatWhole } from '../core/numbers';
   import { MACHINES } from '../content/machines';
   import { FACT_MACHINES, MACHINE_IDS, REL_NAMES } from '../core/types';
   import type { FactMachineId, MachineId } from '../core/types';
   import type { LaneState } from '../core/starmap';
   import { currentBeat } from '../core/starmap';
+  import { BEAT_AT } from '../content/story';
   import { beatConcepts, maskedText, renderMasked } from '../core/masking';
   import type { Segment } from '../core/masking';
   import { graphWord } from '../content/lexicon';
@@ -154,8 +156,19 @@
    *  accruing underneath (numbers.ts), so a state holding 0.4 of a fact renders
    *  as a readout called Raw whose value is zero — a number that is on screen,
    *  is not moving, and is not actually zero. A state joins the bar when it has
-   *  a whole fact in it and not before. */
-  const visibleSubstance = $derived(substance.filter((row) => row.amount.gte(1)));
+   *  a whole fact in it and not before.
+   *
+   *  ★ AND ONCE IT HAS A NAME IT NEVER LEAVES AGAIN (`|| row.reads`). Waiting-
+   *  to-afford is the modal state of this economy, and gating the ROW on the
+   *  stock deleted the Solid readout the instant it hit zero — which is
+   *  immediately after every purchase. A player watched the counter they were
+   *  saving up vanish as the reward for spending, then reappear minutes later;
+   *  the probe's Solid column read `-` for 105 of 120 seconds for this reason.
+   *  Hide-while-unlearned is right. Hide-while-empty is a broken screen, and it
+   *  is also the one moment the number matters most. `learned` only ever rises
+   *  (readouts.ts), so this can never take a word back. */
+  const visibleSubstance = $derived(
+    substance.filter((row) => row.amount.gte(1) || row.reads));
 
   /** Rot's share of everything, for the board's colour and for nothing else. It
    *  is NOT a readout: no number on screen reports it, and both of its parts
@@ -549,6 +562,15 @@
    *  concept in `held` — see `currentBeat` — so nothing extra is stored. */
   const beat = $derived.by(() => { void $ontologyRevision; return currentBeat($game); });
 
+  // ⚠️ THE FRAME IS THE TEXT, AND IT IS FILLED IN src/content/story.ts.
+  // 396 of 446 beats and 4,622 of 4,716 choices ship with no authored prose;
+  // the carrier sentence behind each of them is filled at expand time, so
+  // `beat.title`, `beat.body` and `choice.label` are never empty by the time
+  // they reach this file. Do NOT add a second fallback here: the same string
+  // has to reach the renderer AND `literacy.exposure()`, which counts carrier
+  // words off the beat, and a fill that only happens at the render site teaches
+  // the player nothing about the sentence they have read four hundred times.
+
   /** label → node id, built from the concepts THIS BEAT declares. Never a
    *  global lemma index: "set", "thing" and "state" are concepts and ordinary
    *  English both, and a global table masks the wrong words. */
@@ -618,16 +640,31 @@
 
   /** Whether each quantity's own noun can be read. The rule and the reason it
    *  is not `canRead` live in src/core/readouts.ts. */
+  /** A quantity's noun, in whichever language the player has earned it in.
+   *
+   *  ⚠️ FOR THE MANUAL, AND IT IS NOT OPTIONAL THERE. The help sheet printed
+   *  `Words · Solid · Raw · Rot` in plain English, two taps from the opening
+   *  screen, while the HUD three inches above it read `Voth · Hoth · Nos ·
+   *  Nath`. That is worse than either extreme: it hands over four English nouns
+   *  that match NOTHING on the screen, so it damages the inference the game is
+   *  made of without teaching anything in exchange. The mechanics stay fully
+   *  explained — the manual is documentation the owner asked for, not a legend
+   *  — but it names the quantities the same way the screen does. */
+  const quantity = (id: ReadoutId): string =>
+    chromeHtml(READOUTS[id].noun, READOUTS[id].learned($game));
+
   const readsWords = $derived(READOUTS.words.learned($game));
   const readsSolid = $derived(READOUTS.solid.learned($game));
   const readsRaw = $derived(READOUTS.raw.learned($game));
 
-  /** ⚠️ MOST SHIPPED CHOICES HAVE NO WRITTEN LABEL — beats went to concept
-   *  granularity and the prose has not caught up. Rendering those verbatim is a
-   *  screen of blank buttons, so an unwritten label falls back to a ⟦span⟧
-   *  naming the destination. That is DATA, not invented copy: it resolves
-   *  through the same masking path as everything else, and it disappears the
-   *  moment the owner writes a real label. */
+  /** ⚠️ A LAST RESORT ONLY. 4,622 of 4,716 choices have no written label and
+   *  `story.ts` fills each from its FRAME at expand time, which is where the
+   *  four movement verbs live: `Follow ⟦…⟧ down` · `Cross to ⟦…⟧` · `Follow the
+   *  definition to ⟦…⟧` · `Back up to ⟦…⟧`. That is what keeps the strip from
+   *  being the dead button VOICE.md §4 P5 forbids — four kinds of movement,
+   *  identically priced, rendered as four identical nouns. This fallback only
+   *  fires for a frame with no label at all, and shows the destination so the
+   *  button is never blank. */
   function choiceLabel(c: { label: string; toLabel: string }): string {
     return c.label.trim() ? c.label : `⟦${c.toLabel}⟧`;
   }
@@ -649,13 +686,28 @@
           ? 'locked' : $game.held.includes(choice.to) ? 'solid' : 'dotted';
         return {
           choice, state, missing,
+          // ★ A LANE WHOSE FAR END HAS NO BEAT OF ITS OWN. Beats exist only for
+          // the 446 concepts that have children, so most lanes lead to a leaf.
+          // `placeAt` now renders those as the leaf they are, so arriving is a
+          // real place and no longer a paid-for no-op — but the two are still
+          // the SAME PRICE, and until you have paid you cannot tell which one
+          // you are buying. One opens a subtree, the other stops; both charge
+          // `6 × 1.04^n` and both raise n for every step after.
+          terminal: !BEAT_AT.has(choice.to),
           cost: stepCost($game, choice.to),
           takeable: state === 'dotted' && canWalk($game, choice.to),
         };
       })
       // Offers first, then doors, then record. A stable sort, so the strip does
       // not reshuffle under a thumb as Solid ticks past a price.
-      .sort((a, b) => rank[a.state] - rank[b.state]);
+      //
+      // ★ AND WITHIN THE OFFERS: the ways ON before the ways that STOP. The two
+      // cost the same and only one of them opens more graph, so the branching
+      // route is the first thing under the thumb. Nothing is hidden and nothing
+      // is captioned — every lane keeps its place in the strip, its price and
+      // its label, and `LANES_SHOWN` still says how many it is holding back.
+      .sort((a, b) => rank[a.state] - rank[b.state]
+        || Number(a.terminal) - Number(b.terminal));
   });
 
   /** ⚠️ LEVEL OF DETAIL FOR LANES, AND IT IS NOT COSMETIC.
@@ -678,8 +730,16 @@
     lanesExpanded ? beatChoices : beatChoices.slice(0, LANES_SHOWN));
 
   function walk(c: { choice: { to: number }; state: LaneState; cost: string; missing: number[] }): void {
-    if (c.state === 'locked') { say(`held by ${c.missing.map(graphWord).join(' · ')}`); return; }
-    if (c.state === 'solid') { say('already yours'); return; }
+    // ⚠️ THESE TWO TOASTS WERE UNREACHABLE until the lane stopped being
+    // `disabled`, and they are the only feedback a mis-tap gets. Both go out in
+    // the language the player has earned, like every other string on the dock —
+    // an English toast over a foreign HUD is the one-screen-two-languages
+    // defect with a 2.6-second lifetime.
+    if (c.state === 'locked') {
+      say(`${chrome('held by', readsWords)} ${c.missing.map(graphWord).join(' · ')}`);
+      return;
+    }
+    if (c.state === 'solid') { say(chrome('already yours', readsWords)); return; }
     if (!canWalk($game, c.choice.to)) {
       // The same noun the HUD is showing, in the same language. A toast that
       // says `Solid` beside a bar that says `tuth` is the one-screen-two-
@@ -877,8 +937,17 @@
              aria-label={visibleSubstance
                .map((row) => `${chrome(row.noun, row.reads)} ${formatWhole(row.amount.toString())}`)
                .join(', ')}>
-          {#each visibleSubstance as row (row.id)}
-            <div class="seg {row.id}" style="flex-grow:{row.share}"></div>
+          <!-- ★ ALL THREE SEGMENTS, ALWAYS — the empty ones as a dim stub.
+               Drawing only the states that exist meant a player who watches
+               every machine (the correct opening) saw a 100%-full teal
+               rectangle sitting directly under `3 / 4075`, where it reads as a
+               completed progress bar for that fraction. It only became the
+               stacked bar it is meant to be once you had made a mistake. Three
+               tracks, two of them empty, says "three states" from the first
+               frame without a single word of legend. -->
+          {#each substance as row (row.id)}
+            <div class="seg {row.id}" class:empty={row.n <= 0}
+                 style="flex-grow:{row.share}"></div>
           {/each}
         </div>
 
@@ -891,6 +960,24 @@
           {/each}
         </div>
       {/if}
+
+      <!-- ★ WHAT IT IS DOING RIGHT NOW, AND IT WAS NOWHERE ON SCREEN.
+           Every decision in this game is a rate comparison — walk for
+           +0.15/s of ceiling, buy an Extractor for +0.4/s of potential, flip a
+           machine loose to trade 0.55× Solid for 1.0× Raw — and the screen
+           showed no rates at all, so none of it could be evaluated. The only
+           `/s` in the build was the join sentence, triple-gated to a state a
+           player who walks never reaches.
+           NUMBERS ONLY, no nouns: they are colour-matched to the two segments
+           they belong to, which is how you tell which is which without a word.
+           They are also never hidden, because `+0.00 +0.00` IS the plateau —
+           the failure this game promises you can see coming.
+           Rates are not readouts and never were (ECONOMY_SRR §3): both come
+           from the engine's own exported functions, which name them. -->
+      <div class="rates">
+        <b class="solid">+{solidPerSecond($game).toFixed(2)}</b>
+        <b class="raw">+{rawPerSecond($game).toFixed(2)}</b>
+      </div>
 
       <!-- THE JOIN, MADE VISIBLE. `min(0.4 × machines, 0.15 × Words)`: you
            cannot extract relations about entities you do not hold, so walking
@@ -964,21 +1051,31 @@
       </div>
       <div class="lanes" class:expanded={lanesExpanded}>
         {#each shownChoices as c (c.choice.id)}
+          <!-- ⚠️ NOT `disabled`. `walk()` has had an answer for a held lane
+               ("already yours") and for a locked one (its key, in the graph's
+               word) since the day it was written, and `disabled` meant NEITHER
+               COULD EVER FIRE: the button swallowed the tap and returned
+               nothing at all. Three players tapped a dead lane repeatedly and
+               reported no visual response of any kind. `aria-disabled` keeps
+               the semantics and lets the tap answer. -->
           <button class="lane {c.state}" class:poor={c.state === 'dotted' && !c.takeable}
-            disabled={c.state !== 'dotted'}
+            class:terminal={c.terminal}
+            aria-disabled={c.state !== 'dotted'}
             aria-label={plain(choiceLabel(c.choice))}
             onclick={() => walk(c)}>
             <b>{@html seg(choiceLabel(c.choice))}</b>
-            <!-- The price appears only once the player can see what it is
-                 priced IN. Before the first word there is no Solid readout, so
-                 a number here would be a quantity with no name — which is the
-                 whole disease this rewrite exists to cure. -->
+            <!-- ★ THE PRICE IS ON THE BUTTON FROM THE FIRST FRAME. It used to
+                 wait for `hudReady`, i.e. for the first walk — so the opening
+                 move in the game was a blind spend, and the player learned what
+                 walking costs RETROACTIVELY, from a price tag that only
+                 appeared on the lanes they had not taken. The number is legible
+                 and its noun is not, which is this screen's own stated rule
+                 (see the header): you can see that something is counted, and
+                 not yet what. -->
             <span>{@html c.state === 'locked'
               ? esc(c.missing.map((id: number) => graphWord(id)).join(' '))
               : c.state === 'solid' ? ''
-              : hudReady
-                ? `${esc(formatWhole(c.cost))} ${chromeHtml(READOUTS.solid.noun, readsSolid)}`
-                : ''}</span>
+              : `${esc(formatWhole(c.cost))} ${chromeHtml(READOUTS.solid.noun, readsSolid)}`}</span>
           </button>
         {/each}
       </div>
@@ -1023,9 +1120,28 @@
            the "about twelve nouns" half of the defect this rewrite exists to
            fix, and `check:vocab` fails the build on it. ECONOMY_SRR §3 already
            settled it: generation is a badge, not a number. -->
-      {#if canRetrain($game)}
-        <button class="act bad" onclick={() => { dispatch({ type: 'retrain' }); say('retrained'); }}>
-          <b>Retrain</b><span>begin again on your own output</span>
+      <!-- ★ IT ARRIVES BEFORE IT UNLOCKS, on the machine cards' own rule
+           (`REVEAL_AT`): the biggest thing in the game had NO on-screen
+           existence whatsoever until the moment it fired, two-and-a-half hours
+           in, so nothing anywhere pointed forward. Now it shows up dimmed with
+           its threshold on it, in exactly the grammar a machine card uses —
+           a number and the noun it is priced in — so it reads as a price to
+           save toward rather than as a caption explaining prestige.
+           ⚠️ `Retrain` and its subtitle were the ONLY hardcoded English left on
+           the dock. On a screen whose whole thesis is that nothing is readable
+           until it is earned, one plain English sentence tells the player the
+           foreign parts are decoration. Both ride on Words, which is what the
+           gate is counted in and the one witness a Retrain cannot take back.
+           ⚠️ NO GENERATION NUMBER. `generation` is a real field of the save with
+           NO readout behind it, so printing it would invent a word — exactly
+           the "about twelve nouns" half of the defect this rewrite exists to
+           fix, and `check:vocab` fails the build on it. ECONOMY_SRR §3 already
+           settled it: generation is a badge, not a number. -->
+      {#if canRetrain($game) || wordsCount.gte(D(RETRAIN_MIN_WORDS).mul(REVEAL_AT))}
+        <button class="act bad" disabled={!canRetrain($game)}
+          onclick={() => { dispatch({ type: 'retrain' }); say(chrome('retrained', readsWords)); }}>
+          <b>{@html chromeHtml('Retrain', readsWords)}</b>
+          <span>{RETRAIN_MIN_WORDS} {@html chromeHtml(READOUTS.words.noun, readsWords)}</span>
         </button>
       {/if}
     </div>
@@ -1096,22 +1212,26 @@
           part is your whole job.</p>
 
         <h3>Four quantities</h3>
+        <!-- ⚠️ THE NOUNS GO THROUGH `quantity()`, THE DEFINITIONS DO NOT. What
+             each quantity IS stays in English — that is the documentation. What
+             it is CALLED is earned, exactly as on the HUD, or this table is a
+             legend for words the screen refuses to show. -->
         <table class="ref"><tbody>
           <tr><th>word</th><th>what it is</th></tr>
-          <tr><td><b>{READOUTS.words.noun}</b></td><td>{READOUTS.words.explain}</td></tr>
-          <tr><td><b>{READOUTS.solid.noun}</b></td><td>{READOUTS.solid.explain}</td></tr>
-          <tr><td><b>{READOUTS.raw.noun}</b></td><td>{READOUTS.raw.explain}</td></tr>
-          <tr><td><b>{READOUTS.rot.noun}</b></td><td>{READOUTS.rot.explain}</td></tr>
+          <tr><td><b>{@html quantity('words')}</b></td><td>{READOUTS.words.explain}</td></tr>
+          <tr><td><b>{@html quantity('solid')}</b></td><td>{READOUTS.solid.explain}</td></tr>
+          <tr><td><b>{@html quantity('raw')}</b></td><td>{READOUTS.raw.explain}</td></tr>
+          <tr><td><b>{@html quantity('rot')}</b></td><td>{READOUTS.rot.explain}</td></tr>
         </tbody></table>
-        <p class="body">{READOUTS.solid.noun}, {READOUTS.raw.noun} and
-          {READOUTS.rot.noun} are one substance in three states, which is why
+        <p class="body">{@html quantity('solid')}, {@html quantity('raw')} and
+          {@html quantity('rot')} are one substance in three states, which is why
           they are one bar and not three counters. Everything that leaves one
           arrives in another.</p>
 
         <h3>The rule that ties the two halves together</h3>
         <p class="body">Machines can only relate concepts you actually hold, so
           what they produce is capped by your vocabulary: every
-          {READOUTS.words.noun} supports {WORDS_PER_FACT} facts a second, and
+          {@html quantity('words')} supports {WORDS_PER_FACT} facts a second, and
           the only way to gain one is to walk the story.
           <b>Walking is the only income upgrade in the game.</b> Build as many
           machines as you like — past the cap they idle, and the line at the top
@@ -1120,41 +1240,44 @@
         <h3>The four things you do</h3>
         <table class="ref"><tbody>
           <tr><th>verb</th><th>costs</th><th>gives</th></tr>
-          <tr><td><b>Walk</b></td>
-              <td>{READOUTS.solid.noun}, rising with each new concept this run</td>
+          <tr><td><b>{@html chromeHtml('Walk', readsWords)}</b></td>
+              <td>{@html quantity('solid')}, rising with each new concept this run</td>
               <td>a concept, and a word you can read</td></tr>
-          <tr><td><b>Check</b></td><td>a tap</td>
-              <td>{CHECK_PER_TAP} {READOUTS.raw.noun} → {READOUTS.solid.noun}</td></tr>
-          <tr><td><b>Buy</b></td><td>{READOUTS.solid.noun}</td>
+          <tr><td><b>{@html chromeHtml('Check', readsRaw)}</b></td><td>a tap</td>
+              <td>{CHECK_PER_TAP} {@html quantity('raw')} → {@html quantity('solid')}</td></tr>
+          <tr><td><b>{@html chromeHtml('Buy', readsSolid)}</b></td><td>{@html quantity('solid')}</td>
               <td>a machine, from the roster below</td></tr>
-          <tr><td><b>Retrain</b></td><td>the run</td>
-              <td>a new generation, at {RETRAIN_MIN_WORDS} {READOUTS.words.noun}</td></tr>
+          <tr><td><b>{@html chromeHtml('Retrain', readsWords)}</b></td><td>the run</td>
+              <td>a new generation, at {RETRAIN_MIN_WORDS} {@html quantity('words')}</td></tr>
         </tbody></table>
         <p class="body">Somewhere you have already been costs nothing to walk
-          again, which is what makes a Retrain a sprint back to the frontier
-          rather than a repeat of the opening.</p>
+          again, which is what makes a {@html chromeHtml('Retrain', readsWords)}
+          a sprint back to the frontier rather than a repeat of the opening.</p>
 
         <h3>The machines, and the only real decision</h3>
         <table class="ref"><tbody>
           <tr><th>machine</th><th>rate</th><th>from</th></tr>
           {#each MACHINE_IDS as id (id)}
-            <tr><td><b>{MACHINES[id].label}</b></td>
+            <tr><td><b>{@html chromeHtml(MACHINES[id].label,
+                  $game.machines[id] > OPENING[id])}</b></td>
                 <td>{MACHINES[id].rate}/s</td>
-                <td>{formatWhole(MACHINES[id].baseCost)} {READOUTS.solid.noun}</td></tr>
+                <td>{formatWhole(MACHINES[id].baseCost)} {@html quantity('solid')}</td></tr>
           {/each}
         </tbody></table>
-        <p class="body">A machine that makes facts is either <b>watched</b> —
-          {WATCHED_RATE}× the rate, and everything it makes arrives
-          {READOUTS.solid.noun} — or <b>loose</b>, at full speed, where
-          everything it makes arrives {READOUTS.raw.noun}, and
-          {READOUTS.raw.noun} wears out on its own. That trade is the whole
-          game and it is one tap per machine. The {MACHINES.checker.label} buys
-          the reviewing out: it makes nothing, converts {READOUTS.raw.noun} by
+        <p class="body">A machine that makes facts is either
+          <b>{@html chromeHtml('watched', readsSolid)}</b> — {WATCHED_RATE}× the
+          rate, and everything it makes arrives {@html quantity('solid')} — or
+          <b>{@html chromeHtml('loose', readsRaw)}</b>, at full speed, where
+          everything it makes arrives {@html quantity('raw')}, and
+          {@html quantity('raw')} wears out on its own. That trade is the whole
+          game and it is one tap per machine. The {@html chromeHtml(
+            MACHINES.checker.label, $game.machines.checker > OPENING.checker)} buys
+          the reviewing out: it makes nothing, converts {@html quantity('raw')} by
           itself, and keeps doing it while the app is shut. Nothing here ever
           needs babysitting.</p>
 
         <h3>Why anything decays</h3>
-        <p class="body">{READOUTS.raw.noun} is machine output nobody looked at,
+        <p class="body">{@html quantity('raw')} is machine output nobody looked at,
           and it wears out at a rate set by how much of this generation descends
           from machine output rather than from real data. Every Retrain raises
           that. Nothing rots while you are away — absence banks work, it never
@@ -1197,14 +1320,15 @@
           <dt>Provenance</dt>
           <dd>Where a statement came from and who verified it. Tracking it is
             the entire difference between a knowledge graph and a pile of
-            confident text. {READOUTS.solid.noun} and {READOUTS.raw.noun} are
-            the two readings of it.</dd>
+            confident text. {@html quantity('solid')} and {@html quantity('raw')}
+            are the two readings of it.</dd>
 
           <dt>Subsumption reasoning</dt>
           <dd>Deriving what must be true from what you already hold: if a dog is
             a canine and a canine is a carnivore, a dog is a carnivore. The
-            {MACHINES.reasoner.label} does this, which is why its output needs
-            no checking and why it is expensive.</dd>
+            {@html chromeHtml(MACHINES.reasoner.label,
+              $game.machines.reasoner > OPENING.reasoner)} does this, which is why
+            its output needs no checking and why it is expensive.</dd>
 
           <dt>Drift</dt>
           <dd>What happens to meaning when a system learns from its own output
@@ -1237,11 +1361,16 @@
            a stale app and a rebuilt save look identical from the outside and
            are fixed completely differently. -->
       <p class="stamp">build {__BUILD_ID__} · save v{$game.version}</p>
+      <!-- ⚠️ FLUSH IS NOT IN THE THUMB STACK. It shipped full-width and 8px
+           above `back`, on a phone, on a panel headed "Save" — two identical
+           targets, one of which wipes the run, and the one you came here to
+           press is the one underneath it. It keeps its confirm and it keeps its
+           danger colour; it just no longer shares an edge with the way out. -->
+      <button class="bad flush" onclick={() => saveAction('flush')}>Flush project</button>
       <div class="sheet-foot col">
         <button onclick={() => (sheet = 'help')}>How to play</button>
         <button onclick={() => saveAction('export')}>Export save</button>
         <button onclick={() => saveAction('import')}>Import save</button>
-        <button class="bad" onclick={() => saveAction('flush')}>Flush project</button>
         <button onclick={() => (sheet = null)}>back</button>
       </div>
     </div>
@@ -1294,22 +1423,41 @@
      object. Segments are flex-grown by share, so the bar always fills and
      never needs a maximum — the substance has no ceiling, only proportions. */
   .bar {
-    display: flex; height: 9px; border-radius: 5px; overflow: hidden;
-    background: #10151d; box-shadow: inset 0 0 0 1px #1b2533;
+    display: flex; gap: 2px; height: 9px; margin-top: 3px;
+    border-radius: 5px; overflow: hidden; background: #10151d;
   }
-  .seg { min-width: 2px; transition: flex-grow 300ms linear; }
+  .seg { min-width: 3px; border-radius: 5px; transition: flex-grow 300ms linear; }
   .seg.solid { background: hsl(var(--hue) 70% 55%); }
   .seg.raw { background: hsl(42 70% 52%); }
   .seg.rot { background: #b0566b; }
+  /* ★ A STATE THAT HAS NOTHING IN IT YET IS AN EMPTY TRACK, not an absence.
+     Drawing only the states that exist gave a watched-machines player — the
+     correct opening — a 100%-full teal rectangle sitting directly under
+     `3 / 4075`, where it reads as a completed progress bar for that fraction
+     and carries zero information for hours. A fixed stub, gapped off from the
+     substance, says "three states, two empty" from the first frame and needs no
+     legend to do it. */
+  .seg.empty { flex: 0 0 15px; background: #182231; }
   .stats { display: flex; justify-content: center; gap: 18px; margin-top: 4px; }
   .stats b.solid { color: hsl(var(--hue) 70% 58%); }
   .stats b.raw { color: hsl(42 75% 60%); }
   .stats b.rot { color: #b0566b; }
 
+  /* THE RATE. Numbers only, coloured to the segments they belong to — that is
+     the whole legend, and it needs no word. Monospace so the digits do not
+     jitter as they tick. */
+  .rates {
+    display: flex; justify-content: center; gap: 18px; margin-top: 3px;
+    font: 0.66rem ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .rates b.solid { color: hsl(var(--hue) 55% 46%); font-weight: 400; }
+  .rates b.raw { color: hsl(42 50% 46%); font-weight: 400; }
+
   /* The join, in words. Quiet — it is an explanation, not an alarm — but it is
      the only place the cap ever states itself, so it is never truncated. */
   .join {
-    margin: 6px auto 0; max-width: 34em;
+    margin: 6px auto 0; max-width: 30em; padding: 4px 10px;
+    border-radius: 8px; background: #10151d; border: 1px solid #1b2533;
     font: 0.62rem ui-monospace, SFMono-Regular, Menlo, monospace;
     color: hsl(42 45% 58%); line-height: 1.35;
   }
@@ -1451,22 +1599,62 @@
     font: 0.62rem ui-monospace, monospace;
     background: none; border: 1px solid #22303d; color: #5d7385;
   }
+  /* ══ AFFORDANCE, THE RIGHT WAY ROUND ═══════════════════════════════════
+     IT SHIPPED INVERTED, and the cause is one line further up this stylesheet:
+     `.lane :global(.bound)` paints a word you have earned WHITE AND BOLD. A
+     lane whose destination you already hold is, by definition, a bound word —
+     so the three lanes that go nowhere rendered as the largest, brightest,
+     solid-bordered objects on the screen, while the one live lane sat in a dim
+     dashed outline with grey price text, styled like a disabled control. All
+     three players tapped the dead ones first, repeatedly, and got nothing back.
+     The thumb goes to the brightest thing. That has to be the thing that
+     moves. */
+  /* The label carries a verb now, so it is two or three words rather than one
+     noun. Sized to keep it on ONE LINE at phone width — two-line lanes pushed
+     the dock 170px past the fold and took the HUD off the top of the screen. */
   .lane {
     flex: 1 1 auto; min-width: 96px; max-width: 46%;
-    padding: 8px 10px; border-radius: 10px;
+    padding: 6px 9px; border-radius: 10px;
     background: none; border: 1px solid #2b6c7d; color: #8fdcea;
     font: inherit; text-align: left; cursor: pointer;
   }
-  .lane b { display: block; font-size: 0.92rem; font-weight: 600; }
-  .lane span { display: block; font: 0.62rem ui-monospace, monospace; color: #5d7385; }
-  /* SOLID — a route on your own map, and NOT a tap target: it goes somewhere
-     you already hold, so there is nothing to travel to. Drawn as record. */
-  .lane.solid { border-color: #24505c; background: #0e1d24; color: #6f9aa8; cursor: default; }
-  /* DOTTED — ungated, and the far end is dark. Taking it teaches you. */
-  .lane.dotted { border-style: dashed; }
-  /* Dimmed while you cannot pay for it, but still live: tapping it should quote
-     the price rather than do nothing. A dead button teaches nothing. */
-  .lane.poor { border-color: #274a55; color: #4f7f8c; }
+  .lane b { display: block; font-size: 0.79rem; font-weight: 600; line-height: 1.25; }
+  .lane span { display: block; font: 0.6rem ui-monospace, monospace; color: #5d7385; }
+
+  /* ══ DASHED CARRIES ON · SOLID STOPS ═══════════════════════════════════
+     Two shapes for the two kinds of walk, and no word explaining either. The
+     player learns it the way they learn everything else here: take a dashed
+     lane and the beat changes, take a solid-outlined one and it does not. */
+
+  /* DOTTED — ungated, the far end is dark, and it MOVES you. The loudest thing
+     in the strip, because it is the offer. */
+  .lane.dotted {
+    border-style: dashed; border-width: 1.5px;
+    border-color: hsl(var(--hue) 62% 48%); color: hsl(var(--hue) 72% 70%);
+    background: hsl(var(--hue) 45% 12%);
+  }
+  .lane.dotted span { color: hsl(var(--hue) 45% 60%); }
+  /* ★ A LANE THAT STOPS. Its far end has no beat — beats exist only for the 446
+     concepts that have children — so walking it costs full price, raises
+     1.04^n for every future step, and leaves you standing in the beat you were
+     already in. Legal, and it looked exactly like the game breaking. It is NOT
+     hidden and NOT captioned: it sorts after the ways on, and it trades the
+     dashed edge for a closed one. A route that continues is drawn open. */
+  .lane.dotted.terminal {
+    border-style: solid; border-width: 1px;
+    border-color: hsl(var(--hue) 28% 30%); background: none;
+  }
+  /* Dimmed while you cannot pay for it, but still LIVE: tapping it quotes the
+     price rather than doing nothing. Opacity rather than a colour, so a word in
+     the graph's tongue keeps the one colour it has everywhere else on screen. */
+  .lane.poor { opacity: 0.45; }
+  /* SOLID — a route on your own map, and not a route at all: it goes somewhere
+     you already hold, so there is nothing to travel to. Record, drawn as
+     record — no border, no fill, and its bound word gives up the white. */
+  .lane.solid {
+    border-color: transparent; background: none; color: #5b7482;
+    opacity: 0.45; cursor: default;
+  }
   /* LOCKED — visible, not takeable, key shown in the graph's word. An absent
      edge teaches nobody; a door with a lock on it is the reason to come back. */
   .lane.locked {
@@ -1474,7 +1662,15 @@
     background: none; cursor: default;
   }
   .lane.locked b { letter-spacing: 0.06em; }
-  .lane:disabled { opacity: 0.9; }
+  /* ⚠️ THE WHITE MUST NOT REACH A LANE THAT IS NOT AN OFFER. This is the actual
+     inversion, in one selector: without it a held destination outshouts the
+     lane you can take, because being readable is what `.bound` styles. */
+  .lane.solid :global(.bound), .lane.locked :global(.bound) {
+    color: inherit; font-weight: 500;
+  }
+  /* Not-takeable lanes answer a tap with a toast instead of a disabled swallow;
+     the press state is the acknowledgement that the tap was seen at all. */
+  .lane[aria-disabled='true']:active { transform: translateY(1px); }
 
   /* ---- verbs ---- */
   .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
@@ -1580,7 +1776,12 @@
     flex: 1 1 auto; padding: 13px; border-radius: 12px; cursor: pointer; font: inherit;
     background: #10151d; border: 1px solid #2f3d4e; color: #cfe0e8;
   }
-  .sheet-foot button.bad { border-color: #b0566b; color: #b0566b; }
+  /* Away from the thumb stack and away from `back`. See the markup. */
+  .flush {
+    align-self: flex-start; margin-top: auto; padding: 8px 12px;
+    border-radius: 10px; cursor: pointer; font: inherit; font-size: 0.78rem;
+    background: none; border: 1px solid #b0566b; color: #b0566b;
+  }
 
   .toast {
     position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 96px);

@@ -6,8 +6,8 @@
 // to stop a future session "tidying up" by filtering.
 import { describe, expect, it } from 'vitest';
 import { apply, initialState } from '../src/core/engine';
-import { lanes, laneOpen, mask, MASK_CHAR } from '../src/core/starmap';
-import { STORY } from '../src/content/story';
+import { currentBeat, lanes, laneOpen, mask, MASK_CHAR } from '../src/core/starmap';
+import { BEAT_AT, STORY } from '../src/content/story';
 import { CONCEPT_BUDGET } from '../src/content/ontologyMeta';
 import type { GameState } from '../src/core/types';
 
@@ -178,5 +178,56 @@ describe('travelling a lane lands THAT concept', () => {
     const back = apply(once, { type: 'walk', to: lane.to });
     expect(back.solid).toBe(once.solid);
     expect(back.held.length).toBe(once.held.length);
+  });
+});
+
+// ---- WHERE THE PLAYER IS STANDING ----------------------------------------
+//
+// Walking to a childless concept charged the step, handed over the Word, and
+// left the beat panel byte-identical, because position fell back to the newest
+// held concept that HAD a beat — the one you had not left. Measured by a
+// reviewer on the shipped build: three walks, 20 Solid, the whole starting
+// purse, and the same screen three times.
+describe('arriving somewhere always MOVES you', () => {
+  const leafOf = (from: number) =>
+    STORY.beats.find((b) => b.at === from)!.choices.find((c) => !BEAT_AT.has(c.to))!;
+
+  it('stands you at the childless concept you paid to reach', () => {
+    const s = holding(...initialState().held);
+    const start = currentBeat(s)!;
+    const leaf = leafOf(start.at);
+    const after = apply(s, { type: 'walk', to: leaf.to });
+    expect(after.held).toContain(leaf.to);
+    const now = currentBeat(after)!;
+    expect(now.at).toBe(leaf.to);
+    expect(now.id).not.toBe(start.id);
+    expect(now.body).not.toBe(start.body);
+  });
+
+  it('keeps the lanes it arrived by, so a leaf is not a softlock', () => {
+    const s = holding(...initialState().held);
+    const start = currentBeat(s)!;
+    const leaf = leafOf(start.at);
+    const after = apply(s, { type: 'walk', to: leaf.to });
+    const onward = currentBeat(after)!.choices.filter((c) => !after.held.includes(c.to));
+    expect(onward.length).toBeGreaterThan(0);
+    // and every one of them is a lane the ENGINE will honour, not just a button
+    for (const c of onward.slice(0, 5)) {
+      const open = lanes(after).some((l) => l.to === c.to && l.state !== 'locked');
+      const locked = (c.requires?.concepts ?? []).some((id) => !after.held.includes(id));
+      expect(open || locked).toBe(true);
+    }
+  });
+
+  it('still falls back to the root from a board with no story on it', () => {
+    // A concept the story graph never mentions: no beat, and nothing offers it,
+    // so there is no leaf to render either. Every id INSIDE the dataset is one
+    // or the other — measured: 0 of 4,096 are neither — so this has to reach
+    // outside it to exercise the fallback at all.
+    const offered = new Set(STORY.beats.flatMap((b) => b.choices.map((c) => c.to)));
+    const strays = [...Array(CONCEPT_BUDGET).keys()]
+      .filter((id) => !offered.has(id) && !BEAT_AT.has(id));
+    expect(strays).toEqual([]);
+    expect(currentBeat(holding(999999))!.at).toBe(0);
   });
 });
