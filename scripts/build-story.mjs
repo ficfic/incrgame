@@ -41,16 +41,27 @@
  * 93 beats became 27 became 446 — and authored text has to survive that.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ONTOLOGY = join(ROOT, 'public/ontology');
-const OUT = join(ROOT, 'docs/graph/story.json');
+const OUT = join(ROOT, 'public/story');
 
-const UNGATED_CHILDREN = 3;   // always-walkable exits per beat
-const GATED_CHILDREN = 3;     // further children, locked behind a concept
+/* NO CAP ON CHILDREN.
+ *
+ * These were 3 and 3. Measured from the seed: 397 of 446 places were
+ * ORPHANED - unreachable by any route, with or without keys - because a beat
+ * exposed at most six of its children and every subtree under the rest
+ * vanished. `object` has 72 children and offered six.
+ *
+ * A generator must not decide what the player can never see. Every child is
+ * emitted; how many are DRAWN at once is the renderer's call, and it should
+ * key off what the player can read - the graph revealing itself as vocabulary
+ * grows is the progression, not a pruning constant in a build script. */
+const UNGATED_CHILDREN = Infinity;
+const GATED_CHILDREN = 0;     // gating is applied below, per child, from the gloss
 const CROSS_PER_BEAT = 3;     // sideways routes, locked behind the relation
 const REL_ISA = 0;
 const REL_NAMED = 8;          // `named in definition` — add to REL_NAMES
@@ -118,6 +129,30 @@ for (const c of [...children.keys()].sort((a, b) => a - b)) {
     requires: { concepts: [], rels: [] },   // the guaranteed exits
     effects: {},
   }));
+  /* THE WAY BACK UP.
+   *
+   * Every exit used to go DOWN to a child, which was invisible while the
+   * player started at `entity` and could only descend. The owner moved the
+   * start mid-graph ("not necessarily entity"), and measuring it showed 35 of
+   * 4,096 concepts reachable from the seed: from depth 3 in a 4-deep tree,
+   * descending hits leaves almost immediately and there was no other move.
+   *
+   * A parent exit is ungated and always present. It is the same hypernym edge
+   * read the other way — generalisation rather than specialisation — so it
+   * costs no new relation, and with no UI to fall back on it is the only thing
+   * that makes a dead end recoverable. */
+  if (parent[c] >= 0) {
+    choices.push({
+      id: `c${c}-up`,
+      frame: 'ascend',
+      label: '',
+      to: parent[c],
+      toLabel: label[parent[c]],
+      rel: REL_ISA,
+      requires: { concepts: [], rels: [] },
+      effects: {},
+    });
+  }
   if (!choices.length) continue;
   beats.push({
     id: `c${c}`,
@@ -128,7 +163,7 @@ for (const c of [...children.keys()].sort((a, b) => a - b)) {
     title: '',
     body: '',
     choices,
-    pendingGated: kids.slice(UNGATED_CHILDREN, UNGATED_CHILDREN + GATED_CHILDREN),
+    pendingGated: [],
     pendingCross: (cross.get(c) ?? []).filter((t) => children.has(t)).slice(0, CROSS_PER_BEAT),
   });
 }
@@ -140,29 +175,56 @@ for (const c of [...children.keys()].sort((a, b) => a - b)) {
  * spines and check-story.mjs caught it red: 3 keys sat on beats that had been
  * dropped for being too deep, so no ungated path ever taught them — doors with
  * no key anywhere in the world. Hence two passes. */
-const teachable = [];
-for (const b of beats) for (const c of b.choices) teachable.push(c.to);
+/* What a key may be drawn from: destinations that are UNGATED BY CONSTRUCTION,
+ * not merely ungated right now.
+ *
+ * This was every choice destination, computed before gating ran — so keys
+ * pointed at children that gating then locked, and check-story.mjs went red
+ * with 376 unobtainable keys. The dependency is circular: what is teachable
+ * depends on what is gated, which depends on what is teachable.
+ *
+ * Broken by fixing the free set in advance. Every beat keeps its first child
+ * open and every beat below the root has an ungated parent exit, so those two
+ * are guaranteed reachable without any key at all. */
+const canTeach = new Set();
+for (const b of beats) {
+  const kids = b.choices.filter((c) => c.frame === 'continue');
+  if (kids.length) canTeach.add(kids[0].to);
+  for (const c of b.choices) if (c.frame === 'ascend') canTeach.add(c.to);
+}
+
+/* Which concepts are named in a given concept's definition. crosslinks.json
+ * holds [a, b] = "a's gloss contains b's label", which is exactly the relation
+ * a key needs: the words you must know to read what something is. */
+const glossOf = new Map();
+for (const [a, b] of JSON.parse(readFileSync(join(ROOT, 'docs/graph/crosslinks.json'), 'utf8')).e) {
+  (glossOf.get(a) ?? glossOf.set(a, []).get(a)).push(b);
+}
 
 let gatedCount = 0;
 let crossCount = 0;
 for (const b of beats) {
-  b.pendingGated.forEach((k, n) => {
-    // Deliberately not a concept from this beat's own children: the key has to
-    // be earned somewhere else, which is what makes you come back.
-    const key = teachable[(b.at * 7 + n * 101) % teachable.length];
-    if (key === undefined || key === k) return;
+  /* GATE EACH CHILD FROM THE DESTINATION'S OWN DEFINITION.
+   *
+   * Applied per child rather than by slicing the list, because slicing is what
+   * orphaned 397 of 446 places. A child is locked by a word from the gloss of
+   * what it IS — the rule the owner can state and verify, since the gloss is on
+   * screen. A child with no honest key stays open: an arbitrary lock is worse
+   * than no lock.
+   *
+   * At least one child is always left open, and every beat below the root also
+   * carries an ungated parent exit, so the no-dead-end invariant holds twice
+   * over. */
+  const kidChoices = b.choices.filter((c) => c.frame === 'continue');
+  kidChoices.forEach((c, i) => {
+    if (i === 0) return;                    // always one free way down
+    const key = (glossOf.get(c.to) ?? []).find((g) => canTeach.has(g) && g !== c.to);
+    if (key === undefined) return;
     gatedCount++;
-    b.choices.push({
-      id: `c${b.at}-alt${n}`,
-      frame: 'branch',
-      label: '',
-      to: k,
-      toLabel: label[k],
-      rel: REL_ISA,
-      requires: { concepts: [key], rels: [] },
-      effects: {},
-    });
+    c.frame = 'branch';
+    c.requires = { concepts: [key], rels: [] };
   });
+
   b.pendingCross.forEach((t, n) => {
     crossCount++;
     b.choices.push({
@@ -201,21 +263,43 @@ for (const b of beats) {
  * wins; a frame only ever fills a gap. */
 const FRAMES = JSON.parse(readFileSync(join(ROOT, 'docs/graph/frames.json'), 'utf8'));
 const fill = (t, slots) => t.replace(/\{(\w+)\}/g, (m, k) => slots[k] ?? m);
+/* FRAMES ARE SHIPPED, NOT PRE-RENDERED.
+ *
+ * These were filled in here so the engine would render one field and never
+ * need to know a frame system exists. That cost 857K for 446 beats: 4,716
+ * choices each carrying its own copy of "Follow X down", which is one template
+ * and one word.
+ *
+ * The frames go in the manifest instead and the renderer fills them. A beat or
+ * choice carries text ONLY where it is authored; everything else carries a
+ * frame id and the label to drop in. */
+/* COMPACT THE EMITTED SHAPE.
+ *
+ * 4,716 choices were each carrying an empty label, an empty effects object, a
+ * requires with two empty arrays, rel 0, and a `toLabel` the engine can read
+ * out of the ontology it already has. Defaults are omitted and the label is
+ * looked up, which is the difference between a 626K payload and a phone.
+ *
+ * Read as: absent `q` means ungated, absent `r` means rel 0, absent `t` means
+ * use the frame. */
 let framed = 0;
 for (const b of beats) {
-  const f = FRAMES[b.frame];
-  if (f && !b.body) {
-    framed++;
-    b.title = b.title || f.title;
-    b.body = fill(f.body, { here: b.atLabel });
-  }
-  for (const c of b.choices) {
-    const cf = FRAMES[c.frame];
-    if (cf && !c.label) c.label = fill(cf.label, { next: c.toLabel, branch: c.toLabel });
-  }
+  if (!b.body) framed++;
+  b.choices = b.choices.map((c) => {
+    const out = { i: c.id, f: c.frame, to: c.to };
+    if (c.rel) out.r = c.rel;
+    if (c.label) out.t = c.label;
+    const q = {};
+    if (c.requires.concepts.length) q.c = c.requires.concepts;
+    if (c.requires.rels.length) q.r = c.requires.rels;
+    if (q.c || q.r) out.q = q;
+    return out;
+  });
+  if (!b.title) delete b.title;
+  if (!b.body) delete b.body;
 }
 
-const missingFrames = [...new Set([...beats.map((b) => b.frame), ...beats.flatMap((b) => b.choices.map((c) => c.frame))])]
+const missingFrames = [...new Set([...beats.map((b) => b.frame), ...beats.flatMap((b) => b.choices.map((c) => c.f ?? c.frame))])]
   .filter((f) => !FRAMES[f]);
 if (missingFrames.length) {
   console.error(`FAIL  no frame written for: ${missingFrames.join(', ')} — those beats would render blank`);
@@ -223,14 +307,51 @@ if (missingFrames.length) {
 }
 const frames = Object.keys(FRAMES).filter((k) => k !== '_');
 
+/* CHUNKED, AND ALIGNED TO THE ONTOLOGY CHUNKS.
+ *
+ * One file was 880K. That is a phone downloading the entire story graph to
+ * render one beat, on a project whose stated budget is a mobile browser.
+ *
+ * Chunk N holds the beats for node ids in the same range as ontology chunk N,
+ * so a beat and the concepts it names arrive in the same fetch and the engine
+ * needs no second index to know which file to ask for.
+ *
+ * It also moves from docs/ to public/. docs/ is NOT SERVED — nothing could
+ * fetch story.json at runtime, so any surface using it was either bundling
+ * 880K into the JS or not reading it at all. */
+rmSync(OUT, { recursive: true, force: true });
+mkdirSync(OUT, { recursive: true });
+
+/* Only non-empty chunks are written. Aligning to the ontology's 1024-id chunks
+ * put all 446 beats in chunk 0 and produced three empty files, because a beat
+ * exists only for a concept WITH CHILDREN and those cluster at the top of the
+ * breadth-first order. Three empty files pretending to be a chunking scheme is
+ * worse than one honest file. If the shipped selection ever spreads places
+ * across the id range this starts distributing on its own. */
+const CHUNK = index.chunkSize;
+const sizes = [];
+const manifest = [];
+for (let n = 0; n * CHUNK < label.length; n++) {
+  const slice = beats.filter((b) => Math.floor(b.at / CHUNK) === n);
+  if (!slice.length) continue;
+  const name = `s${String(n).padStart(3, '0')}.json`;
+  const body = JSON.stringify({ from: n * CHUNK, to: (n + 1) * CHUNK - 1, beats: slice }) + '\n';
+  writeFileSync(join(OUT, name), body);
+  manifest.push(name);
+  sizes.push([name, slice.length, body.length]);
+}
+
 writeFileSync(
-  OUT,
+  join(OUT, 'index.json'),
   JSON.stringify({
     generatedBy: 'scripts/build-story.mjs',
     relNamed: REL_NAMED,
+    chunkSize: CHUNK,
+    chunks: manifest,
     counts: { beats: beats.length, gated: gatedCount, sideways: crossCount, withProse: written },
-    frames,
-    beats,
+    // The renderer fills {here} / {next} / {branch} from the beat's atLabel and
+    // the choice's toLabel. Authored text, where present, wins over the frame.
+    frames: FRAMES,
   }) + '\n',
 );
 
@@ -240,4 +361,5 @@ console.log(`sideways routes ..... ${crossCount}   (rel ${REL_NAMED}, the labyri
 console.log(`authored prose ...... ${written}`);
 console.log(`filled from frames .. ${framed}   (${frames.join(', ')})`);
 console.log(`beats with no text .. ${beats.filter((b) => !b.body).length}`);
-console.log(`\nwrote ${OUT}`);
+sizes.forEach(([name, n, bytes]) => console.log(`  ${name}  ${String(n).padStart(4)} beats  ${(bytes / 1024).toFixed(0)}K`));
+console.log(`\nwrote ${OUT}/ (${manifest.length} chunk + index.json)`);
