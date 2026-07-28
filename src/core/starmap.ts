@@ -33,7 +33,7 @@ export type LaneState = 'solid' | 'dotted' | 'locked';
 /** WHERE THE PLAYER IS, derived and never stored.
  *
  *  Taking a choice discovers its `to` and moves there, and targeted discovery
- *  appends that concept to `anchors` — so the last anchor IS the current
+ *  appends that concept to `held` — so the last one IS the current
  *  position. No new save field, which is the constraint this whole feature was
  *  given: a save already records everywhere you have been, in order.
  *
@@ -42,9 +42,9 @@ export type LaneState = 'solid' | 'dotted' | 'locked';
  *  strand the player on a node with nothing to read. */
 export function currentBeat(state: GameState): StoryBeat | null {
   const byNode = new Map(STORY.beats.map((b) => [b.at, b] as const));
-  const anchors = state.forged.anchors;
-  for (let i = anchors.length - 1; i >= 0; i--) {
-    const beat = byNode.get(anchors[i]!);
+  const held = state.held;
+  for (let i = held.length - 1; i >= 0; i--) {
+    const beat = byNode.get(held[i]!);
     if (beat) return beat;
   }
   return byNode.get(0) ?? null;
@@ -92,7 +92,7 @@ function beatsAt(held: Set<number>): StoryBeat[] {
  *  beats and must be ONE lane on screen. The strongest state wins a tie — a
  *  route that is open somewhere is open. */
 export function lanes(state: GameState): Lane[] {
-  const held = new Set(state.forged.anchors);
+  const held = new Set(state.held);
   const rank: Record<LaneState, number> = { solid: 0, dotted: 1, locked: 2 };
   const best = new Map<string, Lane>();
 

@@ -104,7 +104,8 @@ npm test
 - [`docs/VISION.md`](docs/VISION.md) — **why this exists. Read first.**
 - [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — the design.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/SPEC.md`](docs/SPEC.md) — the technical contract.
-- [`docs/ECONOMY_MODEL.md`](docs/ECONOMY_MODEL.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md) — numbers and build plan.
+- [`docs/ECONOMY_SRR.md`](docs/ECONOMY_SRR.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md) — the economy as built, and the build plan.
+- [`docs/HANDOVER.md`](docs/HANDOVER.md) — what the code actually is today, including what is red.
 - [`docs/GLOSSARY.md`](docs/GLOSSARY.md) · [`docs/SIMPLIFICATIONS.md`](docs/SIMPLIFICATIONS.md) — real theory ↔ game terms.
 - [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) — every third-party dataset and its licence.
 - [`docs/DECISIONS.md`](docs/DECISIONS.md) — why things are the way they are.

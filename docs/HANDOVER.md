@@ -1,7 +1,30 @@
 # Handover — read after CLAUDE.md, before anything else
 
-Last verified against the code on **2026-07-25**, at save **v11**, 90 tests.
-If this file and the code disagree, the code wins and this file is a bug.
+Last verified against the code on **2026-07-28**, at save **v16**, 12 test files
+/ 166 tests green. If this file and the code disagree, the code wins and this
+file is a bug. It has been that bug before — a stale HANDOVER is on record in
+`BACKLOG.md` as the most expensive defect in this repo.
+
+## 0. ⚠️ The build is RED. Know this before you plan anything.
+
+`src/ui/App.svelte` was not rewritten when the economy was. It still imports
+`../core/graph`, `../content/generators`, `../content/vignettes` and
+`../shell/salvage`, all deleted, and reads `attentionCap`,
+`REFLECT_MIN_CONCEPTS`, `chooseOption` and `saveVersion`, none of which exist.
+
+| check | today |
+|---|---|
+| `npm test` | ✅ 12 files, 166 tests |
+| `npx tsc --noEmit` | ✅ clean (core, content, shell, render, test) |
+| `npm run check:core` | ✅ pure across 9 files |
+| `npm run check:story` | ✅ 446 beats, every beat has an exit |
+| `npm run check:vocab` | ❌ 4 violations — all four readouts are referenced by NO file in `src/ui/` |
+| `npx svelte-check` | ❌ 90 errors, **all** in `App.svelte` |
+| `npx vite build` | ❌ 4 unresolved imports, all in `App.svelte` |
+| `npm run play` | ❌ cannot run — there is no build to probe |
+
+That is `docs/NEXT.md` **item 3**. Nothing that needs a screenshot can be
+verified until it lands, and no session may claim a play probe it could not run.
 
 ## 1. Read `docs/VISION.md` first. Seriously.
 
@@ -13,116 +36,160 @@ and what it rules out.
 
 ## 2. What the game is now
 
-**An incremental about speed versus truth, played on one canvas.**
+**An incremental about speed versus truth, in four quantities.** The economy was
+rewritten on 2026-07-28 to the spec in `docs/ECONOMY_SRR.md` (marked BUILT),
+after the owner called it confusing twice in two days. The diagnosis found the
+model was never the problem — the **names** were.
 
 ```
-You DISCOVER concepts by hand → each books a slot of ATTENTION for 18s
-   → the concept lands wired to its REAL WordNet parent, VERIFIED
-Extractors mint statements fast → unwatched output arrives UNVERIFIED
-   → unverified statements DRIFT into nonsense
-   → drift stalls recovery (Reasoners run at fidelity²)
-   → SUPERVISION is the brake: a slot pointed at an agent makes its output
-     arrive already checked, at a 0.55× rate penalty
+WALK a lane to a concept you do not hold  → +1 Word, costs Solid
+   → Words raise the ceiling on what your machines may produce
+Machines produce, capped by that ceiling
+   → WATCHED (0.55×): everything arrives SOLID
+   → LOOSE   (1.0×):  everything arrives RAW
+RAW rots into ROT, which only a Retrain clears
+   → CHECK by hand, or buy Checkers, to turn Raw into Solid first
+SOLID is the only thing you spend: on the next step, or on a machine
 ```
 
-- **You cannot lose. You plateau.** Soft rot; nothing is ever deleted.
-- **Prestige inherits your own machine output**, unverified, and each generation
-  rots faster (`syntheticShare`).
-- **Nothing rots while you're away.** Absence *banks* work (`pending` +
-  `pendingClean` → `absorb`); you come back to a job, never to damage. Banking
-  respects the supervision split you left set.
-- **HITL is never mandatory.** Manual review is acceptance sampling (one item
-  stands for ~2% of the pool); supervision automates it, worse, forever.
+    factsPerSecond = min(0.4 × factMachines, 0.15 × Words)
+    stepCost       = 0 if you already hold the concept,
+                     else ceil(6 × 1.04^stepsThisRun)
 
-### ⚠️ The one claim that is NOT true yet
+**The join IS the game.** You cannot extract relations about entities you do not
+hold, so walking the story is the only income upgrade there is. An idle-only
+player flatlines in about ten minutes and the HUD is meant to say why, in words:
+*"your 30 Extractors could make 12.0/s — your vocabulary supports 4.5/s"*
+(`bottleneck()`). Without the join, the story and the idle loop are two games
+sharing a screen.
 
-VISION says the stated goal is **unreachable by construction**. It is not.
-Coverage is a monotone **ratchet**: a concept counts as recovered forever once
-its node exists, so the dominant strategy is to sprint clean while agents are
-few and win the race. See §5.1 — this is the top open design problem and the
-owner has already named its cause.
+- **You cannot lose. You plateau.** The wall is the exponential step price
+  against a linear vocabulary cap; you can see it coming for an hour.
+- **Nothing rots while you are away.** Absence *banks* work at exactly the
+  watched/loose split you left set, Checkers included (`src/core/offline.ts`,
+  8h cap). You come back to a job, never to damage.
+- **HITL is never mandatory.** `check` is a no-cooldown tap worth a fixed 5 Raw;
+  a fixed amount per tap loses to exponential production by construction, which
+  is "review is the only brake and it is slow" with no clock in it. Checkers buy
+  it out, worse per Solid.
+- **Retrain** (prestige) keeps your concepts, resets `stepsThisRun` so every
+  place you walked is free again, inherits 25% of what your machines minted as
+  Raw, and raises `syntheticShare` — so each generation starts richer and rots
+  faster. Gate: `RETRAIN_MIN_WORDS = 120`.
 
-## 2b. The economy is ATTENTION. There is no currency.
+### ⚠️ The claim that is NOT true
 
-Datums were deleted at v9. Attention is **capacity you allocate**, never a
-wallet you drain:
+VISION says the stated goal is **unreachable by construction**. It is not, and
+this rewrite did not make it so. REDRIFT was the old mechanism and the spec
+deleted it, so **Rot is a sink and a scoreboard, not a multiplier**. A
+generation is worse than the last only in that Raw rots faster. Re-deriving the
+collapse curve from the new design is a separate, unstarted item — do not repeat
+the claim as fact until a measurement says otherwise.
 
-| | |
-|---|---|
-| **Capacity** | `4 + floor(4.5 × log10(1 + lifetimeVerified))` — earned by verifying, not bought |
-| **Booked** | Discover ties up 1 slot for 18s; committing a review ties up 1 for 25s |
-| **Reserved** | 1 slot per supervised agent, held as long as you watch it |
-| **Free** | cap − reserved − booked |
+Also open: `requires.rels` on 176 story choices is **unenforced** —
+`starmap.laneFor` gates on `requires.concepts` only.
 
-Agents are bought with **verified statements** — you distil the next one out of
-the graph you already trust, so a graph you let rot cannot build another agent.
-Prices come from the content table (`agentBase` / `agentRatio`), not the engine.
+## 2b. There is ONE currency and it is Solid
 
-## 2c. The UI is DOM. The canvas draws lines.
+No capital, no selling, no buyers, no tokens, no Datums, no attention. Every
+price — a step of the story, a machine — is in Solid, which is what makes "walk
+further or build wider" a real question.
 
-This is the reverse of what this section said an hour ago, and the reversal is
-the single most useful thing on this page.
+| machine | rate | cost | note |
+|---|---|---|---|
+| **Extractor** | 0.4 facts/s | 20 × 1.15ⁿ | the volume machine; carries the toggle |
+| **Reasoner** | 2.2 facts/s | 320 × 1.18ⁿ | always Solid — what already follows needs no checking |
+| **Checker** | 0.25 Raw→Solid/s | 45 × 1.16ⁿ | makes nothing; excluded from the join, or it would raise a ceiling on production it does not perform |
 
-- **`src/ui/App.svelte`** is the whole interface: counters, buttons, machines,
-  the supervision dial, the review desk, vignettes, the save menu, concept
-  labels, and a `<button>` at the midpoint of every dotted line. Flex column —
-  header / stage / dock.
-- **`src/render/paint.ts`** draws ONLY lines, the drifting substrate and the
-  provenance ring, into a canvas that fills the stage.
-- **`src/render/sim.ts`** wraps **d3-force** — the graph's physics. Free-floating
-  layout, drag support, reheats when a concept lands, stops when settled.
-  Tuned in its own ~300-unit space and normalised out (`test/sim.test.ts`).
-- **`src/render/detail.ts`** decides whether you can SEE a concept: weight from
-  taxonomic generality, a per-zoom budget, roll-up counts, and greedy
-  screen-space label decluttering. Pure (`test/detail.test.ts`).
-- **`src/render/board.ts`** is pure geometry and holds **the camera** —
-  `cameraFor` (box + zoom + pan), `toScreen`/`toWorld`, `frontierPos`,
-  `isRotted`, `stageHue`, `relHue`. No DOM, no state. Everything with a place on
-  the board is authored in world units and converted here and nowhere else; if
-  you find yourself writing `w / 2` in another file, that is the bug returning
-  (technical vision item 5).
+A run opens with **1 Extractor, 18 Solid, watched**. Both exist to close a
+softlock: Words start at 0, so production starts at 0.
+
+## 2c. The UI is DOM. The canvas draws the graph's lines.
+
+- **`src/ui/App.svelte`** is the whole interface — and is the pre-rewrite file
+  (see §0). What it must become is in `NEXT.md` item 3: Words, one **stacked
+  bar** for Solid/Raw/Rot, a card per machine with its toggle, and Walk / Check
+  / Buy / Retrain.
+- **The HUD is not absent, it is UNLEARNED.** A readout is a word plus a number,
+  and a word you cannot read is not a readout — so each appears only once its
+  noun has been learned (`src/core/literacy.ts`, `LEARN_AT = 3`, exposure
+  derived from the beats at the concepts you hold). The interface assembles
+  itself as the player becomes literate. **Do not reintroduce English chrome.**
+- **`src/render/paint.ts`** draws lines, the drifting substrate, and the
+  Solid/Raw/Rot **stacked ring** — one object, not three.
+- **`src/render/sim.ts`** wraps **d3-force**; **`src/render/detail.ts`** decides
+  what is visible at a zoom; **`src/render/board.ts`** is pure geometry and holds
+  **the camera**. Everything with a place on the board is authored in world units
+  and converted there and nowhere else; a `w / 2` in another file is that bug
+  returning.
 - **Nothing is `position: fixed`.** A fixed element anchors to the layout
-  viewport, so a zoomed page becomes a magnified crop with nothing to pan — that
-  is what trapped the owner inside the game with no controls and no way out.
-- **Do not reimplement the browser.** There used to be a `layout()` →
-  `SceneItem[]` pipeline, a `hit()` tap-tester, a `render/labels.ts` collision
-  solver and hand-painted modals. All deleted, −809 lines. Every zoom bug this
-  project had came from that one choice. See ARCHITECTURE's technical vision,
-  rule 3.
-
-**The economy is ATTENTION.** Capacity you allocate, never a wallet:
-`4 + floor(4.5 × log10(1 + lifetimeVerified))` slots.
-
-| verb | cost | effect |
-|---|---|---|
-| **Discover** | 1 slot, 18s | a concept lands **DARK**. No statement, no coverage. |
-| **Connect** | 1 slot, 7s | fills a dotted line → +1 statement, +1 lifetimeVerified, lights both ends |
-| **Review** | 1 slot, 25s | acceptance sampling over the statement pool |
-| **Supervise** | 1 slot, standing | that agent's statements arrive checked, at 0.55× rate |
-
-**A concept counts as recovered only while a line supports it.** Unchecked lines
-rot back to dotted and their endpoints go dark, so coverage can FALL. Agent-drawn
-lines are always unchecked and always `fake` — a machine cannot know which pairs
-are real, because the dataset lives in the shell.
+  viewport, so a zoomed page becomes a magnified crop with no way out — that is
+  what once trapped the owner inside the game.
+- **Do not reimplement the browser.** A `layout()` → `SceneItem[]` pipeline, a
+  hit-tester, a label-collision solver and hand-painted modals were all deleted,
+  −809 lines. Every zoom bug this project had came from that one choice.
 
 ## 3. State of the code
 
-- **Save v10.** Migration chain v1→v10 tested. Additive only, always.
-  v9→v10 added `pendingClean` (supervised work banked while away).
-- **73 tests green**, `svelte-check` clean, `vite build` clean.
-- `src/core/` is pure and knows only integers. CI greps for it.
-- Key files:
-  - `src/core/engine.ts` — the whole loop, one reducer, heavily commented
-  - `src/core/types.ts` — the state contract
-  - `src/core/save.ts` — the migration chain
-  - `src/render/board.ts` / `paint.ts` / `labels.ts` — the entire skin
-  - `src/shell/ontology.ts` — chunk loader, id→concept, `corrupt()`
-  - `src/content/vignettes.ts` — CYOA data, **prose empty on purpose**
-  - `scripts/build-ontology.mjs` — the dataset pipeline
+**Save v16, twelve fields** (it was thirty-five):
 
-**Boundary rule:** `src/core/` must never import `src/shell/`. When the engine
-needs a fact about the dataset — e.g. a concept's real parent — the **shell
-looks it up and passes it in as a plain integer** (see the `discover` action).
+```
+version · lastTick · solid · raw · rot · held[] · stepsThisRun
+machines{extractor,reasoner,checker} · watched{extractor,reasoner}
+generation · syntheticShare · minted
+```
+
+- **Words is DERIVED** from `held` minus the seed (`literacy.bound()`), never
+  stored — so the board, the income cap, the story position and the readout
+  cannot disagree.
+- **All 15 migrations are gone.** `deserialize` returns
+  `{ state, reset, notice }`: a save that is not v16 is rebuilt as a fresh run,
+  keeping its concepts, and the player is told. `version` stays on every save so
+  the code can *tell* which format it holds. Export/import is the same base64
+  blob and must keep working — it is how the owner moves a save between devices.
+  Storage is **IndexedDB** (`src/shell/storage.ts`); localStorage is
+  iOS-evictable.
+- **`src/core/` is pure** — no DOM, no `Date.now`, no `Math.random`, no fetch.
+  `npm run check:core` greps for it. `src/core/rng.ts` is deleted: nothing in the
+  engine draws randomness any more.
+- **`src/core/` must never import `src/shell/`.** When the engine needs a fact
+  about the dataset, the shell looks it up and passes a plain integer.
+
+Key files:
+
+| file | ~lines | what |
+|---|---|---|
+| `src/core/engine.ts` | 393 | the whole loop, one reducer, heavily commented |
+| `src/core/types.ts` | 219 | the state contract — **the real source of record** |
+| `src/core/save.ts` | 160 | serialize / deserialize / reset notice |
+| `src/core/readouts.ts` | 89 | every player-facing number, with its noun and a ≤5-word `explain` |
+| `src/core/starmap.ts` | 130 | lanes: solid / dotted / locked, derived from the story graph |
+| `src/core/literacy.ts` | 87 | which words the player can read yet |
+| `src/core/masking.ts` | 142 | rendering a beat with unlearned words masked |
+| `src/core/offline.ts` | 69 | away banking, closed-form and exact |
+| `src/content/machines.ts` | 57 | the three machines — tune balance HERE, never in the engine |
+| `src/shell/game.ts` | 127 | the one store, the 10 Hz loop, autosave, resume |
+| `src/shell/ticker.ts` | 132 | the drip; reads `READOUTS`, never state |
+| `src/shell/ontology.ts` | 314 | chunk loader, id→concept |
+
+**Four verbs, plus the clock and the toggle:** `walk`, `check`, `buy`,
+`retrain`, `tick`, `setWatched`. Everything else — discover, extract, connect,
+claimNode, growContext, survey, absorb, refine, sell, manualConnect,
+chooseOption, setSupervision, reflect — is gone, not stubbed.
+
+## 3b. The guards, and which one is honest
+
+- `npm run check:core` — purity. Real.
+- `npm run check:story` — 446 beats, 591 gated choices, every beat has an exit,
+  every gate key teachable. Real.
+- `npm run check:vocab` — **was vacuous twice over** and is now the real rule: it
+  forbids a surface reading a quantity off state, and requires every declared
+  readout to be referenced by `src/ui/`. It fails today, correctly (§0).
+- `npm run play` — the play probe. **The only evidence that counts for anything
+  player-facing**, and it cannot run right now.
+
+**Rule 4 is not optional here.** Every guard in this repo has been vacuous at
+least once. Break the code on purpose, watch the check fail, put it back.
 
 ## 4. The dataset
 
@@ -131,73 +198,68 @@ one concept per word form, offensive senses excluded. 348 KB. Pinned to Open
 English WordNet `2025-edition`, commit `dc343f26`; the generator *verifies* the
 cache is at that commit before reading it.
 
-Its job is **ground truth so drift is legible** — you can only watch a definition
-rot because a correct one exists to rot away from. It is the lab bench, not the
-curriculum. Do not grow it because more is available.
+- **`READABLE_CONCEPTS = 4075`** — concepts a player could ever arrive at,
+  walking lanes from the seed and respecting every gate. Measured, not assumed;
+  it is the denominator under `Words N / M`, the only fraction in the game.
+  `test/reachability.test.ts` fails first if the story graph is re-cut.
+- **The seed is five concepts** — system, agent, language, information, power —
+  **visible, not readable**. They are held from the first frame but do not count
+  as Words until the player arrives at one from somewhere else.
+- **The story graph** (`public/story/`, built by `scripts/build-story.mjs`) is
+  446 beats and 591 gated choices — 415 gated on concepts, **176 on relations,
+  which nothing enforces** — of which 50 carry bespoke prose; the rest render
+  from carrier sentences in `docs/graph/frames.json`.
+
+Its job is **ground truth so drift is legible** — you can only watch a
+definition rot because a correct one exists to rot away from. It is the lab
+bench, not the curriculum. Do not grow it because more is available.
 
 ⚠️ The recovery order is **save-visible**: node id N means concept index N.
 Changing the edition or the selection renumbers the owner's world.
 
 ## 5. What is NOT done, in priority order
 
-### 5.1 ✅ SOLVED — edges carry data (save v11)
+`docs/NEXT.md` is the queue and outranks this list. In short:
 
-This section used to describe the top open problem: edges were bare `[a,b]`
-pairs, coverage was a monotone ratchet, and the stated goal was reachable by
-tapping Discover for 2h34m. **That shipped.** An edge is now
-`{a, b, rel, checked, fake}`, coverage counts lit concepts, and unchecked lines
-rot back to dotted.
-
-What is still open is the *density*: 123 non-is-a lines across 4,096 concepts,
-of which only ~74 are reachable inside a 240-anchor window. The fix is to
-**re-slice the dataset for edge density** — see BACKLOG. Target ≈2,500 global
-non-is-a edges; ConceptNet's measured 547 at the current slice is ~5× short, so
-do the re-slice before building that pipeline.
-
-### 5.2 Everything else
-
-1. **★ Prose. The game has almost no words, deliberately.** Vignette title/body/
-   choices are empty strings rendering `⟨owner⟩` slots. **An agent must never
-   fill these in** — a test asserts they're empty. Also: `Ingestion Pipeline™`
-   is pre-pivot startup satire sitting on a machine in a game about knowledge
-   rotting, and the ticker lines in `docs/TICKER_LINES.md` are still unwritten.
-2. **Balance is a first pass.** The measured gap between an attentive and an
-   idle player is real but the ceiling isn't where VISION says it is (see 5.1).
-   Chad should price it once the edge redesign is decided — tuning before then
-   is fitting numbers to a model that's about to change.
-3. One vignette is not a branching narrative. Needs forks that matter later.
-   Vignette #1 also fires at ~3 min when its `auto-review ×1.6` reward is ×1.6
-   of zero.
-4. `corrupt()` in `src/shell/ontology.ts` is still unused — rot is visible as
-   colour on nodes and lines, but no gloss is ever shown decaying.
-5. The review desk shows a concept + gloss under the word "statement" — but a
-   statement is a triple, not a dictionary entry (prof-veritas). Now that the
-   real parent is wired, rendering `dog is-a canine` would fix the mis-teaching.
-6. Theory debts from prof-veritas — SIMPLIFICATIONS rows and glossary entries
-   (SKOS, `skos:Collection`, assertion, ontology learning, human-on-the-loop);
-   "late collapse" should read "early collapse" in GAME_DESIGN.
-7. `aiAgent` declares `produces: 'triples'` but nothing reads it; the `produces`
-   field is decorative and actively misleading.
+1. **The screen** (NEXT item 3) — see §0. Everything else is blocked on it for
+   evidence.
+2. **Node memory** (NEXT item 1) — `docs/MEMORY.md`. Trust the memory or walk it
+   again; speed versus truth in the story layer.
+3. **Cut the junk** (NEXT item 2) — `jimdandy`, `instalike`, `must-see` and
+   friends are WordNet slang filed under `noun.artifact`.
+4. **`requires.rels` is unenforced** — 176 choices declare relation gates that
+   nothing checks.
+5. **"Unreachable by construction" has no mechanism** — see §2.
+6. **Prose.** `OWNER_LINES` in `src/shell/ticker.ts` is empty and the triggers
+   waiting for a line are in `docs/TICKER_LINES.md`. Prose is now
+   machine-drafted and **owner-edited** (`CLAUDE.md`, reversed 2026-07-27): draft
+   it, but the bar is a line the owner would defend.
+7. **Balance is one headless pass**, not a played one. Measured on the greedy
+   walker: 65 Words / 2.2 facts/s at 1h, first Retrain around 2h15m; 30 minutes
+   loose-and-tapping buys 58% more Words for 9.3 permanently lost facts.
 
 ## 6. How to work here
 
-- **Chips for decisions** (`AskUserQuestion`) — the owner is on a phone.
-- **Run the review agents before shipping** — they materially changed this
-  design twice. `chad-liquidity` (fun/economy), `the-graph` (consistency/code),
-  `prof-veritas` (theory), `the-auditor` (licences/safety), `the-redditor`
-  (genre). Note: the-redditor grades for a public launch, which per VISION this
-  is **not** — weight accordingly, but its safety/credibility points still land.
-- **Simulate before believing.** The economy was rewritten twice off the back of
-  a headless sim that took minutes and disproved what the code "obviously" did.
+- **WIP = 1.** One item from `NEXT.md` per session. A defect you find goes to
+  the bottom of `BACKLOG.md` as one line, not into today.
+- **Chips for decisions** (`AskUserQuestion`) — the owner is on a phone, and
+  replies are capped at 150 words.
 - **Look at the screen.** Several defects survived a full review round and were
-  only caught by taking a screenshot in a headless browser and *reading it*.
-- **Verify before claiming.** Rounds of confident, false statements got into
-  this repo because nobody checked them against the shipped data. `npm test`
-  piped to `tail` hides the pass/fail summary — grep for `Test Files|Tests |FAIL`.
+  caught only by taking a screenshot and *reading it*.
+- **Simulate before believing.** The economy has been rewritten off the back of
+  a headless sim that took minutes and disproved what the code "obviously" did.
+- **Verify before claiming.** `npm test` piped to `tail` hides the summary —
+  grep for `Test Files|Tests |FAIL`.
+- **Review agents** (`.claude/agents/`) exist and materially changed this design
+  twice — but **one round per item**, and only findings that affect correctness
+  or the stated requirement.
 
 ## 7. Deploy
 
-Develop on `claude/knowledge-recovery-ontology-game-g0f9q0`. Deploy by
-fast-forwarding `claude/incremental-game-github-pages-w7pvk6` onto it and
-pushing — the Pages Action watches that branch.
+Deploy by fast-forwarding **`claude/incremental-game-github-pages-w7pvk6`** onto
+the development branch and pushing — the Pages Action is pinned to that branch
+and publishes from nowhere else. Other branches get CI and skip the publish.
 Live at <https://ficfic.github.io/incrgame/>.
+
+Development has moved between branches more than once; `git branch -a` and
+`git log --oneline origin/<branch>` are the handoff, never a note file.

@@ -9,10 +9,10 @@
 //              them.
 //
 // ⚠️ EXPOSURE IS DERIVED, NOT STORED. Where you have been is already in
-// `forged.anchors`, and a beat is a place — so the set of beats you have read
-// is exactly the beats at your anchors, and counting words across them needs no
-// save field and cannot desynchronise from the board. A stored counter would be
-// a second source of truth for a fact the save already holds.
+// `state.held`, and a beat is a place — so the set of beats you have read
+// is exactly the beats at the concepts you hold, and counting words across them
+// needs no save field and cannot desynchronise from the board. A stored counter
+// would be a second source of truth for a fact the save already holds.
 import type { GameState } from './types';
 import { STORY } from '../content/story';
 import { LANGUAGE } from '../content/language';
@@ -35,7 +35,7 @@ function carrierWords(text: string): string[] {
 }
 
 /** How often each carrier word has appeared in the beats the player has stood
- *  in. Computed over held anchors, so it grows exactly as they travel. */
+ *  in. Computed over the concepts held, so it grows exactly as they travel. */
 export function exposure(state: GameState): Map<string, number> {
   // ⚠️ THE SEED DOES NOT COUNT. The player wakes holding five concepts, and
   // "VISIBLE, NOT READABLE" is the whole opening — the nodes are on screen, the
@@ -62,10 +62,10 @@ export function exposure(state: GameState): Map<string, number> {
  *
  *  The seed is held and not bound. A seed word becomes readable by arriving at
  *  its concept from somewhere else — the cross-link labyrinth loops back — which
- *  is why this is anchors MINUS the seed rather than a stored flag. */
+ *  is why this is `held` MINUS the seed rather than a stored flag. */
 export function bound(state: GameState): number[] {
   const seed = new Set(SEED_NODES);
-  return state.forged.anchors.filter((id) => !seed.has(id));
+  return state.held.filter((id) => !seed.has(id));
 }
 
 /** The carrier words the player can now read. */

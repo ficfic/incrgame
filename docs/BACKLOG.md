@@ -157,9 +157,17 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
       banked statements instead of a currency that no longer exists; label
       placement is capped at 32 candidates (it was ~230k rectangle tests/frame).
 
-## ⛔ PROGRESSION IS BEING REPLACED (owner, 2026-07-26)
+## ✅ CLOSED 2026-07-28 — progression WAS replaced
 
-**The replacement now has a shape: `docs/ECONOMY.md` — the refinement ladder.**
+**It shipped as `SOLID · RAW · ROT`** (`docs/ECONOMY_SRR.md`, BUILT): four
+quantities, three machines, four verbs, and the lane join
+`min(0.4 × machines, 0.15 × Words)` that makes walking the story the only income
+upgrade. Everything below is the record of the two shapes proposed and discarded
+on the way — the refinement ladder and then the three-verb model — kept because
+both were reasoned about at length and a future session will otherwise re-derive
+them. **The ladder is deleted from the code and `docs/ECONOMY.md` with it.**
+
+*Superseded proposal, 2026-07-26: `docs/ECONOMY.md` — the refinement ladder.*
 Tokens are the bottom rung (raw salvaged text), five lossy rungs
 up to a trained checkpoint, and the AI automates the rung it was trained on so
 automation always arrives with rot attached. Tail loss is rendered rather than
@@ -470,6 +478,20 @@ inherit them by assumption.
 
 ## Engine bug hunt, 2026-07-27 — 22 findings from 6 blind lenses + 3 skeptics each
 
+> **⚠️ MOSTLY VOID (checked 2026-07-28).** These were filed against a 1,528-line
+> `engine.ts` and a 35-field save. The `SOLID · RAW · ROT` rewrite cut the engine
+> to 393 lines and the save to 12 fields, so **every line number below points at
+> code that no longer exists** and most of the findings name deleted fields
+> (`review`, `bookings`, `forged.edges`, `lineRot`, `provenance.unverified`,
+> `ANCHOR_CAP`, `attentionPenalty`, `saveVersion`).
+>
+> Re-verify before acting on any of them. The four that plausibly survive, all
+> still on real files: the two `game.ts` items (a backward clock stalls the loop;
+> a failed load is overwritten by the autosave within 10s), `numbers.ts:38`
+> (`1000.0K` instead of rolling a suffix), and the four `check-core-purity.mjs`
+> items — a purity gate that does not recurse and blanks itself on a quote is the
+> exact "vacuous check" this repo keeps rediscovering (CLAUDE.md rule 4).
+
 The aliasing bug (`engine.ts:1008`, apply() mutating its caller) is FIXED —
 see `test/purity.test.ts`. Everything below was raised by the same audit and
 is NOT yet triaged; each carries the lens's own severity, not mine.
@@ -501,6 +523,12 @@ is NOT yet triaged; each carries the lens's own severity, not mine.
 
 ## Measured 2026-07-27 — most of the story is unreachable, and `check:story` does not notice
 
+> **⚠️ RE-MEASURE (2026-07-28).** The story graph was re-cut after this was
+> written (`c723ec5`, `2024b6f`). `test/reachability.test.ts` now measures
+> **4,080 of 4,096 concepts reachable from the seed through gated lanes**, and
+> `npm run check:story` reports 446 beats with an exit each. The table below is
+> the record of why the re-cut happened, not the current state.
+
 Walking every choice from the seed, breadth-first over `story.json`:
 
 | from | beat nodes reachable |
@@ -515,5 +543,5 @@ checks that every beat has an exit and that every gate key is teachable — neve
 that a beat is reachable from where the player starts.
 
 - [ ] **Owner:** the seed change cut the reachable world from 231 nodes to 62. Was that intended, or do the seed concepts need lanes that reconnect them?
-- [ ] **Owner:** `REFLECT_MIN_CONCEPTS = 820` is unreachable by a factor of ~13 even from `entity`, and ~24 from the seed. Prestige cannot currently be reached at all. Pick a number against the 62.
+- [x] ~~**Owner:** `REFLECT_MIN_CONCEPTS = 820` is unreachable.~~ **DONE 2026-07-28.** Replaced by `RETRAIN_MIN_WORDS = 120`, asserted reachable by `test/reachability.test.ts` against 4,075 readable concepts.
 - [ ] Add reachability-from-seed to `check:story`. NOT done unilaterally: it would fail today and block every deploy until the content reconnects, which is the owner's call, not a gate I get to impose retroactively.

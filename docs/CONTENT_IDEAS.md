@@ -5,6 +5,13 @@
 > session does not re-propose it and re-learn the same objection.
 >
 > Ranked by (reach × how hard it would be to fake).
+>
+> **⚠️ 2026-07-28: the economy under these proposals changed.** Anything below
+> that names a rung, a checkpoint, fidelity, coverage, attention, the review
+> desk, `foldedNodes` or Salvage is costing against a mechanic that no longer
+> exists (`docs/ECONOMY_SRR.md`, BUILT). The IDEAS mostly survive the change —
+> the estimates do not. Re-cost against `Words / Solid / Raw / Rot` before
+> pulling one of these into a session.
 
 ---
 

@@ -1,12 +1,17 @@
 # Content — the beat sheet
 
-> Companion to `docs/ECONOMY.md`. That document says **each checkpoint is a
-> chapter**; this one says exactly where every sentence goes, what fires it, and
-> in what order it is worth the owner's writing hours.
+> ## ⚠️ WRITTEN AGAINST AN ECONOMY THAT NO LONGER EXISTS (flagged 2026-07-28)
+> This was the companion to `docs/ECONOMY.md`, deleted with the refinement
+> ladder on 2026-07-28 (`docs/ECONOMY_SRR.md`). Every trigger below that names a
+> rung, a checkpoint, the review desk or Salvage **cannot fire** — the mechanic
+> is gone. The beat-sheet METHOD is still good and that is why the file is kept:
+> trigger id, what fires it, reach, word budget, ordered by writing hours.
+> Re-derive the trigger list from the four verbs (`walk`, `check`, `buy`,
+> `retrain`) before writing a line against it.
 >
-> **★ Every sentence a player reads is owner-written.** This file contains
-> trigger ids, effects, reach estimates and word budgets — data. It contains no
-> player-facing prose and must never contain any.
+> **★ Prose is machine-drafted and owner-edited** (`CLAUDE.md`, reversed
+> 2026-07-27). This file still contains no player-facing prose — trigger ids,
+> effects, reach estimates and word budgets only.
 
 ---
 
@@ -82,7 +87,7 @@ rule-rewriting milestone, never an interruption and never a gate.
 | `chapter:curate` | Curation automates | the model chooses its own training set | ≤60 |
 | `chapter:train` | Training automates *(if allowed — open question 2)* | it trains itself | ≤60 |
 
-**Ordering is not fixed.** ECONOMY.md requires that rungs be automatable in
+**Ordering is not fixed.** The deleted `ECONOMY.md` required that rungs be automatable in
 different orders, so each beat must read standalone — no beat may assume another
 has fired. Write them as five independent moments, not a sequence.
 
@@ -114,8 +119,9 @@ structural zero.
 ## Reachability rules — non-negotiable
 
 1. **Every beat's trigger must be reachable by the dominant strategy.** If the
-   optimal player never sees it, it does not exist. Check this against
-   `scripts/sim-economy.mjs` before writing a word.
+   optimal player never sees it, it does not exist. Check this by simulating
+   before writing a word. *(`scripts/sim-economy.mjs` was deleted with the old
+   economy on 2026-07-28; whoever needs this next writes the new one.)*
 2. **No beat may trigger on a state the UI warns against.** The HUD paints
    unwatched agents red; a beat gated on that is the game arguing with itself.
 3. **No beat may fire on a mechanic that cannot happen.** Three ticker rows

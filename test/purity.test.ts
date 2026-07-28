@@ -1,143 +1,141 @@
 // apply(state, action) => state IS A FUNCTION OF ITS ARGUMENTS.
 //
-// It was not. Found by an adversarial audit (6 blind lenses, 3 independent
-// skeptics per finding, 2026-07-27); all three skeptics confirmed it by
-// EXECUTION rather than by reading, and one reproduced it from a plain action
-// sequence starting at `initialState`.
+// It was not, and the way it failed is worth keeping written down because the
+// class of bug survives a rewrite even when the code does not. `tick` aliased
+// `resources` to `state.resources` and copy-on-wrote it with
+// `resources = touched ? resources : { ...resources }` — but `touched` meant
+// "something changed", not "resources were copied". Four branches set it true
+// without copying, so once any of them fired the next write went straight into
+// the CALLER'S object: input balances rewrote themselves, and calling apply
+// twice with the same arguments returned different answers.
 //
-// THE BUG. `tick` aliased `resources` to `state.resources` and copy-on-wrote it
-// with `resources = touched ? resources : { ...resources }`. But `touched` meant
-// "something changed", not "resources were copied", and four branches set it
-// true without copying anything — line decay, agent-drawn lines, folded
-// concepts, and confirming an existing edge. Once any of those fired first, the
-// guard saw `touched === true`, skipped the copy, and the next
-// `resources.triples = ...` wrote straight into the CALLER'S object.
-//
-// Consequences, all measured before the fix:
-//   · the input state's balances silently rewrote themselves
-//   · `next.resources === state.resources`
-//   · calling apply twice with the same arguments returned different answers
-//
-// WHY 210 TESTS MISSED IT. `test/engine.test.ts` has one purity assertion, and
-// it ticks `initialState()` — where `lastTick` is 0, `edges` is empty, every
-// generator is 0 and there are no bookings, so not one of the four branches can
-// fire. A textbook vacuous guard, and the reason this file tests the states
-// where the reducer actually does work.
+// WHY 210 TESTS MISSED IT. The suite's only purity assertion ticked
+// `initialState()`, where every branch that could mutate was unreachable. A
+// textbook vacuous guard. So this file drives every action from a state where
+// the reducer actually does work, and asserts on the WHOLE state rather than on
+// one field — the new economy has three sibling Decimals and one array, and an
+// array is the easiest thing in the file to push into by accident.
 import { describe, expect, it } from 'vitest';
-import { apply, EXTRACT_MS, initialState } from '../src/core/engine';
-import type { GameState } from '../src/core/types';
+import { apply, initialState, RETRAIN_MIN_WORDS } from '../src/core/engine';
+import { lanes } from '../src/core/starmap';
+import { SEED_NODES } from '../src/content/seed';
+import type { Action, GameState } from '../src/core/types';
 
-/** A deep snapshot to compare against. `apply` must leave its input identical. */
-const snap = (s: GameState) => JSON.stringify(s);
+const snap = (s: GameState): string => JSON.stringify(s);
 
-/** Assert the reducer changed nothing about its input.
+/** Assert the reducer changed nothing about its input, and shared no object it
+ *  then wrote through.
  *
- *  The identity check is CONDITIONAL, and the condition is the whole point:
- *  sharing `resources` between two states is correct and cheap when nothing
- *  wrote to it — structural sharing is why this engine is fast. What must never
- *  happen is a WRITE through a shared reference. So the rule is exactly:
- *  if the values differ, the objects must differ too. An unconditional
- *  `not.toBe` fails on an idle tick and would have to be deleted, taking the
- *  real assertion with it. */
-const mustNotMutate = (s: GameState, action: Parameters<typeof apply>[1]) => {
+ *  The identity checks are CONDITIONAL, and the condition is the point:
+ *  structural sharing is correct and cheap when nothing wrote. What must never
+ *  happen is a WRITE through a shared reference. An unconditional `not.toBe`
+ *  fails on an idle tick and would have to be deleted, taking the real
+ *  assertion with it. */
+function mustNotMutate(s: GameState, action: Action): GameState {
   const before = snap(s);
   const next = apply(s, action);
   expect(snap(s), 'apply() mutated its input state').toBe(before);
-  const changed = JSON.stringify(next.resources) !== JSON.stringify(s.resources);
-  if (changed) {
-    expect(next.resources, 'resources changed value while sharing the input object')
-      .not.toBe(s.resources);
+  if (JSON.stringify(next.held) !== JSON.stringify(s.held)) {
+    expect(next.held, '`held` changed value while sharing the input array').not.toBe(s.held);
+  }
+  if (JSON.stringify(next.machines) !== JSON.stringify(s.machines)) {
+    expect(next.machines, '`machines` changed value while sharing the input object')
+      .not.toBe(s.machines);
+  }
+  if (JSON.stringify(next.watched) !== JSON.stringify(s.watched)) {
+    expect(next.watched, '`watched` changed value while sharing the input object')
+      .not.toBe(s.watched);
   }
   return next;
-};
+}
 
-describe('tick does not write through to the state it was given', () => {
-  it('when a rotted line expires — the decay path', () => {
-    // The exact state from the audit: no machines, one unchecked edge, and a
-    // rot rate that retires it on the first tick.
-    const base = initialState(1);
-    const s: GameState = {
-      ...base, lastTick: 1000, lineRot: 0.9999,
-      resources: { ...base.resources, triples: '5' },
-      provenance: { ...base.provenance, unverified: '5' },
-      forged: {
-        ...base.forged, anchors: [0, 1], nextId: 2,
-        edges: [{ a: 0, b: 1, rel: 0, checked: false, fake: false }],
-      },
-    };
-    mustNotMutate(s, { type: 'tick', dt: 0.1, now: 1100 });
-  });
-
-  it('when a booking lands in the same tick as another change', () => {
-    // The second measured path: a landing extract plus a machine that credits
-    // folded concepts. Neither copies `resources` before the booking does.
-    const base = initialState(1);
-    const s: GameState = {
-      ...base, lastTick: 1000,
-      generators: { ...base.generators, reasoner: 1 },
-      resources: { ...base.resources, triples: '10' },
-      forged: { ...base.forged, anchors: [0, 1, 2], nextId: 3 },
-      bookings: [{
-        kind: 'extract', until: 1050,
-        edges: [{ a: 1, b: 0, rel: 0, checked: false, fake: false }],
-      }],
-    };
-    mustNotMutate(s, { type: 'tick', dt: 0.1, now: 1000 + EXTRACT_MS + 500 });
-  });
-
-  it('when an unwatched machine draws lines of its own', () => {
-    const base = initialState(1);
-    const s: GameState = {
-      ...base, lastTick: 1000, supervised: 0,
-      generators: { ...base.generators, extractor: 3 },
-      resources: { ...base.resources, triples: '100' },
-      provenance: { ...base.provenance, unverified: '40' },
-      forged: { ...base.forged, anchors: [0, 1, 2, 3], nextId: 4 },
-    };
-    mustNotMutate(s, { type: 'tick', dt: 1, now: 2000 });
-  });
+/** A live mid-run state: machines running, Raw on the pile, Words banked. */
+const busy = (over: Partial<GameState> = {}): GameState => ({
+  ...initialState(),
+  lastTick: 1_700_000_000_000,
+  held: [...SEED_NODES, ...Array.from({ length: 60 }, (_, i) => 4095 - i)],
+  solid: '5000',
+  raw: '900',
+  rot: '40',
+  minted: '12000',
+  stepsThisRun: 60,
+  machines: { extractor: 12, reasoner: 2, checker: 3 },
+  ...over,
 });
 
-describe('apply() is a FUNCTION — same input, same answer, every time', () => {
-  it('returns the identical result when called twice on one state', () => {
-    // ⚠️ THE SHARPEST SYMPTOM. With the aliasing bug, the second call decremented
-    // the object the FIRST call had already returned, so a result computed as
-    // '4' later read '3' without anyone touching it.
-    const base = initialState(1);
-    const s: GameState = {
-      ...base, lastTick: 1000, lineRot: 0.9999,
-      resources: { ...base.resources, triples: '5' },
-      provenance: { ...base.provenance, unverified: '5' },
-      forged: {
-        ...base.forged, anchors: [0, 1], nextId: 2,
-        edges: [{ a: 0, b: 1, rel: 0, checked: false, fake: false }],
-      },
-    };
-    const first = apply(s, { type: 'tick', dt: 0.1, now: 1100 });
-    const firstTriples = first.resources.triples;
-    const second = apply(s, { type: 'tick', dt: 0.1, now: 1100 });
-    expect(second.resources.triples).toBe(firstTriples);
-    // ...and the first answer must not have moved while the second ran.
-    expect(first.resources.triples).toBe(firstTriples);
-    expect(first.resources).not.toBe(second.resources);
+describe('the reducer never writes through to the state it was given', () => {
+  it('on a tick that produces, checks and rots all at once', () => {
+    const s = busy();
+    const next = mustNotMutate(s, { type: 'tick', dt: 1 });
+    expect(next).not.toBe(s);
+    // ...and it is deterministic: same input, same answer, twice.
+    expect(snap(apply(s, { type: 'tick', dt: 1 }))).toBe(snap(next));
   });
-});
 
-describe('reachable from ordinary play, not only from a hand-built state', () => {
-  it('survives a long run of real actions with its inputs intact', () => {
-    // One skeptic reproduced the mutation from `initialState` via
-    // discover → extract → ticks. This replays that shape and asserts on every
-    // step, so the guard covers the path a player actually takes.
-    let s = { ...initialState(7), lastTick: 1000 };
-    s = mustNotMutate(s, { type: 'tick', dt: 0.1, now: 1100 });
-    s = mustNotMutate(s, { type: 'discover' });
-    s = mustNotMutate(s, { type: 'tick', dt: 0.1, now: s.lastTick + 60_000 });
-    s = mustNotMutate(s, {
-      type: 'extract',
-      candidates: [{ a: 1, b: 0, rel: 0, checked: false, fake: false }],
+  it('on a tick with a loose machine, so Raw grows and decays together', () => {
+    mustNotMutate(busy({ watched: { extractor: false, reasoner: false } }), { type: 'tick', dt: 3 });
+  });
+
+  it('on a walk, which is the one action that appends to an array', () => {
+    const s = busy({ solid: '1e9' });
+    const to = lanes(s).filter((l) => l.state !== 'locked')[0]!.to;
+    const next = mustNotMutate(s, { type: 'walk', to });
+    expect(next.held.length).toBe(s.held.length + 1);
+  });
+
+  it('on a revisit, where nothing may move at all', () => {
+    const s = busy({ solid: '1e9' });
+    const known = s.held[0]!;
+    mustNotMutate(s, { type: 'walk', to: known });
+  });
+
+  it('on a check', () => { mustNotMutate(busy(), { type: 'check' }); });
+
+  it('on a buy, which writes into a record', () => {
+    mustNotMutate(busy(), { type: 'buy', id: 'checker' });
+  });
+
+  it('on the toggle, which writes into another record', () => {
+    mustNotMutate(busy(), { type: 'setWatched', id: 'extractor', watched: false });
+  });
+
+  it('on a retrain, which reuses the input`s concept list', () => {
+    const s = busy({
+      held: [...SEED_NODES, ...Array.from({ length: RETRAIN_MIN_WORDS }, (_, i) => 4095 - i)],
     });
-    for (let i = 0; i < 400; i++) {
-      s = mustNotMutate(s, { type: 'tick', dt: 0.1, now: s.lastTick + 100 });
-    }
+    const next = mustNotMutate(s, { type: 'retrain' });
+    expect(next.held).toEqual(s.held);
+    expect(next.held, 'retrain handed back the caller`s array').not.toBe(s.held);
+  });
+
+  it('on every rejected action, where the SAME object must come back', () => {
+    const broke = busy({ solid: '0', raw: '0' });
+    expect(apply(broke, { type: 'check' })).toBe(broke);
+    expect(apply(broke, { type: 'buy', id: 'reasoner' })).toBe(broke);
+    expect(apply(broke, { type: 'retrain' })).toBe(broke);
+    expect(apply(broke, { type: 'tick', dt: 0 })).toBe(broke);
+  });
+});
+
+describe('core is pure of its environment', () => {
+  it('never reads a clock: `now` comes in on the action', () => {
+    const s = busy();
+    const a = apply(s, { type: 'tick', dt: 1, now: 5_000 });
+    const b = apply(s, { type: 'tick', dt: 1, now: 5_000 });
+    expect(a.lastTick).toBe(5_000);
+    expect(snap(a)).toBe(snap(b));
+  });
+
+  it('produces the same run from the same actions, twice', () => {
+    const run = (): GameState => {
+      let s = busy();
+      for (let i = 0; i < 50; i++) {
+        s = apply(s, { type: 'tick', dt: 0.1, now: s.lastTick + 100 });
+        if (i % 7 === 0) s = apply(s, { type: 'check' });
+        if (i === 20) s = apply(s, { type: 'buy', id: 'extractor' });
+      }
+      return s;
+    };
+    expect(snap(run())).toBe(snap(run()));
   });
 });

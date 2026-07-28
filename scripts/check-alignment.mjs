@@ -34,23 +34,24 @@
 // Re-confirmed after the settle wait was changed to read DISCOVER_MS, because
 // a wait that is too short makes this skip rather than fail — and a skip is
 // the failure mode this file exists to make impossible.
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 
-/** How long a discovery takes, READ FROM THE ENGINE.
+/** How long to let the board settle before measuring.
  *
- *  ⚠️ THIS WAS A HARD-CODED 21000. The engine's discovery went from 18s to 40s
- *  and this check went quietly back to skipping every viewport — "only 1 nodes
- *  on the board" — which is the second time in one day that a guard here has
- *  stopped measuring without failing. A wait tuned to a constant has to read
- *  the constant. */
-const DISCOVER_MS = Number(
-  /DISCOVER_MS = ([\d_]+)/.exec(readFileSync('src/core/engine.ts', 'utf8'))?.[1]?.replace(/_/g, '')
-);
-if (!Number.isFinite(DISCOVER_MS) || DISCOVER_MS <= 0) {
-  console.error('could not read DISCOVER_MS from src/core/engine.ts — refusing to guess');
-  process.exit(1);
-}
+ *  ⚠️ THIS USED TO READ `DISCOVER_MS` OUT OF THE ENGINE, and that constant no
+ *  longer exists: SOLID·RAW·ROT deleted the booking queue, so `walk` lands its
+ *  concept in the same tick you tap it. Left as it was, this check did not go
+ *  quiet — it exited 1 with "could not read DISCOVER_MS", which is the right
+ *  failure and still means the positioning rule was unguarded.
+ *
+ *  What is left to wait for is the FORCE SIMULATION, not a timer: d3-force
+ *  integrates velocities and `sim.step()` reports when nothing is moving, so
+ *  the only question is how long that takes. Measured on this container, four
+ *  lanes walked: settled inside 2s at every viewport. 6s is three times that,
+ *  and a wait that is too short SKIPS rather than fails — which is the failure
+ *  mode this file exists to make impossible, so it is deliberately generous. */
+const SETTLE_MS = 6000;
 
 const PORT = process.argv[2] ?? '4321';
 const TOLERANCE = 1.5; // css px; sub-pixel rounding only
@@ -189,22 +190,15 @@ for (const [tag, width, height] of [['phone', 440, 956], ['real', 390, 664], ['s
     continue;
   }
 
-  // ── the RIM, sampled mid-flight ───────────────────────────────────────────
-  // A discovery in flight waits on the world rim, which is the widest thing the
-  // camera ever puts on screen — and it is gone by the time the board settles,
-  // so a settled-only check can never see it. Free to sample: we are about to
-  // spend twenty seconds waiting anyway.
-  const flight = await measure();
-  const badges = flight.rows.filter((r) => !r.node);
-  for (const r of badges) {
-    if (r.boxL < -1 || r.boxR > flight.stage.w + 1 || r.boxT < -1 || r.boxB > flight.stage.h + 1) {
-      failures.push(`  ${tag} · in-flight ${String(r.label).slice(0, 18).padEnd(20)} hangs off the stage`);
-    }
-  }
-  console.log(`${tag.padEnd(6)} ${width}x${height}: ${badges.length} rim badges in flight`);
+  // (A mid-flight RIM sample lived here. It measured `.finding` badges — the
+  //  countdown rings a booked discovery waited inside — and those are deleted
+  //  with the booking queue: walking is instant now, so there is no flight to
+  //  sample. Left in place it filtered an always-empty set and printed
+  //  "0 rim badges in flight" forever, which is a sub-check that measures
+  //  nothing while reporting a number. This repo has shipped three of those.)
 
-  // then let the discoveries land and the easing settle
-  await page.waitForTimeout(DISCOVER_MS + 3000);
+  // let the force simulation settle
+  await page.waitForTimeout(SETTLE_MS);
   const { rows, stage } = await measure();
 
   for (const r of rows) {

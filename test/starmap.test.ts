@@ -11,13 +11,8 @@ import { STORY } from '../src/content/story';
 import { CONCEPT_BUDGET } from '../src/content/ontologyMeta';
 import type { GameState } from '../src/core/types';
 
-const holding = (...ids: number[]): GameState => {
-  const base = initialState(1);
-  return {
-    ...base, lastTick: 1000,
-    forged: { ...base.forged, anchors: ids, nextId: Math.max(...ids) + 1 },
-  };
-};
+const holding = (...ids: number[]): GameState =>
+  ({ ...initialState(), lastTick: 1000, held: ids, solid: '1e9' });
 
 describe('the story graph is usable as a map', () => {
   it('ships beats with numeric node ids at both ends', () => {
@@ -143,42 +138,45 @@ describe('the key is shown MASKED, not named', () => {
 
 describe('travelling a lane lands THAT concept', () => {
   // Discovery used to be `nextId++` — strictly sequential. A lane that names
-  // its destination cannot be built on that: tapping "→ object" would have
+  // its destination cannot be built on that: tapping "-> object" would have
   // handed you concept 4, not object.
-  it('discovers the targeted node, not the next one in sequence', () => {
-    const s = holding(0);
-    const after = apply(s, { type: 'discover', node: 228 });
-    expect(after.forged.frontier).toContain(228);
-    expect(after.bookings[0]!.node).toBe(228);
+  const openLane = (s: GameState) => lanes(s).filter(laneOpen)[0]!;
+
+  it('lands the lane`s destination, and only that', () => {
+    const s = holding(...initialState().held);
+    const lane = openLane(s);
+    const after = apply(s, { type: 'walk', to: lane.to });
+    expect(after.held).toContain(lane.to);
+    expect(after.held.length).toBe(s.held.length + 1);
   });
 
-  it('leaves the sequential allocator working when no target is given', () => {
-    const s = holding(0);
-    const after = apply(s, { type: 'discover' });
-    expect(after.bookings[0]!.node).toBe(s.forged.nextId);
+  it('refuses a destination no lane on the board offers', () => {
+    const s = holding(...initialState().held);
+    const offered = new Set(lanes(s).map((l) => l.to));
+    const unreachable = [...Array(CONCEPT_BUDGET).keys()]
+      .find((id) => !offered.has(id) && !s.held.includes(id))!;
+    expect(apply(s, { type: 'walk', to: unreachable })).toBe(s);
   });
 
-  it('refuses to discover a concept you already hold, or one already in flight', () => {
-    const s = holding(0, 5);
-    expect(apply(s, { type: 'discover', node: 5 })).toBe(s);
-    const inFlight = apply(s, { type: 'discover', node: 9 });
-    expect(apply(inFlight, { type: 'discover', node: 9 })).toBe(inFlight);
+  it('refuses a LOCKED lane, in the reducer and not only on the button', () => {
+    const s = holding(...initialState().held);
+    const locked = lanes(s).find((l) => l.state === 'locked');
+    if (locked) expect(apply(s, { type: 'walk', to: locked.to })).toBe(s);
   });
 
   it('refuses a target outside the dataset', () => {
-    const s = holding(0);
+    const s = holding(...initialState().held);
     for (const bad of [-1, CONCEPT_BUDGET, CONCEPT_BUDGET + 1, 1.5, NaN]) {
-      expect(apply(s, { type: 'discover', node: bad })).toBe(s);
+      expect(apply(s, { type: 'walk', to: bad })).toBe(s);
     }
   });
 
-  it('keeps nextId a HIGH-WATER MARK, so a sparse board cannot rewind it', () => {
-    // Targeted discovery makes anchors sparse. Anything that treated `nextId`
-    // as a count is wrong from here; this pins that it only ever moves forward.
-    const s = holding(0);
-    const far = apply(s, { type: 'discover', node: 900 });
-    expect(far.forged.nextId).toBe(901);
-    const near = apply(far, { type: 'discover', node: 3 });
-    expect(near.forged.nextId).toBe(901);
+  it('costs nothing to walk back somewhere you already hold', () => {
+    const s = holding(...initialState().held);
+    const lane = openLane(s);
+    const once = apply(s, { type: 'walk', to: lane.to });
+    const back = apply(once, { type: 'walk', to: lane.to });
+    expect(back.solid).toBe(once.solid);
+    expect(back.held.length).toBe(once.held.length);
   });
 });

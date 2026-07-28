@@ -36,7 +36,7 @@ export type MachineId = 'extractor' | 'reasoner' | 'checker';
 export type FactMachineId = 'extractor' | 'reasoner';
 
 export const FACT_MACHINES: FactMachineId[] = ['extractor', 'reasoner'];
-export const MACHINES: MachineId[] = ['extractor', 'reasoner', 'checker'];
+export const MACHINE_IDS: MachineId[] = ['extractor', 'reasoner', 'checker'];
 
 /** A line between two concepts, for DRAWING ONLY.
  *

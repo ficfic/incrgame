@@ -18,6 +18,11 @@ export const game: Readable<GameState> = store;
 
 export const awayReport = writable<OfflineResult | null>(null);
 
+/** Set when the save on disk could not be carried forward and was rebuilt.
+ *  The UI shows it once. A reset the player is not told about is still a
+ *  defect (CLAUDE.md), and this is the only place that fact reaches a screen. */
+export const resetNotice = writable<string>('');
+
 export function dispatch(action: Action): void {
   store.update((s) => {
     const next = apply(s, action);
@@ -31,7 +36,7 @@ function resumeFromGap(now: number): void {
     const result = applyOfflineProgress(s, now);
     if (result.elapsedMs >= AWAY_BANNER_MIN_MS) {
       awayReport.set(result);
-      sayAwayReturn(result.banked);
+      sayAwayReturn(result.solid, result.raw);
     }
     return result.state;
   });
@@ -52,17 +57,22 @@ export function exportSave(): string {
 /** Flush the project: wipe the save and start over. The UI gates this behind
  *  an explicit second tap — this is the ONE sanctioned way progress dies. */
 export async function flushProject(): Promise<void> {
-  store.set(initialState((Date.now() % 0x7fffffff) | 1));
+  store.set(initialState());
   awayReport.set(null);
+  resetNotice.set('');
   await deleteBlob();
   await persist(); // write the fresh state so a reload can't resurrect the old run
 }
 
 /** Replaces the running state. Throws on a bad blob — current save untouched. */
 export async function importSave(blob: string): Promise<void> {
-  const state = deserialize(blob); // validates + migrates before anything changes
+  // Validates BEFORE anything changes: a bad paste throws and the running save
+  // is untouched. A save from another format does not throw — it is rebuilt,
+  // and the player is told which and why.
+  const { state, notice } = deserialize(blob);
   const { state: resumed } = applyOfflineProgress(state, Date.now());
   store.set(resumed);
+  resetNotice.set(notice);
   await persist();
 }
 
@@ -72,13 +82,16 @@ export async function startGame(): Promise<void> {
   void requestPersistence();
   try {
     const blob = await loadBlob();
-    if (blob) store.set(deserialize(blob));
-    else store.set(initialState((Date.now() % 0x7fffffff) | 1));
+    if (blob) {
+      const { state, notice } = deserialize(blob);
+      store.set(state);
+      resetNotice.set(notice);
+    } else store.set(initialState());
   } catch (e) {
     // A corrupt store must not nuke progress silently: keep it, start fresh in
     // memory, and leave the import escape hatch available.
     console.error('failed to load save; starting fresh in memory', e);
-    store.set(initialState((Date.now() % 0x7fffffff) | 1));
+    store.set(initialState());
   }
   resumeFromGap(Date.now());
 

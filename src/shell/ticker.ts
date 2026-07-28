@@ -8,11 +8,11 @@
 // The trigger moments still awaiting a line live in docs/TICKER_LINES.md.
 import { writable, type Readable } from 'svelte/store';
 import type { GameState } from '../core/types';
-import { attentionPenalty } from '../core/engine';
-import { GENERATORS } from '../content/generators';
+import { MACHINE_IDS } from '../core/types';
+import { bottleneck } from '../core/engine';
+import { MACHINES } from '../content/machines';
 import { formatWhole } from '../core/numbers';
 import { READOUTS, type ReadoutId } from '../core/readouts';
-import { RESOURCE_LABELS } from '../content/resources';
 
 export interface TickerLine {
   id: number;
@@ -40,21 +40,19 @@ const OWNER_LINES: Record<string, string> = {};
  *  without shipping one. Exported as the same object, never written in play. */
 export const OWNER_LINES_FOR_TEST = OWNER_LINES;
 
-/** Concepts RECOVERED — the same quantity the HUD shows under the same word.
- *  These used to fire on `state.graph.nodes`, which counts every concept
- *  placed including dark ones, so the dock announced "25 nodes" beside a HUD
- *  reading "3 recovered". Both numbers were right; only one of them was the
- *  thing the player is playing for. */
-const RECOVERED_MILESTONES = [10, 25, 50, 100, 250, 500, 1000, 2500];
-
-/** Lines DRAWN. These used to fire on `state.graph.edges`, which is the
- *  statement balance — a different quantity that the HUD already calls
- *  "statements" — so "graph: first edge" announced the first STATEMENT, while
- *  lines had been on the board for a while.
+/** WORDS — the same quantity the HUD shows under the same word, because the
+ *  line is built out of READOUTS rather than out of a second calculation. The
+ *  dock once announced "25 nodes" beside a HUD reading "3 recovered": both
+ *  right, different quantities, no bug anywhere.
  *
- *  Capped below EDGE_CAP (512): a milestone on a mechanic that cannot happen is
- *  a beat nobody will ever read (docs/CONTENT.md, reachability rule 3). */
-const LINE_MILESTONES = [1, 10, 50, 250, 500];
+ *  Milestones stop well below the size of the world: a beat nobody can reach is
+ *  a beat nobody will read (docs/CONTENT.md, reachability rule 3). */
+const WORD_MILESTONES = [1, 5, 10, 25, 50, 100, 200, 400];
+
+/** ROT. Announced because the first time it appears is the first time speed
+ *  visibly costs something, and a number that grows with no line under it reads
+ *  as a bug rather than as a consequence. */
+const ROT_MILESTONES = [1, 25, 250, 2500];
 
 const lines = writable<TickerLine[]>([]);
 export const ticker: Readable<TickerLine[]> = lines;
@@ -77,32 +75,35 @@ export function say(triggerId: string, mechanical: string): void {
 
 /** Diff two states and emit ticker lines for what just happened. */
 export function observeTransition(prev: GameState, next: GameState): void {
-  for (const g of Object.values(GENERATORS)) {
-    const before = prev.generators[g.id];
-    const after = next.generators[g.id];
-    if (after > before) {
-      say(`buy:${g.id}:${after}`, `${g.label} #${after} online`);
-    }
+  for (const id of MACHINE_IDS) {
+    const before = prev.machines[id];
+    const after = next.machines[id];
+    if (after > before) say(`buy:${id}:${after}`, `${MACHINES[id].label} #${after} online`);
+  }
+  for (const id of ['extractor', 'reasoner'] as const) {
+    if (prev.watched[id] === next.watched[id]) continue;
+    say(`watch:${id}:${next.watched[id]}`,
+      next.watched[id]
+        ? `${MACHINES[id].label}s watched · slower, and checked`
+        : `${MACHINES[id].label}s loose · faster, and nobody is looking`);
   }
   // Milestones read READOUTS, so the number in the line is by construction the
   // number under the same word in the HUD. That equality is asserted by a test.
-  crossings(prev, next, 'recovered', RECOVERED_MILESTONES, (m) =>
-    `${m} concepts ${READOUTS.recovered.noun}`);
-  crossings(prev, next, 'lines', LINE_MILESTONES, (m) =>
-    m === 1 ? `first edge drawn` : `${m} ${READOUTS.lines.noun} drawn`);
+  crossings(prev, next, 'words', WORD_MILESTONES, (m) =>
+    m === 1 ? `first word bound` : `${m} ${READOUTS.words.noun} · ${READOUTS.words.explain}`);
+  crossings(prev, next, 'rot', ROT_MILESTONES, (m) =>
+    m === 1 ? `something you never checked wore out` : `${m} ${READOUTS.rot.noun}`);
 
-  // THE ONE DEGRADATION, announced. A slot vanishing with nothing said about
-  // it is indistinguishable from a bug, and the owner has twice reported a
-  // number moving for reasons the game never gave. Both directions fire: the
-  // slot coming BACK is the whole reward for clearing the backlog, and a
-  // penalty you can only ever hear about once teaches half a rule.
-  const was = attentionPenalty(prev);
-  const now = attentionPenalty(next);
-  if (now > was) say(`attention:lost:${now}`, `unchecked backlog costs ${now} attention`);
-  else if (now < was) {
-    say(`attention:back:${now}`,
-      now === 0 ? 'backlog cleared · attention restored' : `backlog down · ${was - now} attention back`);
-  }
+  // THE FLATLINE, ANNOUNCED. When the vocabulary becomes the binding
+  // constraint, every machine you own is idling and no purchase will change
+  // that — and a player watching a rate stop climbing with no explanation will
+  // reasonably conclude the game is broken. Both directions fire: walking your
+  // way back out of the cap is the reward, and a limit you only ever hear about
+  // once teaches half a rule.
+  const was = bottleneck(prev);
+  const now = bottleneck(next);
+  if (was !== now && now === 'words') say('bottleneck:words', 'your machines are ahead of your vocabulary');
+  else if (was === 'words' && now === 'machines') say('bottleneck:machines', 'vocabulary is ahead · buy machines');
 }
 
 /** Fire once per threshold the given readout has just crossed upward. */
@@ -120,12 +121,12 @@ function crossings(
   }
 }
 
-/** What actually accumulates while you are gone is BANKED STATEMENTS. This line
- *  used to report `gains.data` in Datums — a currency that no longer exists and
- *  a rate that is now permanently zero, so the ticker never said anything about
- *  an absence at all. */
-export function sayAwayReturn(banked: string | undefined): void {
-  if (banked && Number(banked) > 0) {
-    say('away-return', `while away: ${formatWhole(banked)} statements banked`);
-  }
+/** What accumulates while you are gone, in the words that name it. Nothing rots
+ *  while away, so this is only ever good news, and it says WHICH of the two
+ *  arrived because that is exactly the decision the toggle made for you. */
+export function sayAwayReturn(solid: string, raw: string): void {
+  const parts: string[] = [];
+  if (Number(solid) > 0) parts.push(`${formatWhole(solid)} ${READOUTS.solid.noun}`);
+  if (Number(raw) > 0) parts.push(`${formatWhole(raw)} ${READOUTS.raw.noun}`);
+  if (parts.length > 0) say('away-return', `while away: ${parts.join(' · ')}`);
 }

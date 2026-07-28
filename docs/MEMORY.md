@@ -75,8 +75,10 @@ Two corruptions, both of which a player can eventually detect:
   called. The memory renders in the graph's language even though you have the
   word now.
 
-Corruption probability rises with generation, matching the fidelity curve the
-economy already uses. Generation 1 memories are true by construction — the
+Corruption probability rises with generation, off the same `syntheticShare` the
+economy already uses to make Raw rot faster each generation (fidelity, which
+this line used to name, was deleted on 2026-07-28). Generation 1 memories are
+true by construction — the
 first run must be trustworthy or the mechanic never teaches itself.
 
 ## What this does NOT do

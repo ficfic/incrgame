@@ -39,34 +39,24 @@ data-only item and pretending otherwise produced false evidence:
 > breakable). See `docs/DECISIONS.md`. The previous queue — four gates proven
 > red, `OWNER_LINES` — is in `BACKLOG.md`; neither was wrong, both were
 > overtaken.
+>
+> **The `SOLID · RAW · ROT` economy shipped in the core on 2026-07-28** and left
+> this queue. It is no longer an item; `docs/ECONOMY_SRR.md` is marked BUILT and
+> `docs/HANDOVER.md` describes what is actually there.
 
-## 1. The economy: `SOLID · RAW · ROT`
+> ### ⚠️ THE BUILD IS RED, AND IT BOUNDS THIS QUEUE
+> `src/ui/App.svelte` was not rewritten with the economy. It still imports four
+> deleted modules, so `vite build` fails, `npm run check:vocab` fails, and
+> **`npm run play` cannot run at all.** Item 3 is that fix. Until it ships, no
+> item can meet a "screenshot it" definition of done — including item 1's.
+> Stated here rather than discovered by the next session; the owner picks the
+> order, not the document.
 
-**Owner: engine session.** Unblocked 2026-07-27 — the attention question is
-answered (deleted). Spec is `docs/ECONOMY_SRR.md`; read it before any code, it
-carries the diagnosis with citations.
+## 1. Node memory
 
-Four quantities replace about twelve nouns. The diagnosis found the model was
-never the problem: `checked` refers to four different things, `Extract` and
-`Extractor` mean opposite things about truth, and the HUD never calls
-`readouts.ts` at all — so "one word, one quantity" reads as enforced and is not.
-
-**The lane join is the item, not a detail.** `factsPerSecond = min(0.4 ×
-machines, 0.15 × Words)`. You cannot extract relations about entities you do
-not hold, so walking the story is the only income upgrade and an idle-only
-player flatlines with the reason stated on screen. Without it the story and the
-idle loop remain two games sharing a screen.
-
-Resets saves — authorised (`DECISIONS.md`), say so in the commit.
-
-**Done when:** `npm run play` shows four quantities and no fraction except
-`Words N/M`, the screenshot is in the reply, and the vocabulary gate's red
-output is pasted (it is currently vacuous — it polices one retired field).
-
-## 2. Node memory
-
-**Owner: engine session.** After item 1, not before — memory without a loop is
-decoration, and what makes "walk it again" a real cost is item 1's lane join.
+**Owner: engine session.** Memory without a loop is decoration, and what makes
+"walk it again" a real cost is the lane join, which is now in the engine
+(`stepCost` is 0 for a concept you already hold).
 
 Spec: `docs/MEMORY.md`. What carries across a reset is not what you know, it is
 what the graph remembers you doing, and it remembers imperfectly. Trust the
@@ -74,11 +64,11 @@ memory (free, possibly false) or walk it again (costs, true) — speed versus
 truth in the story layer.
 
 **Done when:** a generation-2 run shows a memory that is wrong, and walking it
-again corrects it. Screenshot both.
+again corrects it. Screenshot both — **which needs item 3 first.**
 
-## 3. Cut the junk, then write the high-traffic beats
+## 2. Cut the junk, then write the high-traffic beats
 
-**Owner: content-tooling session.** Parallel with 1 and 2 — different branch,
+**Owner: content-tooling session.** Parallel with 1 and 3 — different branch,
 different directory.
 
 The dataset ships `jimdandy`, `instalike`, `must-see`, `freshener`, `stinker`,
@@ -92,3 +82,27 @@ the shallow, high-traffic places first — they are read most.
 
 **Done when:** the junk list is gone from the shipped dataset and
 `npm run check:story` still passes.
+
+## 3. The screen, against the four quantities
+
+**Owner: engine session.** The other half of the economy rewrite, split off
+because WIP = 1 — the core landed, the screen did not.
+
+`src/ui/App.svelte` is still the pre-rewrite file: 90 `svelte-check` errors, and
+four imports of modules that no longer exist (`../core/graph`,
+`../content/generators`, `../content/vignettes`, `../shell/salvage`). It reads
+`attentionCap`, `REFLECT_MIN_CONCEPTS`, `chooseOption` and `saveVersion`, none
+of which the engine has.
+
+What replaces them: **Words**, and **Solid/Raw/Rot as ONE STACKED BAR** so the
+screen holds two objects and not four; a card per machine with the
+watched/loose toggle on it; Walk, Check, Buy, Retrain; and the bottleneck
+sentence in words — *"your 30 Extractors could make 12.0/s — your vocabulary
+supports 4.5/s"*. Numbers come from `READOUTS`, never from state directly; the
+readout for a word the player cannot read yet stays off screen (`literacy.ts`,
+`LEARN_AT = 3`). Do not reintroduce English chrome.
+
+**Done when:** `vite build` is clean, `npm run check:vocab` passes for a reason
+you can point at (it fails today on all four readouts being unreferenced by
+`src/ui/`), and `npm run play` was run with the screenshot pasted into the
+reply.

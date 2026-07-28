@@ -10,6 +10,17 @@ we build the green slice first and earn the rest.
   every milestone.
 - **In-session task checklist** = ephemeral; used live while building a milestone.
 
+> ## ⚠️ THE MILESTONE PLAN WAS OVERTAKEN. `docs/NEXT.md` IS THE QUEUE.
+>
+> M0–M2 shipped and are true as written. **M3, M4 and most of the in-vision
+> list describe mechanics that were deleted, not deferred** — `Triples`, the
+> inference multiplier, `Capital`, selling, the domain tech-tree, the four-stage
+> Reflection prestige. See `docs/ECONOMY_SRR.md` (BUILT 2026-07-28) and the
+> "⛔ CUT" section of `docs/GAME_DESIGN.md`.
+>
+> This file is kept for the M0–M2 record and for the two open infrastructure
+> items at the bottom, which are still real. Do not pick work from it.
+
 ---
 
 ## 🟢 MVP — prove the fantasy (build first)
@@ -41,23 +52,26 @@ we build the green slice first and earn the rest.
   an 8h cap (freeze multipliers). *Deliverable: close & reopen keeps progress.* ✅
   *Verified: reload keeps progress (IndexedDB); away-summary banner; clipboard
   export/import with reject-on-garbage.*
-- [ ] **M3 · Reasoner + graph bloom.** `Triples` resource, **Extractor
-  (Data→Triples)** to seed edges, a Reasoner producing via the (bounded) inference
-  multiplier, the graph blooming. *(Extractor is required — with no edges,
-  the multiplier multiplies zero.)* *Deliverable: the graph blooms — core fantasy proven.*
-- [ ] **M4 · Sell vs keep.** `Capital` currency, a sell action (exhaustive),
-  quality gating price. *Deliverable: the first taste of the soul.*
+- ⛔ **M3 · Reasoner + graph bloom.** VOID. `Triples`, `Data` and the inference
+  multiplier are deleted. What shipped instead: a Reasoner at a flat 2.2
+  facts/s, capped by vocabulary like everything else.
+- ⛔ **M4 · Sell vs keep.** VOID. There is no `Capital`, no selling and no second
+  currency; every price is in Solid.
 
-## 🟡 In-vision — earned after the MVP feels good
+## 🟡 In-vision — mostly void, checked 2026-07-28
 
-- [ ] Economy depth (quality factors, sell→rent transition)
-- [ ] Domains tech-tree (start: General → Biology)
-- [ ] AI agents + human-in-the-loop error mechanic
-- [ ] CYOA event system (data + engine flags + actions)
-- [ ] Self-description / Reflection prestige (4 stages)
-- [ ] Content pipeline: generate content from `docs/graph/game.ttl`
-- [ ] Engine in a Web Worker (once rendering is heavy)
-- [ ] ESLint boundary rule enforcing core-purity
+- ⛔ Economy depth (quality factors, sell→rent transition) — no money layer.
+- 🕓 Domains tech-tree — data exists (26 WordNet categories), mechanic does not.
+- ✅ AI agents + human-in-the-loop — shipped as the watched/loose toggle, the
+  Check verb and the Checker machine.
+- ✅ CYOA — shipped as the lane graph (`src/core/starmap.ts`), not as modal
+  events; `chooseOption`, `modifiers` and `flags` are deleted.
+- ⛔ Self-description / Reflection prestige (4 stages) — prestige is `Retrain`,
+  one action, no stages.
+- 🕓 Content pipeline from `docs/graph/game.ttl` — still a design artifact.
+- 🕓 Engine in a Web Worker (once rendering is heavy) — **still real.**
+- 🕓 ESLint boundary rule enforcing core-purity — **still real**; today the guard
+  is `npm run check:core`, a grep, and it passes.
 
 ## Done
 

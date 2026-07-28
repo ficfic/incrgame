@@ -135,4 +135,5 @@ Vite + PWA · Vitest. Content is declarative data.
 
 Reference docs, read only when the item needs them: `ARCHITECTURE.md` (why this
 stack), `SPEC.md` (types, save, deploy), `VISION.md`, `GLOSSARY.md` +
-`SIMPLIFICATIONS.md` (accuracy), `ECONOMY.md`, `HANDOVER.md` (current state).
+`SIMPLIFICATIONS.md` (accuracy), `ECONOMY_SRR.md` (the economy),
+`HANDOVER.md` (current state).

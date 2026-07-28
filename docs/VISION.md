@@ -45,9 +45,13 @@ and a genuine hierarchy is a lab bench. A whole lexicon is a landfill.
 **An incremental game about the tension between speed and truth.**
 
 Machines generate knowledge quickly and none of it is checked. Unchecked
-knowledge rots. Rotted knowledge stalls everything, because reasoning over
-contradictions doesn't degrade gracefully. Review is the only brake, and review
-is slow.
+knowledge rots, and what has rotted is gone for good — you watch the cost of
+your own speed accumulate on screen. Review is the only brake, and review is
+slow.
+
+*(As shipped: Rot is a permanent loss and a scoreboard. It does not yet stall
+anything — the old "reasoning over contradictions degrades" mechanism was
+deleted with the rest of the old economy. See the status note below.)*
 
 That tension is not a metaphor for the real problem. It **is** the real problem,
 which is why the "learn something" goal and the "have fun" goal stop competing
@@ -70,103 +74,81 @@ scope, however good it is.
 9. **Narrative, as branching choose-your-own-adventure vignettes.**
 10. **Lots of graphs, connecting and moving** — because it's good to look at.
 
-> ## ⚠️ MEASURED FALSE — re-measure before trusting the numbers below
+> ## ⚠️ The old economy's numbers are gone, not repaired
 >
-> Flagged 2026-07-26 after two agent audits and a headless simulation of the
-> shipped engine. Three claims in this document were false about the build:
->
-> - **"the plateau FLOORS around 36–50% fidelity"** — with zero Extractors,
->   `unverified` is identically 0, so `drift × 0 = 0` and fidelity is exactly
->   1.000 forever. There was no floor because there was no fall.
-> - **"the RECESSION is real and structural: 100% → 67% / 22% / 2%"** — those
->   curves cannot be reproduced. Every strategy that included a machine was
->   hitting an array-aliasing bug in `trimEdges` that deleted the player's
->   entire graph, so the fast branch did not exist to decay.
-> - **"100% is unreachable by construction"** — unreachability came only from
->   the asymptotic `(1 − coverage) × f` term, not from collapse. Hand play now
->   reaches 100% in ~4 hours of perfect tapping (measured, post-fix).
->
-> The `trimEdges` and anchor-eviction bugs are fixed and the economy has NOT
-> been re-measured against them. **These numbers are stale.** The documents were
-> not lying; they described a game a bug had removed.
->
-> **Do not re-measure the old economy to repair them** — the owner has said
-> progression is being replaced wholesale (2026-07-26). These claims should be
-> re-derived from the NEW design, not patched back onto the old one.
+> This section used to carry fidelity curves, a supervised-share limit and a
+> "100% → 67% / 22% / 2%" recession. Two agent audits and a headless simulation
+> found all three false about the build in 2026-07-26 — the fast branch had
+> been deleted by an array-aliasing bug, so there was nothing to decay — and
+> the owner then replaced progression wholesale. **The economy below is the one
+> that shipped on 2026-07-28** (`docs/ECONOMY_SRR.md`, marked BUILT). Nothing
+> from the old model was patched back on; it was deleted.
 
-## The economy: one resource, allocated
+## The economy: four quantities, one substance
 
-**There is no currency.** Two things exist:
+**There is no currency but Solid.** Four numbers, and three of them are one
+substance in three states:
 
-- **Statements** accumulate, split by provenance — verified, unchecked, drifted.
-- **Attention** is capacity you *allocate*: free, booked onto work, or reserved
-  to supervise an agent. It is never spent, and it always comes back.
+| | |
+|---|---|
+| **Words** | concepts you can read now. Up when you arrive somewhere new; never down. |
+| **Solid** | checked facts that never rot. The only thing you spend. |
+| **Raw** | machine facts nobody has checked. It rots, or it gets checked. |
+| **Rot** | facts worn out, permanently. Only a Retrain clears it. |
 
-Supervised agents produce slowly and clean. Unsupervised agents produce fast and
-raw — and raw is what rots. You may run more agents than you can watch, and that
+**The join is the whole design:**
+
+    factsPerSecond = min(0.4 × machines, 0.15 × Words)
+
+You cannot extract relations about entities you do not hold. So machines are
+capped by vocabulary, vocabulary only grows by **walking the story**, and
+walking the story is therefore the only income upgrade in the game. An
+idle-only player flatlines in about ten minutes and can read exactly why.
+Without this the story and the idle loop are two games sharing a screen.
+
+**Speed versus truth is one toggle per machine.** Watched: 0.55× rate, and
+everything it makes arrives Solid. Loose: full rate, and everything it makes
+arrives Raw. You may run more machines loose than you can ever check, and that
 is the trap: **the failure is something you do to yourself.**
 
-Agents are distilled from verified statements, so a graph you let rot cannot
-build another agent.
+Machines are bought with Solid — with checked knowledge — so a graph you let rot
+cannot build another machine. Steps into the story are bought with Solid too,
+and priced exponentially in the concepts you have walked this run. That
+exponential against a linear vocabulary cap is the plateau, and you can see it
+coming for an hour before it arrives.
 
-Capacity grows logarithmically with verified knowledge. Agents are priced
-geometrically, so their **count grows logarithmically too** — just faster:
-capacity gains 4.5 slots per decade of verified knowledge, agents gain 8.78.
-
-So supervised share decays toward **~51%**, not to zero, and steady-state
-fidelity is closed-form: `f∞ = 0.55·s / (1 − 0.45·s)`. At s = 0.8 that is
-**68.75%**, which is exactly the 67% the 8-hour simulation produced.
-
-**The plateau is real and it is structural — but it FLOORS around 36–50%
-fidelity rather than collapsing.** An earlier version of this document claimed
-supervised share → 0; that was an interpretation error, not a measurement one.
-The simulation was right and the sentence about it was wrong.
-
-A floor you can feel is arguably the better game. What it is *not* is a
-mechanism that makes the stated goal unreachable — see below.
+*(Attention — capacity you allocated, booked and reserved — was deleted on
+2026-07-27 at the owner's word: "i dont like the attention anymore yeah." It
+was the same tension with bookkeeping attached.)*
 
 ## The three decisions that shape everything
 
 Owner calls. Changing one of these changes the game.
 
-**Collapse is soft rot.** Contaminated knowledge loses its meaning and its yield.
-Nothing the player CHOSE is ever deleted out from under them (rotted lines are removed — that is the mechanic — but a concept only ever goes dark, never off the board, and relighting is one action), and there is no losing screen.
-You don't die — you **plateau**, and then you choose to move on.
+**Collapse is soft rot.** Unchecked knowledge wears out: Raw decays into Rot,
+permanently, and Rot is the running total of what speed cost you. Nothing the
+player CHOSE is ever deleted out from under them — Words never fall, not even
+across a Retrain — and there is no losing screen. You don't die, you
+**plateau**, and then you choose to move on.
 
 **Prestige inherits your own synthetic output.** What carries into the next run
-is not the real data. It's what your machines generated: unverified, and it rots
-faster. Each generation starts richer and more wrong. Coverage climbs while
-fidelity falls.
+is not the real data. It is 25% of what your machines minted, arriving as
+**Raw** because it never was checked — and `syntheticShare` rises, so Raw rots
+faster every generation. Each generation starts richer and more wrong.
 
-> ### ⚠️ THE GOAL IS STILL REACHABLE, AND NOW WE KNOW WHY
-> **Coverage is a ratchet.** `recovered()` only ever goes up, and the
-> `(f − coverage)/f` term stops the *rate* without ever taking a concept back.
-> So the dominant strategy is: supervise everything while agents are few, race
-> coverage to 4,096, then stop caring — the plateau becomes a cosmetic bar over
-> a race you already won. That is why three balance passes failed; they were
-> tuning the speed of a race rather than making it losable.
+> ### ⚠️ STATUS 2026-07-28: STILL NOT TRUE IN CODE, AND NOW THERE IS NO MECHANISM
+> The `SOLID · RAW · ROT` rewrite deleted REDRIFT, which was the only thing
+> making a later generation structurally worse than an earlier one. What is left
+> is that `syntheticShare` rises every Retrain and Raw rots faster for it —
+> **Rot is a sink and a scoreboard, not a multiplier.** Words never fall, so
+> `Words N / 4075` is still a ratchet.
 >
-> The fix requires **edges that carry data**: a concept counts as recovered only
-> while at least one non-drifted statement supports it. Rot the statement and
-> the node goes dark — still there, still re-verifiable, nothing deleted. That
-> makes coverage able to fall, which is the only honest route to "unreachable by
-> construction". It is impossible today because edges are `[a, b]` number pairs.
->
-> ### ⚠️ STATUS (updated 2026-07-25, after the attention rework)
-> The RECESSION is now real and structural: measured over 8h, an 80%-supervising
-> player decays 100% → 67% fidelity, balanced → 22%, unsupervised → 2%. Coverage
-> itself is still completable in a careful first run (~2-4h); the collapse story
-> lives in fidelity and across generations, not in the coverage bar. Earlier
-> note, kept for the record:
->
-> ### ⚠️ STATUS: NOT YET TRUE IN CODE (2026-07-25)
-> Measured over a simulated 12-hour run: an attentive generation-1 player
-> reaches **100% coverage in about four hours**, and an idle one reaches 97.5%
-> in eight. The recession across generations *is* real — fidelity now caps at
-> ~96% in generation 2 and ~91% in generation 3 as synthetic ancestry rises —
-> but coverage itself completes. **"Unreachable by construction" is the design
-> intent, not the shipped behaviour.** Balance pass is the top item in BACKLOG.
-> Do not repeat this claim as fact until a simulation says otherwise.
+> What DOES bound a run is the price curve: `ceil(6 × 1.04^stepsThisRun)` Solid
+> per new concept, against income capped at `0.15 × Words`. Walking 120 concepts
+> costs ~16,450 Solid; walking 300 costs 2.1 million. That is an honest plateau
+> and it is visible an hour out — but it is not the same claim as "unreachable by
+> construction", and nobody may state that claim as fact until a measurement
+> supports it. Re-deriving it from this design is an unstarted item.
 
 That is the structure of the model-collapse result
 ([Shumailov et al., *Nature*, 2024](https://www.nature.com/articles/s41586-024-07566-y)),
@@ -191,9 +173,11 @@ These outrank cleverness, including mine.
   the owner would defend the line, not whether it exists. Quoted dataset text
   stays verbatim and attributed. The `⟨owner⟩` slot machinery now marks prose
   the owner has not yet passed over, rather than prose that does not exist.
-- **Human-in-the-loop is never mandatory.** Orchestrators buy review out at a
-  worse quality-per-cost. Manual review is a min-max lever for when the owner
-  feels like it. An idle game that demands attention isn't an idle game.
+- **Human-in-the-loop is never mandatory.** **Checkers** buy review out at a
+  worse Solid-per-fact, and they run while you are away. Tapping **Check** is a
+  min-max lever for when the owner feels like it — no cooldown, no queue, and it
+  falls behind exponential production by construction. An idle game that demands
+  babysitting isn't an idle game.
 - **Saves are breakable.** *(Reversed 2026-07-27; see `docs/DECISIONS.md`. The
   prior rule was "never break a save, additive forward migrations only".)* The
   owner has said they are fine losing a save at any time, so a migration is a

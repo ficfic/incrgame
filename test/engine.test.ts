@@ -1,266 +1,359 @@
+// THE ECONOMY: Words · Solid · Raw · Rot.
+//
+// These tests replace ~1,200 lines that measured a model this rewrite deleted —
+// fidelity, drift, the six-rung ladder, attention, bookings and the review
+// desk. What is left is four quantities and one inequality, so what is tested
+// here is the inequality, in both directions, and the three states one
+// substance moves between.
+//
+// Expected values are LITERALS wherever the formula is the thing under test. A
+// test that computes its expectation with the function it is testing passes
+// with the mechanic destroyed; that has already happened twice in this repo.
 import { describe, expect, it } from 'vitest';
 import {
-  agentCost, apply, attentionCap, attentionFree, CONNECT_MS, DISCOVER_MS, fidelity, initialState,
-  supervisedPerSecond, tick, unsupervised, unsupervisedPerSecond, verified,
+  apply, bottleneck, CHECK_PER_TAP, canRetrain, canWalk, checkPerSecond,
+  factMachines, factsPerSecond, FACT_RATE, initialState, machineCost,
+  potentialPerSecond, rawPerSecond, RETRAIN_MIN_WORDS, rotPerSecond, solidPerSecond,
+  STEP_BASE, stepCost, tick, vocabularySupport, WATCHED_RATE, words, WORDS_PER_FACT,
 } from '../src/core/engine';
-import { ANCHOR_CAP, FRONTIER_CAP } from '../src/core/graph';
-import { GENERATORS } from '../src/content/generators';
-import { CONCEPT_BUDGET } from '../src/content/ontologyMeta';
-import { D, format, formatWhole } from '../src/core/numbers';
-import { nextRand } from '../src/core/rng';
-import type { GameState } from '../src/core/types';
+import { MACHINES } from '../src/content/machines';
 import { SEED_NODES } from '../src/content/seed';
+import { lanes } from '../src/core/starmap';
+import { D } from '../src/core/numbers';
+import type { GameState } from '../src/core/types';
 
-/** Both hand verbs now cost something — Datums to survey, attention to
- *  connect — so a test that wants a claim has to fund both. */
-const rich = (s: GameState): GameState => ({ ...s, attention: 12 });
+const num = (v: string): number => D(v).toNumber();
 
-/** Structural helper: tops up both costs first, because these tests are about
- *  the SHAPE of the graph, not about whether you could afford it. */
-const surveyAndClaim = (s: GameState): GameState => {
-  s = apply(rich(s), { type: 'survey' });
-  const id = s.forged.frontier[s.forged.frontier.length - 1]!;
-  return apply(s, { type: 'claimNode', id });
-};
+/** A state holding the seed plus `n` invented concepts, so `words()` is exactly
+ *  `n`. Ids come off the top of the dataset so they cannot collide with the
+ *  seed or with anything a lane test walks to. */
+const withWords = (n: number, over: Partial<GameState> = {}): GameState => ({
+  ...initialState(),
+  lastTick: 1000,
+  held: [...SEED_NODES, ...Array.from({ length: n }, (_, i) => 4095 - i)],
+  ...over,
+});
 
-describe('discovery — booking attention onto work', () => {
-  it('ties up a slot, then lands a VERIFIED concept by itself', () => {
-    let s = { ...initialState(), lastTick: 1_000 };
-    const capBefore = attentionFree(s);
-    const nodesBefore = s.graph.nodes;
-    s = apply(s, { type: 'discover' });
-    expect(s.bookings).toHaveLength(1);
-    expect(attentionFree(s)).toBe(capBefore - 1); // the slot is busy, not spent
-    expect(s.graph.nodes).toBe(nodesBefore);      // nothing has landed yet
+/** The first lane the opening board actually offers. */
+const firstOpenLane = (s: GameState): number =>
+  lanes(s).filter((l) => l.state !== 'locked')[0]!.to;
 
-    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
-    expect(s.bookings).toHaveLength(0);          // slot handed back
-    expect(attentionFree(s)).toBeGreaterThanOrEqual(capBefore);
-    expect(s.graph.nodes).toBe(nodesBefore + 1); // the concept arrived
-    expect(s.provenance.unverified).toBe('0');   // you placed it: it is verified
-    expect(fidelity(s)).toBe(1);
+describe('the opening cannot strand you', () => {
+  it('starts with Solid, one Extractor, and zero Words', () => {
+    const s = initialState();
+    expect(words(s)).toBe(0);
+    expect(s.machines.extractor).toBe(1);
+    expect(num(s.solid)).toBeGreaterThan(0);
   });
 
-  it('is refused when every slot is already committed', () => {
-    let s = { ...initialState(), lastTick: 1_000 };
-    for (let i = 0; i < attentionCap(s); i++) s = apply(s, { type: 'discover' });
-    expect(attentionFree(s)).toBe(0);
-    expect(apply(s, { type: 'discover' })).toBe(s);
+  it('affords at least the first step of the story', () => {
+    // Words start at zero, so production starts at zero: without an opening
+    // grant AND a free machine, a new save can never earn either.
+    const s = initialState();
+    const open = lanes(s).filter((l) => l.state !== 'locked');
+    expect(open.length, 'the seed offers no walkable lane').toBeGreaterThan(0);
+    expect(num(s.solid)).toBeGreaterThanOrEqual(num(stepCost(s, open[0]!.to)));
   });
 
-  it('grows capacity from knowledge you actually verified, not from a shop', () => {
-    const green = initialState();
-    const grown = { ...green, lifetimeVerified: '10000' };
-    expect(attentionCap(grown)).toBeGreaterThan(attentionCap(green));
+  it('defaults every fact machine to WATCHED, because loose makes only Raw', () => {
+    // Raw buys nothing. A new player has not met the toggle — or the word
+    // "Check" — so the default must be the one that cannot leave them holding a
+    // currency they have no way to spend.
+    const s = initialState();
+    expect(s.watched.extractor).toBe(true);
+    expect(s.watched.reasoner).toBe(true);
   });
 });
 
-describe('discovery is bounded by the clock and by the world', () => {
-  it('refuses to book before the clock has started', () => {
-    // lastTick is 0 in a fresh state. Booking against it produced `until: 18000`,
-    // and the first real tick — epoch ms — is a trillion past that, so the
-    // discovery completed instantly and for free.
-    const fresh = initialState();
-    expect(fresh.lastTick).toBe(0);
-    expect(apply(fresh, { type: 'discover' })).toBe(fresh);
+describe('THE LANE JOIN, in both directions', () => {
+  it('produces nothing at zero Words, however many machines you own', () => {
+    // The idle-only player, as arithmetic: you cannot extract relations about
+    // entities you do not hold.
+    const s = { ...initialState(), machines: { extractor: 200, reasoner: 50, checker: 0 } };
+    expect(words(s)).toBe(0);
+    expect(vocabularySupport(s)).toBe(0);
+    expect(factsPerSecond(s)).toBe(0);
+    expect(bottleneck(s)).toBe('words');
   });
 
-  it('refuses past the last concept in the dataset', () => {
-    const edge: GameState = {
-      ...initialState(),
-      lastTick: 1_000,
-      forged: { ...initialState().forged, nextId: CONCEPT_BUDGET },
-    };
-    expect(apply(edge, { type: 'discover' })).toBe(edge);
-    // and one short of it still works, so the gate is at the edge and not before
-    const nearly = { ...edge, forged: { ...edge.forged, nextId: CONCEPT_BUDGET - 1 } };
-    expect(apply(nearly, { type: 'discover' }).bookings).toHaveLength(1);
+  it('is capped by machines when the vocabulary is ahead', () => {
+    const s = withWords(100); // support = 15/s against one Extractor's 0.4/s
+    expect(vocabularySupport(s)).toBeCloseTo(15, 10);
+    expect(potentialPerSecond(s)).toBeCloseTo(0.4, 10);
+    expect(bottleneck(s)).toBe('machines');
+    expect(factsPerSecond(s)).toBeCloseTo(0.4 * 0.55, 10);
   });
 
-  it('does not wire any edge — a found concept lands dark', () => {
-    // Discovery used to mint a free anchor AND a free verified statement. That
-    // is what let a player finish the entire dataset by hand in ~2h34m without
-    // ever buying a machine, and it is why coverage could only ever go up.
-    let s: GameState = { ...initialState(), lastTick: 1_000 };
-    const landedId = s.forged.nextId;
-    s = apply(s, { type: 'discover' });
-    s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
-    expect(s.forged.anchors).toContain(landedId);
-    expect(s.forged.edges).toHaveLength(0);
-    expect(s.resources.triples).toBe('0');
+  it('is capped by Words when the machines are ahead', () => {
+    // The sentence the HUD is meant to say, in numbers:
+    // "your 30 Extractors could make 12.0/s — your vocabulary supports 1.5/s".
+    const s = withWords(10, { machines: { extractor: 30, reasoner: 0, checker: 0 } });
+    expect(potentialPerSecond(s)).toBeCloseTo(12.0, 10);
+    expect(vocabularySupport(s)).toBeCloseTo(1.5, 10);
+    expect(bottleneck(s)).toBe('words');
+    expect(factsPerSecond(s)).toBeCloseTo(1.5 * 0.55, 10);
+  });
+
+  it('makes walking the ONLY thing that raises the ceiling', () => {
+    // Ten times the machines: identical output. One extra Word: more output.
+    // Without this the story and the idle loop are two games on one screen.
+    const some = withWords(4, { machines: { extractor: 40, reasoner: 0, checker: 0 } });
+    const lots = { ...some, machines: { extractor: 400, reasoner: 100, checker: 0 } };
+    expect(factsPerSecond(lots)).toBeCloseTo(factsPerSecond(some), 10);
+    const walked = withWords(8, { machines: some.machines });
+    expect(factsPerSecond(walked)).toBeCloseTo(factsPerSecond(some) * 2, 10);
+  });
+
+  it('applies the watching penalty AFTER the cap, so watching always costs', () => {
+    // Capped afterwards, a vocabulary-bound player pays nothing for watching —
+    // and the game's only decision evaporates exactly where the join binds,
+    // which is most of a run.
+    const machines = { extractor: 30, reasoner: 0, checker: 0 };
+    const watched = withWords(10, { machines });
+    const loose = { ...watched, watched: { extractor: false, reasoner: true } };
+    expect(factsPerSecond(loose)).toBeGreaterThan(factsPerSecond(watched));
+    expect(factsPerSecond(watched)).toBeCloseTo(factsPerSecond(loose) * WATCHED_RATE, 10);
+  });
+
+  it('sends watched output to Solid and loose output to Raw', () => {
+    const s = withWords(100, { machines: { extractor: 10, reasoner: 0, checker: 0 } });
+    expect(rawPerSecond(s)).toBe(0);
+    expect(solidPerSecond(s)).toBeGreaterThan(0);
+    const l = { ...s, watched: { extractor: false, reasoner: true } };
+    expect(solidPerSecond(l)).toBe(0);
+    expect(rawPerSecond(l)).toBeGreaterThan(0);
+  });
+
+  it('splits the cap between machines on different toggles', () => {
+    const s = withWords(1000, {
+      machines: { extractor: 1, reasoner: 1, checker: 0 },
+      watched: { extractor: true, reasoner: false },
+    });
+    expect(bottleneck(s)).toBe('machines'); // support 150/s, potential 2.6/s
+    expect(solidPerSecond(s)).toBeCloseTo(0.4 * 0.55, 10);
+    expect(rawPerSecond(s)).toBeCloseTo(2.2, 10);
+  });
+
+  it('excludes the Checker from a ceiling it does not produce against', () => {
+    const s = withWords(100, { machines: { extractor: 1, reasoner: 0, checker: 50 } });
+    expect(factMachines(s)).toBe(1);
+    expect(potentialPerSecond(s)).toBeCloseTo(FACT_RATE, 10);
+  });
+
+  it('reports idle rather than a bottleneck when nothing is running', () => {
+    const s = withWords(100, { machines: { extractor: 0, reasoner: 0, checker: 0 } });
+    expect(bottleneck(s)).toBe('idle');
+    expect(factsPerSecond(s)).toBe(0);
+  });
+
+  it('holds WORDS_PER_FACT at the probed value', () => {
+    // 0.8 was the first proposal and stops binding by Words ~= 20; the join has
+    // to be the live constraint for most of a run or it is decoration.
+    expect(WORDS_PER_FACT).toBe(0.15);
   });
 });
 
-describe('connecting — filling in a dotted line', () => {
-  const withTwo = (): GameState => {
-    let s: GameState = { ...initialState(), lastTick: 1_000 };
-    s = apply(s, { type: 'discover' });
-    return apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
-  };
-  // The opening board is the SEED, so a line between "the first two concepts"
-  // is between two seed ids — 0 and 1 are no longer on the board at all.
-  const two = () => { const a = initialState().forged.anchors; return [a[0]!, a[1]!] as const; };
-  const line = { a: two()[0], b: two()[1], rel: 0, checked: true, fake: false };
-
-  it('books a slot, and the line only exists once the work finishes', () => {
-    let s = withTwo();
-    const free = attentionFree(s);
-    s = apply(s, { type: 'connect', edge: line });
-    expect(attentionFree(s)).toBe(free - 1);
-    expect(s.forged.edges).toHaveLength(0);
-    s = apply(s, { type: 'tick', dt: 20, now: s.lastTick + CONNECT_MS + 1 });
-    expect(s.forged.edges).toHaveLength(1);
-    expect(attentionFree(s)).toBeGreaterThanOrEqual(free);
-  });
-
-  it('refuses a duplicate, an in-flight repeat, and an end that is not on the board', () => {
-    let s = withTwo();
-    s = apply(s, { type: 'connect', edge: line });
-    // already booked
-    expect(apply(s, { type: 'connect', edge: line })).toBe(s);
-    s = apply(s, { type: 'tick', dt: 20, now: s.lastTick + CONNECT_MS + 1 });
-    // already drawn
-    expect(apply(s, { type: 'connect', edge: line })).toBe(s);
-    // an end that was never discovered
-    expect(apply(s, { type: 'connect', edge: { ...line, b: 999 } })).toBe(s);
-  });
-
-  it('costs attention, so it competes with discovering and reviewing', () => {
-    let s = withTwo();
-    for (let i = 0; i < attentionCap(s) + 2; i++) {
-      s = apply(s, { type: 'connect', edge: { a: two()[0], b: two()[1], rel: i, checked: true, fake: false } });
+describe('the step: Solid down, Words up', () => {
+  it('prices a new concept at ceil(6 x 1.04^steps-this-run)', () => {
+    const expected: Array<[number, string]> = [
+      [0, '6'], [1, '7'], [5, '8'], [40, '29'], [120, '664'],
+    ];
+    for (const [steps, cost] of expected) {
+      expect(stepCost(withWords(0, { stepsThisRun: steps }), 4000)).toBe(cost);
     }
-    expect(attentionFree(s)).toBe(0);
-    expect(apply(s, { type: 'discover' })).toBe(s); // no slot left for anything else
+  });
+
+  it('charges nothing for somewhere you already hold', () => {
+    const s = withWords(3, { stepsThisRun: 40 });
+    expect(stepCost(s, s.held[0]!)).toBe('0');
+  });
+
+  it('walks a real lane: pays, lands the concept, and gains a Word', () => {
+    const s = { ...initialState(), lastTick: 1000 };
+    const to = firstOpenLane(s);
+    const cost = num(stepCost(s, to));
+    const after = apply(s, { type: 'walk', to });
+    expect(after.held).toContain(to);
+    expect(num(after.solid)).toBeCloseTo(num(s.solid) - cost, 9);
+    expect(words(after)).toBe(words(s) + 1);
+    expect(after.stepsThisRun).toBe(1);
+  });
+
+  it('refuses a lane the board does not offer, even when you can pay', () => {
+    // The gate is the REDUCER, not the button. The play probe force-clicks.
+    const s = { ...initialState(), solid: '1e9', lastTick: 1000 };
+    const offered = new Set(lanes(s).map((l) => l.to));
+    const unreachable = [...Array(4096).keys()].find(
+      (id) => !offered.has(id) && !s.held.includes(id))!;
+    expect(canWalk(s, unreachable)).toBe(false);
+    expect(apply(s, { type: 'walk', to: unreachable })).toBe(s);
+  });
+
+  it('refuses a step you cannot afford', () => {
+    const s = { ...initialState(), solid: '0', lastTick: 1000 };
+    expect(apply(s, { type: 'walk', to: firstOpenLane(s) })).toBe(s);
+  });
+
+  it('does not move the price when you revisit', () => {
+    const s = { ...initialState(), lastTick: 1000 };
+    const to = firstOpenLane(s);
+    const once = apply(s, { type: 'walk', to });
+    const twice = apply(once, { type: 'walk', to });
+    expect(twice.stepsThisRun).toBe(once.stepsThisRun);
+    expect(twice.solid).toBe(once.solid);
   });
 });
 
-describe('supervision — the trap', () => {
-  const withAgents = (n: number): GameState =>
-    ({ ...initialState(), generators: { ...initialState().generators, extractor: n }, lifetimeVerified: '10000' });
-
-  it('lets you run more agents than you can watch', () => {
-    const s = apply(withAgents(6), { type: 'setSupervision', slots: 2 });
-    expect(s.supervised).toBe(2);
-    expect(unsupervised(s)).toBe(4); // deliberately allowed
+describe('one substance, three states', () => {
+  it('turns Raw into Rot and never the other way', () => {
+    const s = withWords(0, { raw: '1000', solid: '10' });
+    const after = tick(s, 10);
+    expect(num(after.raw)).toBeLessThan(1000);
+    expect(num(after.rot)).toBeGreaterThan(0);
+    expect(num(after.raw) + num(after.rot)).toBeCloseTo(1000, 6);
+    expect(after.solid).toBe(s.solid); // Solid NEVER rots. That is its name.
   });
 
-  it('makes supervised output arrive CLEAN and unsupervised output arrive RAW', () => {
-    let s = apply(withAgents(4), { type: 'setSupervision', slots: 4 });
-    s = tick(s, 10);
-    expect(Number(s.provenance.unverified)).toBeLessThan(1e-9); // everything was watched
-    expect(Number(verified(s))).toBeGreaterThan(0);
-
-    let loose = apply(withAgents(4), { type: 'setSupervision', slots: 0 });
-    loose = tick(loose, 10);
-    expect(Number(loose.provenance.unverified)).toBeGreaterThan(0);
-    expect(Number(verified(loose))).toBeLessThan(1e-9); // subtraction leaves dust
+  it('decays identically whether stepped at 10 Hz or in one block', () => {
+    // Not a style point: a save must not diverge because the tab was
+    // backgrounded, and `raw x rate x dt` goes NEGATIVE past dt = 1/rate.
+    const s = withWords(0, { raw: '1000' });
+    let stepped = s;
+    for (let i = 0; i < 600; i++) stepped = tick(stepped, 0.1);
+    expect(num(stepped.raw)).toBeCloseTo(num(tick(s, 60).raw), 6);
   });
 
-  it('trades throughput for trust — watching is slower', () => {
-    const watched = apply(withAgents(4), { type: 'setSupervision', slots: 4 });
-    const loose = apply(withAgents(4), { type: 'setSupervision', slots: 0 });
-    expect(Number(supervisedPerSecond(watched)))
-      .toBeLessThan(Number(unsupervisedPerSecond(loose)));
+  it('rots faster the more synthetic the generation is', () => {
+    const gen1 = withWords(0, { raw: '1000', syntheticShare: 0 });
+    const gen3 = { ...gen1, syntheticShare: 0.75 };
+    expect(rotPerSecond(gen3)).toBeGreaterThan(rotPerSecond(gen1));
+    expect(num(tick(gen3, 10).rot)).toBeGreaterThan(num(tick(gen1, 10).rot));
   });
 
-  it('cannot reserve slots it does not have', () => {
-    const s = apply(withAgents(99), { type: 'setSupervision', slots: 999 });
-    expect(s.supervised).toBeLessThanOrEqual(attentionCap(s));
-  });
-});
-
-describe('agents are distilled from verified knowledge', () => {
-  const clean = (n: string): GameState => ({
-    ...initialState(),
-    resources: { ...initialState().resources, triples: n },
+  it('checks a fixed slice per tap, and nothing when there is no Raw', () => {
+    const s = withWords(0, { raw: '100', solid: '0' });
+    const after = apply(s, { type: 'check' });
+    expect(num(after.raw)).toBe(100 - CHECK_PER_TAP);
+    expect(num(after.solid)).toBe(CHECK_PER_TAP);
+    const empty = withWords(0, { raw: '0' });
+    expect(apply(empty, { type: 'check' })).toBe(empty);
   });
 
-  it('costs VERIFIED statements, and spends them', () => {
-    const s = clean('500');
-    const cost = Number(agentCost(s, 'extractor'));
-    const after = apply(s, { type: 'buyGenerator', id: 'extractor' });
-    expect(after.generators.extractor).toBe(1);
-    expect(Number(after.resources.triples)).toBe(500 - cost);
+  it('never lets a tap take more Raw than there is', () => {
+    const after = apply(withWords(0, { raw: '2', solid: '0' }), { type: 'check' });
+    expect(num(after.raw)).toBe(0);
+    expect(num(after.solid)).toBe(2);
   });
 
-  it('a graph you let rot cannot build another agent', () => {
-    // same number of statements, but none of them trustworthy
-    const rotted: GameState = {
-      ...clean('500'),
-      provenance: { unverified: '0', drifted: '500' },
-    };
-    expect(apply(rotted, { type: 'buyGenerator', id: 'extractor' })).toBe(rotted);
+  it('lets Checkers do it automatically, bounded by the pile', () => {
+    const machines = { extractor: 0, reasoner: 0, checker: 4 };
+    const s = withWords(0, { raw: '100', solid: '0', machines });
+    expect(checkPerSecond(s)).toBeCloseTo(1.0, 10);
+    expect(num(tick(s, 1).solid)).toBeCloseTo(1.0, 6);
+    const drained = tick(withWords(0, { raw: '1', solid: '0', machines }), 100);
+    expect(num(drained.raw)).toBe(0);
+    expect(num(drained.solid)).toBeLessThanOrEqual(1);
   });
 
-  it('never spends Datums, because there are none', () => {
-    const s = clean('500');
-    const after = apply(s, { type: 'buyGenerator', id: 'extractor' });
-    expect(after.resources.data).toBe(s.resources.data);
+  it('only ever lets Rot fall on a Retrain', () => {
+    const s = withWords(RETRAIN_MIN_WORDS, { rot: '500', raw: '10' });
+    expect(num(tick(s, 600).rot)).toBeGreaterThanOrEqual(500);
+    expect(apply(s, { type: 'retrain' }).rot).toBe('0');
   });
 });
 
-describe('agent prices climb', () => {
-  it('climbs geometrically, priced in verified statements', () => {
-    // Asserted as a SHAPE, not as two magic strings: the constants are tuning
-    // knobs and a test that pins them just breaks every time they move.
-    let s = initialState();
-    const first = Number(agentCost(s, 'extractor'));
-    expect(first).toBeGreaterThan(0);
-    s = { ...s, generators: { ...s.generators, extractor: 1 } };
-    const second = Number(agentCost(s, 'extractor'));
-    expect(second).toBeGreaterThan(first);
-    s = { ...s, generators: { ...s.generators, extractor: 5 } };
-    expect(Number(agentCost(s, 'extractor')) / second).toBeGreaterThan(second / first);
+describe('buying a machine', () => {
+  it('prices in Solid, at the roster the content table declares', () => {
+    const none = withWords(0, { solid: '1e6', machines: { extractor: 0, reasoner: 0, checker: 0 } });
+    expect(machineCost(none, 'extractor')).toBe('20');
+    expect(machineCost(none, 'reasoner')).toBe('320');
+    expect(machineCost(none, 'checker')).toBe('45');
+    // A run opens owning one Extractor, so the FIRST one you buy is the second:
+    // 20 x 1.15 = 23.
+    expect(machineCost(withWords(0), 'extractor')).toBe('23');
+    // 20 x 1.15^3 = 30.4175 -> 31
+    const owned = { ...none, machines: { extractor: 3, reasoner: 0, checker: 0 } };
+    expect(machineCost(owned, 'extractor')).toBe('31');
   });
 
-  it('is priced from the CONTENT TABLE, not from one constant for everything', () => {
-    // The engine used a single hardcoded base/ratio pair, so the Extractor and
-    // the Reasoner — different rates, different jobs, different roles in the
-    // run — cost byte-identical amounts and balance could not be tuned as data.
+  it('spends the Solid and adds the machine', () => {
+    const s = withWords(0, { solid: '1000' });
+    const after = apply(s, { type: 'buy', id: 'checker' });
+    expect(after.machines.checker).toBe(1);
+    expect(num(after.solid)).toBeCloseTo(1000 - num(MACHINES.checker.baseCost), 9);
+  });
+
+  it('refuses when you cannot pay', () => {
+    const s = withWords(0, { solid: '0' });
+    expect(apply(s, { type: 'buy', id: 'extractor' })).toBe(s);
+  });
+});
+
+describe('the toggle', () => {
+  it('flips a fact machine, and is a no-op when it is already there', () => {
     const s = initialState();
-    expect(agentCost(s, 'extractor')).not.toBe(agentCost(s, 'reasoner'));
-    expect(Number(agentCost(s, 'extractor')))
-      .toBe(Number(GENERATORS.extractor.agentBase));
-    expect(Number(agentCost(s, 'reasoner')))
-      .toBe(Number(GENERATORS.reasoner.agentBase));
+    const loose = apply(s, { type: 'setWatched', id: 'extractor', watched: false });
+    expect(loose.watched.extractor).toBe(false);
+    expect(apply(loose, { type: 'setWatched', id: 'extractor', watched: false })).toBe(loose);
   });
 });
 
-describe('tick hygiene', () => {
-  it('rejects nonsense dt and honors action.now', () => {
-    const s = initialState();
-    expect(apply(s, { type: 'tick', dt: 0 })).toBe(s);
-    expect(apply(s, { type: 'tick', dt: NaN })).toBe(s);
-    expect(apply(s, { type: 'tick', dt: 0.1, now: 123456 }).lastTick).toBe(123456);
+describe('Retrain', () => {
+  it('is gated on Words', () => {
+    expect(canRetrain(withWords(RETRAIN_MIN_WORDS - 1))).toBe(false);
+    expect(canRetrain(withWords(RETRAIN_MIN_WORDS))).toBe(true);
+    const s = withWords(RETRAIN_MIN_WORDS - 1);
+    expect(apply(s, { type: 'retrain' })).toBe(s);
   });
 
-  it('does not mutate the previous state (purity)', () => {
-    const s0 = initialState();
-    const frozen = JSON.stringify(s0);
-    apply(s0, { type: 'survey' });
-    apply(s0, { type: 'tick', dt: 0.1 });
-    expect(JSON.stringify(s0)).toBe(frozen);
+  it('keeps the concepts, resets the step counter, inherits Raw', () => {
+    const s = withWords(RETRAIN_MIN_WORDS, {
+      stepsThisRun: 200, minted: '4000', solid: '9999', rot: '77',
+      machines: { extractor: 40, reasoner: 3, checker: 9 },
+    });
+    const after = apply(s, { type: 'retrain' });
+    expect(after.held).toEqual(s.held);       // nothing you chose is ever deleted
+    expect(words(after)).toBe(words(s));      // Words never fall
+    expect(after.stepsThisRun).toBe(0);       // the cost curve restarts: the sprint
+    expect(num(after.raw)).toBe(1000);        // 25% of what the machines minted
+    expect(after.rot).toBe('0');
+    expect(after.generation).toBe(1);
+    expect(after.machines).toEqual(initialState().machines);
+    expect(after.solid).toBe(initialState().solid);
+    expect(after.lastTick).toBe(s.lastTick);  // never 0: that reads as 8h away
+  });
+
+  it('makes each generation more synthetic, and never less', () => {
+    let s = withWords(RETRAIN_MIN_WORDS, { minted: '100' });
+    const shares: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      s = { ...apply(s, { type: 'retrain' }), minted: '100' };
+      shares.push(s.syntheticShare);
+    }
+    expect(shares).toEqual([0.5, 0.75, 0.875, 0.9375]);
+  });
+
+  it('makes the next run a sprint: everywhere already walked is free', () => {
+    const s = apply(withWords(RETRAIN_MIN_WORDS, { minted: '0' }), { type: 'retrain' });
+    for (const id of s.held) expect(stepCost(s, id)).toBe('0');
+    expect(stepCost(s, 1234)).toBe(String(STEP_BASE));
   });
 });
 
-describe('rng', () => {
-  it('is pure and deterministic (ready for M3)', () => {
-    const [v1, s1] = nextRand(42);
-    const [v2, s2] = nextRand(42);
-    expect(v1).toBe(v2);
-    expect(s1).toBe(s2);
-    const [v3] = nextRand(s1);
-    expect(v3).not.toBe(v1);
+describe('the clock', () => {
+  it('ignores a non-positive dt', () => {
+    const s = withWords(5, { raw: '10' });
+    expect(tick(s, 0)).toBe(s);
+    expect(tick(s, -1)).toBe(s);
   });
-});
 
-describe('format', () => {
-  it('formats plain, suffixed, huge, and floored numbers', () => {
-    expect(format('999')).toBe('999');
-    expect(format('1500')).toBe('1.50K');
-    expect(format(D(10).pow(40).toString())).toMatch(/e/i);
-    expect(formatWhole('3.72')).toBe('3');
-    expect(formatWhole('1500.5')).toBe('1.50K');
+  it('advances lastTick even when nothing moved', () => {
+    const s = { ...initialState(), lastTick: 1000, machines: { extractor: 0, reasoner: 0, checker: 0 } };
+    expect(tick(s, 1).lastTick).toBe(2000);
+  });
+
+  it('counts everything the machines make toward what a Retrain inherits', () => {
+    const s = withWords(100, { minted: '0' });
+    expect(num(tick(s, 10).minted)).toBeCloseTo(factsPerSecond(s) * 10, 6);
   });
 });

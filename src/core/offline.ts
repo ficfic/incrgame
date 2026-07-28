@@ -1,73 +1,69 @@
-// Offline progress (SPEC "Offline progress"). Pure: the shell passes `now`.
+// Offline progress. Pure: the shell passes `now`.
+//
+// THE RULE (VISION, owner decision): NOTHING ROTS WHILE YOU ARE AWAY. Not
+// slowly, not a little. You never come back to damage.
+//
+// But away time cannot be a free lunch either, or closing the game becomes the
+// optimal strategy. So absence BANKS WORK: your machines run at exactly the
+// rates and exactly the watched/loose split you left them on, and what they
+// made is waiting when you get back. Raw does not decay over the gap — it
+// starts decaying from the moment you are looking at it, where you can act.
+//
+// ⚠️ AWAY TIME RESPECTS THE SPLIT YOU LEFT SET, and that is deliberate against
+// docs/ECONOMY_SRR.md §3, which lists the away pile only under Raw. Banking a
+// watched player's output as Raw makes closing the app a straight downgrade for
+// the one play style the game is trying to reward — a regression a logged
+// decision already fixed once (v9→v10, "away time now respects exactly the
+// split you left set"). Loose machines still bank Raw, which is what that table
+// row is really about, because loose is what a machine is unless you say so.
+//
 // Multipliers are frozen at logout, so production over the gap is linear and
-// one big-step calc is EXACT — offline never reuses tick with a giant dt.
-//
-// THE RULE (owner decision): nothing rots while you are away. Not slowly, not
-// a little. You never come back to damage.
-//
-// But offline can't be a free lunch either, or closing the game becomes the
-// optimal strategy and the whole speed-versus-truth dial collapses. So away
-// time BANKS work instead of completing it: your machines mint statements into
-// `pending`, and those statements only enter the graph — and only start to
-// drift — when you come back and absorb them, in front of you, where you can
-// review them. You return to a job, never to a loss.
-import type { GameState, ResourceId } from './types';
-import { TIER_LADDER } from './types';
-import { add, mul, gt } from './numbers';
-import { ratePerSecond, supervisedPerSecond, unsupervisedPerSecond } from './engine';
-import { deriveGraph } from './graph';
+// one closed-form calculation is EXACT. Offline never reuses tick with a giant
+// dt.
+import type { GameState } from './types';
+import Decimal from 'break_eternity.js';
+import { add, D } from './numbers';
+import { checkPerSecond, rawPerSecond, solidPerSecond } from './engine';
 
 export const OFFLINE_CAP_MS = 8 * 3600 * 1000; // 8h, tunable
 
 export interface OfflineResult {
   state: GameState;
   elapsedMs: number; // capped
-  gains: Partial<Record<ResourceId, string>>; // what "while you were away" shows
-  banked: string; // statements waiting to be absorbed
+  /** Solid gained while away, Checker conversions included. */
+  solid: string;
+  /** Raw made while away, before the Checkers had their pass at it. */
+  raw: string;
 }
 
 export function applyOfflineProgress(state: GameState, now: number): OfflineResult {
   const elapsedMs = Math.min(Math.max(now - state.lastTick, 0), OFFLINE_CAP_MS);
   if (state.lastTick === 0 || elapsedMs <= 0) {
-    return { state: { ...state, lastTick: now }, elapsedMs: 0, gains: {}, banked: '0' };
+    return { state: { ...state, lastTick: now }, elapsedMs: 0, solid: '0', raw: '0' };
   }
   const seconds = elapsedMs / 1000; // ms→s or you overshoot 1000× (SPEC)
-  const resources = { ...state.resources };
-  const gains: Partial<Record<ResourceId, string>> = {};
-  for (const res of TIER_LADDER) {
-    const rate = ratePerSecond(state, res);
-    if (gt(rate, 0)) {
-      const gain = mul(rate, seconds);
-      resources[res] = add(resources[res], gain);
-      gains[res] = gain;
-    }
-  }
-  // Machine output goes to the bank, NOT into the graph: it cannot drift while
-  // it is banked, so an absence can never cost fidelity.
-  //
-  // And it banks at EXACTLY the rates the online loop would have used, split by
-  // exactly the supervision you left set — supervised agents at their 0.55×
-  // penalty into the clean bank, unwatched ones at full speed into the dirty
-  // one. Before this, away time ran the whole roster at full rate and dumped
-  // all of it unverified, which made closing the game the highest-throughput
-  // play in the game and the supervision dial pure downside.
-  const clean = mul(supervisedPerSecond(state), seconds);
-  const raw = mul(unsupervisedPerSecond(state), seconds);
-  const minted = add(clean, raw);
-  const pending = gt(raw, 0) ? add(state.pending, raw) : state.pending;
-  const pendingClean = gt(clean, 0) ? add(state.pendingClean, clean) : state.pendingClean;
+
+  const madeSolid = D(solidPerSecond(state) * seconds);
+  const madeRaw = D(rawPerSecond(state) * seconds);
+
+  // Checkers ran too. They convert Raw into Solid, and there is no reason for
+  // them to stop because nobody is watching the screen — an idle game whose
+  // automation needs you present is not one. Bounded by the Raw actually
+  // available over the gap: what was banked plus what the loose machines made.
+  const pool = D(state.raw).add(madeRaw);
+  const converted = Decimal.min(pool, D(checkPerSecond(state) * seconds));
+  const gainedSolid = madeSolid.add(converted);
 
   return {
     state: {
       ...state,
-      resources,
-      pending,
-      pendingClean,
+      solid: add(state.solid, gainedSolid.toString()),
+      raw: pool.sub(converted).toString(),
+      minted: add(state.minted, madeSolid.add(madeRaw).toString()),
       lastTick: now,
-      graph: deriveGraph(state.forged, resources.triples),
     },
     elapsedMs,
-    gains,
-    banked: gt(minted, 0) ? minted : '0',
+    solid: gainedSolid.toString(),
+    raw: madeRaw.toString(),
   };
 }

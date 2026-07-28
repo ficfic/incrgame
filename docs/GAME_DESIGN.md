@@ -12,27 +12,37 @@ rewrites what everything means as it wakes up.)
 
 > ### ⚠️ READ `docs/VISION.md` FIRST. It outranks this file.
 >
-> ### THE CORE LOOP — 2026-07-25 (owner decisions, logged in DECISIONS.md)
+> ### THE CORE LOOP — as shipped 2026-07-28 (`docs/ECONOMY_SRR.md`, BUILT)
 >
-> **Speed versus truth.** Machines mint statements fast and everything they mint
-> is **unverified**. Unverified knowledge **drifts** into nonsense. Drifted
-> knowledge stalls concept recovery, because Reasoners run at **fidelity²**.
-> Review — by hand, or bought out with Orchestrators — is the only brake.
+> **Speed versus truth, in four quantities: Words, Solid, Raw, Rot.** Machines
+> make facts; a **watched** machine runs at 0.55× and its output arrives
+> **Solid**, a **loose** one runs at full speed and its output arrives **Raw**.
+> Raw rots into **Rot**, permanently. Review is the only brake: tap **Check**,
+> or buy **Checkers** to buy it out at a worse rate.
 >
-> - **You cannot lose. You plateau.** Soft rot only; nothing is ever deleted.
-> - **Prestige inherits your own machine output**, unverified, and each
->   generation rots faster. The stated goal is unreachable *by construction*.
-> - **Nothing rots while you are away.** Absence banks work; you return to a
->   job, never to damage.
-> - **HITL is never mandatory.** Orchestrators buy it out at a worse rate.
+>     factsPerSecond = min(0.4 × machines, 0.15 × Words)
+>     stepCost       = 0 if held, else ceil(6 × 1.04^stepsThisRun)
 >
-> Implemented and tested — see `src/core/engine.ts` and `test/collapse.test.ts`.
+> **Walking the story is the only income upgrade in the game** — you cannot
+> extract relations about entities you do not hold.
 >
-> **Sections below predate this loop.** Their mechanical content is mostly still
-> the plan (resource ladder, domains, economy, endgame), but read them against
-> VISION, not as-is — and note that several carry pre-pivot startup-conquest
-> language. Rewriting the narrative framing is owner work: **all player-facing
-> prose is owner-written** (`CLAUDE.md`). An agent must not re-voice this file.
+> - **You cannot lose. You plateau** — the exponential step price against a
+>   linear vocabulary cap. Words never fall.
+> - **Prestige is `Retrain`**: keep your concepts, inherit 25% of what your
+>   machines minted as Raw, and rot faster ever after. *"Unreachable by
+>   construction" is NOT established in this build* — see VISION's status note.
+> - **Nothing rots while you are away.** Absence banks work at the split you
+>   left set; you return to a job, never to damage.
+> - **HITL is never mandatory.** Checkers buy it out, worse per Solid.
+>
+> **⚠️ MOST SECTIONS BELOW ARE A DESIGN WE ARE NOT BUILDING.** The resource
+> ladder, capital, selling, domains, Harvesters, Curators, Orchestrators and the
+> four-stage Reflection endgame are **deleted from the code**, not merely
+> unbuilt. They are kept here for their reasoning and their citations only. Read
+> the "⛔ CUT" section before treating anything below as a plan.
+>
+> Player-facing prose is now **machine-drafted and owner-edited** (`CLAUDE.md`,
+> reversed 2026-07-27) — but re-voicing this file is still not an agent's call.
 >
 > **Known stale, flagged rather than silently certified:** "Real vs abstract"
 > (below) says *"No literal real-world data"* — that decision is **superseded**;
@@ -126,7 +136,7 @@ me" dread as the graph grows and begins to describe itself.
 | Lawsuit hazard | "Cease & Desist" / discovery |
 | Self-description prestige | "Reflection" — the model models itself |
 
-## The engine (locked)
+## The engine (locked) — ⛔ CUT, see below
 
 **Inference is the compounding multiplier** *(labeled game simplification — see
 note).* *Reasoners* derive new edges from edges you already have: forward-chaining
@@ -137,10 +147,11 @@ serves it.
 > **Label (per our accuracy rule):** in real logic, entailment is *monotonic* and
 > the closure is *finite* — a reasoner terminates at a fixpoint; it does **not**
 > "accelerate" or run away. The game treats it as unbounded "compounding" for
-> fun and **bounds it mathematically** in `ECONOMY_MODEL.md`. The Field Notes
-> must state this so players don't learn something false.
+> fun and used to bound it mathematically in `ECONOMY_MODEL.md`, now deleted.
+> As shipped there is no compounding at all: the Reasoner is a flat rate. The
+> Field Notes must still state the real behaviour so players learn nothing false.
 
-## Resource ladder
+## Resource ladder — ⛔ CUT, see below
 
 Each rung feeds the next:
 
@@ -155,7 +166,7 @@ Each rung feeds the next:
    system; a high-prestige mega-node. (Real: sync/liveness is the *defining*
    property — not just "a big finished model.")
 
-## Generators / upgrades
+## Generators / upgrades — ⛔ CUT, see below
 
 - **Harvesters** — auto-produce Data.
 - **Extractors** — Data → Triples.
@@ -203,7 +214,7 @@ The tier ladder *is* the real stack:
 - **Vocabulary reuse reward** — mirrors the 5-star Linked Open Data model:
   interoperability pays.
 
-## Prestige & endgame — "Reflect" (self-description as escalating agency)
+## Prestige & endgame — "Reflect" — ⛔ CUT as described; prestige is `Retrain`
 
 Self-description is the game's crown jewel and the payoff of the ominous spine.
 It escalates in **four stages** that ride the dread curve — the joke slowly
@@ -241,7 +252,7 @@ generator/K economy, which you then re-grind *faster* each loop via the Reflecti
 multiplier. The four self-description stages **unlock at coverage milestones**, so
 the two axes interlock instead of competing (and coverage never brutally resets).
 
-## Economy layer (core pillar)
+## Economy layer (core pillar) — ⛔ CUT, see below
 
 Money and knowledge are intertwined from the start — not a second act.
 
@@ -310,8 +321,9 @@ nodes *by hand* to feel the atoms of the graph — then buy automation and gradu
 out of manual work. Classic idle arc.
 
 **AI agents + human-in-the-loop.** Agents produce triples fast but with an
-**error rate that's high early and decays** as tech matures (see
-`docs/ECONOMY_MODEL.md`). Unreviewed errors poison quality and can trigger
+**error rate that's high early and decays** as tech matures *(never built; the
+shipped model is simply that loose machines make Raw and Raw rots)*. Unreviewed
+errors poison quality and can trigger
 inconsistency → the lawsuit hazard. **HITL review is OPTIONAL, never a chore:**
 **Orchestrators** (bots managing bots) let you buy *out* of manual review —
 dirty-cheap auto or clean-expensive auto — with manual batch review as an optional
@@ -360,20 +372,28 @@ real-world data would wreck balance and mobile performance.
 - The graph is the **reward surface**, not the source of truth for balance.
 
 
-## ⛔ CUT BY VISION — do not build these
+## ⛔ CUT — deleted from the code, not merely unbuilt
 
-`docs/VISION.md` outranks this file. These sections below are kept for their
-reasoning, and they describe a game we are **not making**. A future session that
-implements them is working against the vision, not toward it.
+`docs/VISION.md` outranks this file, and on 2026-07-28 the code caught up with
+it. These are kept for their reasoning; a session that implements them is
+working against the vision, not toward it.
 
-- **Capital, and the sell-vs-keep tug-of-war.** VISION: *"There is no currency.
-  Two things exist: Statements and Attention."* In code, `sell` and `refine` are
-  `return state`, and `capital` has no faucet anywhere. **CUT.**
-- **The six-tier resource ladder** (data → triples → … → twins). Only `triples`
-  is live. **CUT.**
-- **The inference multiplier as "the core dopamine loop".** `inferenceMult` does
-  not exist; `ECONOMY_MODEL.md` already says so. The compounding role is played
-  by `ratchet()` and by fidelity gating. **CUT as described.**
+- **Capital, and the sell-vs-keep tug-of-war.** There is one currency and it is
+  **Solid**. `sell`, `refine` and `capital` no longer exist in any form. **CUT.**
+- **The six-tier resource ladder** (data → triples → … → twins), `TIER_LADDER`,
+  `RESOURCE_LABELS` and `ratePerSecond`. **CUT.**
+- **The inference multiplier as "the core dopamine loop".** The Reasoner is a
+  flat 2.2 facts/s per unit, always Solid, capped by the same vocabulary join as
+  everything else. Nothing compounds. **CUT as described.**
+- **Attention** — the pool, the bookings, the supervision dial. Replaced by one
+  watched/loose toggle per machine (owner, 2026-07-27). **CUT.**
+- **Harvesters, AI Agents, Orchestrators, Curators.** Three machines ship:
+  Extractor, Reasoner, Checker. **CUT.**
+- **Domains and the domain tech-tree.** The data carries 26 WordNet categories;
+  no mechanic reads them. Real, unbuilt, and not "the plan".
+- **Vignettes as modal CYOA events.** The story is the lane graph now
+  (`src/core/starmap.ts`); `chooseOption`, `modifiers` and `flags` are gone.
+  The branching-narrative requirement in VISION is met by lanes, not modals.
 
 ## 🕓 NOT SCHEDULED — data exists, mechanic does not
 
@@ -425,8 +445,8 @@ domain sizing, unlock gating, and tree shape are open.*
 - **Manual-phase minigame:** a connect-the-nodes puzzle (match-3-adjacent) for
   the early hand-made triples — thematically apt, but puzzle+idle can clash.
   Prototype it; keep it to the early phase only if it stays.
-- Exact numeric balance / cost curves (see `docs/ECONOMY_MODEL.md` — tune by
-  playing).
+- Exact numeric balance / cost curves (`src/content/machines.ts` and the
+  constants at the top of `src/core/engine.ts` — tune by playing).
 - Pacing of the sell→rent transition (what scale unlocks renting).
 - How domains are sized and sequenced toward world coverage.
 - How much the AI-agent HITL review loop asks of the player (attention budget).

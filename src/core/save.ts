@@ -1,183 +1,49 @@
-// Save format & migrations (SPEC "Save format"). The blob is
-// base64(JSON({version, state})) — the SAME blob goes to IndexedDB and to the
-// clipboard export (the escape hatch). NEVER break an existing save: loading an
-// older version runs forward migrations, never a hard reset.
-import type { Dec, GameState } from './types';
+// Save format. The blob is base64(JSON({version, state})) — the SAME blob goes
+// to IndexedDB and to the clipboard export, which is how the owner moves a save
+// between devices.
+//
+// ---- MIGRATIONS ARE GONE, AND THAT IS A DECISION ------------------------
+//
+// This file used to open with "NEVER break an existing save" and carry fifteen
+// ordered forward migrations. The owner reversed that rule on 2026-07-27
+// ("i'm completely ok with breaking saves at any time", DECISIONS.md), and the
+// SOLID·RAW·ROT rewrite deletes twenty-three of the thirty-five fields those
+// migrations existed to carry. A v15 save has no Solid, no Raw, no Rot and no
+// `held`; there is nothing to lift.
+//
+// Two things still stand, for two different reasons:
+//
+//   `version` STAYS ON EVERY SAVE. Not so the code can migrate — so it can TELL
+//   which format it is holding, and reset deliberately instead of crashing on a
+//   field that is not there. That is exactly what happens below.
+//
+//   EXPORT/IMPORT KEEPS WORKING, on the new shape, because it is the only way a
+//   save moves between devices.
+//
+// And one kindness, because it is cheap: an unreadable save's CONCEPTS are
+// carried into the fresh state. You keep the board you walked; you lose the
+// economy that sat on it.
+import type { GameState } from './types';
 import { CURRENT_SAVE_VERSION, initialState } from './engine';
-import { add, gt, sub } from './numbers';
-import { deriveGraph, projectGraph } from './graph';
+import { CONCEPT_BUDGET } from '../content/ontologyMeta';
+import { SEED_NODES } from '../content/seed';
 
 interface Envelope {
-  version: number; // mirrors state.saveVersion; state is authoritative
+  version: number; // mirrors state.version; state is authoritative
   state: GameState;
 }
 
-// Ordered pure steps, each vN → vN+1. On load, run every step where
-// state.saveVersion < CURRENT_SAVE_VERSION. Add steps; never edit shipped ones.
-type Migration = (s: Record<string, unknown>) => Record<string, unknown>;
-export const MIGRATIONS: Migration[] = [
-  // v1 → v2 — the one-substance fork (DECISIONS 2026-07-25): the early game
-  // ran on Triples; v1 `data` balances converted 1:1 into `triples`.
-  (s) => {
-    const resources = { ...(s.resources as Record<string, Dec> | undefined) };
-    const data = resources.data ?? '0';
-    resources.triples = add(resources.triples ?? '0', data);
-    resources.data = '0';
-    return { ...s, resources };
-  },
-  // v2 → v3 — same-day retune (owner: the mined substance is DATUMS; Triples
-  // returns as the refined M3 tier): balances consolidate back into `data`,
-  // graph reprojected with the slow bands. Progress preserved 1:1 both hops.
-  (s) => {
-    const resources = { ...(s.resources as Record<string, Dec> | undefined) };
-    const triples = resources.triples ?? '0';
-    resources.data = add(resources.data ?? '0', triples);
-    resources.triples = '0';
-    return { ...s, resources, graph: projectGraph(resources.data) };
-  },
-  // v3 → v4 — Frontier Mining: edges drip Datums; the web becomes forged
-  // overlay + balances. The pre-fork web is CREDITED, never stripped: its
-  // projected edges mint `triples` (so the drip starts at the size of the web
-  // the owner grew) and its nodes become folded machine-era mass.
-  (s) => {
-    const resources = { ...(s.resources as Record<string, Dec> | undefined) };
-    const data = resources.data ?? '0';
-    const old = projectGraph(data);
-    resources.triples = add(resources.triples ?? '0', old.edges);
-    resources.data = data;
-    const forged = {
-      nextId: 1,
-      anchors: [0],
-      links: [] as Array<[number, number]>,
-      edges: [],
-      frontier: [] as number[],
-      foldedNodes: String(Math.max(0, old.nodes - 1)),
-    };
-    return { ...s, resources, forged, graph: deriveGraph(forged, resources.triples) };
-  },
-  // v4 → v5 — provenance & collapse. Everything in a v4 save was placed BY HAND
-  // by the player, one tap at a time, before machines existed. So all of it
-  // becomes VERIFIED: unverified and drifted both start at zero. Nothing is
-  // lost, nothing is reinterpreted, and the owner's real save arrives at the
-  // new model with a perfect record — which is also the truth of how they
-  // built it.
-  (s) => ({
-    ...s,
-    provenance: { unverified: '0', drifted: '0' },
-    syntheticShare: 0,
-    lifetimeGenerated: '0',
-    pending: '0',
-    modifiers: {},
-    vignette: { active: null, seen: [] },
-  }),
-  // v5 → v6 — the ratchet. Existing statements were all marked verified by the
-  // v4→v5 step (the owner placed them by hand), so `lifetimeVerified` is
-  // seeded from them: the credit is real and must not be lost. `handClaimed`
-  // is seeded from the anchors actually standing, so the manual lane resumes at
-  // the price it had rather than restarting at 5 Datums.
-  (s) => {
-    const resources = (s.resources ?? {}) as Record<string, Dec>;
-    const forged = (s.forged ?? {}) as { anchors?: number[] };
-    const prov = (s.provenance ?? {}) as Record<string, Dec>;
-    const total = resources.triples ?? '0';
-    const verified = sub(sub(total, prov.unverified ?? '0'), prov.drifted ?? '0');
-    return {
-      ...s,
-      lifetimeVerified: gt(verified, '0') ? verified : '0',
-      handClaimed: Math.max(0, (forged.anchors?.length ?? 1) - 1),
-      reviewReadyAt: 0,
-    };
-  },
-  // v6 → v7 — the review desk became state instead of a per-render derivation,
-  // and a wrongly-certified statement now costs something. Both fields start
-  // empty: nobody has been shown a batch, and nobody has certified a lie yet.
-  (s) => ({ ...s, falselyVerified: '0', review: [] }),
-  // v7 → v8 — both hand verbs now cost something: Survey costs Datums,
-  // connecting costs ATTENTION. Existing saves arrive with a full attention
-  // budget so nobody is mid-run and suddenly unable to act.
-  (s) => ({ ...s, attention: 12, surveyed: 0 }),
-  // v8 → v9 — the attention ECONOMY. Datums are gone: agents are distilled from
-  // verified knowledge, and attention is capacity you allocate rather than a
-  // pool you spend. Existing saves keep every statement and every concept; they
-  // simply arrive with nothing supervised and nothing booked, which is the
-  // honest starting position for a graph nobody was watching.
-  (s) => ({ ...s, supervised: 0, bookings: [] }),
-  // v9 → v10 — away time now respects the supervision split instead of banking
-  // everything unchecked. Purely additive: whatever is already banked stays
-  // banked, and stays unverified, which is what it honestly was.
-  (s) => ({ ...s, pendingClean: '0' }),
-  // v10 → v11 — EDGES CARRY DATA. A link was a bare `[a,b]` pair with no
-  // relation, no trust and no source, and coverage counted nodes, so a concept
-  // was recovered forever once found. Now a line is a real object and a concept
-  // counts only while a line supports it.
-  //
-  // Every existing pair migrates to a CHECKED `is a` edge, which is exactly
-  // what it was: the player placed it by hand, and the only relation the game
-  // has ever drawn is hypernymy. Nobody loses a line, nobody loses coverage,
-  // and `links` is kept untouched beside `edges` so the old shape still
-  // round-trips.
-  (s) => {
-    const forged = (s.forged ?? {}) as { links?: Array<[number, number]> };
-    return {
-      ...s,
-      lineRot: 0,
-      lineDebt: 0,
-      forged: {
-        ...forged,
-        edges: (forged.links ?? []).map(([a, b]) => ({
-          a, b, rel: 0, checked: true, fake: false,
-        })),
-      },
-    };
-  },
-  // v11 → v12 — `is a` edges were stored (broader, narrower), so the tuple read
-  // "canine is a dog". Swap the endpoints on rel 0 only. Coverage is unaffected:
-  // `lit()` counts both endpoints, so the same concepts stay lit and the edge
-  // count is identical. Nothing renders orientation yet, which is exactly why
-  // this is the moment to fix it.
-  (s) => {
-    const forged = (s.forged ?? {}) as { edges?: Array<Record<string, unknown>> };
-    return {
-      ...s,
-      forged: {
-        ...forged,
-        edges: (forged.edges ?? []).map((e) =>
-          e.rel === 0 ? { ...e, a: e.b, b: e.a } : e),
-      },
-    };
-  },
-  // v12 → v13 — the bottom of the refinement ladder exists. `data` becomes
-  // Tokens (it was already in every save, holding whatever it started with and
-  // read by nothing), and Salvage gains a source.
-  //
-  // Strictly additive: no field is renamed, removed or reinterpreted downward.
-  // An existing save keeps its token balance and arrives at the common ruins
-  // with a matching composition — which is the honest description of a stock
-  // that was never sorted, not a guess about where it came from.
-  (s) => ({ ...s, source: 'common', tokenTail: 0.12 }),
-  // v13 → v14 — salvaged text is now REAL. A passage is a concept from the
-  // shipped dataset rather than an increment of a counter, so Extraction can
-  // propose actual relations instead of minting integers and calling them
-  // statements.
-  //
-  // The pool starts empty, which is the honest position: a v13 save's `data`
-  // balance recorded a QUANTITY of text and never recorded what any of it was
-  // about, so there is nothing to convert. Nothing else is touched — every
-  // statement, line and concept survives — and the first Salvage refills it in
-  // one tap. `resources.data` is left exactly as it was, per the standing rule
-  // that a saved field is never removed.
-  (s) => ({ ...s, pool: [] }),
-  // v14 → v15 — ANCHOR_CAP becomes the CONTEXT WINDOW: visible, and something
-  // you grow. An existing save keeps every concept it is holding, because the
-  // window is seeded to whatever it already had. Shrinking it would evict
-  // concepts the player earned, which is the one thing this file exists to
-  // prevent.
-  (s) => {
-    const forged = (s.forged ?? {}) as { anchors?: number[] };
-    const held = forged.anchors?.length ?? 0;
-    return { ...s, contextWindow: Math.max(16, held) };
-  },
-];
+/** What a load produced, and whether the player needs telling.
+ *
+ *  A reset with no notice is still a defect (CLAUDE.md). The shell shows
+ *  `notice` verbatim; it is the only thing in this file the player ever reads. */
+export interface LoadResult {
+  state: GameState;
+  /** True when the save could not be carried forward and was rebuilt. */
+  reset: boolean;
+  /** Empty unless `reset`. */
+  notice: string;
+}
 
 // ---- pure base64 over UTF-8 (no btoa/atob: core stays environment-free) ----
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -214,62 +80,81 @@ function b64ToBytes(s: string): Uint8Array {
 // ---- serialize / deserialize ----
 
 export function serialize(state: GameState): string {
-  const envelope: Envelope = { version: state.saveVersion, state };
+  const envelope: Envelope = { version: state.version, state };
   return bytesToB64(new TextEncoder().encode(JSON.stringify(envelope)));
 }
 
-/** Decode + migrate. Throws on garbage — callers keep the old save intact. */
-export function deserialize(blob: string): GameState {
+/** Every concept id we can find in an unrecognised save, whatever shape it was.
+ *
+ *  v16 stores them in `held`; every version before it stored them in
+ *  `forged.anchors`. Both are read, because "keep the board" is the one promise
+ *  this reset makes and getting it from the wrong field would silently break
+ *  it. Ids are bounds-checked against the shipped dataset: a save written
+ *  against a re-cut ontology can hold ids that no longer exist. */
+function rescueConcepts(raw: Record<string, unknown>): number[] {
+  const forged = (raw.forged ?? {}) as { anchors?: unknown };
+  const candidates = [raw.held, forged.anchors].find(Array.isArray) as unknown[] | undefined;
+  const out = new Set<number>(SEED_NODES);
+  for (const v of candidates ?? []) {
+    if (Number.isInteger(v) && (v as number) >= 0 && (v as number) < CONCEPT_BUDGET) {
+      out.add(v as number);
+    }
+  }
+  return [...out];
+}
+
+/** Decode. Throws only on GARBAGE — a save that is merely from another format
+ *  is rebuilt rather than thrown, because a player who cannot open the game is
+ *  worse off than a player who lost their Solid.
+ *
+ *  Callers keep the old blob on a throw, so a truncated paste cannot destroy a
+ *  working save. */
+export function deserialize(blob: string): LoadResult {
   const parsed: unknown = JSON.parse(new TextDecoder().decode(b64ToBytes(blob.trim())));
   if (typeof parsed !== 'object' || parsed === null || !('state' in parsed)) {
     throw new Error('not a save envelope');
   }
-  let raw = (parsed as Envelope).state as unknown as Record<string, unknown>;
+  const raw = (parsed as Envelope).state as unknown as Record<string, unknown>;
   if (typeof raw !== 'object' || raw === null) throw new Error('save has no state');
 
-  let version = typeof raw.saveVersion === 'number' ? raw.saveVersion : 0;
-  if (version > CURRENT_SAVE_VERSION) {
-    throw new Error(`save is from the future (v${version} > v${CURRENT_SAVE_VERSION})`);
+  const version = typeof raw.version === 'number'
+    ? raw.version
+    // Pre-v16 saves named it `saveVersion`. Read it so the notice can say which
+    // format it was, rather than "v0".
+    : typeof raw.saveVersion === 'number' ? raw.saveVersion : 0;
+
+  if (version !== CURRENT_SAVE_VERSION) {
+    const held = rescueConcepts(raw);
+    const kept = held.length - SEED_NODES.length;
+    return {
+      state: { ...initialState(), held },
+      reset: true,
+      notice: `Save v${version} predates the SOLID·RAW·ROT economy and could not be `
+        + `carried forward. It has been rebuilt as a new run; ${kept} concept`
+        + `${kept === 1 ? '' : 's'} you had already walked were kept.`,
+    };
   }
-  for (let v = version; v < CURRENT_SAVE_VERSION; v++) {
-    const step = MIGRATIONS[v - 1]; // step at index v-1 lifts vN → vN+1
-    if (step) raw = step(raw);
-    raw.saveVersion = v + 1;
-  }
-  // Backfill any fields added since this save was written (migrate additively).
+
+  // Same version: backfill anything a partial write left out, per record, so a
+  // missing key arrives as its default rather than as `undefined`.
   //
-  // PER-KEY, not just top-level. The spread used to be one level deep, which
-  // made "we backfill missing fields from `initialState`" true only of the
-  // OUTER object: `raw.resources` replaced the whole record, so a
-  // newly-added `ResourceId` or `GeneratorId` arrived as `undefined` on every
-  // existing save. That is not a hypothetical — it is a corruption path with a
-  // measured shape:
-  //
-  //   generators.extractor === undefined      (silently, no error)
-  //   buyGenerator → undefined + 1  ===  NaN
-  //   JSON.stringify(NaN) === "null"          (the save is now bricked)
-  //
-  // Resources fail more quietly still: `D(undefined)` yields ZERO rather than
-  // throwing, so an old save would simply start a new resource at 0 while a
-  // fresh save gets whatever `initialState` seeds — a silent downgrade nobody
-  // would ever see reported.
-  //
-  // The existing backfill test deleted a TOP-LEVEL field and passed, which is
-  // why this survived. `test/save.test.ts` now deletes keys inside each record.
+  // PER-KEY, NOT JUST TOP-LEVEL. A one-level spread made "we backfill missing
+  // fields" true only of the OUTER object: `raw.machines` replaced the whole
+  // record, so a newly-added MachineId arrived undefined, `buy` computed
+  // `undefined + 1 === NaN`, and `JSON.stringify(NaN)` is `null` — a bricked
+  // save with no error anywhere.
   const base = initialState();
   const r = raw as unknown as Partial<GameState>;
-  const merged: GameState = {
-    ...base,
-    ...r,
-    resources: { ...base.resources, ...(r.resources ?? {}) },
-    generators: { ...base.generators, ...(r.generators ?? {}) },
-    coverage: { ...base.coverage, ...(r.coverage ?? {}) },
-    flags: { ...base.flags, ...(r.flags ?? {}) },
-    modifiers: { ...base.modifiers, ...(r.modifiers ?? {}) },
-    provenance: { ...base.provenance, ...(r.provenance ?? {}) },
-    vignette: { ...base.vignette, ...(r.vignette ?? {}) },
-    forged: { ...base.forged, ...(r.forged ?? {}) },
-    saveVersion: CURRENT_SAVE_VERSION,
+  return {
+    state: {
+      ...base,
+      ...r,
+      machines: { ...base.machines, ...(r.machines ?? {}) },
+      watched: { ...base.watched, ...(r.watched ?? {}) },
+      held: Array.isArray(r.held) ? r.held : base.held,
+      version: CURRENT_SAVE_VERSION,
+    },
+    reset: false,
+    notice: '',
   };
-  return merged;
 }

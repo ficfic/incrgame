@@ -1,75 +1,54 @@
 # Technical spec — the M0/M1 spine
 
-> ## ⚠️ THIS FILE IS BEHIND THE CODE (checked 2026-07-25)
+> ## ⚠️ `src/core/types.ts` IS THE CONTRACT. This file is the surroundings.
 >
-> SPEC calls itself the source of record. For the save format, IndexedDB,
-> offline model and the concept-data contract it still is, and those sections
-> were re-verified today. **The engine surface is not.** Measured drift:
+> Rewritten 2026-07-28 against the shipped code, at save **v16**. This document
+> used to carry a `GameState` sketch and an action union and call itself the
+> source of record; both went stale, twice, and a session believed them. The
+> engine surface below is now a **summary with a pointer**, deliberately, so
+> there is only one place it can be wrong.
 >
-> - The `GameState` sketch below is missing ~18 live fields (`provenance`,
->   `syntheticShare`, `lifetimeGenerated`, `pending`, `pendingClean`, `lineRot`,
->   `lineDebt`, `modifiers`, `vignette`, `lifetimeVerified`, `handClaimed`,
->   `reviewReadyAt`, `falselyVerified`, `attention`, `surveyed`, `supervised`,
->   `bookings`, `review`), and `forged` is shown without **`edges`** — which is
->   the entire v11 model.
-> - The action union is missing `discover`, `connect`, `setSupervision` and
->   `absorb` — every verb the game actually has — while presenting `survey` and
->   `claimNode` as live. Both are `return state`.
-> - "No action consumes RNG" is **false**: `tick` draws in `mintReview` and in
->   the agent line-drawing loop.
-> - The edge drip (`0.15 × floor(triples)`) does not exist; `ratePerSecond`
->   returns `'0'`. Harvester `baseRate` is `0.35`, not `0.1`.
-> - Prestige is gated on `recovered >= REFLECT_MIN_CONCEPTS`, not on
->   `lifetimeCapital` — which no code path ever writes.
+> What is still authoritative here and was re-verified today: the save envelope,
+> IndexedDB, the tick model, the offline model, the PWA/iOS contract, the deploy
+> pipeline, and the concept-data contract.
 >
-> **`src/core/types.ts` is the real contract.** Read it first. Fixing this file
-> properly is a backlog item; leaving it unmarked would be worse than either.
+> Note that **"additive-by-construction" is void.** The owner reversed the
+> save-safety rule on 2026-07-27 ("i'm completely ok with breaking saves at any
+> time"); migrations are now optional and v16 has none.
 
 
-The concrete contracts M0/M1 need before any engine code. Everything here is
-**additive-by-construction** (the save-safety rule). Numbers are tunable; shapes
-are the contract. This doc is the single source of record for the engine surface —
-if it disagrees with another doc, fix the other doc.
+The concrete contracts the game needs outside the engine's own type file.
+Numbers are tunable; shapes are the contract. If this file disagrees with
+`src/core/types.ts`, the type file wins and this file is a bug.
 
-## Types
+## Types — see `src/core/types.ts`
 
 ```ts
 type Dec = string;   // break_eternity Decimal, serialized as string (NOT JSON-native)
 
-type ResourceId =
-  | 'data' | 'triples' | 'entities' | 'taxonomies' | 'ontologies' | 'twins'  // the ladder
-  | 'capital';                                                                 // hard currency
-
-type GeneratorId = 'harvester' | 'extractor' | 'reasoner' | 'aiAgent' | 'orchestrator';
-
-type DomainId = 'general';  // seed value; the domain tech-tree is in-vision but the type must exist
-
-// The ordered refinement ladder (data → … → twins). capital is NOT on it.
-const TIER_LADDER: ResourceId[] = ['data','triples','entities','taxonomies','ontologies','twins'];
+type MachineId     = 'extractor' | 'reasoner' | 'checker';
+type FactMachineId = 'extractor' | 'reasoner';   // the ones that carry the watched toggle
 ```
+
+There is no `ResourceId`, no `TIER_LADDER`, no `GeneratorId`, no `DomainId` and
+no hard currency. Every price in the game is in **Solid**.
 
 ## GameState (the root; the save is this, versioned)
 
-```ts
-interface GameState {
-  saveVersion: number;                     // the ONE version authority (see Save); starts at 1
-  lastTick: number;                        // epoch ms of last processed tick
-  rngState: number;                        // mulberry32 seed/state (see RNG)
-  resources: Record<ResourceId, Dec>;      // current balances
-  lifetimeCapital: Dec;                    // total $ ever earned — the prestige anchor
-  generators: Record<GeneratorId, number>; // owned counts (integers)
-  flags: Record<string, boolean>;          // narrative/unlock/event flags
-  coverage: Record<DomainId, number>;      // 0..1 per domain (persists across prestige)
-  reflection: number;                      // prestige multiplier level (persists)
-  graph: { nodes: number; edges: number }; // derived cache of forged + balances; bounded JS
-                                           // numbers (picture, never a balance input — the M3
-                                           // multiplier reads resources.triples)
-  forged: ForgedGraph;                     // v4 Frontier Mining: { nextId, anchors≤240,
-                                           // links≤512 (oldest fold out), frontier≤8,
-                                           // foldedNodes: Dec }. Explicit pairs come only
-                                           // from player actions; machines forge aggregates.
-}
+**Twelve fields.** Do not re-copy them here — read the annotated source. The
+shape, for orientation only:
+
 ```
+version · lastTick                       bookkeeping
+solid · raw · rot                        one substance, three states
+held[] · stepsThisRun                    the board, and what the next step costs
+machines{…} · watched{…}                 inventory, and speed-vs-truth
+generation · syntheticShare · minted     what a Retrain carries
+```
+
+**Words is DERIVED**, never stored: `held` minus the seed (`literacy.bound()`).
+That is the rule that stops the board, the income cap, the story position and
+the readout from disagreeing — the defect this whole rewrite existed to kill.
 
 Only **source of truth** is stored. Production/sec, current costs, and multipliers
 are **computed** from state + content — never stored (no drift, tiny saves).
@@ -85,35 +64,29 @@ const tick = (s: GameState, dt: number) => apply(s, { type: 'tick', dt });
 (There is no separate `tick` function to maintain and no "entry point #1/#2" — one
 reducer, one place state changes. ARCHITECTURE.md is aligned to this.)
 
-## Resources — DISTINCT tiered resources
+## Resources — one substance, three states
 
-The ladder tiers are **distinct, non-fungible resources** with one-directional
-refinement, each **sellable at its own tier's price**. This is what gives sell-vs-
-keep real depth (sell cheap Triples now, or refine into a Twin worth orders of
-magnitude more, slower). `capital` (`$`) is the hard currency you earn by selling
-and spend on generators/compute.
+Solid, Raw and Rot are the same facts at different stages of being trusted, and
+are drawn as **one stacked bar** so the screen holds two objects and not four.
+Solid is the only thing you spend; Rot only ever accumulates. Words are not a
+resource at all — they are the concepts you hold, and they cap production.
 
 ## Action union
 
 ```ts
 type Action =
-  | { type: 'tick';  dt: number; now?: number }   // dt in SECONDS; optional `now` (epoch ms)
-                                                   //   advances lastTick purely (no Date.now in core)
-  | { type: 'survey' }                             // v4: reveal a frontier entity (free, cap 8)
-  | { type: 'claimNode'; id: number }              // v4: pay ceil(5×1.08^edges) data → +1 triples
-  | { type: 'manualConnect' }                      // DEPRECATED pre-v4 verb; inert no-op
-  | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource
-  | { type: 'refine'; from: ResourceId }           // from ∈ TIER_LADDER (not 'capital'); one tier up
-  | { type: 'sell'; id: ResourceId; amount: Dec }  // consumes `id`, yields `capital`
-  | { type: 'reviewBatch'; keep: boolean[] }       // HITL (in-vision)
-  | { type: 'chooseOption'; eventId: string; choiceId: string }
-  | { type: 'reflect' };                           // prestige
+  | { type: 'tick'; dt: number; now?: number }   // dt in SECONDS; optional `now` (epoch ms)
+                                                 //   advances lastTick purely (no Date.now in core)
+  | { type: 'walk'; to: number }                 // a lane step. Costs Solid; 0 if already held
+  | { type: 'check' }                            // 5 Raw → Solid, by hand, no cooldown
+  | { type: 'buy'; id: MachineId }               // costs Solid
+  | { type: 'setWatched'; id: FactMachineId; watched: boolean }
+  | { type: 'retrain' };                         // prestige
 ```
 
-`apply` is pure. Actions that draw randomness MUST thread the new seed back into
-returned state (see RNG). As of the one-substance rework (v2) no action consumes
-RNG — the graph is an exact projection — so everything is deterministic without
-a seed until M3's CYOA/agent mechanics arrive. The seed infrastructure stays.
+Four verbs, plus the clock and the toggle. `apply` is pure, and **every gate is
+enforced in the reducer, not on the button** — the play probe force-clicks, and
+a gate that lives in the UI is a gate that does not exist.
 
 ## Tick model
 
@@ -123,39 +96,42 @@ a seed until M3's CYOA/agent mechanics arrive. The seed infrastructure stays.
 - **Offline does NOT reuse the tick action with a giant dt** — it uses the direct
   offline calc below, so the fixed-step invariant is never violated.
 
-## RNG — mulberry32, PURE, state in the save
+## RNG — there is none
 
-```ts
-// pure: returns [value in [0,1), next seed]. Store the next seed in GameState.
-function nextRand(seed: number): [number, number] {
-  let a = (seed + 0x6D2B79F5) | 0;
-  let t = Math.imul(a ^ (a >>> 15), 1 | a);
-  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-  return [((t ^ (t >>> 14)) >>> 0) / 4294967296, a];
-}
-```
-
-Every randomness-consuming action returns `{ ...state, rngState: newSeed }`. This
-is what makes CYOA firing / agent errors deterministic across save/load (no
-save-scumming). Do NOT use `Math.random` anywhere in `core/`.
+`src/core/rng.ts` and `rngState` were **deleted** on 2026-07-28 with the rest of
+the old economy. Nothing in the engine draws randomness: production, decay,
+prices and the story graph are all exact functions of state, so the sim is
+deterministic without a seed to carry. `npm run check:core` still forbids
+`Math.random` in `src/core/`. If a future mechanic genuinely needs chance, put
+a pure seeded generator back and thread the new seed through the returned state
+— never `Math.random`.
 
 ## Save format & migrations
 
-- **One version authority:** `state.saveVersion`. A named const
-  `CURRENT_SAVE_VERSION` is the migration `target`.
-- Envelope: `{ version: state.saveVersion, state }` → `JSON.stringify` → **base64**
-  = the save blob. (The envelope `version` mirrors `state.saveVersion`; state is
-  authoritative.)
-- **Decimals serialize as strings** (`toString`), rehydrated in `numbers.ts`
-  (`fromValue`). This is the #1 save footgun.
-- Migrations: an ordered array of pure steps `(s)=>s`, each `vN → vN+1`; on load,
-  apply every step where `s.saveVersion < CURRENT_SAVE_VERSION`. Never mutate a
-  field's meaning without a migration that preserves old saves.
+- **One version authority:** `state.version` (renamed from `saveVersion` at v16).
+  `CURRENT_SAVE_VERSION` lives in `engine.ts` and is **16**.
+- Envelope: `{ version: state.version, state }` → `JSON.stringify` → **base64**
+  = the save blob. The envelope `version` mirrors state; state is authoritative.
+  Base64 is hand-rolled over UTF-8 in `save.ts` — no `btoa`/`atob`, because core
+  stays environment-free.
+- **Decimals serialize as strings** (`toString`), rehydrated in `numbers.ts`.
+  This is the #1 save footgun.
+- **Migrations are OPTIONAL** (owner, 2026-07-27). There are none at v16: the
+  fifteen-step chain was deleted with the twenty-three fields it existed to
+  carry. `deserialize` returns `{ state, reset, notice }` — a blob that is not
+  v16 is rebuilt as a fresh run, its **concepts are kept**, and `notice` says so
+  in words. A reset the player is not told about is still a defect.
+  `version` stays on every save for exactly this: so the code can *tell* which
+  format it holds and reset deliberately instead of crashing.
+- Same-version loads **backfill per record, not just top-level**. A one-level
+  spread once let a newly-added `MachineId` arrive `undefined`, `buy` compute
+  `NaN`, and `JSON.stringify(NaN)` write `null` — a bricked save with no error.
 - **Storage medium: IndexedDB, not localStorage** — localStorage is iOS-evictable
-  (~7 idle days) and would break the "never break a save" guardrail. Call
-  `navigator.storage.persist()` to request durable storage.
-- **Export/Import = the same base64 blob to/from clipboard** (the escape hatch —
-  keep it non-optional; it's the only recovery if the OS evicts storage anyway).
+  (~7 idle days). Call `navigator.storage.persist()` to request durable storage.
+- **Export/Import = the same base64 blob to/from clipboard.** Non-optional: it is
+  how the owner moves a save between devices, and the only recovery if the OS
+  evicts storage anyway. A bad paste throws and leaves the running save
+  untouched.
 
 ## Offline progress
 
@@ -167,41 +143,48 @@ save-scumming). Do NOT use `Math.random` anywhere in `core/`.
   production is linear, so this single big-step calc is *exact* (don't integrate
   the inference feedback loop over the gap).
 - Show a "while you were away…" summary on return (doubles as a retention pull).
+- **Nothing rots while you are away**, and away time respects the watched/loose
+  split you left set — Checkers run too, bounded by the Raw actually available
+  over the gap. Absence banks work; you never come back to damage.
 
-## Content data types (the M1 source of record)
+## Content data types
 
 ```ts
-interface Generator {
-  id: GeneratorId; label: string;
-  baseCost: Dec; costRatio: number; costResource: ResourceId;  // cost(n)=baseCost×costRatio^n of costResource
-  baseRate: Dec; produces: ResourceId;                          // output/sec of `produces`
+interface Machine {
+  id: MachineId; label: string;
+  rate: number;                 // facts/s per unit at FULL SPEED
+                                //   (for the Checker: Raw CONVERTED per second)
+  baseCost: Dec; costRatio: number;   // cost(n) = ceil(baseCost × costRatio^n), in Solid
 }
-interface Refinement { from: ResourceId; to: ResourceId; ratio: number } // `ratio` of `from` → 1 `to`
 interface FieldNote {
   id: string; gameTerm: string; realTerm: string; glossaryRef: string;
   oneLineTruth: string; simplificationLabel?: string; learnMore?: string;
 }
 ```
 
-Frontier Mining (v4): income = the edge drip (`0.15 × floor(triples)` Datums/s,
-in `ratePerSecond`) plus machines. Harvester = `{ id:'harvester', label:
-'Ingestion Pipeline™', baseCost:'15', costRatio:1.15, costResource:'data',
-baseRate:'0.1', produces:'data' }`. At M3 the Extractor automates claiming
-(into aggregates) and the Reasoner multiplies the drip via
-`1 + level × log10(1 + triples)/10`. Content lives in `src/content/` as typed
-TS (the source of record for M1).
-`docs/graph/game.ttl` is a **design artifact**, not yet the runtime pipeline (it
-lacks `baseRate`/`costRatio`/`costResource`).
+Three machines, in `src/content/machines.ts` — **tune balance there, never in
+the engine**: Extractor `0.4/s @ 20×1.15`, Reasoner `2.2/s @ 320×1.18`, Checker
+`0.25 Raw→Solid/s @ 45×1.16`. The story graph's shape is in `types.ts`
+(`StoryBeat` / `StoryChoice` / `StoryGraph`) and is emitted by
+`scripts/build-story.mjs` with numeric node ids throughout.
+`docs/graph/game.ttl` is a **design artifact**, not the runtime pipeline.
 
-## Economy interface (reconciled with tiered resources — see ECONOMY_MODEL.md)
+## Economy interface
 
-- Output is **per-`ResourceId`** (each generator `produces` one resource) — NOT a
-  summed single "K".
-- Selling: `$gained = amount × marketPrice(resourceId, domain) × Q`;
-  `sell` consumes `resourceId`, yields `capital`. `marketPrice` is keyed by
-  **(ResourceId, DomainId)**.
-- Prestige anchor is **`lifetimeCapital`**:
-  `reflectionLevel = floor((lifetimeCapital / T) ^ (1/3))`.
+```
+factsPerSecond = min(0.4 × factMachines, 0.15 × Words)     the lane join
+stepCost       = 0 if held, else ceil(6 × 1.04^stepsThisRun)
+watched        = 0.55× rate, output arrives Solid;  loose = 1.0×, arrives Raw
+rotPerSecond   = 0.002 × (1 + 3 × syntheticShare)          of the Raw pile
+Retrain        at Words ≥ 120: keep concepts, reset stepsThisRun,
+                 inherit 25% of `minted` as Raw, raise syntheticShare
+```
+
+The cap is applied **before** the watching penalty, and the order is
+load-bearing: applied after, a vocabulary-bound player pays nothing for
+watching, and the game's only decision evaporates exactly where the join binds.
+Checkers are excluded from `factMachines` — they convert rather than produce, so
+counting them would raise a ceiling on production they do not perform.
 
 ## PWA / install (iOS-first — this is the M0 "installable" contract)
 
@@ -300,8 +283,11 @@ was rejected re-parents to its nearest accepted ancestor, so the result is alway
 a connected tree with no dangling parents (asserted by the generator and by
 `test/ontology.test.ts`).
 
-`src/content/ontologyMeta.ts` carries `CONCEPT_BUDGET` for the engine, which
-needs the denominator but must not fetch. A test keeps the two in sync.
+`src/content/ontologyMeta.ts` carries `CONCEPT_BUDGET` (4,096) and
+`READABLE_CONCEPTS` (4,075 — what a player can actually reach through gated
+lanes) for the engine, which needs the denominator but must not fetch. Tests
+keep both in sync with the shipped data: `test/ontology.test.ts` and
+`test/reachability.test.ts` fail first if either dataset is re-cut.
 
 ### The frozen ordering contract ⚠️
 

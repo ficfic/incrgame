@@ -1,12 +1,44 @@
 # ECONOMY — SOLID · RAW · ROT
 
-**Status: recommended, not accepted.** Produced 2026-07-27 by an 11-agent
+> ## ✅ BUILT — 2026-07-28, in the engine. The screen is not built yet.
+>
+> `src/core/` is this spec. The save is v16 and twelve fields; attention, the
+> six-rung ladder, the context window, REDRIFT, the review desk, stored edges
+> and three machines are gone; `reflect` is `retrain` everywhere. **Saves reset**
+> — an unreadable blob rebuilds as a fresh run and keeps its concepts.
+> `src/ui/App.svelte` was NOT rewritten with it (`docs/NEXT.md` item 3), so the
+> build is red and `npm run play` cannot run.
+>
+> **Where the build deliberately differs from this document:**
+>
+> | this doc says | shipped | why |
+> |---|---|---|
+> | §3: the away pile makes Raw | away time respects the watched/loose split you left set | banking a watched player's output as Raw is a regression a logged v9→v10 decision already fixed |
+> | §4: "27 beats, ~411 reachable concepts" | 446 beats, **4,075** readable concepts | measured after the story graph was re-cut; `test/reachability.test.ts` now fails first if it moves again |
+> | §5: `REFLECT_MIN_CONCEPTS` → "a reachable number" | `RETRAIN_MIN_WORDS = 120` | ~3% of the world, ≈16,450 Solid on the step curve; 300 would be 2.1 M |
+> | §2: a five-word `explain`, linted | linted at **≤** five | "facts worn out, permanently" is four; the bound stops an essay, it does not pad a phrase |
+> | — | vignettes, `chooseOption`, `modifiers`, `flags` deleted too | the one shipped vignette triggered on `minTriples` and two of its four levers were attention and the Orchestrator |
+>
+> **Not established by this build, despite §7:** "unreachable by construction".
+> REDRIFT was the mechanism and this spec deletes it, so Rot is a sink and a
+> scoreboard rather than a multiplier. Each generation is worse only in that Raw
+> rots faster. Re-deriving the collapse curve is a separate item, not a claim
+> anyone may repeat until it is.
+>
+> Ten decisions this document did not settle are logged in `docs/DECISIONS.md`
+> under 2026-07-28. Everything below is the original recommendation, unedited,
+> because the diagnosis and its citations are the reason the deletions were
+> allowed.
+
+**Status: BUILT 2026-07-28.** Produced 2026-07-27 by an 11-agent
 review (2 diagnoses, 5 clean-sheet proposals, 3 judges, 1 synthesis) after the
 owner said: *"i'm so confused with the names of things and progression… i think
 we need to reset the entire economy."* Second time — they called it convoluted
 on 2026-07-26 and `MODEL.md` was written to fix it and did not.
 
-**Supersedes on acceptance:** `ECONOMY.md`, `ECONOMY_MODEL.md`, `MODEL.md`.
+**Superseded and DELETED on 2026-07-28:** `ECONOMY.md`, `ECONOMY_MODEL.md`,
+`MODEL.md`. Deleted rather than banner-flagged, on purpose: a stale document
+with a warning on it is still a document a session reads and believes.
 
 ## What the diagnosis actually found
 
@@ -28,7 +60,7 @@ The model is not the problem. The **names** are. Cited findings:
 - The Reasoner produces concepts in code, edges in `GLOSSARY.md`, and
   `entities` in its content declaration. Three sources, three answers.
 
-## ⚠️ The landmine, verified by hand
+## ⚠️ The landmine, verified by hand *(defused 2026-07-28 — see the banner)*
 
     REFLECT_MIN_CONCEPTS = 820          prestige gate, engine.ts:178
     concepts reachable via lanes = 106  measured from story.json
@@ -37,10 +69,11 @@ The model is not the problem. The **names** are. Cited findings:
 button, prestige becomes mathematically unreachable.** (The synthesis says 411;
 the measured figure is 106. Both are far below 820.)
 
-## ⚠️ This deletes Attention entirely
+## ⚠️ This deletes Attention entirely *(answered 2026-07-27: delete it)*
 
-Which kills `NEXT.md` item 1, in flight in the engine session. Owner's call
-before a line is written.
+Which killed the `NEXT.md` item then in flight. The owner's call, on the day:
+*"i dont like the attention anymore yeah."* `state.attention`, `attentionCap`,
+`attentionFree`, the bookings and the supervision dial are gone from the code.
 
 ---
 

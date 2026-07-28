@@ -25,10 +25,8 @@ const flat = (text: string, beat: StoryBeat, known: number[]) =>
 
 const beat0 = STORY.beats[0]!;
 
-const holding = (...ids: number[]): GameState => {
-  const base = initialState(1);
-  return { ...base, lastTick: 1000, forged: { ...base.forged, anchors: ids, nextId: Math.max(...ids) + 1 } };
-};
+const holding = (...ids: number[]): GameState =>
+  ({ ...initialState(), lastTick: 1000, held: ids });
 
 describe('the shipped data is renderable', () => {
   it('has prose where prose is written, and a safe render where it is not', () => {
@@ -201,10 +199,10 @@ describe('where the player is, derived and not stored', () => {
     expect(currentBeat(holding(0, 4095))!.at).toBe(0);
   });
 
-  it('travelling a choice discovers exactly that concept', () => {
-    const s = holding(0);
+  it('travelling a choice lands exactly that concept', () => {
+    const s = { ...holding(beat0.at), solid: '1e9' };
     const c = beat0.choices.find((x) => (x.requires?.concepts ?? []).length === 0)!;
-    const after = apply(s, { type: 'discover', node: c.to, parent: beat0.at });
-    expect(after.bookings[0]!.node).toBe(c.to);
+    const after = apply(s, { type: 'walk', to: c.to });
+    expect(after.held).toContain(c.to);
   });
 });
