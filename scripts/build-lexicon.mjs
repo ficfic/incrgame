@@ -84,16 +84,22 @@ for (let c = 0; c < index.chunks; c++) {
  * collide. Extend with further syllables until distinct — measured below, this
  * costs a handful of concepts one extra sound and nothing else. */
 const word = [];
+const syllablesOf = [];   // kept separately now that words are not hyphenated
 const taken = new Set();
 for (let i = 0; i < label.length; i++) {
   const p = parent[i];
-  const stem = p < 0 ? [] : word[p].split('-');
+  const stem = p < 0 ? [] : (syllablesOf[p] ?? []);
   // Past the cap, drop the oldest syllable rather than growing without bound.
   const kept = stem.length >= MAX_SYLLABLES ? stem.slice(1) : stem;
-  let w = [...kept, syllable(i)].join('-');
-  for (let salt = 1; taken.has(w); salt++) w = [...kept, syllable(i), syllable(i * 31 + salt)].join('-');
+  // Joined, not hyphenated. `ka-ta-na-to` reads as punctuation and looks like a
+  // code; `katanato` reads as a word. The inherited stem still shows — every
+  // descendant of `kata` starts with it — so kinship survives, which is the
+  // only thing the morphology was ever for.
+  let w = [...kept, syllable(i)].join('');
+  for (let salt = 1; taken.has(w); salt++) w = [...kept, syllable(i), syllable(i * 31 + salt)].join('');
   taken.add(w);
   word[i] = w;
+  syllablesOf[i] = [...kept, syllable(i)];
 }
 
 // ---- report ----------------------------------------------------------------

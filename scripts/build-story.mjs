@@ -140,17 +140,45 @@ for (const c of [...children.keys()].sort((a, b) => a - b)) {
  * spines and check-story.mjs caught it red: 3 keys sat on beats that had been
  * dropped for being too deep, so no ungated path ever taught them — doors with
  * no key anywhere in the world. Hence two passes. */
-const teachable = [];
-for (const b of beats) for (const c of b.choices) teachable.push(c.to);
+const canTeach = new Set();
+for (const b of beats) for (const c of b.choices) canTeach.add(c.to);
+
+/* Which concepts are named in a given concept's definition. crosslinks.json
+ * holds [a, b] = "a's gloss contains b's label", which is exactly the relation
+ * a key needs: the words you must know to read what something is. */
+const glossOf = new Map();
+for (const [a, b] of JSON.parse(readFileSync(join(ROOT, 'docs/graph/crosslinks.json'), 'utf8')).e) {
+  (glossOf.get(a) ?? glossOf.set(a, []).get(a)).push(b);
+}
 
 let gatedCount = 0;
 let crossCount = 0;
 for (const b of beats) {
   b.pendingGated.forEach((k, n) => {
-    // Deliberately not a concept from this beat's own children: the key has to
-    // be earned somewhere else, which is what makes you come back.
-    const key = teachable[(b.at * 7 + n * 101) % teachable.length];
-    if (key === undefined || key === k) return;
+    /* THE KEY COMES FROM THE DESTINATION'S OWN DEFINITION.
+     *
+     * This was `teachable[(b.at * 7 + n * 101) % teachable.length]` — a hash.
+     * The owner played it and said: "i don't understand why some options are
+     * open and some not, like i don't see any logic behind." There was none.
+     * `chelation` was locked by `solid` because arithmetic said so.
+     *
+     * A door is now locked by a word from the definition of what is behind it:
+     * you cannot go somewhere until you can read what it IS. That rule is
+     * stateable in one sentence, and the player can verify it — the gloss is on
+     * screen, so the key is visible in the text that describes the lock.
+     *
+     * Falls back to the beat's own gloss words, then to leaving the branch
+     * ungated. An arbitrary lock is worse than no lock. */
+    const key = (glossOf.get(k) ?? []).find((g) => canTeach.has(g) && g !== k)
+      ?? (glossOf.get(b.at) ?? []).find((g) => canTeach.has(g) && g !== k);
+    if (key === undefined || key === k) {
+      // No honest key exists — ship it open rather than invent a reason.
+      b.choices.push({
+        id: `c${b.at}-alt${n}`, frame: 'continue', label: '', to: k, toLabel: label[k],
+        rel: REL_ISA, requires: { concepts: [], rels: [] }, effects: {},
+      });
+      return;
+    }
     gatedCount++;
     b.choices.push({
       id: `c${b.at}-alt${n}`,
