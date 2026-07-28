@@ -156,10 +156,16 @@ describe('the graph words are never truncated', () => {
   // mechanic destroyed. It was watched passing under exactly that sabotage.
   // A test for "the word is not shortened" cannot get the expected word from
   // the function that shortens it.
+  //
+  // Updated 2026-07-27 when hyphens were dropped (owner: "i don't like how the
+  // hyphenated stuff looks"). `ka-sa-le-then` read as punctuation and looked
+  // like an identifier; `kasalethen` reads as a word. The literals move, the
+  // method does not — the point is still that a truncation bug cannot move
+  // both sides of the assertion.
   const KA_ENTITY = 'ka';
-  const KA_PHYSICAL = 'ka-sa';        // node 2, child of entity
-  const KA_OBJECT = 'ka-sa-le';       // node 15, child of physical entity
-  const KA_DEEP = 'ka-sa-le-then';    // node 228, child of object
+  const KA_PHYSICAL = 'kasa';         // node 2, child of entity
+  const KA_OBJECT = 'kasale';         // node 15, child of physical entity
+  const KA_DEEP = 'kasalethen';       // node 228, child of object
 
   it('renders the whole word, prefix and all', () => {
     expect(graphWord(228)).toBe(KA_DEEP);

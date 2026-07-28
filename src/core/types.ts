@@ -407,7 +407,10 @@ export interface StoryGraph {
    *  three times in a day (per-lane beats → places → concept granularity) and a
    *  strict shape here fails the typecheck for a field nothing reads. */
   counts: Record<string, number>;
-  frames: string[];
+  /** Carrier sentences by frame id, with {here}/{next}/{branch} slots. Shipped
+   *  rather than pre-rendered into every field: 4,716 choices each carrying a
+   *  copy of "Follow X down" was 600K of the payload. */
+  frames: Record<string, { title?: string; body?: string; label?: string }>;
   beats: StoryBeat[];
 }
 

@@ -286,7 +286,11 @@ let framed = 0;
 for (const b of beats) {
   if (!b.body) framed++;
   b.choices = b.choices.map((c) => {
-    const out = { i: c.id, f: c.frame, to: c.to };
+    // toLabel stays. Dropping it saved ~60K and cost a whole class of bug: a
+    // choice with no written label had nothing to render, so `c1-on5` came out
+    // a blank button. The renderer needs a word here even when the frame
+    // supplies the sentence around it.
+    const out = { i: c.id, f: c.frame, to: c.to, l: c.toLabel };
     if (c.rel) out.r = c.rel;
     if (c.label) out.t = c.label;
     const q = {};
