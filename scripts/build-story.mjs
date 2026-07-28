@@ -49,8 +49,19 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ONTOLOGY = join(ROOT, 'public/ontology');
 const OUT = join(ROOT, 'docs/graph/story.json');
 
-const UNGATED_CHILDREN = 3;   // always-walkable exits per beat
-const GATED_CHILDREN = 3;     // further children, locked behind a concept
+/* NO CAP ON CHILDREN.
+ *
+ * These were 3 and 3. Measured from the seed: 397 of 446 places were
+ * ORPHANED - unreachable by any route, with or without keys - because a beat
+ * exposed at most six of its children and every subtree under the rest
+ * vanished. `object` has 72 children and offered six.
+ *
+ * A generator must not decide what the player can never see. Every child is
+ * emitted; how many are DRAWN at once is the renderer's call, and it should
+ * key off what the player can read - the graph revealing itself as vocabulary
+ * grows is the progression, not a pruning constant in a build script. */
+const UNGATED_CHILDREN = Infinity;
+const GATED_CHILDREN = 0;     // gating is applied below, per child, from the gloss
 const CROSS_PER_BEAT = 3;     // sideways routes, locked behind the relation
 const REL_ISA = 0;
 const REL_NAMED = 8;          // `named in definition` — add to REL_NAMES
@@ -118,6 +129,30 @@ for (const c of [...children.keys()].sort((a, b) => a - b)) {
     requires: { concepts: [], rels: [] },   // the guaranteed exits
     effects: {},
   }));
+  /* THE WAY BACK UP.
+   *
+   * Every exit used to go DOWN to a child, which was invisible while the
+   * player started at `entity` and could only descend. The owner moved the
+   * start mid-graph ("not necessarily entity"), and measuring it showed 35 of
+   * 4,096 concepts reachable from the seed: from depth 3 in a 4-deep tree,
+   * descending hits leaves almost immediately and there was no other move.
+   *
+   * A parent exit is ungated and always present. It is the same hypernym edge
+   * read the other way — generalisation rather than specialisation — so it
+   * costs no new relation, and with no UI to fall back on it is the only thing
+   * that makes a dead end recoverable. */
+  if (parent[c] >= 0) {
+    choices.push({
+      id: `c${c}-up`,
+      frame: 'ascend',
+      label: '',
+      to: parent[c],
+      toLabel: label[parent[c]],
+      rel: REL_ISA,
+      requires: { concepts: [], rels: [] },
+      effects: {},
+    });
+  }
   if (!choices.length) continue;
   beats.push({
     id: `c${c}`,
@@ -128,7 +163,7 @@ for (const c of [...children.keys()].sort((a, b) => a - b)) {
     title: '',
     body: '',
     choices,
-    pendingGated: kids.slice(UNGATED_CHILDREN, UNGATED_CHILDREN + GATED_CHILDREN),
+    pendingGated: [],
     pendingCross: (cross.get(c) ?? []).filter((t) => children.has(t)).slice(0, CROSS_PER_BEAT),
   });
 }
@@ -140,8 +175,23 @@ for (const c of [...children.keys()].sort((a, b) => a - b)) {
  * spines and check-story.mjs caught it red: 3 keys sat on beats that had been
  * dropped for being too deep, so no ungated path ever taught them — doors with
  * no key anywhere in the world. Hence two passes. */
+/* What a key may be drawn from: destinations that are UNGATED BY CONSTRUCTION,
+ * not merely ungated right now.
+ *
+ * This was every choice destination, computed before gating ran — so keys
+ * pointed at children that gating then locked, and check-story.mjs went red
+ * with 376 unobtainable keys. The dependency is circular: what is teachable
+ * depends on what is gated, which depends on what is teachable.
+ *
+ * Broken by fixing the free set in advance. Every beat keeps its first child
+ * open and every beat below the root has an ungated parent exit, so those two
+ * are guaranteed reachable without any key at all. */
 const canTeach = new Set();
-for (const b of beats) for (const c of b.choices) canTeach.add(c.to);
+for (const b of beats) {
+  const kids = b.choices.filter((c) => c.frame === 'continue');
+  if (kids.length) canTeach.add(kids[0].to);
+  for (const c of b.choices) if (c.frame === 'ascend') canTeach.add(c.to);
+}
 
 /* Which concepts are named in a given concept's definition. crosslinks.json
  * holds [a, b] = "a's gloss contains b's label", which is exactly the relation
@@ -154,43 +204,27 @@ for (const [a, b] of JSON.parse(readFileSync(join(ROOT, 'docs/graph/crosslinks.j
 let gatedCount = 0;
 let crossCount = 0;
 for (const b of beats) {
-  b.pendingGated.forEach((k, n) => {
-    /* THE KEY COMES FROM THE DESTINATION'S OWN DEFINITION.
-     *
-     * This was `teachable[(b.at * 7 + n * 101) % teachable.length]` — a hash.
-     * The owner played it and said: "i don't understand why some options are
-     * open and some not, like i don't see any logic behind." There was none.
-     * `chelation` was locked by `solid` because arithmetic said so.
-     *
-     * A door is now locked by a word from the definition of what is behind it:
-     * you cannot go somewhere until you can read what it IS. That rule is
-     * stateable in one sentence, and the player can verify it — the gloss is on
-     * screen, so the key is visible in the text that describes the lock.
-     *
-     * Falls back to the beat's own gloss words, then to leaving the branch
-     * ungated. An arbitrary lock is worse than no lock. */
-    const key = (glossOf.get(k) ?? []).find((g) => canTeach.has(g) && g !== k)
-      ?? (glossOf.get(b.at) ?? []).find((g) => canTeach.has(g) && g !== k);
-    if (key === undefined || key === k) {
-      // No honest key exists — ship it open rather than invent a reason.
-      b.choices.push({
-        id: `c${b.at}-alt${n}`, frame: 'continue', label: '', to: k, toLabel: label[k],
-        rel: REL_ISA, requires: { concepts: [], rels: [] }, effects: {},
-      });
-      return;
-    }
+  /* GATE EACH CHILD FROM THE DESTINATION'S OWN DEFINITION.
+   *
+   * Applied per child rather than by slicing the list, because slicing is what
+   * orphaned 397 of 446 places. A child is locked by a word from the gloss of
+   * what it IS — the rule the owner can state and verify, since the gloss is on
+   * screen. A child with no honest key stays open: an arbitrary lock is worse
+   * than no lock.
+   *
+   * At least one child is always left open, and every beat below the root also
+   * carries an ungated parent exit, so the no-dead-end invariant holds twice
+   * over. */
+  const kidChoices = b.choices.filter((c) => c.frame === 'continue');
+  kidChoices.forEach((c, i) => {
+    if (i === 0) return;                    // always one free way down
+    const key = (glossOf.get(c.to) ?? []).find((g) => canTeach.has(g) && g !== c.to);
+    if (key === undefined) return;
     gatedCount++;
-    b.choices.push({
-      id: `c${b.at}-alt${n}`,
-      frame: 'branch',
-      label: '',
-      to: k,
-      toLabel: label[k],
-      rel: REL_ISA,
-      requires: { concepts: [key], rels: [] },
-      effects: {},
-    });
+    c.frame = 'branch';
+    c.requires = { concepts: [key], rels: [] };
   });
+
   b.pendingCross.forEach((t, n) => {
     crossCount++;
     b.choices.push({

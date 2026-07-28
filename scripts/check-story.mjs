@@ -67,7 +67,26 @@
  * empty concepts, a rels gate - counted as a guaranteed exit and a beat with
  * no real way out would have passed as safe.
  *
- * All five applied, observed and reverted on 2026-07-27; four still live.
+ * Sabotage G - remove the parent exit, so the only moves are downward.
+ * Observed:
+ *   FAIL  orphaned: 428 place(s) unreachable from the seed by ANY route
+ *     e.g. c0 (entity)
+ *   exit 1
+ *
+ * Sabotage H - cap children per beat again (UNGATED_CHILDREN = 3). Observed:
+ *   FAIL  opening: only 81 concepts reachable from the seed without a single
+ *         key - the player has nowhere to go
+ *   FAIL  orphaned: 406 place(s) unreachable from the seed by ANY route
+ *     e.g. c8 (measure)
+ *   exit 1
+ *
+ * G and H both describe REAL states this repo shipped, not hypotheticals: the
+ * parent exit did not exist until the seed moved off `entity`, and the child
+ * cap really did orphan 397 of 446 places. Invariant 2 also caught a third
+ * real bug the same day - keys were computed before gating ran, so they
+ * pointed at children that gating then locked (376 unobtainable).
+ *
+ * All seven applied, observed and reverted on 2026-07-27; six still live.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -128,7 +147,58 @@ if (orphanKeys.size) {
   );
 }
 
-// 3. no dangling reference
+/* 3. THE OPENING IS PLAYABLE, AND NOTHING IS ORPHANED.
+ *
+ * The player no longer starts at `entity` — the seed is five mid-graph
+ * concepts (docs/graph/language.json). Two things that were silently false
+ * when that changed:
+ *
+ *   - every exit went DOWN to a child, so from depth 3 in a 4-deep tree only
+ *     35 of 4,096 concepts were reachable. Fixed by an ungated parent exit.
+ *   - per-beat child caps orphaned 397 of 446 places: unreachable by any
+ *     route, with or without keys. Content that exists and cannot be visited
+ *     is worse than content that does not exist, because it looks like
+ *     progress.
+ *
+ * Neither was visible without walking the graph, so this walks it. */
+const { seed } = JSON.parse(readFileSync(join(ROOT, 'docs/graph/language.json'), 'utf8'));
+{
+  const at = new Map(beats.map((b) => [b.at, b]));
+  const byLabel = new Map();
+  const idx = JSON.parse(readFileSync(join(ROOT, 'public/ontology/index.json'), 'utf8'));
+  for (let c = 0; c < idx.chunks; c++) {
+    JSON.parse(readFileSync(join(ROOT, `public/ontology/c${String(c).padStart(3, '0')}.json`), 'utf8'))
+      .l.forEach((l, i) => { if (!byLabel.has(l)) byLabel.set(l, i + c * idx.chunkSize); });
+  }
+  const missing = seed.filter((s) => !byLabel.has(s));
+  if (missing.length) fail.push(`seed: not in the dataset — ${missing.join(', ')}`);
+
+  const walk = (useGated) => {
+    const start = seed.map((s) => byLabel.get(s)).filter((x) => x !== undefined);
+    const seen = new Set(start);
+    const q = [...start];
+    while (q.length) {
+      const b = at.get(q.shift());
+      if (!b) continue;
+      for (const c of b.choices) {
+        if (!useGated && !ungated(c)) continue;
+        if (!seen.has(c.to)) { seen.add(c.to); q.push(c.to); }
+      }
+    }
+    return seen;
+  };
+  const free = walk(false);
+  const all = walk(true);
+  if (free.size < 100) {
+    fail.push(`opening: only ${free.size} concepts reachable from the seed without a single key — the player has nowhere to go`);
+  }
+  const orphans = beats.filter((b) => !all.has(b.at));
+  if (orphans.length) {
+    fail.push(`orphaned: ${orphans.length} place(s) unreachable from the seed by ANY route\n  e.g. ${orphans[0].id} (${orphans[0].atLabel})`);
+  }
+}
+
+// 4. no dangling reference
 const dangling = [];
 for (const b of beats) {
   if (!known(b.at)) dangling.push(`beat ${b.id} sits at unknown node ${b.at}`);
@@ -143,7 +213,7 @@ if (dangling.length) {
   fail.push(`dangling reference: ${dangling.length}\n  ${dangling[0]}`);
 }
 
-/* 4. EVERY SPAN RESOLVES TO A CONCEPT.
+/* 5. EVERY SPAN RESOLVES TO A CONCEPT.
  *
  * `⟦word⟧` marks a maskable concept. A span naming something that is not one
  * never masks, so the word stays legible forever and the beat quietly loses
