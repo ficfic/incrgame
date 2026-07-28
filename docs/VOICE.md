@@ -38,6 +38,16 @@ Authority document. Where this and your instinct disagree, this wins. Authoring 
 
 ---
 
+> **⚠️ SUPERSEDED 2026-07-27.** This section assumed an English carrier — that
+> function words and verbs stay visible so a sentence survives its nouns being
+> masked. The owner scrapped that: *"i don't need it to show the player any
+> labels… there must be nothing even in GUI."* Verbs and function words are
+> foreign too (`scripts/build-language.mjs`, 245 words), so a beat is fully
+> unreadable at minute zero and becomes English one word at a time. The
+> patterns below are still worth reading for RHYTHM — short declaratives
+> survive partial translation best — but the rule they enforce is void, and
+> `check-story.mjs` no longer enforces it.
+
 ## 4. WRITING AROUND MASKING
 
 Concept nouns will be blocks. **Stakes must live in the verb and the preposition, never in the noun.** Test every line by reading it with all `⟦⟧` blacked out; if it stops being a decision, rewrite it.
