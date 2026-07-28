@@ -19,6 +19,22 @@
 // individual piece was behaving exactly as written.
 // A realistic session: use every verb the game offers, the way a player would,
 // and record what each HUD number does over time.
+// ---- PROVEN RED, 2026-07-27 -----------------------------------------------
+//
+// This is not a pass/fail gate — it prints what happened. "Red" for a probe
+// means a real break has to be VISIBLE IN THE TABLE, so that is what was
+// tested, using the exact failure it was built after: the engine working
+// perfectly while the board draws nothing.
+//
+//   SABOTAGE   in src/ui/App.svelte, render nodes under a class the probe does
+//              not read:  <div class="nodeX" ...>
+//   OBSERVED   the `nodes` column pinned at 0 for the whole run while `rec`
+//              climbed, which is the signature of a blank board:
+//                t    stmts rec  context chk   agree att   nodes dot
+//                60   1     2    5/16    0/1   1/1   0/4   0     1
+//                92   5     6    8/16    0/5   5/5   1/4   0     5
+//
+// A unit test cannot see this: `recovered()` was right the whole time.
 import { chromium } from 'playwright-core';
 import { existsSync } from 'node:fs';
 

@@ -36,6 +36,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync, rmSync, existsSync
 import { join, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
+import { scoreRarity, tierOf, TIERS, WEIGHTS } from './rarity.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC_REPO = 'https://github.com/globalwordnet/english-wordnet.git';
@@ -157,6 +158,30 @@ function loadSynsets() {
   return synsets;
 }
 
+// ---- 2b. the lemma index (the only frequency signal in the source) --------
+
+/** label → { senses: [synsetId, ...] } for nouns, in WordNet's own order.
+ *
+ *  WordNet orders a word's senses by frequency in the tagged corpus, so a
+ *  synset's POSITION in this list is real evidence about how commonly the word
+ *  means that. It is the only such evidence the source carries — there are no
+ *  occurrence counts anywhere in the YAML — and scripts/rarity.mjs says so. */
+function loadLemmas() {
+  const dir = join(CACHE, 'src/yaml');
+  const files = readdirSync(dir).filter((f) => /^entries-.*\.yaml$/.test(f)).sort();
+  const lemmas = new Map();
+  for (const f of files) {
+    const data = parse(readFileSync(join(dir, f), 'utf8'));
+    for (const [word, byPos] of Object.entries(data)) {
+      const noun = byPos?.n;
+      if (!noun?.sense) continue;
+      lemmas.set(word, noun.sense.map((s) => s.synset));
+    }
+  }
+  log(`indexed ${lemmas.size} noun lemmas across ${files.length} entry files`);
+  return lemmas;
+}
+
 // ---- 3. the recovery order ------------------------------------------------
 
 /** Breadth-first from `entity`, so the world comes back general-before-specific
@@ -221,6 +246,174 @@ function recoveryOrder(synsets) {
   return { order: kept, parentOf };
 }
 
+// ---- 3b. rate every concept -----------------------------------------------
+
+/** Gather the seven signals for every shipped concept and score them.
+ *
+ *  ⚠️ MEASURED AGAINST THE FULL NOUN LEXICON, NOT THE SHIPPED SLICE — and the
+ *  first version did the opposite, on the reasoning that a score should
+ *  describe the dataset the game actually has. The generated report killed that
+ *  argument in one read: the shipped slice is breadth-first, so its last ~2,000
+ *  concepts are ALL leaves at depth 5, and `pie chart`, `Laffer curve` and
+ *  `undirected graph` scored identically. Against the whole lexicon `bird` has
+ *  871 descendants and `pie chart` has none, and depth spans 0..16 instead of
+ *  0..5. Rarity is a property of a concept's place in the LANGUAGE; the 4,096
+ *  cut is our arbitrary horizon, and measuring against it measured the cut. */
+function rateRarity(order, synsets, parentOf, index, rels, lemmas) {
+  // Full-lexicon structure, computed once over all ~72,000 noun synsets.
+  const kids = new Map();
+  for (const [id, s] of synsets) {
+    for (const h of s.hypernyms) {
+      if (!synsets.has(h)) continue;
+      if (!kids.has(h)) kids.set(h, []);
+      kids.get(h).push(id);
+    }
+  }
+  const rootId = order[0];
+
+  // Depth by BFS from `entity`. A synset may have several hypernyms, so this is
+  // the SHORTEST path to the root — the most generous reading of how general a
+  // concept is, which is the conservative choice for a rarity score.
+  const depthOf = new Map([[rootId, 0]]);
+  for (let frontier = [rootId]; frontier.length > 0; ) {
+    const next = [];
+    for (const id of frontier) {
+      for (const kid of kids.get(id) ?? []) {
+        if (depthOf.has(kid)) continue;
+        depthOf.set(kid, depthOf.get(id) + 1);
+        next.push(kid);
+      }
+    }
+    frontier = next;
+  }
+
+  // Subtree size, iteratively. The hierarchy is 16 deep and 72,000 wide;
+  // recursion here would be fine today and is a stack overflow waiting for a
+  // future edition, so it is a post-order walk with an explicit stack.
+  const sizeOf = new Map();
+  for (const start of synsets.keys()) {
+    if (sizeOf.has(start)) continue;
+    const stack = [[start, false]];
+    while (stack.length > 0) {
+      const frame = stack.pop();
+      const [id, expanded] = frame;
+      if (sizeOf.has(id) && !expanded) continue;
+      if (!expanded) {
+        sizeOf.set(id, 0); // cycle guard: a re-entry sees 0 rather than looping
+        stack.push([id, true]);
+        for (const kid of kids.get(id) ?? []) if (!sizeOf.has(kid)) stack.push([kid, false]);
+      } else {
+        let total = 0;
+        for (const kid of kids.get(id) ?? []) total += 1 + (sizeOf.get(kid) ?? 0);
+        sizeOf.set(id, total);
+      }
+    }
+  }
+
+  // Relation degree across the WHOLE lexicon. The shipped `rel.json` holds 123
+  // relations over 4,096 concepts — a signal that is zero for 97% of the data
+  // is a constant, not a signal. Upstream, the same relations are dense.
+  const degreeOf = new Map();
+  const bump = (id) => degreeOf.set(id, (degreeOf.get(id) ?? 0) + 1);
+  for (const [id, s] of synsets) {
+    for (const targets of Object.values(s.rels)) {
+      for (const t of targets) { bump(id); if (synsets.has(t)) bump(t); }
+    }
+  }
+
+  const features = order.map((id) => {
+    const s = synsets.get(id);
+    const label = s.members[0];
+    const senses = lemmas.get(label) ?? [];
+    const at = senses.indexOf(id);
+    return {
+      depth: depthOf.get(id) ?? 0,
+      descendants: sizeOf.get(id) ?? 0,
+      synonyms: s.members.length,
+      // Not found means the label never resolved through the entries index —
+      // treat as the dominant sense rather than inventing obscurity.
+      senseRank: at >= 0 ? at + 1 : 1,
+      polysemy: senses.length || 1,
+      words: label.split(/[ _-]/).filter(Boolean).length,
+      degree: degreeOf.get(id) ?? 0,
+    };
+  });
+
+  const score = features.map(scoreRarity);
+  const tier = score.map(tierOf);
+  const hist = TIERS.map((t) => tier.filter((x) => x === t.id).length);
+  log('rarity:', TIERS.map((t, i) => `${t.name} ${hist[i]}`).join(' · '));
+  log(`rarity range ${Math.min(...score)}..${Math.max(...score)}, ` +
+      `root "${synsets.get(order[0]).members[0]}" scores ${score[0]}`);
+  return { score, tier, features, hist };
+}
+
+/** The evidence that the ranking is sane, in a form the owner can read on a
+ *  phone: the distribution, and both ends of the list. Regenerated with the
+ *  data, so it can never describe a scoring function we no longer run. */
+function writeRarityReport(order, synsets, index, rarity) {
+  const rows = order.map((id, i) => ({
+    i, label: synsets.get(id).members[0], score: rarity.score[i],
+    tier: TIERS[rarity.tier[i]].name, f: rarity.features[i],
+  }));
+  const sorted = [...rows].sort((a, b) => a.score - b.score || a.i - b.i);
+  const line = (r) =>
+    `| ${r.i} | ${r.label} | ${r.score} | ${r.tier} | ${r.f.depth} | ${r.f.descendants} | ` +
+    `${r.f.synonyms} | ${r.f.senseRank}/${r.f.polysemy} | ${r.f.degree} |`;
+  const table = (rs) => [
+    '| id | concept | score | tier | depth | desc | syn | sense | deg |',
+    '|---|---|---|---|---|---|---|---|---|',
+    ...rs.map(line),
+  ].join('\n');
+
+  writeFileSync(join(ROOT, 'docs/RARITY.md'), [
+    '# Rarity — generated, do not edit',
+    '',
+    'Regenerated by `npm run ontology`. Scoring lives in `scripts/rarity.mjs`,',
+    'which states what this number is and — more importantly — what it is not:',
+    '**it is obscurity inside the lexicon, not corpus frequency.** WordNet ships',
+    'no occurrence counts and this project does not invent data.',
+    '',
+    `Weights: ${Object.entries(WEIGHTS).map(([k, v]) => `${k} ${v}`).join(' · ')}`,
+    '',
+    '## Distribution',
+    '',
+    '| tier | concepts | share |',
+    '|---|---|---|',
+    ...TIERS.map((t, i) =>
+      `| ${t.name} (≤${t.upTo}) | ${rarity.hist[i]} | ` +
+      `${((rarity.hist[i] / order.length) * 100).toFixed(1)}% |`),
+    '',
+    '## The 40 most common',
+    '',
+    table(sorted.slice(0, 40)),
+    '',
+    '## The 40 most obscure',
+    '',
+    table(sorted.slice(-40).reverse()),
+    '',
+    '`sense` is *this synset\'s rank among that word\'s noun senses / how many',
+    'senses the word has*. `desc` is descendants inside the shipped slice.',
+    '',
+  ].join('\n'));
+  log('wrote docs/RARITY.md');
+
+  // THE WHOLE DATASET, GREPPABLE. A session writing story beats has to name
+  // concepts by the integer id a save stores, and there is no other way to see
+  // what 4,096 concepts are available — RARITY.md shows eighty of them. TSV so
+  // it opens anywhere and diffs line-by-line when the edition moves.
+  writeFileSync(join(ROOT, 'docs/CONCEPTS.tsv'), [
+    'id\tlabel\trarity\ttier\tcategory\tdepth\tdefinition',
+    ...rows.map((r) => [
+      r.i, r.label, r.score, r.tier,
+      synsets.get(order[r.i]).lex, r.f.depth,
+      synsets.get(order[r.i]).def.replace(/\s+/g, ' '),
+    ].join('\t')),
+    '',
+  ].join('\n'));
+  log(`wrote docs/CONCEPTS.tsv: ${rows.length} concepts`);
+}
+
 // ---- 4. emit -------------------------------------------------------------
 
 function main() {
@@ -260,22 +453,6 @@ function main() {
   }) + '\n');
   log(`wrote ${IDMAP}`);
 
-  rmSync(OUT, { recursive: true, force: true });
-  mkdirSync(OUT, { recursive: true });
-
-  const chunkCount = Math.ceil(order.length / CHUNK);
-  for (let c = 0; c < chunkCount; c++) {
-    const slice = order.slice(c * CHUNK, (c + 1) * CHUNK);
-    writeFileSync(join(OUT, `c${String(c).padStart(3, '0')}.json`), JSON.stringify({
-      // `l` label · `d` category index · `p` parent concept index (-1 = root)
-      // · `g` definition, verbatim from the source dataset.
-      l: slice.map((id) => synsets.get(id).members[0]),
-      d: slice.map((id) => catIndex.get(synsets.get(id).lex)),
-      p: slice.map((id) => { const par = parentOf.get(id); return par == null ? -1 : index.get(par); }),
-      g: slice.map((id) => synsets.get(id).def),
-    }));
-  }
-
   // The RELATION TABLE: every non-is-a connection whose BOTH ends survived the
   // selection. Emitted as flat triples [a, b, rel] of concept indices, one small
   // file — this is the dotted-line supply, and the game derives what is
@@ -284,6 +461,9 @@ function main() {
   // It is deliberately separate from the concept chunks: chunks are fetched
   // lazily by range, but a relation can join any two concepts, so it cannot be
   // chunked by index without splitting edges across files.
+  //
+  // Computed BEFORE the chunks are written, because rarity needs each concept's
+  // relation degree and rarity ships inside the chunks.
   const rels = [];
   const relCounts = {};
   for (const id of order) {
@@ -298,8 +478,30 @@ function main() {
       }
     }
   }
+
+  const rarity = rateRarity(order, synsets, parentOf, index, rels, loadLemmas());
+
+  rmSync(OUT, { recursive: true, force: true });
+  mkdirSync(OUT, { recursive: true });
+
+  const chunkCount = Math.ceil(order.length / CHUNK);
+  for (let c = 0; c < chunkCount; c++) {
+    const slice = order.slice(c * CHUNK, (c + 1) * CHUNK);
+    writeFileSync(join(OUT, `c${String(c).padStart(3, '0')}.json`), JSON.stringify({
+      // `l` label · `d` category index · `p` parent concept index (-1 = root)
+      // · `g` definition, verbatim from the source dataset · `r` rarity 0..100
+      // (scripts/rarity.mjs — obscurity in the lexicon, NOT corpus frequency).
+      l: slice.map((id) => synsets.get(id).members[0]),
+      d: slice.map((id) => catIndex.get(synsets.get(id).lex)),
+      p: slice.map((id) => { const par = parentOf.get(id); return par == null ? -1 : index.get(par); }),
+      g: slice.map((id) => synsets.get(id).def),
+      r: slice.map((id) => rarity.score[index.get(id)]),
+    }));
+  }
+
   writeFileSync(join(OUT, 'rel.json'), JSON.stringify({ e: rels }));
   log(`wrote rel.json: ${rels.length} non-is-a relations`, JSON.stringify(relCounts));
+  writeRarityReport(order, synsets, index, rarity);
 
   // CC BY 4.0 §3(a)(1) travels with the DATA, not just the docs: the deployed
   // site serves public/ and never docs/, so the notice ships here too.

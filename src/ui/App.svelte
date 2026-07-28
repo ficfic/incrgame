@@ -19,6 +19,7 @@
     agentCost, attentionCap, attentionFree, canExtract, CONNECT_MS, displayedFidelity,
     DISCOVER_MS, extractionYield, hasTrust, pendingVignette, recovered,
     REFLECT_MIN_CONCEPTS, sourceAgreement, extractCapacity,
+    ATTENTION_BASE, ATTENTION_PENALTY_FLOOR, attentionPenalty, choicesFor,
     canGrowContext, contextGate, contextFull, contextStep, contextUsed, contextWindow,
     EXTRACT_MS, inContext,
     unsupervised, verified,
@@ -29,6 +30,11 @@
   import { GENERATORS, M1_ROSTER } from '../content/generators';
   import { CONCEPT_BUDGET } from '../content/ontologyMeta';
   import { REL_NAMES } from '../core/types';
+  import type { LaneState } from '../core/starmap';
+  import { currentBeat } from '../core/starmap';
+  import { beatConcepts, maskedText, renderMasked } from '../core/masking';
+  import { graphWord } from '../content/lexicon';
+  import { bound, canRead, knownWords } from '../core/literacy';
   import { VIGNETTES, describeEffects } from '../content/vignettes';
   import {
     conceptAt, conceptForNode, loadManifest, ontologyCredit, ontologyRevision,
@@ -46,6 +52,9 @@
   let canvas = $state<HTMLCanvasElement>();
   let stage = $state<HTMLDivElement>();
   let sheet = $state<null | 'vignette' | 'save' | 'help'>(null);
+  /** Which page of the manual. The glossary is half the reason the sheet
+   *  exists — the owner asked for it by name — so it is a tab, not a scroll. */
+  let helpTab = $state<'play' | 'terms'>('play');
   let toast = $state('');
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
   let w = $state(360);
@@ -61,6 +70,9 @@
   /** The second number: how much of what you have drawn matches the source. */
   const agreeing = $derived(sourceAgreement($game));
   const free = $derived(attentionFree($game));
+  /** Slots lost to unconfirmed work. The only thing in the game that takes one
+   *  away, so it gets its own name rather than being inlined into a class. */
+  const penalty = $derived(attentionPenalty($game));
 
   /** Ticker lines that have not yet expired.
    *
@@ -122,6 +134,19 @@
   /** Concepts inside the window. Everything else is drawn cold: still there,
    *  still yours, just not what the model is thinking about right now. */
   const heldSet = $derived(new Set(held));
+
+  /** What a locked choice is still waiting for, in words the player can go and
+   *  look for. Concept labels come from the ontology and relation names from
+   *  REL_NAMES — every one is data, none is authored copy. A concept whose
+   *  chunk has not landed shows its id rather than blanking the line. */
+  function needs(missing: { concepts: number[]; rels: number[] }): string {
+    void $ontologyRevision;
+    const words = [
+      ...missing.concepts.map((id) => conceptAt(id)?.label ?? `#${id}`),
+      ...missing.rels.map((r) => REL_NAMES[r] ?? `rel ${r}`),
+    ];
+    return words.length === 0 ? '' : `needs ${words.join(' · ')}`;
+  }
 
   const activeVignette = $derived.by(() => {
     const id = pendingVignette($game);
@@ -276,9 +301,18 @@
       out.push({
         id, x: p.x, y: p.y,
         r: dotRadius(weights.get(id)?.weight ?? 0.2, id === 0),
+        // ⚠️ A NODE'S LABEL IS ITS WORD, NOT ITS ENGLISH NAME. The board showed
+        // `system` / `information` / `language` from the first frame — the five
+        // seed concepts, named in plain English, on a screen whose entire point
+        // is that you cannot read it yet. A node reads in English only once its
+        // concept is BOUND; until then it carries the graph's word for it, the
+        // same one the prose uses, so a name on the board and a name in a
+        // sentence are visibly the same thing.
         label: lod.labelled.has(id)
-          ? (conceptForNode(id)?.label ?? '') + (folded > 0 ? ` ·${folded}` : '')
+          ? (knownSet.has(id) ? (conceptForNode(id)?.label ?? '') : graphWord(id))
+            + (folded > 0 ? ` ·${folded}` : '')
           : '',
+        bound: knownSet.has(id),
         folded,
         root: id === 0,
         rotted: isRotted(id, trust),
@@ -388,7 +422,17 @@
   const nothingLeftToFind = $derived($game.forged.nextId >= CONCEPT_BUDGET);
   const worldDone = $derived(recovered($game) >= CONCEPT_BUDGET);
   const canDiscover = $derived(free >= 1 && $game.bookings.length < FRONTIER_CAP
-    && $game.lastTick > 0 && !nothingLeftToFind);
+    && $game.lastTick > 0);
+
+  /** Destinations already booked.
+   *
+   *  These used to be FILTERED OUT, and thirty seconds into a real run the
+   *  strip showed nothing but locked doors: every open lane had been taken and
+   *  had therefore vanished while its discovery was in flight. A lane you are
+   *  travelling is the most interesting thing on the map, so it stays, marked
+   *  and disabled, with the time left on it. */
+  const booked = $derived(new Set(
+    $game.bookings.filter((b) => b.kind === 'discover' && b.node !== undefined).map((b) => b.node!)));
 
   // ---- PINCH AND PAN ----------------------------------------------------
   //
@@ -604,10 +648,87 @@
     toastTimer = setTimeout(() => (toast = ''), 2200);
   }
 
-  function discover(): void {
-    if (!canDiscover) { say(nothingLeftToFind ? '⟨nothing left to find — owner⟩' : 'No free attention'); return; }
-    dispatch({ type: 'discover' });
+  /** Take a lane. A SOLID lane goes somewhere you already hold, so there is
+   *  nothing to discover — it is a route on your own map, and saying so is
+   *  more honest than booking a slot to arrive where you already are. */
+  /** The beat the player is standing in. Position is DERIVED from the last
+   *  anchor — see `currentBeat` — so nothing new is stored in the save. */
+  const beat = $derived.by(() => { void $ontologyRevision; return currentBeat($game); });
+
+  /** label → node id, built from the concepts THIS BEAT declares. Never a
+   *  global lemma index: "set", "thing" and "state" are concepts and ordinary
+   *  English both, and a global table masks the wrong words. */
+  const beatTable = $derived.by(() => {
+    void $ontologyRevision;
+    return beat ? beatConcepts(beat, (id) => conceptAt(id)?.label ?? null) : new Map<string, number>();
+  });
+  /** Concepts the player can READ. Not the same as the concepts they HOLD:
+   *  the five seed nodes are on the board from the first frame and their words
+   *  stay foreign, which is the opening. */
+  const knownSet = $derived(new Set(bound($game)));
+
+  /** The carrier words the player has met often enough to read. Derived from
+   *  the beats they have stood in — see `src/core/literacy.ts`; where they have
+   *  been is already in `anchors`, so literacy needs no save field. */
+  const literate = $derived(knownWords($game));
+
+  /** Render one field's ⟦spans⟧ to HTML. A word you cannot read is marked so it
+   *  can be styled as the graph's tongue; everything else is escaped and
+   *  emitted verbatim. */
+  function seg(text: string): string {
+    return renderMasked(text, beatTable, knownSet, graphWord, (w) => canRead(literate, w))
+      .map((p) => {
+        const t = p.text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] ?? c));
+        return p.masked ? `<em class="glyph">${t}</em>`
+          : p.concept !== undefined ? `<b class="bound">${t}</b>` : t;
+      })
+      .join('');
   }
+  function plain(text: string): string {
+    return maskedText(renderMasked(text, beatTable, knownSet, graphWord, (w) => canRead(literate, w)));
+  }
+
+  /** This beat's choices, each marked takeable — the same three states the
+   *  lane strip used, because a choice IS a lane. */
+  const beatChoices = $derived.by(() => {
+    if (!beat) return [];
+    return beat.choices.map((choice) => {
+      const missing = (choice.requires?.concepts ?? []).filter((id) => !knownSet.has(id));
+      const state: LaneState = missing.length > 0
+        ? 'locked' : knownSet.has(choice.to) ? 'solid' : 'dotted';
+      return { choice, state, missing };
+    });
+  });
+
+  /** What to put on a choice button.
+   *
+   *  ⚠️ 1,799 OF 1,879 SHIPPED CHOICES HAVE NO LABEL — beats went to concept
+   *  granularity and the prose has not caught up. Rendering those verbatim is a
+   *  screen of blank buttons, which is the exact failure docs/VOICE.md §4 P5
+   *  warns about ("a label of pure blocks is a dead button").
+   *
+   *  So an unwritten label falls back to a ⟦span⟧ naming the destination. That
+   *  is DATA, not invented copy: it resolves through the same masking path as
+   *  everything else, showing the English label if you hold that concept and
+   *  the graph's word if you do not. The button stays live and honest, and it
+   *  disappears the moment the owner writes a real label. */
+  function choiceLabel(c: { label: string; toLabel: string }): string {
+    return c.label.trim() ? c.label : `⟦${c.toLabel}⟧`;
+  }
+
+  function travelTo(c: { choice: { to: number }; state: LaneState }): void {
+    if (c.state === 'locked') { say('That way is held'); return; }
+    if (c.state === 'solid') { say('Already yours'); return; }
+    if (free < 1) { say('No free attention'); return; }
+    dispatch({ type: 'discover', node: c.choice.to, parent: beat?.at });
+  }
+
+  /** Seconds left on a lane being travelled. */
+  function landingIn(node: number): number {
+    const b = $game.bookings.find((x) => x.kind === 'discover' && x.node === node);
+    return b ? Math.max(0, Math.ceil((b.until - $game.lastTick) / 1000)) : 0;
+  }
+
 
   function connect(p: { a: number; b: number; rel: number }): void {
     if (free < 1) { say('No free attention'); return; }
@@ -694,43 +815,29 @@
 
 <div class="app" style="--hue:{hue}">
   <header class="hud">
-    <div class="headline">
-      <b>{formatWhole($game.resources.triples)}</b>
-      <span>statements</span>
-    </div>
-    <!-- EVERY CELL IS A NOUN. The owner could not name two of the three numbers
-         that used to be here: "of 4096" was a bare denominator and "free of 2"
-         never said free WHAT. So each cell now carries the value and the word
-         for the value, and nothing else. The dataset size left the HUD with the
-         same reasoning — 0.02% at minute one is a number with no meaning yet,
-         and there is no room to caption it honestly at this size. -->
-    <div class="stats">
-      <div><b class="good">{recovered($game)}</b><span>recovered</span></div>
-      <!-- THE CONTEXT WINDOW. Was ANCHOR_CAP = 240: invisible, unnamed, and it
-           silently folded a concept away the moment you exceeded it. -->
-      <div><b class:warn={contextFull($game)}>{contextUsed($game)}/{contextWindow($game)}</b><span>context</span></div>
-      <!-- "—" not "100%": a new save has zero statements and the ratio returns
-           1, which read as a perfect score over an empty graph. -->
-      <!-- A FRACTION, NOT A PERCENTAGE. "90% checked" does not say ninety
-           percent OF WHAT, and the owner said so. "36/40" answers that without
-           a word of explanation. -->
-      <div><b class:good={hasTrust($game) && trust > 0.66}
-              class:warn={hasTrust($game) && trust <= 0.66 && trust > 0.33}
-              class:bad={hasTrust($game) && trust <= 0.33}
-        >{hasTrust($game)
-          ? `${formatWhole(verified($game))}/${formatWhole($game.resources.triples)}`
-          : '—'}</b><span>checked</span></div>
-      <!-- THE SECOND NUMBER. On screen from minute one, small and unremarked,
-           because a late reveal would rescore the player's own progress
-           downward and they would be right to call that a lie (ECONOMY.md).
-           It is never explained here. It does not need to be — it is true, it
-           is small, and one day it stops matching the number beside it. -->
-      <div><b class:warn={agreeing < 1 && agreeing > 0.8} class:bad={agreeing <= 0.8}
-        >{$game.forged.edges.length > 0
-          ? `${$game.forged.edges.filter((e) => !e.fake).length}/${$game.forged.edges.length}`
-          : '—'}</b><span>agreeing</span></div>
-      <div><b class:good={free > 0} class:warn={free === 0}>{free}/{attentionCap($game)}</b><span>attention</span></div>
-    </div>
+    <!-- ⚠️ THE HUD IS NOT ABSENT. IT IS UNLEARNED.
+         Owner: "there must be nothing even in GUI… let player eyeball the
+         graph." A readout is a word plus a number, and a word you cannot read
+         is not a readout — so each one appears only once its noun has been
+         learned, and the interface assembles itself as the player becomes
+         literate. That is also what keeps this an incremental: the UI is a
+         progression track, not chrome.
+
+         Today that is `checked` and `agreeing` and nothing else, because they
+         are the only readout nouns the language corpus contains. `recovered`,
+         `context`, `attention`, `statements` and `edges` have no word, so they
+         can never be learned and never appear. That is a CONTENT dependency,
+         logged in BACKLOG — not something to paper over by showing them. -->
+    {#if literate.size > 0}
+      <div class="stats">
+        {#if canRead(literate, 'checked') && hasTrust($game)}
+          <div><b>{formatWhole(verified($game))}/{formatWhole($game.resources.triples)}</b><span>checked</span></div>
+        {/if}
+        {#if canRead(literate, 'agreeing') && $game.forged.edges.length > 0}
+          <div><b>{$game.forged.edges.filter((e) => !e.fake).length}/{$game.forged.edges.length}</b><span>agreeing</span></div>
+        {/if}
+      </div>
+    {/if}
   </header>
 
   <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -776,7 +883,7 @@
          is what a superclass means, and it keeps the board from under-reporting
          what the player actually owns. -->
     {#each nodes as n (n.id)}
-      <div class="node" class:root={n.root} class:rotted={n.rotted}
+      <div class="node" class:root={n.root} class:rotted={n.rotted} class:unbound={!n.bound}
        class:cold={!heldSet.has(n.id)}
        class:holding={n.folded > 0}
            style="transform:translate({n.x}px,{n.y}px) translate(-50%,-50%);--r:{n.r}px">
@@ -830,22 +937,52 @@
          tapping a dotted line confirms. Extract costs nothing and is
          self-limiting; attention is what confirming spends. -->
     <div class="actions">
-      <!-- The yield is a PERCENTAGE YOU RAISE, never a subtraction. Same
-           arithmetic as "lost 11 of 20", opposite feeling (ECONOMY.md). -->
-      {#if extracting}
-        <div class="act status"><b>Reading</b><span>{Math.max(0, Math.ceil((extracting.until - $game.lastTick) / 1000))}s</span></div>
-      {:else}
-        <button class="act primary" disabled={!canExtract($game) || free < 1 || proposable === 0}
-          onclick={extract}>
-          <b>Extract</b><span>{proposable === 0 ? 'nothing new here'
-            : free < 1 ? 'no free slot' : `${proposable} · ${EXTRACT_MS / 1000}s`}</span>
-        </button>
+      <!-- ⚠️ EXTRACT AND THE MACHINE CARDS ARE GONE FROM THE OPENING.
+           They were the first thing on screen and they are English chrome:
+           a verb nobody has learned, priced in a noun nobody has learned. They
+           come back the same way the HUD does — when their words do. Until
+           then the only thing to do is read the beat and walk. -->
+      {#if canRead(literate, 'record')}
+        {#if extracting}
+          <div class="act status"><b>{@html seg('record')}</b><span>{Math.max(0, Math.ceil((extracting.until - $game.lastTick) / 1000))}s</span></div>
+        {:else}
+          <button class="act primary" disabled={!canExtract($game) || free < 1 || proposable === 0}
+            onclick={extract}><b>{@html seg('record')}</b></button>
+        {/if}
       {/if}
 
-      <button class="act primary" disabled={!canDiscover} onclick={discover}>
-        <b>Discover</b>
-        <span>{worldDone ? 'world recovered' : nothingLeftToFind ? '⟨nothing left to find — owner⟩' : canDiscover ? `1 slot · ${DISCOVER_MS / 1000}s` : 'no free slot'}</span>
-      </button>
+      <!-- THE BEAT. The starmap's lanes and the story's choices were always
+           the same thing; this renders them as one surface.
+
+           ⟦spans⟧ in title, body and every choice label are substituted: the
+           English label where you have discovered that concept, the graph's own
+           word where you have not. Text OUTSIDE the brackets is never touched —
+           the prose is written (docs/VOICE.md §4) so a line with every noun in
+           the graph's tongue still parses as English and still states a
+           decision.
+
+           ⚠️ LOCKED CHOICES ARE RENDERED, and their key is shown in the graph's
+           word. The player has to be able to see WHICH word they lack. -->
+      {#if beat}
+        <div class="beat">
+          <h3>{@html seg(beat.title)}</h3>
+          <p>{@html seg(beat.body)}</p>
+        </div>
+        <div class="lanes">
+          {#each beatChoices as c (c.choice.id)}
+            <button class="lane {c.state}" class:flying={booked.has(c.choice.to)}
+              disabled={c.state !== 'dotted' || booked.has(c.choice.to) || free < 1}
+              aria-label={plain(choiceLabel(c.choice))}
+              onclick={() => travelTo(c)}>
+              <b>{@html seg(choiceLabel(c.choice))}</b>
+              <span>{c.state === 'locked'
+                ? c.missing.map((id: number) => graphWord(id)).join(' ')
+                : booked.has(c.choice.to) ? `${landingIn(c.choice.to)}s`
+                : ''}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
 
       <!-- (A "N lines filling" chip lived here. The line is already visibly
            filling ON THE BOARD — the painter draws it growing from one end —
@@ -873,7 +1010,7 @@
         <button class="act core" disabled={!canGrowContext($game)}
           onclick={() => (canGrowContext($game)
             ? dispatch({ type: 'growContext' })
-            : say(`Confirm ${format(contextGate($game))} lines to widen it`))}>
+            : say(`Confirm ${format(contextGate($game))} edges to widen it`))}>
           <b>Grow context</b><span>+{contextStep()} · at {format(contextGate($game))} confirmed</span>
         </button>
       {/if}
@@ -901,19 +1038,23 @@
       </div>
     {/if}
 
+    <!-- The machine roster and the save menu live behind the one control that
+         is not a word: `⋯`. A shop of English nouns on the opening screen is
+         exactly the GUI the owner asked to have removed. -->
     <div class="machines">
-      {#each M1_ROSTER as id (id)}
-        {@const cost = agentCost($game, id)}
-        {@const ok = gte(verified($game), cost)}
-        <button class="mach" disabled={!ok}
-          onclick={() => (ok ? dispatch({ type: 'buyGenerator', id }) : say('Not enough checked knowledge'))}>
-          <b>×{$game.generators[id]}</b>
-          <em>{GENERATORS[id].label}</em>
-          <span>{format(cost)} checked</span>
-        </button>
-      {/each}
-      <button class="more" aria-label="how to play" onclick={() => (sheet = 'help')}>?</button>
-      <button class="more" aria-label="save menu" onclick={() => (sheet = 'save')}>⋯</button>
+      {#if canRead(literate, 'machines')}
+        {#each M1_ROSTER as id (id)}
+          {@const cost = agentCost($game, id)}
+          {@const ok = gte(verified($game), cost)}
+          <button class="mach" disabled={!ok}
+            onclick={() => (ok ? dispatch({ type: 'buyGenerator', id }) : say('—'))}>
+            <b>×{$game.generators[id]}</b>
+            <em>{GENERATORS[id].label}</em>
+            <span>{format(cost)}</span>
+          </button>
+        {/each}
+      {/if}
+      <button class="more" aria-label="menu" onclick={() => (sheet = 'save')}>⋯</button>
     </div>
   </footer>
 
@@ -921,55 +1062,186 @@
     <div class="sheet">
       <h2>{activeVignette.title || '⟨title — owner⟩'}</h2>
       <p class="body">{activeVignette.body || '⟨body — owner⟩'}</p>
+      <!-- A LOCKED CHOICE IS DRAWN, NEVER HIDDEN. It is the only thing in the
+           game that says what discovering more of the graph is FOR, and a door
+           that is not drawn teaches nothing. It also names what it wants —
+           "locked" with no reason is a dead end wearing a lock icon — and the
+           names are ontology labels, i.e. DATA, not written copy. -->
       <div class="sheet-foot col">
-        {#each activeVignette.choices as c (c.id)}
-          <button class="choice"
-            onclick={() => { dispatch({ type: 'chooseOption', eventId: activeVignette.id, choiceId: c.id }); sheet = null; }}>
-            <b>{c.label || '⟨choice — owner⟩'}</b><span>{describeEffects(c.effects)}</span>
+        {#each choicesFor($game, activeVignette) as m (m.choice.id)}
+          <button class="choice" class:locked={!m.takeable} disabled={!m.takeable}
+            onclick={() => { dispatch({ type: 'chooseOption', eventId: activeVignette.id, choiceId: m.choice.id }); sheet = null; }}>
+            <b>{m.choice.label || '⟨choice — owner⟩'}</b>
+            <span>{m.takeable ? describeEffects(m.choice.effects) : needs(m.missing)}</span>
           </button>
         {/each}
       </div>
     </div>
   {:else if sheet === 'help'}
-    <!-- ---- HOW TO PLAY -------------------------------------------------
+    <!-- ---- THE MANUAL --------------------------------------------------
          ★ EVERY NUMBER HERE IS READ FROM THE ENGINE, never typed in. A help
          page that drifts from the code is worse than no help page: it teaches
          a wrong game with authority. Change a cost and this changes with it.
 
-         ★ THE PROSE RULE. CLAUDE.md: player-facing prose is human-written.
-         What is below is deliberately at the edge of that line — mechanical
-         fact, one clause each, no voice and no jokes. The GOAL and anything
-         with a personality is an ⟨owner⟩ slot and stays empty until written. -->
+         ★ PROSE. The rule was reversed on 2026-07-27: prose is machine-
+         drafted and owner-edited, and the old "never a sentence" rule is
+         void (docs/DECISIONS.md). What survives here is narrower and is
+         about THIS surface, not about authorship: a manual has no persona
+         and no jokes, because a joke in the manual is a different failure
+         from a joke in a Field Note. Flat, mechanical, and every number
+         read from the engine.
+
+         ★ THE GLOSSARY IS THEORY-FAITHFUL. Every definition below matches
+         docs/GLOSSARY.md, which cites its sources. If they ever disagree, the
+         glossary wins. This is an educational game; getting `hypernym` subtly
+         wrong here is a worse bug than a broken button. -->
     <div class="sheet">
-      <h2>How to play</h2>
+      <h2>{helpTab === 'play' ? 'How to play' : 'What the words mean'}</h2>
+      <nav class="tabs">
+        <button class:on={helpTab === 'play'} onclick={() => (helpTab = 'play')}>How to play</button>
+        <button class:on={helpTab === 'terms'} onclick={() => (helpTab = 'terms')}>Glossary</button>
+      </nav>
 
-      <p class="body">⟨what you are and what you were told to do — owner⟩</p>
+      {#if helpTab === 'play'}
+        <p class="body">You are rebuilding a <b>knowledge graph</b> — a map of
+          concepts and the relations between them — from a corpus that machines
+          have spent years training on their own output. The facts are still in
+          there somewhere. Almost none of them have been checked by a human.
+          That last part is your whole job.</p>
 
-      <h3>The loop</h3>
-      <table class="ref"><tbody>
-        <tr><th>verb</th><th>costs</th><th>takes</th><th>gives</th></tr>
-        <tr><td><b>Discover</b></td><td>1 attention</td><td>{DISCOVER_MS / 1000}s</td>
-            <td>a concept, unconnected</td></tr>
-        <tr><td><b>Extract</b></td><td>1 attention</td><td>{EXTRACT_MS / 1000}s</td>
-            <td>dotted lines to confirm</td></tr>
-        <tr><td><b>tap a dotted line</b></td><td>1 attention</td><td>{CONNECT_MS / 1000}s</td>
-            <td>+1 checked</td></tr>
-        <tr><td><b>Grow context</b></td><td>nothing</td><td>—</td>
-            <td>+{contextStep()} context, once you have confirmed
-                {format(contextGate($game))} lines in total</td></tr>
-      </tbody></table>
+        <h3>What you are looking at</h3>
+        <p class="body">Every dot is a <b>concept</b>: one meaning, not one
+          word. Every line between two dots is an <b>edge</b>, and one edge is
+          one statement — <i>race is a group</i>. An edge drawn <b>dotted</b>
+          is a proposal nobody has checked yet; a solid one is confirmed. Tap
+          any dot to read its real dictionary definition.</p>
 
-      <h3>The numbers</h3>
-      <table class="ref"><tbody>
-        <tr><td><b>recovered</b></td><td>concepts with a line on them, of {CONCEPT_BUDGET}</td></tr>
-        <tr><td><b>context</b></td><td>concepts the model holds at once; Extract reads only these</td></tr>
-        <tr><td><b>checked</b></td><td>statements you confirmed, of every statement</td></tr>
-        <tr><td><b>agreeing</b></td><td>lines that match the source, of every line drawn</td></tr>
-        <tr><td><b>attention</b></td><td>slots free, of slots you have. Every verb books one</td></tr>
-      </tbody></table>
+        <h3>The three things you do</h3>
+        <table class="ref"><tbody>
+          <tr><th>verb</th><th>costs</th><th>takes</th><th>gives</th></tr>
+          <tr><td><b>Discover</b></td><td>1 attention</td><td>{DISCOVER_MS / 1000}s</td>
+              <td>a new concept, with nothing attached to it yet</td></tr>
+          <tr><td><b>Extract</b></td><td>1 attention</td><td>{EXTRACT_MS / 1000}s</td>
+              <td>proposed edges, drawn dotted</td></tr>
+          <tr><td><b>tap a dotted edge</b></td><td>1 attention</td><td>{CONNECT_MS / 1000}s</td>
+              <td>that edge confirmed: +1 checked</td></tr>
+          <tr><td><b>Grow context</b></td><td>nothing</td><td>—</td>
+              <td>+{contextStep()} context, once you have confirmed
+                  {format(contextGate($game))} in total</td></tr>
+        </tbody></table>
+        <p class="body">Everything books a slot of <b>attention</b> and takes
+          real seconds — deliberately long ones. The board keeps working while
+          the app is shut, so the tempo is set by how many slots you have, not
+          by how fast you can tap. It does not need babysitting, and it never
+          will.</p>
 
-      <p class="body">Concepts and definitions are real: Open English WordNet.
-        Tap any concept to read its definition.</p>
+        <h3>Why the window matters</h3>
+        <p class="body">Extract can only relate concepts that are
+          <b>in context</b> — the ones the model is holding right now. So
+          discovering more makes your graph <i>wider</i>, and widening the
+          context window is the only thing that makes it <i>denser</i>. The
+          window holds your newest concepts plus the paths that reach them, so
+          what it holds is always a connected piece of the tree rather than a
+          handful of orphans.</p>
+
+        <h3>Attention, and the one way to lose it</h3>
+        <p class="body">You start with {ATTENTION_BASE} slots and gain one
+          for every <b>ten times</b> more statements you have confirmed. It is
+          meant to be slow — four or five more slots across a whole game, not
+          four in a coffee break.</p>
+        <p class="body">It goes the other way too, and this is the only thing in
+          the game that takes a slot away: while you are carrying more than
+          {ATTENTION_PENALTY_FLOOR} <i>unconfirmed</i> statements, you lose a
+          slot for every ten times more of them. Nothing is spent and nothing
+          goes negative — confirm the backlog and the slot comes straight back.
+          The gap between <i>checked</i> and <i>statements</i> at the top of the
+          screen is that backlog.</p>
+
+        <h3>Why anything decays</h3>
+        <p class="body">A proposal nobody looks at rots off the board, and the
+          statement behind it goes with it. Machines you buy will extract far
+          faster than you can, and every edge they draw arrives unchecked.
+          <b>Watching</b> a machine costs a slot of attention and keeps it
+          honest; leaving it unwatched is free and is how <i>agreeing</i>
+          starts to fall.</p>
+
+        <h3>What you are aiming at</h3>
+        <p class="body">{CONCEPT_BUDGET} concepts exist in this slice of the
+          source. Recovering them all is the long game; the near one is simply
+          to keep <i>checked</i> climbing while the machines get faster. At
+          {REFLECT_MIN_CONCEPTS} recovered you can <b>Retrain</b> — start a new
+          generation on your own output, which is faster and drifts further
+          from the truth. Doing that is a decision, not a reward.</p>
+
+        <p class="body dim">⟨cold open — owner⟩</p>
+
+      {:else}
+        <p class="body">The game uses the real vocabulary of knowledge graphs,
+          because the real vocabulary is the thing worth learning. Definitions
+          here match the theory; sources are in the project glossary.</p>
+
+        <dl class="terms">
+          <dt>Concept <em>(synset)</em></dt>
+          <dd>One meaning, not one word. <i>Race</i> the genetic group and
+            <i>race</i> the contest are two different concepts that happen to
+            share a spelling. Each dot on the board is one of them, labelled
+            with its most familiar word.</dd>
+
+          <dt>Node</dt>
+          <dd>A concept as it sits on the graph — the dot. Discovering places a
+            node; it stays dark until an edge supports it.</dd>
+
+          <dt>Edge</dt>
+          <dd>A link between two nodes, and the reason the board is a graph
+            rather than a list. One edge is one statement. Drawn
+            <b>dotted</b> while it is only proposed, solid once confirmed —
+            the dots are a rendering of doubt, not a different kind of thing.</dd>
+
+          <dt>Statement <em>(triple)</em></dt>
+          <dd>Subject, relation, object: <i>race — is a — group</i>. The atom
+            of every knowledge graph on earth, and the thing the big number at
+            the top counts.</dd>
+
+          <dt>is a <em>(hypernym)</em></dt>
+          <dd>The relation that says one concept is a kind of another. It is
+            what the noun taxonomy is built from, and it is why the board
+            reaches back to <i>entity</i>: every noun in the source is, eventually,
+            a kind of entity.</dd>
+
+          <dt>Category <em>(lexicographer file)</em></dt>
+          <dd>The <i>noun.group</i> or <i>noun.artifact</i> beside a concept's
+            name. The source's own editorial filing system — a rough shelf, not
+            a claim about what the thing fundamentally is.</dd>
+
+          <dt>Context window</dt>
+          <dd>How many concepts the model holds at once. Borrowed from language
+            models on purpose: it is the same limit, and it bites the same way.
+            Extract sees only what is inside it.</dd>
+
+          <dt>Provenance</dt>
+          <dd>Where a statement came from and who verified it. Tracking it is
+            the entire difference between a knowledge graph and a pile of
+            confident text. <i>checked</i> and <i>agreeing</i> are both readings
+            of it.</dd>
+
+          <dt>Drift</dt>
+          <dd>What happens to meaning when a system learns from its own output
+            instead of from the world. Real, named, and measured — it is why
+            this game exists and what the title refers to.</dd>
+        </dl>
+
+        <h3>The numbers on the HUD</h3>
+        <table class="ref"><tbody>
+          <tr><td><b>recovered</b></td><td>concepts with at least one edge on them, of {CONCEPT_BUDGET}</td></tr>
+          <tr><td><b>context</b></td><td>concepts held at once, of the window you have earned</td></tr>
+          <tr><td><b>checked</b></td><td>statements confirmed, of every statement minted</td></tr>
+          <tr><td><b>agreeing</b></td><td>edges that match the source, of every edge drawn</td></tr>
+          <tr><td><b>attention</b></td><td>slots free, of slots you have</td></tr>
+        </tbody></table>
+
+        <p class="body">Concepts, definitions and relations are real: Open
+          English WordNet, unaltered.</p>
+      {/if}
 
       <div class="sheet-foot">
         <button onclick={() => (sheet = null)}>back</button>
@@ -1174,6 +1446,16 @@
     background: #080b11f2; border: 1px solid #1b2533; border-radius: 10px;
     color: #cfe0e8; font: 400 14px/1.35 ui-sans-serif, system-ui, sans-serif;
   }
+  /* The header ran together as "racenoun.group" — `<b>` and `<em>` are both
+     inline and nothing separated them. The label is the answer to "what did I
+     just tap", so it gets its own line and the category sits under it. */
+  .card .txt { flex: 1 1 auto; min-width: 0; }
+  .card .txt b { display: block; color: #eaf6f2; font-size: 1.05rem; }
+  .card .txt em {
+    display: block; margin-top: 1px;
+    color: #5d7385; font-size: 12px; font-style: normal; letter-spacing: 0.02em;
+  }
+  .card .txt p { margin: 6px 0 0; }
   .card button {
     flex: 0 0 auto; width: 28px; height: 28px; padding: 0;
     background: none; border: 1px solid #1b2533; border-radius: 6px;
@@ -1272,7 +1554,7 @@
   /* ---- sheets: ordinary modals, scrollable, never clipped ---- */
   .sheet {
     position: absolute; inset: 0; z-index: 5;
-    background: #080b11f2; overflow-y: auto;
+    background: #080b11; overflow-y: auto;
     padding: max(16px, env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom));
     display: flex; flex-direction: column; gap: 10px;
     color: #cfe0e8; font: 400 14px/1.35 ui-sans-serif, system-ui, sans-serif;
@@ -1289,6 +1571,27 @@
   .ref td { padding: 3px 8px 3px 0; color: #93a8b8; vertical-align: top; }
   .ref td b { color: #cfe0e8; font-weight: 600; white-space: nowrap; }
 
+  /* Two pages of manual, switched in place. A tab strip rather than one long
+     scroll: the glossary is looked up mid-game, not read once. */
+  .tabs { display: flex; gap: 6px; }
+  .tabs button {
+    flex: 1; padding: 7px 0;
+    background: none; border: 1px solid #1b2533; border-radius: 8px;
+    color: #5d7385; font: inherit; font-size: 0.78rem;
+  }
+  .tabs button.on { border-color: #2b6c7d; color: #8fdcea; }
+
+  .terms { margin: 0; font-size: 0.82rem; }
+  .terms dt {
+    margin-top: 10px; color: #cfe0e8; font-weight: 600;
+  }
+  .terms dt:first-child { margin-top: 0; }
+  .terms dt em { color: #5d7385; font-style: normal; font-weight: 400; }
+  .terms dd { margin: 2px 0 0; color: #93a8b8; line-height: 1.4; }
+  .terms dd i, .body i { color: #b9cbd8; font-style: italic; }
+  .terms dd b, .body b { color: #cfe0e8; font-weight: 600; }
+  .body.dim { color: #3f5163; font-size: 0.78rem; }
+
   .stamp { margin: 0; font: 0.62rem ui-monospace, monospace; color: #5d7385; }
   .sheet h2 { margin: 0; font-size: 1rem; color: #eaf6f2; }
   .sheet .body { margin: 0; color: #93a8b8; }
@@ -1299,6 +1602,67 @@
     background: #10151d; border: 1px solid #2f3d4e; color: #cfe0e8;
   }
   .sheet-foot button.bad { border-color: #b0566b; color: #b0566b; }
+
+  /* ---- THE STARMAP LANES ------------------------------------------------
+     Three states, three weights of line, and the locked one is DRAWN. It is
+     dimmed and dashed and its label is blocks — you can see there is a way
+     and see the shape of the word that holds it. That is the whole feature;
+     an absent edge motivates nobody. */
+  /* The beat: the only prose surface in the game, so it gets room to be read
+     and a measure that does not run the full width of a phone. */
+  .beat { max-width: 34em; margin: 0 auto 4px; text-align: left; }
+  .beat h3 {
+    margin: 0 0 4px; font-size: 0.7rem; letter-spacing: 0.09em;
+    text-transform: uppercase; color: #5d7385; font-weight: 600;
+  }
+  .beat p { margin: 0; color: #b3c6d4; font-size: 0.86rem; line-height: 1.45; }
+  /* A word you cannot read yet, in the graph's own tongue. Monospace and
+     letter-spaced so the SHARED PREFIX is scannable — `ka-sa-le` and
+     `ka-sa-le-then` have to look like kin at a glance, which is the whole
+     mechanic and the reason these are never truncated. */
+  .beat :global(.glyph), .lane :global(.glyph) {
+    font-family: ui-monospace, monospace; font-style: normal;
+    color: #c9a227; letter-spacing: 0.02em;
+  }
+  /* A word you have bound to English. */
+  .beat :global(.bound), .lane :global(.bound) { color: #eaf6f2; font-weight: 600; }
+
+  .lanes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .lane {
+    flex: 1 1 auto; min-width: 96px; max-width: 46%;
+    padding: 8px 10px; border-radius: 10px;
+    background: none; border: 1px solid #2b6c7d; color: #8fdcea;
+    font: inherit; text-align: left;
+  }
+  .lane b { display: block; font-size: 0.92rem; font-weight: 600; }
+  .lane span { display: block; font: 0.62rem ui-monospace, monospace; color: #5d7385; }
+  /* SOLID — a route on your own map. Filled, because you have been there. */
+  /* SOLID — a route on your own map, and NOT a tap target: it goes somewhere
+     you already hold, so there is nothing to travel to. It is drawn as record,
+     not as an offer. */
+  .lane.solid { border-color: #24505c; background: #0e1d24; color: #6f9aa8; }
+  /* DOTTED — ungated, and the far end is dark. Taking it teaches you. */
+  .lane.dotted { border-style: dashed; }
+  /* LOCKED — visible, not takeable, key masked. */
+  .lane.locked {
+    border-style: dashed; border-color: #26333f; color: #48607a;
+    background: none;
+  }
+  .lane.locked b { letter-spacing: 0.06em; }
+  /* A node whose word you cannot read yet, in the same hand as the prose. */
+  .node.unbound :global(span), .node.unbound span {
+    font-family: ui-monospace, monospace; color: #c9a227;
+  }
+  .lane:disabled { opacity: 0.9; }
+  /* In flight: you are on this lane right now. */
+  .lane.flying { border-style: solid; border-color: #3f6f5f; color: #6fbfa0; }
+  /* A locked choice reads as a door, not as an error: dimmed and quiet, with
+     the words it wants underneath. `:disabled` alone rendered it the same grey
+     as a spent button, which says "broken" rather than "not yet". */
+  .sheet-foot button.locked {
+    border-style: dashed; border-color: #26333f; color: #5d7385;
+  }
+  .sheet-foot button.locked span { color: #6f8ba0; font-style: italic; }
   .sheet-foot button:disabled { color: #2f3d4e; border-color: #1b2533; cursor: default; }
   .choice { display: flex; flex-direction: column; gap: 2px; text-align: left; }
   .choice span { font: 0.62rem ui-monospace, monospace; color: #5d7385; }

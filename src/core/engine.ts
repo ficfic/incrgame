@@ -12,7 +12,7 @@
 // falls until recovery stops. You prestige because you stalled, and what you
 // inherit is your own machine output, which drifts faster. The stated goal is
 // unreachable by construction, and gets further away every generation.
-import type { Action, Edge, GameState, GeneratorId, ResourceId, ReviewItem, SalvageSource } from './types';
+import type { Action, Edge, GameState, GeneratorId, ResourceId, ReviewItem, SalvageSource, Vignette, VignetteChoice } from './types';
 import { TIER_LADDER } from './types';
 import { add, sub, gte, mul, scaleCost, D } from './numbers';
 import Decimal from 'break_eternity.js';
@@ -105,20 +105,51 @@ const DRIFT_SCALE_SCALE = 0.55;
 // Capacity, not a wallet. It is never spent — it is ALLOCATED, and it comes
 // back. Base capacity is small; it grows from knowledge you have actually
 // verified, so it is earned by playing rather than bought from a menu.
-const ATTENTION_BASE = 4;
-const ATTENTION_PER_DECADE = 4.5;
-export const DISCOVER_MS = 18_000;
+//
+// ⚠️ ATTENTION GREW 4 → 13 IN 150 SECONDS OF TAPPING. That is the whole reason
+// this constant is 1 and not 4.5. A slot every ×10 of confirmed work is a rate
+// the player crosses four or five times in a whole game instead of four times
+// in a coffee break, and an integer step means each one is an EVENT you can
+// see rather than a fraction ticking behind a floor().
+export const ATTENTION_BASE = 4;
+const ATTENTION_PER_DECADE = 1;
+/** Unchecked work you are carrying, in decades, that costs you a slot each.
+ *
+ *  THE DEGRADATION, and there is exactly one — docs/MODEL.md left the trigger
+ *  open and a game with three ways to lose a slot has none the player can name.
+ *  It is the mirror of the growth term: confirming statements widens your
+ *  attention, letting unconfirmed ones pile up narrows it again. Both read off
+ *  numbers already on the HUD, so "why did I lose a slot" is answerable by
+ *  looking at the screen.
+ *
+ *  It is a REDUCTION IN CAPACITY, never a debt: nothing is spent, nothing goes
+ *  negative, and confirming the backlog gives the slot straight back. */
+const ATTENTION_PENALTY_PER_DECADE = 1;
+/** Below this, unchecked work is just work in progress. Above it you are
+ *  hoarding. Set at about one extraction batch, so an ordinary pile-up between
+ *  two confirmations costs nothing and the first slot goes at ~80 unchecked.
+ *  The owner's live save sat at 161 unconfirmed against 17 confirmed, which is
+ *  precisely the state this is here to make expensive. */
+export const ATTENTION_PENALTY_FLOOR = 8;
+// ---- THE TEMPO ------------------------------------------------------------
+//
+// Owner: "we need to slow the game down significantly". These were 18s / 5s /
+// 7s, which at 9 slots meant a tap roughly every second and a board that
+// resolved faster than it could be read. Everything here is worked in
+// PARALLEL across attention slots, so the felt pace is the time divided by the
+// slots you have — which is exactly why the slot count had to stop climbing.
+export const DISCOVER_MS = 40_000;
 export const REVIEW_BOOK_MS = 25_000;
 /** Extraction is the FAST verb. Discovery is you going out and finding a thing
  *  (18s); connecting is you deciding a thing is true (7s); extraction is the
  *  machine reading what you already hold, so it is quick — but it is not free
  *  and it is not instant. It was both, briefly, and it was the only verb in the
  *  game that cost nothing, which is exactly what the owner noticed. */
-export const EXTRACT_MS = 5_000;
+export const EXTRACT_MS = 12_000;
 /** Filling in a dotted line is the FAST verb. Discovery finds a thing and is
  *  slow and human-only; connecting realises a line the world already offers.
  *  Two verbs at two tempos, because one verb on one timer is a metronome. */
-export const CONNECT_MS = 7_000;
+export const CONNECT_MS = 20_000;
 
 /** Building an agent COSTS VERIFIED STATEMENTS — you distil the next one out of
  *  the graph you already trust. Which is, exactly, the setup of the paper this
@@ -222,10 +253,31 @@ function decades(v: string): number {
   return d.lte(0) ? 0 : Math.max(0, d.add(1).log10().toNumber());
 }
 
+/** Slots you have LOST to unconfirmed work, whole numbers only.
+ *
+ *  Named, singular and legible: the one condition in the game that takes a slot
+ *  away. It reads off `provenance.unverified`, which is already on the HUD as
+ *  the gap between `checked` and `statements`, so the cause of the loss is
+ *  visible at the moment it happens without a new number to explain.
+ *
+ *  Note the floor: the first {@link ATTENTION_PENALTY_FLOOR} unchecked
+ *  statements are free. A penalty that started at 1 would fire on the first
+ *  extraction of a new save and read as a bug. */
+export function attentionPenalty(state: GameState): number {
+  const backlog = D(state.provenance.unverified);
+  if (backlog.lte(ATTENTION_PENALTY_FLOOR)) return 0;
+  return Math.floor(
+    ATTENTION_PENALTY_PER_DECADE * decades(backlog.div(ATTENTION_PENALTY_FLOOR).toString()),
+  );
+}
+
 /** Total slots. Grows with lifetime verified knowledge: the more of the world
- *  you have actually checked, the more of it you can hold in your head. */
+ *  you have actually checked, the more of it you can hold in your head — and
+ *  shrinks by {@link attentionPenalty} while unconfirmed work piles up. */
 export function attentionCap(state: GameState): number {
-  const earned = ATTENTION_BASE + ATTENTION_PER_DECADE * decades(state.lifetimeVerified);
+  const earned = ATTENTION_BASE
+    + ATTENTION_PER_DECADE * decades(state.lifetimeVerified)
+    - attentionPenalty(state);
   // `capacity` is a vignette lever: a choice may trade throughput for headroom.
   // It exists because the third door of the only fork in the game used to scale
   // `review`, which multiplies the Orchestrator count, which is permanently
@@ -726,6 +778,76 @@ export function pendingVignette(state: GameState): string | null {
   return null;
 }
 
+// ---- VOCABULARY GATES ----------------------------------------------------
+//
+// A choice can require concepts and relation types you must already have
+// discovered. The rule is one sentence and it is the whole mechanic:
+//
+//   A CHOICE YOU CANNOT MEET IS SHOWN AND NOT TAKEABLE. It is never hidden.
+//
+// Hiding it would be easier and would destroy the thing it exists for. The
+// locked door is what tells the player that discovering more of the graph buys
+// something other than a bigger picture — and a door that is not drawn teaches
+// nothing at all. So the engine's job here is to answer "can I take this" and
+// "what am I missing", and nothing else filters.
+
+/** Concepts you have discovered — everything on the board, in or out of
+ *  context. A concept that has fallen out of the context window is still a word
+ *  you know; the window is about what the model is holding, not about what you
+ *  have seen. */
+export function knownConcepts(state: GameState): Set<number> {
+  return new Set(state.forged.anchors);
+}
+
+/** Relation types you have actually drawn at least one of. Drawn, not
+ *  confirmed: you have met the relation the moment it appears on your board.
+ *  Requiring confirmation would gate story on a second, unrelated action. */
+export function knownRels(state: GameState): Set<number> {
+  return new Set(state.forged.edges.map((e) => e.rel));
+}
+
+/** What a choice still needs, or nothing. Returned rather than a bare boolean
+ *  so the UI can NAME the missing words — "locked" with no reason is a dead end
+ *  wearing a lock icon. */
+export function missingFor(
+  state: GameState, choice: VignetteChoice,
+): { concepts: number[]; rels: number[] } {
+  const req = choice.requires;
+  if (!req) return { concepts: [], rels: [] };
+  const haveConcepts = knownConcepts(state);
+  const haveRels = knownRels(state);
+  return {
+    concepts: (req.concepts ?? []).filter((id) => !haveConcepts.has(id)),
+    rels: (req.rels ?? []).filter((r) => !haveRels.has(r)),
+  };
+}
+
+export function canTakeChoice(state: GameState, choice: VignetteChoice): boolean {
+  const missing = missingFor(state, choice);
+  return missing.concepts.length === 0 && missing.rels.length === 0;
+}
+
+/** Every choice on a vignette, each marked takeable or not.
+ *
+ *  ⚠️ THE SOFTLOCK GUARD, and it is why this returns the whole list rather than
+ *  a filtered one. The content check guarantees every beat ships an ungated
+ *  exit, but a modal with no way out is an unrecoverable save, and "the data
+ *  promised" is not a thing to bet a save file on. If nothing is takeable, this
+ *  opens EVERY choice rather than leaving the player staring at a wall. Failing
+ *  open costs a gate being bypassed in a case that should never occur; failing
+ *  closed costs the game. */
+export function choicesFor(
+  state: GameState, vignette: Vignette,
+): Array<{ choice: VignetteChoice; takeable: boolean; missing: { concepts: number[]; rels: number[] } }> {
+  const marked = vignette.choices.map((choice) => ({
+    choice,
+    takeable: canTakeChoice(state, choice),
+    missing: missingFor(state, choice),
+  }));
+  if (marked.some((m) => m.takeable)) return marked;
+  return marked.map((m) => ({ ...m, takeable: true }));
+}
+
 // ---- the reducer ---------------------------------------------------------
 
 export function apply(state: GameState, action: Action): GameState {
@@ -733,13 +855,34 @@ export function apply(state: GameState, action: Action): GameState {
     case 'tick': {
       const { dt } = action;
       if (!(dt > 0)) return state;
+      // ---- COPY-ON-WRITE, AND WHY IT HAS ITS OWN FLAG ---------------------
+      //
+      // ⚠️ THIS WAS `resources = touched ? resources : { ...resources }`, AND IT
+      // MADE apply() MUTATE ITS CALLER'S STATE.
+      //
+      // `touched` means "something in this tick changed". The copy guard needs
+      // a different fact: "resources have already been copied". Four branches
+      // set `touched` without copying anything — line decay, agent-drawn lines,
+      // folded concepts, and confirming an existing edge — so once any of them
+      // fired first the guard skipped the copy and every later write went
+      // straight into `state.resources`. The input state's balances rewrote
+      // themselves, `next.resources === state.resources`, and calling apply
+      // twice with the same arguments returned different answers: a result
+      // computed as 4 later read 3.
+      //
+      // One flag, one meaning. `own()` copies exactly once and is the ONLY way
+      // to get a writable `resources`; nothing else may assign to it.
       let resources = state.resources;
+      let owned = false;
+      const own = (): typeof resources => {
+        if (!owned) { resources = { ...resources }; owned = true; }
+        return resources;
+      };
       let touched = false;
       for (const res of TIER_LADDER) {
         const rate = ratePerSecond(state, res);
         if (rate !== '0') {
-          resources = touched ? resources : { ...resources };
-          resources[res] = add(resources[res], mul(rate, dt));
+          own()[res] = add(resources[res], mul(rate, dt));
           touched = true;
         }
       }
@@ -755,7 +898,7 @@ export function apply(state: GameState, action: Action): GameState {
       const raw = D(unsupervisedPerSecond(state)).mul(dt);
       const minted = clean.add(raw);
       if (minted.gt(0)) {
-        resources = touched ? resources : { ...resources };
+        own();
         resources.triples = add(resources.triples, minted.toString());
         unverified = unverified.add(raw);
         lifetimeGenerated = lifetimeGenerated.add(minted);
@@ -883,7 +1026,7 @@ export function apply(state: GameState, action: Action): GameState {
           const back = Decimal.min(D(String(expired)), unverified);
           if (back.gt(0)) {
             unverified = unverified.sub(back);
-            resources = touched ? resources : { ...resources };
+            own();
             resources.triples = sub(resources.triples, back.toString());
             touched = true;
           }
@@ -952,7 +1095,7 @@ export function apply(state: GameState, action: Action): GameState {
             } else {
               edges = [...edges, b.edge];
               edges = trimEdges(edges);
-              resources = touched ? resources : { ...resources };
+              own();
               resources.triples = add(resources.triples, 1);
               lifetimeVerified = lifetimeVerified.add(1);
             }
@@ -967,7 +1110,7 @@ export function apply(state: GameState, action: Action): GameState {
               && !edges.some((e) => e.a === c.a && e.b === c.b && e.rel === c.rel));
             if (landing.length > 0) {
               edges = trimEdges([...edges, ...landing]);
-              resources = touched ? resources : { ...resources };
+              own();
               resources.triples = add(resources.triples, String(landing.length));
               unverified = unverified.add(landing.length);
               touched = true;
@@ -1112,8 +1255,27 @@ export function apply(state: GameState, action: Action): GameState {
       // The world is finite. Past the last concept, discovery was still minting
       // +1 anchor and +1 VERIFIED statement for nodes with nothing behind them —
       // an infinite faucet of the one thing the game says is scarce.
-      if (state.forged.nextId >= CONCEPT_BUDGET) return state;
-      const node = state.forged.nextId;
+      // ---- WHICH CONCEPT LANDS -------------------------------------------
+      //
+      // Untargeted, this is the sequential allocator the Discover button used:
+      // `nextId`, then `nextId + 1`, forever. TARGETED, the starmap names its
+      // destination, so the lane you tap has to land the concept it promised.
+      //
+      // ⚠️ `nextId` STAYS THE HIGH-WATER MARK, not a count. Targeted discovery
+      // makes the anchor list sparse — you can hold 0, 1, 2, 15, 228 — and
+      // anything that treated `nextId` as "how many concepts you have" is
+      // wrong from here. It is used as the sequential cursor and as the
+      // world-finished check, and both survive a sparse board.
+      const targeted = action.node;
+      if (targeted !== undefined) {
+        if (!Number.isInteger(targeted) || targeted < 0 || targeted >= CONCEPT_BUDGET) return state;
+        // Already yours, or already on its way. Re-discovering would mint a
+        // second anchor for one concept and double every count that reads them.
+        if (state.forged.anchors.includes(targeted)) return state;
+        if (state.forged.frontier.includes(targeted)) return state;
+        if (state.bookings.some((b) => b.kind === 'discover' && b.node === targeted)) return state;
+      } else if (state.forged.nextId >= CONCEPT_BUDGET) return state;
+      const node = targeted ?? state.forged.nextId;
       // take the lowest free ring slot so discoveries never share a position
       const taken = new Set(state.bookings.map((b) => b.slot));
       let slot = 0;
@@ -1130,7 +1292,7 @@ export function apply(state: GameState, action: Action): GameState {
         bookings,
         forged: {
           ...state.forged,
-          nextId: node + 1,
+          nextId: Math.max(state.forged.nextId, node + 1),
           frontier: [...state.forged.frontier, node],
         },
       };
@@ -1228,6 +1390,12 @@ export function apply(state: GameState, action: Action): GameState {
       const choice = v?.choices.find((c) => c.id === action.choiceId);
       if (!v || !choice) return state;
       if (state.vignette.seen.includes(v.id)) return state;
+      // The gate, enforced HERE and not only in the UI. A disabled button is a
+      // suggestion; the reducer is the rule. `choicesFor` rather than
+      // `canTakeChoice` so the softlock guard applies — if the beat somehow
+      // shipped with every exit gated, the reducer opens them too, and the two
+      // never disagree about what is takeable.
+      if (!choicesFor(state, v).find((m) => m.choice.id === choice.id)?.takeable) return state;
       const modifiers = { ...state.modifiers };
       for (const [key, value] of Object.entries(choice.effects)) {
         if (value !== undefined) modifiers[key] = (modifiers[key] ?? 1) * value;

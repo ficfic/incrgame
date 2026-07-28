@@ -49,10 +49,15 @@ export const READOUTS = {
     count: (s) => D(recovered(s)),
   },
 
-  /** Lines actually drawn on the board. NOT the statement balance — the balance
-   *  counts every statement ever minted and is astronomically larger. */
+  /** Edges actually drawn on the board. NOT the statement balance — the balance
+   *  counts every statement ever minted and is astronomically larger.
+   *
+   *  The noun was "lines" and the owner said, twice, "these are edges". They
+   *  are right: an edge is the real term for a link in a graph, the game is
+   *  educational, and inventing a softer synonym taught nothing. The KEY stays
+   *  `lines` because it is internal; only the word the player reads changed. */
   lines: {
-    noun: 'lines',
+    noun: 'edges',
     count: (s) => D(s.forged.edges.length),
   },
 

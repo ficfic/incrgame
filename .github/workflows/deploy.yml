@@ -6,7 +6,12 @@ on:
   push:
     branches:
       - claude/incremental-game-github-pages-w7pvk6 # pinned deploy branch (no main)
-      - claude/project-review-build-shub7f # build-session branch (same site; latest push wins)
+      # ⚠️ REMOVED 2026-07-27: claude/project-review-build-shub7f.
+      # It also published this site on "latest push wins", and it is NOT
+      # contained in the dev branch — it carries commits dev does not. So any
+      # push to it would have overwritten the live site with two-day-old code,
+      # silently and with a green tick. A second publishing branch is a loaded
+      # gun; if that work is wanted it gets merged into dev like anything else.
       # CI on the dev branch too. Four commits shipped without it ever
       # running — no tests, no core-purity check, no attribution gate. The
       # `deploy` job below stays gated to the pinned branch, so this buys the
@@ -53,6 +58,13 @@ jobs:
         # into raw state and picked its own. src/core/readouts.ts is the single
         # place a player-facing number is named; this keeps surfaces on it.
         run: node scripts/check-vocabulary.mjs
+      - name: Story graph is walkable
+        # The story IS the game's affordance now — the starmap's lanes are its
+        # choices. A dead-end beat, an unobtainable gate key or a body that
+        # cannot survive masking would ship without this, because nothing else
+        # in the pipeline reads docs/graph/. Five recorded sabotages, two real
+        # bugs caught, four seconds.
+        run: node scripts/check-story.mjs
       - name: Ontology data present and self-describing
         # The committed build output is the game's content; a deploy without it
         # ships a world with no concepts in it.

@@ -93,6 +93,13 @@ export const REL_NAMES = [
   'used for',      // 5 — ConceptNet, pending the compliance conditions
   'found at',      // 6 — ConceptNet
   'causes',        // 7 — ConceptNet
+  // 8 — CROSS-LINKS, mined from the definitions themselves: concept A's gloss
+  // names concept B. Not a WordNet pointer and deliberately not dressed as one
+  // — the taxonomy is a tree and cannot produce sideways routes, so these are
+  // what turn the map into a labyrinth. The name says exactly what the evidence
+  // is ("named in definition"), not what it might mean, because a gloss
+  // mentioning a word is not a claim that the two are related.
+  'named in definition',
 ] as const;
 
 /** Provenance of the knowledge in the graph — the heart of the game (v5).
@@ -280,7 +287,11 @@ export type Action =
    *  the concept about to be found, looked up by the shell and passed in as a
    *  plain integer — the engine stays pure and still knows nothing about the
    *  dataset. Omitted only if the chunk has not loaded. */
-  | { type: 'discover'; parent?: number }
+  /** `node` TARGETS a specific concept — the starmap's lanes name where they
+   *  go, so travelling one has to land THAT concept and not merely the next in
+   *  sequence. Omitted, discovery falls back to the sequential allocator, which
+   *  is what the old Discover button did. */
+  | { type: 'discover'; parent?: number; node?: number }
   /** Book a slot onto FILLING IN a dotted line. The shell picks which potential
    *  connection you tapped and hands over the finished shape; core stays pure
    *  and cannot tell a real relation from an invented one, which is exactly
@@ -345,6 +356,59 @@ export interface VignetteChoice {
    *  player as generated NUMBERS, which is data, not prose. */
   effects: { drift?: number; extraction?: number; capacity?: number; review?: number };
   flag?: string;
+  /** VOCABULARY GATE. The concepts and relation types you must already have
+   *  discovered before this choice can be taken.
+   *
+   *  `concepts` are node ids — the same integers a save stores, indexing the
+   *  ontology chunks. `rels` are indices into {@link REL_NAMES}.
+   *
+   *  A gated choice you cannot meet is SHOWN AND NOT TAKEABLE, never hidden:
+   *  seeing the door you cannot open yet is the mechanic, and it is the only
+   *  thing that tells you what discovering more is FOR. Filtering it out would
+   *  leave the player with no way to know the choice existed.
+   *
+   *  Optional and additive, so no save moves — a save stores which vignettes
+   *  were seen, never the vignette data itself. */
+  requires?: { concepts: number[]; rels: number[] };
+}
+
+/** ---- THE STORY GRAPH ----------------------------------------------------
+ *
+ *  Shape of docs/graph/story.json. Written by scripts/build-story.mjs; the
+ *  title/body/label fields ship empty and the owner fills them.
+ *
+ *  Every id here is a NUMERIC node id — the integers a save stores. */
+export interface StoryChoice {
+  id: string;
+  frame: string;
+  label: string;
+  /** Destination node id. */
+  to: number;
+  toLabel: string;
+  rel: number;
+  requires?: { concepts: number[]; rels: number[] };
+  effects?: Record<string, number>;
+}
+
+export interface StoryBeat {
+  id: string;
+  depth: number;
+  /** The node this beat is told FROM. */
+  at: number;
+  atLabel: string;
+  frame: string;
+  title: string;
+  body: string;
+  choices: StoryChoice[];
+}
+
+export interface StoryGraph {
+  /** Generated tallies. Loosely typed on purpose: the pipeline has re-cut these
+   *  three times in a day (per-lane beats → places → concept granularity) and a
+   *  strict shape here fails the typecheck for a field nothing reads. */
+  counts: Record<string, number>;
+  frames: string[];
+  beats: StoryBeat[];
 }
 
 export interface FieldNote {

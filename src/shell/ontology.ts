@@ -15,6 +15,10 @@ export interface Concept {
   category: string; // WordNet lexicographer file, e.g. "noun.animal"
   gloss: string;    // definition, verbatim from the source dataset
   parent: number;   // index of the concept it was recovered through (-1 = the root)
+  /** 0..100, higher = more obscure. Measured against the FULL noun lexicon,
+   *  not the shipped slice — see scripts/rarity.mjs, which also states plainly
+   *  that this is obscurity and NOT corpus frequency. */
+  rarity: number;
 }
 
 /** Deterministic character-level damage to a REAL string — a glitch effect on
@@ -72,7 +76,7 @@ interface Manifest {
   noticeUrl: string;
 }
 
-interface Chunk { l: string[]; d: number[]; p: number[]; g: string[] }
+interface Chunk { l: string[]; d: number[]; p: number[]; g: string[]; r?: number[] }
 
 const BASE = `${import.meta.env.BASE_URL}ontology/`;
 
@@ -219,6 +223,11 @@ export function conceptAt(index: number): Concept | null {
     category: manifest.categories[chunk.d[i]!] ?? '',
     gloss: chunk.g[i] ?? '',
     parent: chunk.p[i] ?? -1,
+    // `?? 0` covers a chunk cached by a service worker from before rarity
+    // shipped: an old chunk is missing `r`, and a NaN would poison every
+    // comparison downstream silently. Zero reads as "common", which is the
+    // safe default for a concept we cannot rate.
+    rarity: chunk.r?.[i] ?? 0,
   };
 }
 
