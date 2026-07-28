@@ -96,7 +96,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { concepts } = JSON.parse(readFileSync(join(ROOT, 'docs/graph/idmap.json'), 'utf8'));
-const { beats } = JSON.parse(readFileSync(join(ROOT, 'docs/graph/story.json'), 'utf8'));
+const { beats } = { beats: JSON.parse(readFileSync(join(ROOT,'public/story/index.json'),'utf8')).chunks.map((f) => JSON.parse(readFileSync(join(ROOT, 'public/story/' + f), 'utf8')).beats).flat() };
 
 // story.json speaks NUMERIC node ids, the same ones the engine uses. This check
 // therefore validates the artifact standalone — it does not re-derive anything
@@ -107,7 +107,7 @@ const known = (id) => Number.isInteger(id) && id >= 0 && id < concepts;
  * `concepts` list but a `rels` gate, so testing concepts alone counted them as
  * guaranteed exits — a beat whose only "free" exit was a locked sideways link
  * would have passed as safe. Caught when rel-gated routes were added. */
-const ungated = (c) => (c.requires?.concepts ?? []).length === 0 && (c.requires?.rels ?? []).length === 0;
+const ungated = (c) => !(c.q?.c ?? []).length && !(c.q?.r ?? []).length;
 
 // What an ungated-only player learns: the destination of every guaranteed exit.
 // Across runs, not within one — keys are drawn from other lanes on purpose, so
@@ -134,8 +134,8 @@ if (stranded.length) {
 const orphanKeys = new Map();
 for (const b of beats) {
   for (const c of b.choices) {
-    for (const k of c.requires?.concepts ?? []) {
-      if (!teachable.has(k)) orphanKeys.set(k, c.id);
+    for (const k of c.q?.c ?? []) {
+      if (!teachable.has(k)) orphanKeys.set(k, c.i);
     }
   }
 }
@@ -203,8 +203,8 @@ const dangling = [];
 for (const b of beats) {
   if (!known(b.at)) dangling.push(`beat ${b.id} sits at unknown node ${b.at}`);
   for (const c of b.choices) {
-    if (!known(c.to)) dangling.push(`choice ${c.id} leads to unknown node ${c.to}`);
-    for (const k of c.requires?.concepts ?? []) {
+    if (!known(c.to)) dangling.push(`choice ${c.i} leads to unknown node ${c.to}`);
+    for (const k of c.q?.c ?? []) {
       if (!known(k)) dangling.push(`choice ${c.id} is gated on unknown node ${k}`);
     }
   }
@@ -239,7 +239,7 @@ const LABELS = new Set();
 const spanProblems = [];
 for (const b of beats) {
   if (!b.body) continue;
-  for (const text of [b.title, b.body, ...b.choices.map((c) => c.label)]) {
+  for (const text of [b.title, b.body, ...b.choices.map((c) => c.t)]) {
     for (const m of (text ?? '').matchAll(/⟦([^⟧]+)⟧/g)) {
       if (!LABELS.has(m[1])) spanProblems.push(`${b.id}: ⟦${m[1]}⟧ is not a concept`);
     }

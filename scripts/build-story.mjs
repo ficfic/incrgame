@@ -41,13 +41,13 @@
  * 93 beats became 27 became 446 — and authored text has to survive that.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ONTOLOGY = join(ROOT, 'public/ontology');
-const OUT = join(ROOT, 'docs/graph/story.json');
+const OUT = join(ROOT, 'public/story');
 
 /* NO CAP ON CHILDREN.
  *
@@ -263,21 +263,43 @@ for (const b of beats) {
  * wins; a frame only ever fills a gap. */
 const FRAMES = JSON.parse(readFileSync(join(ROOT, 'docs/graph/frames.json'), 'utf8'));
 const fill = (t, slots) => t.replace(/\{(\w+)\}/g, (m, k) => slots[k] ?? m);
+/* FRAMES ARE SHIPPED, NOT PRE-RENDERED.
+ *
+ * These were filled in here so the engine would render one field and never
+ * need to know a frame system exists. That cost 857K for 446 beats: 4,716
+ * choices each carrying its own copy of "Follow X down", which is one template
+ * and one word.
+ *
+ * The frames go in the manifest instead and the renderer fills them. A beat or
+ * choice carries text ONLY where it is authored; everything else carries a
+ * frame id and the label to drop in. */
+/* COMPACT THE EMITTED SHAPE.
+ *
+ * 4,716 choices were each carrying an empty label, an empty effects object, a
+ * requires with two empty arrays, rel 0, and a `toLabel` the engine can read
+ * out of the ontology it already has. Defaults are omitted and the label is
+ * looked up, which is the difference between a 626K payload and a phone.
+ *
+ * Read as: absent `q` means ungated, absent `r` means rel 0, absent `t` means
+ * use the frame. */
 let framed = 0;
 for (const b of beats) {
-  const f = FRAMES[b.frame];
-  if (f && !b.body) {
-    framed++;
-    b.title = b.title || f.title;
-    b.body = fill(f.body, { here: b.atLabel });
-  }
-  for (const c of b.choices) {
-    const cf = FRAMES[c.frame];
-    if (cf && !c.label) c.label = fill(cf.label, { next: c.toLabel, branch: c.toLabel });
-  }
+  if (!b.body) framed++;
+  b.choices = b.choices.map((c) => {
+    const out = { i: c.id, f: c.frame, to: c.to };
+    if (c.rel) out.r = c.rel;
+    if (c.label) out.t = c.label;
+    const q = {};
+    if (c.requires.concepts.length) q.c = c.requires.concepts;
+    if (c.requires.rels.length) q.r = c.requires.rels;
+    if (q.c || q.r) out.q = q;
+    return out;
+  });
+  if (!b.title) delete b.title;
+  if (!b.body) delete b.body;
 }
 
-const missingFrames = [...new Set([...beats.map((b) => b.frame), ...beats.flatMap((b) => b.choices.map((c) => c.frame))])]
+const missingFrames = [...new Set([...beats.map((b) => b.frame), ...beats.flatMap((b) => b.choices.map((c) => c.f ?? c.frame))])]
   .filter((f) => !FRAMES[f]);
 if (missingFrames.length) {
   console.error(`FAIL  no frame written for: ${missingFrames.join(', ')} — those beats would render blank`);
@@ -285,14 +307,51 @@ if (missingFrames.length) {
 }
 const frames = Object.keys(FRAMES).filter((k) => k !== '_');
 
+/* CHUNKED, AND ALIGNED TO THE ONTOLOGY CHUNKS.
+ *
+ * One file was 880K. That is a phone downloading the entire story graph to
+ * render one beat, on a project whose stated budget is a mobile browser.
+ *
+ * Chunk N holds the beats for node ids in the same range as ontology chunk N,
+ * so a beat and the concepts it names arrive in the same fetch and the engine
+ * needs no second index to know which file to ask for.
+ *
+ * It also moves from docs/ to public/. docs/ is NOT SERVED — nothing could
+ * fetch story.json at runtime, so any surface using it was either bundling
+ * 880K into the JS or not reading it at all. */
+rmSync(OUT, { recursive: true, force: true });
+mkdirSync(OUT, { recursive: true });
+
+/* Only non-empty chunks are written. Aligning to the ontology's 1024-id chunks
+ * put all 446 beats in chunk 0 and produced three empty files, because a beat
+ * exists only for a concept WITH CHILDREN and those cluster at the top of the
+ * breadth-first order. Three empty files pretending to be a chunking scheme is
+ * worse than one honest file. If the shipped selection ever spreads places
+ * across the id range this starts distributing on its own. */
+const CHUNK = index.chunkSize;
+const sizes = [];
+const manifest = [];
+for (let n = 0; n * CHUNK < label.length; n++) {
+  const slice = beats.filter((b) => Math.floor(b.at / CHUNK) === n);
+  if (!slice.length) continue;
+  const name = `s${String(n).padStart(3, '0')}.json`;
+  const body = JSON.stringify({ from: n * CHUNK, to: (n + 1) * CHUNK - 1, beats: slice }) + '\n';
+  writeFileSync(join(OUT, name), body);
+  manifest.push(name);
+  sizes.push([name, slice.length, body.length]);
+}
+
 writeFileSync(
-  OUT,
+  join(OUT, 'index.json'),
   JSON.stringify({
     generatedBy: 'scripts/build-story.mjs',
     relNamed: REL_NAMED,
+    chunkSize: CHUNK,
+    chunks: manifest,
     counts: { beats: beats.length, gated: gatedCount, sideways: crossCount, withProse: written },
-    frames,
-    beats,
+    // The renderer fills {here} / {next} / {branch} from the beat's atLabel and
+    // the choice's toLabel. Authored text, where present, wins over the frame.
+    frames: FRAMES,
   }) + '\n',
 );
 
@@ -302,4 +361,5 @@ console.log(`sideways routes ..... ${crossCount}   (rel ${REL_NAMED}, the labyri
 console.log(`authored prose ...... ${written}`);
 console.log(`filled from frames .. ${framed}   (${frames.join(', ')})`);
 console.log(`beats with no text .. ${beats.filter((b) => !b.body).length}`);
-console.log(`\nwrote ${OUT}`);
+sizes.forEach(([name, n, bytes]) => console.log(`  ${name}  ${String(n).padStart(4)} beats  ${(bytes / 1024).toFixed(0)}K`));
+console.log(`\nwrote ${OUT}/ (${manifest.length} chunk + index.json)`);
