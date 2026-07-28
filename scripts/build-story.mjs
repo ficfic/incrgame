@@ -86,11 +86,21 @@ for (const [a, b] of JSON.parse(readFileSync(join(ROOT, 'docs/graph/crosslinks.j
  * body and label per beat — 1,676 slots — which is a novel, and it also missed
  * why the masking works at all: the carrier is a small fixed set and the
  * variation comes from which words in it you can read. */
-const frameFor = (d) => {
+/* Frame choice is STRUCTURAL, not a depth threshold.
+ *
+ * It was `d >= maxDepth - 1 ? 'leaf' : ...`, written when lanes ran 16 deep.
+ * The shipped slice is 4 deep, so that put 268 of 446 beats on `leaf` and 144
+ * on `threshold` — 'leaf' is supposed to mean the end of the line, and it was
+ * describing the middle of the game.
+ *
+ * `leaf` now means what it says: every way out of here is terminal, so this is
+ * the last place with a decision in it. That is true of a concept whose
+ * children have no children, at any depth. */
+const isLeafish = (c) => (children.get(c) ?? []).every((k) => !children.has(k));
+const frameFor = (c, d) => {
   if (d === 0) return 'arrival';
-  if (d >= maxDepth - 1) return 'leaf';
-  if (d >= Math.floor(maxDepth * 0.66)) return 'threshold';
-  return 'descent';
+  if (isLeafish(c)) return 'leaf';
+  return d <= 2 ? 'descent' : 'threshold';
 };
 
 // ---- one beat per concept that has somewhere to go -------------------------
@@ -114,7 +124,7 @@ for (const c of [...children.keys()].sort((a, b) => a - b)) {
     at: c,
     atLabel: label[c],
     depth: depth[c],
-    frame: frameFor(depth[c]),
+    frame: frameFor(c, depth[c]),
     title: '',
     body: '',
     choices,
@@ -186,7 +196,32 @@ for (const b of beats) {
   for (const c of b.choices) if (p.choices?.[c.toLabel]) c.label = p.choices[c.toLabel];
 }
 
-const frames = [...new Set([...beats.map((b) => b.frame), ...beats.flatMap((b) => b.choices.map((c) => c.frame))])].sort();
+/* Resolve frames into the emitted text, so the engine renders one field and
+ * never has to know a frame system exists. Authored prose already set above
+ * wins; a frame only ever fills a gap. */
+const FRAMES = JSON.parse(readFileSync(join(ROOT, 'docs/graph/frames.json'), 'utf8'));
+const fill = (t, slots) => t.replace(/\{(\w+)\}/g, (m, k) => slots[k] ?? m);
+let framed = 0;
+for (const b of beats) {
+  const f = FRAMES[b.frame];
+  if (f && !b.body) {
+    framed++;
+    b.title = b.title || f.title;
+    b.body = fill(f.body, { here: b.atLabel });
+  }
+  for (const c of b.choices) {
+    const cf = FRAMES[c.frame];
+    if (cf && !c.label) c.label = fill(cf.label, { next: c.toLabel, branch: c.toLabel });
+  }
+}
+
+const missingFrames = [...new Set([...beats.map((b) => b.frame), ...beats.flatMap((b) => b.choices.map((c) => c.frame))])]
+  .filter((f) => !FRAMES[f]);
+if (missingFrames.length) {
+  console.error(`FAIL  no frame written for: ${missingFrames.join(', ')} — those beats would render blank`);
+  process.exit(1);
+}
+const frames = Object.keys(FRAMES).filter((k) => k !== '_');
 
 writeFileSync(
   OUT,
@@ -202,5 +237,7 @@ writeFileSync(
 console.log(`beats ............... ${beats.length}   (one per concept with children)`);
 console.log(`gated branches ...... ${gatedCount}`);
 console.log(`sideways routes ..... ${crossCount}   (rel ${REL_NAMED}, the labyrinth)`);
-console.log(`with authored prose . ${written}   rest render from ${frames.length} frames: ${frames.join(', ')}`);
+console.log(`authored prose ...... ${written}`);
+console.log(`filled from frames .. ${framed}   (${frames.join(', ')})`);
+console.log(`beats with no text .. ${beats.filter((b) => !b.body).length}`);
 console.log(`\nwrote ${OUT}`);
