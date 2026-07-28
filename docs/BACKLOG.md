@@ -517,3 +517,5 @@ that a beat is reachable from where the player starts.
 - [ ] **Owner:** the seed change cut the reachable world from 231 nodes to 62. Was that intended, or do the seed concepts need lanes that reconnect them?
 - [ ] **Owner:** `REFLECT_MIN_CONCEPTS = 820` is unreachable by a factor of ~13 even from `entity`, and ~24 from the seed. Prestige cannot currently be reached at all. Pick a number against the 62.
 - [ ] Add reachability-from-seed to `check:story`. NOT done unilaterally: it would fail today and block every deploy until the content reconnects, which is the owner's call, not a gate I get to impose retroactively.
+
+- [ ] `public/story/` is imported into the bundle rather than fetched, which is why it was moved there. Async loading needs a load state through `starmap.ts`, `masking.ts`, `literacy.ts` and the render path.

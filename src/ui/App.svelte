@@ -712,8 +712,14 @@
    *  everything else, showing the English label if you hold that concept and
    *  the graph's word if you do not. The button stays live and honest, and it
    *  disappears the moment the owner writes a real label. */
-  function choiceLabel(c: { label: string; toLabel: string }): string {
-    return c.label.trim() ? c.label : `⟦${c.toLabel}⟧`;
+  function choiceLabel(c: { label: string; toLabel: string; to: number }): string {
+    // Fill any slot the content layer could not: the destination's name comes
+    // from the ontology, which only exists here. `{next}` and `{branch}` are
+    // the same thing seen from two frames.
+    const dest = c.toLabel || conceptAt(c.to)?.label || '';
+    const filled = (c.label.trim() ? c.label : `⟦{next}⟧`)
+      .replace(/\{(next|branch)\}/g, dest);
+    return filled.includes('⟦⟧') || !dest ? filled.replace(/⟦⟧\s*/g, '') : filled;
   }
 
   function travelTo(c: { choice: { to: number }; state: LaneState }): void {

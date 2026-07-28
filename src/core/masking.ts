@@ -50,7 +50,11 @@ export function beatConcepts(
   };
   add(beat.atLabel, beat.at);
   for (const c of beat.choices) {
-    add(c.toLabel, c.to);
+    // `toLabel` is only present for the 446 destinations that HAVE a beat.
+    // Every other destination is named from the ontology — without this the
+    // frame rendered "Thoth Moloch nuth": the destination's English name,
+    // unmasked, because the span had nothing to resolve against.
+    add(c.toLabel || labelOf(c.to), c.to);
     for (const id of c.requires?.concepts ?? []) add(labelOf(id), id);
   }
   return table;

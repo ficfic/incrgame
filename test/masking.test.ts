@@ -156,10 +156,13 @@ describe('the graph words are never truncated', () => {
   // mechanic destroyed. It was watched passing under exactly that sabotage.
   // A test for "the word is not shortened" cannot get the expected word from
   // the function that shortens it.
+  // Hyphens were dropped upstream (`ka-sa-le` → `kasale`, 2026-07-27). The
+  // literals move; the RULE does not — a child's word still extends its
+  // parent's, which is the only thing these assert.
   const KA_ENTITY = 'ka';
-  const KA_PHYSICAL = 'ka-sa';        // node 2, child of entity
-  const KA_OBJECT = 'ka-sa-le';       // node 15, child of physical entity
-  const KA_DEEP = 'ka-sa-le-then';    // node 228, child of object
+  const KA_PHYSICAL = 'kasa';        // node 2, child of entity
+  const KA_OBJECT = 'kasale';        // node 15, child of physical entity
+  const KA_DEEP = 'kasalethen';      // node 228, child of object
 
   it('renders the whole word, prefix and all', () => {
     expect(graphWord(228)).toBe(KA_DEEP);
