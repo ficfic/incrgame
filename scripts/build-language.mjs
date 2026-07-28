@@ -104,15 +104,26 @@ const ENGLISH = new Set([
 const words = {};
 const taken = new Set();
 byFreq.forEach((w, rank) => {
-  // Rank 0-30 get CV (shortest), the rest CVC — commonest words are shortest.
-  for (let salt = 0; ; salt++) {
-    const n = rank * 7 + salt * 331;
-    const a = C1[n % C1.length];
-    const b = V[Math.floor(n / C1.length) % V.length];
-    const c = rank < 30 && salt === 0 ? '' : C2[Math.floor(n / (C1.length * V.length)) % C2.length];
-    const cand = a + b + c;
-    if (!taken.has(cand) && !ENGLISH.has(cand)) { taken.add(cand); words[w] = cand; break; }
+  /* The single-syllable space is C1 x V x C2 = 360 forms and the English
+   * blocklist eats a large part of it. At 245 word types that was comfortable;
+   * adding 26 beats took the corpus to 338 and the salt loop span forever
+   * looking for a form that did not exist. Rare words now fall back to two
+   * syllables, which is also the right shape - commonest words stay shortest
+   * and only the tail grows. */
+  const syl = (n, coda) =>
+    C1[n % C1.length] +
+    V[Math.floor(n / C1.length) % V.length] +
+    (coda ? C2[Math.floor(n / (C1.length * V.length)) % C2.length] : '');
+
+  for (let salt = 0; salt < 60; salt++) {
+    const cand = syl(rank * 7 + salt * 331, !(rank < 30 && salt === 0));
+    if (!taken.has(cand) && !ENGLISH.has(cand)) { taken.add(cand); words[w] = cand; return; }
   }
+  for (let salt = 0; salt < 5000; salt++) {
+    const cand = syl(rank * 7 + salt * 331, true) + syl(rank * 13 + salt * 97, false);
+    if (!taken.has(cand) && !ENGLISH.has(cand)) { taken.add(cand); words[w] = cand; return; }
+  }
+  throw new Error('no free form for ' + w + ' - widen the phonology');
 });
 
 const collisions = types.length - new Set(Object.values(words)).size;

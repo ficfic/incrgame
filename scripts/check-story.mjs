@@ -86,7 +86,20 @@
  * real bug the same day - keys were computed before gating ran, so they
  * pointed at children that gating then locked (376 unobtainable).
  *
- * All seven applied, observed and reverted on 2026-07-27; six still live.
+ * Sabotage I - remove four words from language.json that beat prose uses.
+ * Observed:
+ *   FAIL  untranslated: 4 word(s) in beat prose are absent from
+ *         language.json, so they render as English at minute zero
+ *     covers, separates, feature, talking
+ *     fix: node scripts/build-language.mjs
+ *   exit 1
+ *
+ * I is another real one, not a planted one. Adding 26 beats introduced words
+ * the language had never been regenerated for, and they rendered as ENGLISH
+ * from the first frame - a half-translated sentence in a game whose whole
+ * premise is that none of it is readable yet.
+ *
+ * All eight applied, observed and reverted on 2026-07-27; seven still live.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -245,6 +258,36 @@ for (const b of beats) {
     }
   }
 }
+/* 6. EVERY CARRIER WORD HAS A TRANSLATION.
+ *
+ * The interface is meant to be fully foreign at minute zero. A word used in a
+ * beat but missing from language.json renders as ENGLISH, so the sentence comes
+ * out half-translated and the effect collapses.
+ *
+ * Found live, not hypothetically: after 26 beats were added, "talking",
+ * "covers", "separates" and "feature" were readable from the first frame,
+ * because language.json had been generated from the corpus as it stood before.
+ * Prose and language must be regenerated together; this says so out loud
+ * instead of relying on remembering. */
+{
+  const lang = JSON.parse(readFileSync(join(ROOT, 'docs/graph/language.json'), 'utf8')).words;
+  const missing = new Set();
+  for (const b of beats) {
+    for (const text of [b.title, b.body].filter(Boolean)) {
+      for (const w of text.replace(/\u27e6[^\u27e7]+\u27e7/g, ' ').toLowerCase().match(/[a-z']+/g) ?? []) {
+        if (!lang[w]) missing.add(w);
+      }
+    }
+  }
+  if (missing.size) {
+    fail.push(
+      `untranslated: ${missing.size} word(s) in beat prose are absent from language.json, ` +
+        `so they render as English at minute zero\n  ${[...missing].slice(0, 8).join(', ')}\n` +
+        `  fix: node scripts/build-language.mjs`,
+    );
+  }
+}
+
 if (spanProblems.length) {
   fail.push(`span: ${spanProblems.length}\n  ${spanProblems[0]}`);
 }

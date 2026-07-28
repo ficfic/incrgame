@@ -1,68 +1,59 @@
-// The engine's type contract. Source of record: docs/SPEC.md — if this file
-// and SPEC disagree, SPEC wins (or SPEC gets a deliberate, logged change).
-
+// The engine's type contract.
+//
+// ---- FOUR QUANTITIES, AND NOTHING ELSE ----------------------------------
+//
+// This file used to declare about twelve player-facing nouns: a six-rung
+// resource ladder, a provenance split, an attention pool, a booking queue, a
+// review desk, a context window and a forged-graph overlay. The owner called
+// the economy confusing twice in two days, and an 11-agent review found the
+// model was never the problem — the NAMES were (`docs/ECONOMY_SRR.md`).
+//
+// What a save holds now:
+//
+//   Words   concepts you can read now      derived from `held`; never falls
+//   Solid   checked facts that never rot   `solid`
+//   Raw     machine facts nobody checked   `raw`
+//   Rot     facts worn out, permanently    `rot`
+//
+// Solid, Raw and Rot are ONE SUBSTANCE IN THREE STATES, which is why they are
+// three sibling Decimals and not three unrelated systems: everything that
+// leaves one arrives in another.
 export type Dec = string; // break_eternity Decimal serialized as string (NOT JSON-native)
 
-export type ResourceId =
-  | 'data' | 'triples' | 'entities' | 'taxonomies' | 'ontologies' | 'twins' // the ladder
-  | 'capital'; // hard currency
-
-export type GeneratorId = 'harvester' | 'extractor' | 'reasoner' | 'aiAgent' | 'orchestrator';
-
-export type DomainId = 'general'; // seed value; domain tech-tree is in-vision but the type must exist
-
-// The ordered refinement ladder (data → … → twins). capital is NOT on it.
-export const TIER_LADDER: ResourceId[] = [
-  'data', 'triples', 'entities', 'taxonomies', 'ontologies', 'twins',
-];
-
-export interface GraphStats {
-  nodes: number; // derived display counter (bounded; renderer applies LOD)
-  edges: number; // derived display counter — NEVER a balance input (2^53 ceiling)
-}
-
-/** The hand-built layer of the web (Frontier Mining, save v4).
- *  Explicit lists are bounded interaction/display state; the balance sheet is
- *  `resources.triples` (every claimed connection mints one) plus foldedNodes.
- *  Rule (logged): explicit pairs come only from player actions; machines
- *  forge into aggregates. */
-export interface ForgedGraph {
-  nextId: number;                  // monotonic node id; never reused
-  anchors: number[];               // owned, wired-in entity ids (≤ ANCHOR_CAP)
-  /** DEPRECATED at v11, kept so old saves round-trip. Superseded by `edges`. */
-  links: Array<[number, number]>;
-  /** The real graph (v11). A line you have actually drawn. Everything else the
-   *  board shows is DOTTED — a connection the dataset says is available, derived
-   *  by the shell and never stored, because potential is a property of the world
-   *  and not of your save. */
-  edges: Edge[];
-  frontier: number[];              // surveyed, unclaimed entity ids (≤ FRONTIER_CAP)
-  foldedNodes: Dec;                // entity mass beyond the explicit lists
-}
-
-/** A drawn line. Subject, object, and WHICH relation — an edge finally carries
- *  data, which is the thing the owner correctly said it lacked.
+/** The machines. Three, each a card with a count on it.
  *
- *  `checked` is the whole economy in one boolean:
- *    true  — you drew it yourself, or a supervised agent did. Stable.
- *    false — an unwatched agent drew it. It ROTS: on decay the line is removed
- *            and the connection goes back to being merely dotted, which is why
- *            coverage can now fall instead of ratcheting.
+ *  `harvester`, `aiAgent` and `orchestrator` are gone (ECONOMY_SRR §5): the
+ *  first made a currency that no longer exists, the second was a bigger copy of
+ *  the Extractor, and the third bought review — which is now the Checker under
+ *  a name that says what it does. */
+export type MachineId = 'extractor' | 'reasoner' | 'checker';
+
+/** The machines that MAKE facts, and therefore carry the watched/loose toggle.
  *
- *  `fake` is never shown. An unwatched agent invents connections the dataset
- *  does not contain, and they are drawn identically to real ones. Certifying one
- *  at the review desk is how `falselyVerified` gets fed: the number on screen
- *  goes up and the graph does not. */
+ *  The Checker converts facts rather than making them, so it has no toggle —
+ *  and it must not count toward the vocabulary join either, or buying one would
+ *  raise the ceiling on production it does not perform. */
+export type FactMachineId = 'extractor' | 'reasoner';
+
+export const FACT_MACHINES: FactMachineId[] = ['extractor', 'reasoner'];
+export const MACHINES: MachineId[] = ['extractor', 'reasoner', 'checker'];
+
+/** A line between two concepts, for DRAWING ONLY.
+ *
+ *  ⚠️ NO SAVE HOLDS ONE OF THESE ANY MORE. Facts are a mass in three states, not
+ *  a list of objects — `Edge.checked` was one of the four things the word
+ *  "checked" meant, and `Edge.fake` was the other half of the trap. What is
+ *  left is the shape the renderer needs to draw a relation the DATASET offers
+ *  between two concepts the player holds. It is derived from the ontology every
+ *  frame and stored nowhere. */
 export interface Edge {
-  a: number;        // subject node id
-  b: number;        // object node id
-  rel: number;      // index into REL_NAMES; 0 is `is-a`
-  checked: boolean;
-  fake: boolean;
+  a: number;    // subject node id
+  b: number;    // object node id
+  rel: number;  // index into REL_NAMES; 0 is `is-a`
 }
 
-/** Relation vocabulary. Index 0 is load-bearing: it is what every pre-v11 link
- *  migrates to, and what the taxonomy backbone uses.
+/** Relation vocabulary. Index 0 is load-bearing: it is the taxonomy backbone
+ *  and the default for any choice that does not name a relation.
  *
  *  Names are the ones prof-veritas confirmed against the source, NOT the ones I
  *  guessed: WordNet's `mero_part` runs whole→part, so it is HAS-PART, not
@@ -72,311 +63,116 @@ export interface Edge {
  *  falsehood.) */
 export const REL_NAMES = [
   // 0 — WordNet hypernym → skos:broader. `a` is the NARROWER concept, so the
-  // tuple reads left-to-right as a sentence: `dog is a canine`. It was stored
-  // the other way round, which was invisible only because the label is
-  // suppressed for rel 0 — anything rendering `label(a) REL label(b)` would
-  // have printed `canine is a dog`.
+  // tuple reads left-to-right as a sentence: `dog is a canine`.
   'is a',
   'has part',      // 1 — mero_part   (whole → part)
   'has member',    // 2 — mero_member (group → member)
   'made of',       // 3 — mero_substance
-  // 4 — WordNet's domain_topic (Princeton's ";c" pointer, "Domain of synset —
-  // TOPIC"). NOT "studied in": it shipped as that and put
-  // `expressive style — studied in — language` and
-  // `body of water — studied in — lake` on the board. The targets are
-  // heterogeneous — sometimes a discipline (biology, law), sometimes a thing
-  // (lake, ocean, animal) — because the pointer tags a SUBJECT FIELD; it does
-  // not assert that anyone studies anything. "topic" is true of all 47 rows.
-  // Not "subject" either: in a game about RDF that word is the first slot of a
-  // triple. Not "domain": GLOSSARY reserves that for rdfs:domain.
+  // 4 — WordNet's domain_topic (Princeton's ";c" pointer). NOT "studied in":
+  // the pointer tags a SUBJECT FIELD; it does not assert that anyone studies
+  // anything. Not "subject" either — in a game about RDF that word is the first
+  // slot of a triple. Not "domain": GLOSSARY reserves that for rdfs:domain.
   'topic',
   'used for',      // 5 — ConceptNet, pending the compliance conditions
   'found at',      // 6 — ConceptNet
   'causes',        // 7 — ConceptNet
   // 8 — CROSS-LINKS, mined from the definitions themselves: concept A's gloss
-  // names concept B. Not a WordNet pointer and deliberately not dressed as one
-  // — the taxonomy is a tree and cannot produce sideways routes, so these are
-  // what turn the map into a labyrinth. The name says exactly what the evidence
-  // is ("named in definition"), not what it might mean, because a gloss
-  // mentioning a word is not a claim that the two are related.
+  // names concept B. The name states the EVIDENCE, not a claim about meaning.
   'named in definition',
 ] as const;
 
-/** Provenance of the knowledge in the graph — the heart of the game (v5).
+/** ---- THE SAVE ----------------------------------------------------------
  *
- *  `resources.triples` is the TOTAL number of statements. This splits that
- *  total by how much it can be trusted:
- *    verified   = triples − unverified − drifted  (checked; full yield)
- *    unverified = machine output nobody has checked yet; it DRIFTS
- *    drifted    = statements that rotted; near-worthless, and they lie
- *
- *  Verified is derived, never stored, so the three can never disagree. */
-export interface Provenance {
-  unverified: Dec;
-  drifted: Dec;
-}
-
-/** One item awaiting human review.
- *
- *  A corrupt item is NOT a garbled string — it is a real concept shown with
- *  *another real concept's definition*. That is what a hallucinated statement
- *  actually looks like, and it means spotting rot requires reading the gloss
- *  rather than looking for damage. Both strings stay verbatim licensed text;
- *  only the PAIRING is generated, which is structure, not prose.
- *
- *  `corrupt` is the truth of it. The player is never shown that flag. */
-export interface ReviewItem {
-  conceptIndex: number;      // resolved to a real concept by the shell, never by core
-  /** Whose definition is displayed. Equals `conceptIndex` when the statement is
-   *  sound; a different concept's index when it is not. */
-  glossIndex: number;
-  corrupt: boolean;
-}
-
-/** One slot, tied up on a piece of work until it finishes. */
-export interface Booking {
-  kind: 'discover' | 'review' | 'connect' | 'extract';
-  until: number;   // epoch ms; compared against lastTick
-  node?: number;   // for 'discover': the id the concept will land on
-  /** For 'connect': the line being drawn. Held on the booking so the edge only
-   *  exists once the work finishes — you watch it fill, you do not get it on
-   *  the tap. */
-  edge?: Edge;
-  /** For 'extract': the relations this run will propose when it finishes. Held
-   *  on the booking, exactly like `edge`, so extraction is WORK THAT TAKES TIME
-   *  rather than an instant free tap — and so the board has something to show
-   *  while it runs. */
-  edges?: Edge[];
-  /** The node this discovery will attach to when it lands: the concept's REAL
-   *  parent. Without it the edge was wired to a hash-picked anchor, which meant
-   *  the picture was a random spanning forest while SIMPLIFICATIONS S10/S14 told
-   *  the player it was WordNet hypernymy. */
-  parent?: number;
-  /** Which position on the frontier ring this discovery occupies, 0..cap-1.
-   *  Assigned at booking time and held until it lands, so discoveries are
-   *  EVENLY SPACED and never overlap. Positioned by a hash instead, two of them
-   *  landed on top of each other and their labels became unreadable. */
-  slot?: number;
-}
-
+ *  Twelve fields. It was thirty-five, and the twenty-three that went were
+ *  either a quantity nobody could name or a cache of one that could. */
 export interface GameState {
-  saveVersion: number;                      // the ONE version authority; starts at 1
-  lastTick: number;                         // epoch ms of last processed tick
-  rngState: number;                         // mulberry32 seed/state
-  resources: Record<ResourceId, Dec>;       // current balances
-  lifetimeCapital: Dec;                     // total $ ever earned — the prestige anchor
-  generators: Record<GeneratorId, number>;  // owned counts (integers)
-  flags: Record<string, boolean>;           // narrative/unlock/event flags
-  coverage: Record<DomainId, number>;       // 0..1 per domain (persists across prestige)
-  reflection: number;                       // prestige count = retraining generation
-  graph: GraphStats;                        // derived cache of forged + balances
-  forged: ForgedGraph;                      // the hand-built layer (Frontier Mining)
-  // ---- v5: provenance, collapse, and the generational loop ----
-  provenance: Provenance;                   // how much of the graph can be trusted
-  /** 0..1 — how much of this run's inheritance descends from machine output
-   *  rather than from real data. Rises every prestige and never falls. This is
-   *  the number that makes the stated goal unreachable. */
+  /** The ONE version authority. Kept even though saves are now breakable
+   *  (DECISIONS 2026-07-27), because the code must be able to TELL which format
+   *  it is holding before it decides to reset. */
+  version: number;
+  /** Epoch ms of the last processed tick. */
+  lastTick: number;
+
+  // ---- the one substance, in three states ----
+  /** Checked facts. They never rot, and they are the only thing you spend. */
+  solid: Dec;
+  /** Machine facts nobody has checked. They rot, or they get checked. */
+  raw: Dec;
+  /** Facts worn out. The only way down is a Retrain. */
+  rot: Dec;
+
+  /** CONCEPTS YOU HOLD, in the order you arrived at them.
+   *
+   *  This is the board, the story position, the vocabulary and the income cap,
+   *  all from one array — which is why it survived the rewrite when the anchor
+   *  ring, the frontier, the folded mass and the drawn-edge list did not.
+   *  Words is derived from it (`held` minus the seed, which is held but not yet
+   *  readable), so the readout can never disagree with the board. */
+  held: number[];
+  /** New concepts walked THIS RUN. Prices the next step, and only the next
+   *  step: revisiting somewhere you already know is free and does not move it,
+   *  which is what makes a Retrain a sprint back to where you were. */
+  stepsThisRun: number;
+
+  /** Owned counts. */
+  machines: Record<MachineId, number>;
+  /** One toggle per fact machine. WATCHED: slower, and everything it makes
+   *  arrives Solid. LOOSE: full speed, and everything it makes arrives Raw.
+   *  That is speed-versus-truth with no bookkeeping attached — it replaced an
+   *  attention pool, a supervision dial and a booking queue. */
+  watched: Record<FactMachineId, boolean>;
+
+  /** Retrains so far. A badge, not a number you optimise. */
+  generation: number;
+  /** 0..1 — how much of this generation descends from machine output rather
+   *  than from real data. Rises every Retrain, never falls. It is the one
+   *  thing that makes each generation worse than the last: Raw rots faster. */
   syntheticShare: number;
-  lifetimeGenerated: Dec;                   // machine-minted statements THIS run
-  pending: Dec;                             // UNSUPERVISED work banked while away
-  /** SUPERVISED work banked while away (v10). Offline used to run every agent at
-   *  full speed and bank all of it unchecked — so closing the game was a straight
-   *  +82% throughput and −100% verification, and the supervision dial, which is
-   *  the game's only real decision, was strictly worse than the app switcher.
-   *  Away time now respects exactly the split you left set. */
-  pendingClean: Dec;
-  /** Fractional decay debt for DRAWN LINES (v11). Lines are whole objects but
-   *  rot is a rate, so the remainder is carried here rather than rounded away.
-   *  Stored, not derived, so offline catch-up and real time agree exactly and a
-   *  save cannot be scummed by reloading. */
-  lineRot: number;
-  /** Fractional debt for lines AGENTS draw, same reason as `lineRot`. */
-  lineDebt: number;
-  modifiers: Record<string, number>;         // multiplicative, set by vignette choices
-  vignette: { active: string | null; seen: string[] };
-  // ---- the ratchet: the only things that survive a retrain ----
-  /** Statements a HUMAN checked, across all generations. Never resets. Drives
-   *  the one permanent multiplier in the game — which is thematically exact:
-   *  what survives model collapse is precisely the material someone verified. */
-  lifetimeVerified: Dec;
-  /** Statements placed by hand this run. Prices the manual lane, so machine
-   *  output can never inflate the cost of a hand claim. */
-  handClaimed: number;
-  /** Earliest `lastTick` at which the review desk will offer a new batch.
-   *  Acceptance sampling has a sample RATE; without one, review is unbounded
-   *  and the automated buyout becomes decorative. */
-  reviewReadyAt: number;
-  /** Statements you certified that were actually wrong. Counted as verified for
-   *  the DISPLAYED fidelity, but subtracted from the fidelity that actually
-   *  gates recovery. The number goes up; the graph doesn't. */
-  falselyVerified: Dec;
-  /** DEAD FIELD, kept because saves are never broken by removal. Attention is
-   *  no longer a pool you spend — it is capacity you ALLOCATE. See `supervised`
-   *  and `bookings`. */
-  attention: number;
-  /** Surveys performed this run. Retained for save compatibility. */
-  surveyed: number;
-  /** Slots standing-reserved to supervise extractors. A supervised extractor's
-   *  output arrives VERIFIED; an unsupervised one's arrives unverified and
-   *  rots. You may reserve fewer slots than you have extractors — that is the
-   *  trap, and it is yours to walk into. */
-  supervised: number;
-  /** Temporary bookings. Each ties up one slot until `until` (epoch ms, on the
-   *  same clock as `lastTick`), then completes and gives the slot back. This is
-   *  what "booking your attention onto a discovery" means mechanically. */
-  bookings: Booking[];
-  /** The batch currently ON the desk, FROZEN INTO STATE when it is minted.
-   *
-   *  It must not be re-derived per render. Derived, it re-computed at 10 Hz:
-   *  `corrupt` flipped under the player's eyes, `conceptIndex` walked as the
-   *  graph grew, the panel wiped their verdicts every 100 ms, and the reducer
-   *  then judged a fourth draw nobody had seen. The desk looked finished and
-   *  was not connected to anything. A batch is a decision the game makes ONCE. */
-  review: ReviewItem[];
-  // ---- v13: the bottom of the refinement ladder (docs/ECONOMY.md) ----
-  /** Where Salvage draws from. Common ruins are fast and head-heavy; deep
-   *  archives are slow and tail-heavy. Switchable at any time — this is an
-   *  ongoing speed-versus-breadth decision, not a one-time fork you can regret
-   *  permanently. */
-  /** DEAD at the MODEL.md simplification: Salvage is gone, so nothing chooses a
-   *  source. Kept because a saved field is never removed. */
-  source: SalvageSource;
-  /** Concepts you hold SALVAGED TEXT about — the passages Extraction reads.
-   *
-   *  ⚠️ This replaced a bare counter, and the reason is the whole point of the
-   *  game. Rung 1 used to increment `resources.data` by 12, and Extraction used
-   *  to mint a number of "statements" that were not statements: no subject, no
-   *  predicate, no object, no referent in the dataset at all. Meanwhile a line
-   *  drawn by hand minted a REAL triple over two real synsets. Two different
-   *  things shared the word "statements", and one of them did not exist.
-   *
-   *  Now a passage is a real concept's text, and you can only extract a
-   *  relation you actually hold text about — which is what relation extraction
-   *  IS. Bounded, because a save is not a place to accumulate forever. */
-  /** DEAD at the MODEL.md simplification. Extraction reads the concepts in
-   *  context directly; there is no passage stock. Kept because a saved field is
-   *  never removed. */
-  pool: number[];
-  /** THE CONTEXT WINDOW — how many concepts you can hold at once.
-   *
-   *  This was `ANCHOR_CAP = 240`: a hard cap that silently folded a concept away
-   *  the moment you exceeded it, named nothing and drawn nowhere. It was the
-   *  single most confusing rule in the game — concepts vanished and nothing told
-   *  you why. Now it is the thing you are playing to grow, and a real term: a
-   *  model's context window is exactly how much it can hold at once. */
-  contextWindow: number;
-  /** 0..1 — the share of the CURRENT token stock that came from deep archives.
-   *
-   *  ⚠️ This is a COMPOSITION SUMMARY, not identity. `docs/ECONOMY.md` states as
-   *  a hard constraint that rungs 3 and 4 (Verified, Batches) must carry a real
-   *  per-concept distribution, because "you lost 30%" and "you lost these
-   *  specific rare concepts" are different games. This scalar is honest for
-   *  rung 1, where tokens genuinely are an undifferentiated mass of text — and
-   *  it must NOT be the pattern copied upward when Verified is built. */
-  tokenTail: number;
+  /** Facts your machines have minted THIS RUN. A Retrain inherits a share of
+   *  it, as Raw, because it never was checked. */
+  minted: Dec;
 }
 
-/** Rung 1's fork. Real corpus types, generically named: naming a specific real
- *  product would invite a licensing conversation this project does not need. */
-export type SalvageSource = 'common' | 'archive';
-
+/** The four verbs, plus the clock and the toggle.
+ *
+ *  Gone with the economy: discover, extract, connect, claimNode, growContext,
+ *  survey, salvage, reviewBatch, setSupervision, absorb, refine, sell,
+ *  manualConnect, chooseOption. */
 export type Action =
-  | { type: 'tick'; dt: number; now?: number }     // dt in SECONDS; `now` (epoch ms) advances lastTick
-  | { type: 'survey' }                             // DEPRECATED (v8 verb); inert no-op
-  /** Book a slot onto a new discovery. `parent` is the TRUE hypernym parent of
-   *  the concept about to be found, looked up by the shell and passed in as a
-   *  plain integer — the engine stays pure and still knows nothing about the
-   *  dataset. Omitted only if the chunk has not loaded. */
-  /** `node` TARGETS a specific concept — the starmap's lanes name where they
-   *  go, so travelling one has to land THAT concept and not merely the next in
-   *  sequence. Omitted, discovery falls back to the sequential allocator, which
-   *  is what the old Discover button did. */
-  | { type: 'discover'; parent?: number; node?: number }
-  /** Book a slot onto FILLING IN a dotted line. The shell picks which potential
-   *  connection you tapped and hands over the finished shape; core stays pure
-   *  and cannot tell a real relation from an invented one, which is exactly
-   *  right — neither can the player, until they check. */
-  | { type: 'connect'; edge: Edge }
-  | { type: 'setSupervision'; slots: number }      // reserve/release supervision slots
-  | { type: 'claimNode'; id: number }              // pay Datums, wire a frontier entity in: +1 triples
-  | { type: 'manualConnect' }                      // DEPRECATED (pre-v4 verb); inert no-op
-  | { type: 'buyGenerator'; id: GeneratorId }      // deducts generator.costResource
-  | { type: 'refine'; from: ResourceId }           // M4: from ∈ TIER_LADDER; one tier up
-  | { type: 'sell'; id: ResourceId; amount: Dec }  // M4: consumes `id`, yields `capital`
-  | { type: 'absorb' }                             // take banked away-work into the graph
-  | { type: 'chooseOption'; eventId: string; choiceId: string }
-  | { type: 'reflect' }                            // prestige = retrain on yourself
-  // ---- v13: the bottom of the ladder ----
-  /** `candidates` are real relations over concepts IN CONTEXT, already
-   *  yield-limited by the shell. They arrive UNCHECKED: an extractor proposes,
-   *  it does not verify. */
-  | { type: 'extract'; candidates: Edge[] }
-  | { type: 'growContext' };                       // spend checked statements for headroom  // where Salvage draws from
+  /** `dt` in SECONDS; `now` (epoch ms) advances lastTick. */
+  | { type: 'tick'; dt: number; now?: number }
+  /** WALK a lane to `to`. Costs Solid — nothing if you already hold it. */
+  | { type: 'walk'; to: number }
+  /** CHECK by hand: a fixed slice of Raw becomes Solid. No cooldown, no timer;
+   *  the brake is that a fixed amount per tap loses to exponential production
+   *  by construction, which is "review is the only brake and it is slow" with
+   *  no clock in it. */
+  | { type: 'check' }
+  /** BUY a machine, in Solid. */
+  | { type: 'buy'; id: MachineId }
+  /** The toggle. */
+  | { type: 'setWatched'; id: FactMachineId; watched: boolean }
+  /** RETRAIN: prestige. You keep the concepts, inherit your machines' Raw, and
+   *  your ancestry gets more synthetic. */
+  | { type: 'retrain' };
 
-// ---- content data types (SPEC "Content data types") ----
+// ---- content data types --------------------------------------------------
 
-export interface Generator {
-  id: GeneratorId;
+/** One machine's declarative balance. Content is data; the engine reads it. */
+export interface Machine {
+  id: MachineId;
   label: string;
+  /** Facts per second per unit, at full speed. For the Checker this is Raw
+   *  CONVERTED per second instead — it makes nothing. */
+  rate: number;
+  /** cost(n) = ceil(baseCost × costRatio^n), in Solid. */
   baseCost: Dec;
   costRatio: number;
-  costResource: ResourceId; // cost(n) = baseCost × costRatio^n of costResource
-  baseRate: Dec;
-  produces: ResourceId;     // output/sec of `produces`
-  /** Price of the next unit in VERIFIED STATEMENTS: agentBase × agentRatio^owned.
-   *  This is the live pricing since the attention economy; `baseCost`/`costRatio`
-   *  above are the retired Datums-era pair, kept so the content shape is stable.
-   *  Omit and the engine falls back to its own default pair. */
-  agentBase?: Dec;
-  agentRatio?: number;
-}
-
-export interface Refinement {
-  from: ResourceId;
-  to: ResourceId;
-  ratio: number; // `ratio` of `from` → 1 `to`
-}
-
-/** A choose-your-own-adventure beat. PROSE FIELDS ARE OWNER-WRITTEN and ship
- *  empty until the owner fills them — the engine only ever reads the numbers
- *  (CLAUDE.md: no generated sentences, ever). */
-export interface Vignette {
-  id: string;
-  /** Fires the first time every stated condition holds. */
-  trigger: { minTriples?: number; minDrifted?: number; minGeneration?: number };
-  title: string;   // ← owner
-  body: string;    // ← owner
-  choices: VignetteChoice[];
-}
-
-export interface VignetteChoice {
-  id: string;
-  label: string;   // ← owner
-  /** Multiplicative modifiers applied on choice; 1 = no change. Shown to the
-   *  player as generated NUMBERS, which is data, not prose. */
-  effects: { drift?: number; extraction?: number; capacity?: number; review?: number };
-  flag?: string;
-  /** VOCABULARY GATE. The concepts and relation types you must already have
-   *  discovered before this choice can be taken.
-   *
-   *  `concepts` are node ids — the same integers a save stores, indexing the
-   *  ontology chunks. `rels` are indices into {@link REL_NAMES}.
-   *
-   *  A gated choice you cannot meet is SHOWN AND NOT TAKEABLE, never hidden:
-   *  seeing the door you cannot open yet is the mechanic, and it is the only
-   *  thing that tells you what discovering more is FOR. Filtering it out would
-   *  leave the player with no way to know the choice existed.
-   *
-   *  Optional and additive, so no save moves — a save stores which vignettes
-   *  were seen, never the vignette data itself. */
-  requires?: { concepts: number[]; rels: number[] };
 }
 
 /** ---- THE STORY GRAPH ----------------------------------------------------
  *
- *  Shape of docs/graph/story.json. Written by scripts/build-story.mjs; the
- *  title/body/label fields ship empty and the owner fills them.
- *
+ *  Shape of public/story/*.json, written by scripts/build-story.mjs.
  *  Every id here is a NUMERIC node id — the integers a save stores. */
 export interface StoryChoice {
   id: string;
@@ -404,12 +200,10 @@ export interface StoryBeat {
 
 export interface StoryGraph {
   /** Generated tallies. Loosely typed on purpose: the pipeline has re-cut these
-   *  three times in a day (per-lane beats → places → concept granularity) and a
-   *  strict shape here fails the typecheck for a field nothing reads. */
+   *  three times in a day and a strict shape here fails the typecheck for a
+   *  field nothing reads. */
   counts: Record<string, number>;
-  /** Carrier sentences by frame id, with {here}/{next}/{branch} slots. Shipped
-   *  rather than pre-rendered into every field: 4,716 choices each carrying a
-   *  copy of "Follow X down" was 600K of the payload. */
+  /** Carrier sentences by frame id, with {here}/{next}/{branch} slots. */
   frames: Record<string, { title?: string; body?: string; label?: string }>;
   beats: StoryBeat[];
 }

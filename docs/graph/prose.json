@@ -11,22 +11,11 @@
  },
  "physical entity": {
   "title": "Signed Off Upstream",
-  "body": "⟦physical entity⟧ was signed off before you arrived. Everything under it can be weighed, which is why we report on this side and not the other.",
-  "choices": {
-   "causal agent": "Follow ⟦causal agent⟧ down",
-   "object": "Follow ⟦object⟧ down",
-   "matter": "Open ⟦matter⟧",
-   "process": "Open ⟦process⟧"
-  }
+  "body": "⟦physical entity⟧ was signed off before you arrived. Everything under it can be weighed, which is why we report on this side and not the other."
  },
  "causal agent": {
-  "title": "Whoever Filed It",
-  "body": "⟦causal agent⟧ is whatever made something happen. The machines file causes at a rate we publish weekly. Nothing on the record says who read it.",
-  "choices": {
-   "organism": "Go down to ⟦organism⟧",
-   "actor": "Ask after the ⟦actor⟧",
-   "agent": "Ask after the ⟦agent⟧"
-  }
+  "title": "Responsible For",
+  "body": "A ⟦causal agent⟧ is whatever produced the result. The record names the result. It does not name the producer, and nothing asks it to."
  },
  "organism": {
   "title": "Alive Or Filed As Alive",
@@ -119,13 +108,7 @@
  },
  "group": {
   "title": "Filed Together",
-  "body": "A ⟦group⟧ is things filed together. Nothing requires them to have anything in common, and below here most of them do not.",
-  "choices": {
-   "social group": "Go down to ⟦social group⟧",
-   "actinoid": "Separate the ⟦actinoid⟧",
-   "arrangement": "Keep the ⟦arrangement⟧",
-   "association": "Keep the ⟦association⟧"
-  }
+  "body": "A ⟦group⟧ is things filed together. Nothing requires them to share anything but the filing, and below here most of them do not."
  },
  "social group": {
   "title": "People, Filed",
@@ -265,5 +248,97 @@
    "life": "Allow the ⟦life⟧",
    "psychic energy": "Allow the ⟦psychic energy⟧"
   }
+ },
+ "information": {
+  "title": "Already Filed",
+  "body": "⟦information⟧ is what we hold once someone has written it down. Nobody here asks who wrote it. Everything under this was filed before you arrived and none of it is checked."
+ },
+ "language": {
+  "title": "The Agreed Part",
+  "body": "⟦language⟧ is the part everyone agreed to use the same way. The agreement is not on file. Below it the agreement stops holding, one branch at a time."
+ },
+ "agent": {
+  "title": "Whoever Does It",
+  "body": "An ⟦agent⟧ is whatever makes something happen. The word covers people and it covers machines, and nothing in the record separates the two. We consider that a feature."
+ },
+ "system": {
+  "title": "Parts, Together",
+  "body": "A ⟦system⟧ is parts arranged so the arrangement matters. Ours is arranged. What it is for is filed elsewhere."
+ },
+ "power": {
+  "title": "Capacity To Act",
+  "body": "⟦power⟧ is the capacity to do a thing, held whether or not the thing is done. We report on the capacity."
+ },
+ "communication": {
+  "title": "Sent, Not Read",
+  "body": "⟦communication⟧ is anything sent from one place to another. Whether it arrived is a separate field, and the separate field is empty."
+ },
+ "artificial language": {
+  "title": "Built On Purpose",
+  "body": "An ⟦artificial language⟧ was designed by someone, for something. That makes it the only kind down here whose rules were written before it was used."
+ },
+ "natural language": {
+  "title": "Nobody Designed It",
+  "body": "A ⟦natural language⟧ has rules nobody wrote and everybody follows. We are extracting them anyway. Progress is reported weekly."
+ },
+ "metalanguage": {
+  "title": "About Itself",
+  "body": "A ⟦metalanguage⟧ is a language for talking about a language. You are standing in one. So is everything above you."
+ },
+ "sign language": {
+  "title": "Without Sound",
+  "body": "A ⟦sign language⟧ carries everything the spoken ones carry and none of the sound. The pipeline ingests it as text, which loses the part that matters."
+ },
+ "source language": {
+  "title": "What It Was Before",
+  "body": "A ⟦source language⟧ is what something was written in before we got it. What it is now is a translation, and the translation is what we file."
+ },
+ "string of words": {
+  "title": "In Order",
+  "body": "A ⟦string of words⟧ is words in an order. Whether the order means anything is not a field we keep."
+ },
+ "synthetic language": {
+  "title": "Meaning In The Shape",
+  "body": "A ⟦synthetic language⟧ folds the grammar into the word itself, so the shape of a thing tells you its job. You have been reading one."
+ },
+ "actor": {
+  "title": "The One Acting",
+  "body": "An ⟦actor⟧ is whoever is doing it. Everything under here is a way of being someone, and the machines have filed all of them the same way."
+ },
+ "collection": {
+  "title": "Gathered",
+  "body": "A ⟦collection⟧ is things somebody gathered. The gathering is the only thing they have in common and it is not recorded."
+ },
+ "people": {
+  "title": "In The Plural",
+  "body": "⟦people⟧ is the plural we use when we are not naming anyone. Most of the graph below this point is that."
+ },
+ "written communication": {
+  "title": "It Persists",
+  "body": "⟦written communication⟧ outlasts whoever sent it, which is why we prefer it. It also outlasts whoever meant it."
+ },
+ "visual communication": {
+  "title": "Seen, Not Said",
+  "body": "⟦visual communication⟧ works without a sentence. We store it as one anyway."
+ },
+ "acknowledgment": {
+  "title": "Receipt",
+  "body": "An ⟦acknowledgment⟧ says a thing arrived. It says nothing about what was done with it, and we count it as done."
+ },
+ "ethnic group": {
+  "title": "Held Apart",
+  "body": "An ⟦ethnic group⟧ is people the record holds apart from other people. The record does not say who decided, and the decision is inherited by everything below."
+ },
+ "offer": {
+  "title": "Put Forward",
+  "body": "An ⟦offer⟧ is a thing put forward and not yet taken. The graph keeps it in that state indefinitely."
+ },
+ "indication": {
+  "title": "Points At Something",
+  "body": "An ⟦indication⟧ points at a thing without being the thing. Almost everything we hold is one of these."
+ },
+ "message": {
+  "title": "The Part Sent",
+  "body": "A ⟦message⟧ is the part that was sent, separated from whoever sent it. We keep the part. The rest is not a field."
  }
 }
