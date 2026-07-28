@@ -34,9 +34,10 @@ describe('provenance', () => {
     // ever buying a machine. A found concept now sits on the board with its
     // connections merely dotted, and counts for nothing until one is filled.
     let s: GameState = { ...initialState(), lastTick: 1_000 };
+    const landed = s.forged.nextId;          // the id the allocator will hand out
     s = apply(s, { type: 'discover' });
     s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
-    expect(s.forged.anchors).toContain(1);   // it is on the board
+    expect(s.forged.anchors).toContain(landed);   // it is on the board
     expect(s.forged.edges).toHaveLength(0);  // and connected to nothing
     expect(s.resources.triples).toBe('0');   // no free statement
     expect(recovered(s)).toBe(0);            // and it does not count yet
@@ -49,7 +50,8 @@ describe('provenance', () => {
     expect(recovered(s)).toBe(0);
 
     const t0 = s.lastTick;
-    s = apply(s, { type: 'connect', edge: { a: 0, b: 1, rel: 0, checked: true, fake: false } });
+    const [a, b] = [s.forged.anchors[0]!, s.forged.anchors[1]!];
+    s = apply(s, { type: 'connect', edge: { a, b, rel: 0, checked: true, fake: false } });
     expect(s.bookings.some((b) => b.kind === 'connect')).toBe(true);
     expect(s.forged.edges).toHaveLength(0); // not until it finishes filling
     s = apply(s, { type: 'tick', dt: 20, now: t0 + CONNECT_MS + 1 });
@@ -494,12 +496,13 @@ describe('a line reads as a sentence', () => {
     // the rel-0 label is suppressed — so this is the cheap moment to pin it.
     const s = apply({ ...initialState(), lastTick: 1_000 }, { type: 'discover' });
     const landed = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
-    // node 1's parent is the root, so a correct `is a` runs 1 → 0
-    const t = apply(landed, { type: 'connect', edge: { a: 1, b: 0, rel: 0, checked: true, fake: false } });
+    // the newest concept hangs off an older one, so a correct `is a` runs new → old
+    const [older, newer] = [landed.forged.anchors[0]!, landed.forged.anchors.at(-1)!];
+    const t = apply(landed, { type: 'connect', edge: { a: newer, b: older, rel: 0, checked: true, fake: false } });
     const done = apply(t, { type: 'tick', dt: 20, now: t.lastTick + CONNECT_MS + 1 });
     const e = done.forged.edges[0]!;
-    expect(e.a).toBe(1); // the narrower concept is the subject
-    expect(e.b).toBe(0); // the broader one is the object
+    expect(e.a).toBe(newer); // the narrower concept is the subject
+    expect(e.b).toBe(older); // the broader one is the object
   });
 
   it('migrates v11 is-a edges into the readable orientation', () => {

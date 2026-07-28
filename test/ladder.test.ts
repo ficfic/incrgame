@@ -32,7 +32,12 @@ const runExtract = (s: GameState, candidates: Edge[]): GameState => {
 
 describe('extract reads what is in context', () => {
   it('needs something to read', () => {
-    const empty = initialState(1); // just `entity`
+    // "Nothing to read" now means an EMPTY board, not a fresh save — the
+    // opening seeds five concepts, so a fresh save has plenty to relate.
+    const empty: GameState = {
+      ...initialState(1),
+      forged: { ...initialState(1).forged, anchors: [] },
+    };
     expect(canExtract(empty)).toBe(false);
     expect(apply(empty, { type: 'extract', candidates: cands(3) })).toBe(empty);
   });

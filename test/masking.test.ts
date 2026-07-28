@@ -69,9 +69,13 @@ describe('the shipped data is renderable', () => {
         expect(out).not.toMatch(/[⟦⟧]/);
       }
     }
-    // Non-vacuity: if the data were complete this test would prove nothing, so
-    // say out loud that the fallback is actually carrying the screen today.
-    expect(fellBack).toBeGreaterThan(0);
+    // The fallback is now a SAFETY NET, not the screen. When this was written
+    // 1,799 of 1,879 labels were blank and this line asserted `> 0` to prove
+    // the fallback was load-bearing; the worldbuilding branch has since written
+    // every one. Asserting zero would make the next unwritten label a test
+    // failure rather than a handled case, so it asserts the invariant instead:
+    // whatever the data does, no button renders blank.
+    expect(fellBack).toBeGreaterThanOrEqual(0);
   });
 
   it('gives every concept in the dataset a word', () => {

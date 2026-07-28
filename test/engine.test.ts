@@ -9,6 +9,7 @@ import { CONCEPT_BUDGET } from '../src/content/ontologyMeta';
 import { D, format, formatWhole } from '../src/core/numbers';
 import { nextRand } from '../src/core/rng';
 import type { GameState } from '../src/core/types';
+import { SEED_NODES } from '../src/content/seed';
 
 /** Both hand verbs now cost something — Datums to survey, attention to
  *  connect — so a test that wants a claim has to fund both. */
@@ -26,15 +27,16 @@ describe('discovery — booking attention onto work', () => {
   it('ties up a slot, then lands a VERIFIED concept by itself', () => {
     let s = { ...initialState(), lastTick: 1_000 };
     const capBefore = attentionFree(s);
+    const nodesBefore = s.graph.nodes;
     s = apply(s, { type: 'discover' });
     expect(s.bookings).toHaveLength(1);
     expect(attentionFree(s)).toBe(capBefore - 1); // the slot is busy, not spent
-    expect(s.graph.nodes).toBe(1); // nothing has landed yet
+    expect(s.graph.nodes).toBe(nodesBefore);      // nothing has landed yet
 
     s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
     expect(s.bookings).toHaveLength(0);          // slot handed back
     expect(attentionFree(s)).toBeGreaterThanOrEqual(capBefore);
-    expect(s.graph.nodes).toBe(2);               // the concept arrived
+    expect(s.graph.nodes).toBe(nodesBefore + 1); // the concept arrived
     expect(s.provenance.unverified).toBe('0');   // you placed it: it is verified
     expect(fidelity(s)).toBe(1);
   });
@@ -80,9 +82,10 @@ describe('discovery is bounded by the clock and by the world', () => {
     // is what let a player finish the entire dataset by hand in ~2h34m without
     // ever buying a machine, and it is why coverage could only ever go up.
     let s: GameState = { ...initialState(), lastTick: 1_000 };
+    const landedId = s.forged.nextId;
     s = apply(s, { type: 'discover' });
     s = apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
-    expect(s.forged.anchors).toContain(1);
+    expect(s.forged.anchors).toContain(landedId);
     expect(s.forged.edges).toHaveLength(0);
     expect(s.resources.triples).toBe('0');
   });
@@ -94,7 +97,10 @@ describe('connecting — filling in a dotted line', () => {
     s = apply(s, { type: 'discover' });
     return apply(s, { type: 'tick', dt: 20, now: 1_000 + DISCOVER_MS + 1 });
   };
-  const line = { a: 0, b: 1, rel: 0, checked: true, fake: false };
+  // The opening board is the SEED, so a line between "the first two concepts"
+  // is between two seed ids — 0 and 1 are no longer on the board at all.
+  const two = () => { const a = initialState().forged.anchors; return [a[0]!, a[1]!] as const; };
+  const line = { a: two()[0], b: two()[1], rel: 0, checked: true, fake: false };
 
   it('books a slot, and the line only exists once the work finishes', () => {
     let s = withTwo();
@@ -122,7 +128,7 @@ describe('connecting — filling in a dotted line', () => {
   it('costs attention, so it competes with discovering and reviewing', () => {
     let s = withTwo();
     for (let i = 0; i < attentionCap(s) + 2; i++) {
-      s = apply(s, { type: 'connect', edge: { a: 0, b: 1, rel: i, checked: true, fake: false } });
+      s = apply(s, { type: 'connect', edge: { a: two()[0], b: two()[1], rel: i, checked: true, fake: false } });
     }
     expect(attentionFree(s)).toBe(0);
     expect(apply(s, { type: 'discover' })).toBe(s); // no slot left for anything else

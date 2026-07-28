@@ -6,6 +6,7 @@ import { projectGraph } from '../src/core/graph';
 import { deserialize, serialize } from '../src/core/save';
 import { applyOfflineProgress, OFFLINE_CAP_MS } from '../src/core/offline';
 import { D } from '../src/core/numbers';
+import { SEED_NODES } from '../src/content/seed';
 
 const claimed = () => {
   let s = initialState(1337);
@@ -52,6 +53,11 @@ describe('save round-trip', () => {
     const oldWeb = projectGraph('200'); // the v3-era projection of that balance
     expect(back.resources.triples).toBe(String(oldWeb.edges)); // web → drip credit
     expect(D(back.forged.foldedNodes).toNumber()).toBe(oldWeb.nodes - 1);
+    // A MIGRATING save keeps the anchor its own era gave it — `[0]`, the old
+    // root. The five-concept seed is what a NEW save starts with; handing it to
+    // an old save would be the migration inventing concepts the player never
+    // found. (The backfill test below is the other case: no `forged` at all, so
+    // there is nothing to preserve and the current opening is correct.)
     expect(back.forged.anchors).toEqual([0]);
     expect(back.graph).toEqual({ nodes: oldWeb.nodes, edges: oldWeb.edges });
     expect(back.generators.harvester).toBe(3);
@@ -90,7 +96,7 @@ describe('save round-trip', () => {
     const s = initialState() as unknown as Record<string, unknown>;
     delete s.forged;
     const back = deserialize(serialize(s as unknown as ReturnType<typeof initialState>));
-    expect(back.forged.anchors).toEqual([0]);
+    expect(back.forged.anchors).toEqual(SEED_NODES);
     expect(back.saveVersion).toBe(CURRENT_SAVE_VERSION);
   });
 });

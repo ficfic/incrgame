@@ -10,6 +10,7 @@
 // drift, offline growth costs nothing. Counters are bounded JS numbers (the
 // picture, not the balance sheet — balances stay break_eternity Decimals).
 import type { Dec, ForgedGraph, GraphStats } from './types';
+import { SEED_NODES } from '../content/seed';
 import { D } from './numbers';
 
 // number-safety ceiling for the projected counters (display/renderer only)
@@ -39,8 +40,23 @@ export function deriveGraph(forged: ForgedGraph, triples: Dec): GraphStats {
  *  the picture stays inside the mobile render budget. */
 export const EDGE_CAP = 512;
 
+/** ⚠️ THE OPENING BOARD IS NO LONGER `entity`.
+ *
+ *  It was `anchors: [0]` — the root of the noun hierarchy, the most general
+ *  word in the language, with nothing above it and nothing strange about it.
+ *  The player now wakes holding five mid-graph concepts (system, agent,
+ *  language, information, power): real WordNet entries that happen to be this
+ *  game's own subject, so the opening states the satire without a word of
+ *  authored prose.
+ *
+ *  `nextId` is the high-water mark past the highest seed id, so the sequential
+ *  allocator never hands out an id the player already holds. */
 export function emptyForged(): ForgedGraph {
-  return { nextId: 1, anchors: [0], links: [], edges: [], frontier: [], foldedNodes: '0' };
+  const anchors = [...SEED_NODES];
+  return {
+    nextId: Math.max(...anchors) + 1,
+    anchors, links: [], edges: [], frontier: [], foldedNodes: '0',
+  };
 }
 
 // (datums span, datums per new node/edge). Tuning knobs — feel, then adjust.

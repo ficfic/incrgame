@@ -8,6 +8,7 @@ import {
 } from '../src/core/engine';
 import { ANCHOR_CAP } from '../src/core/graph';
 import { deserialize, MIGRATIONS, serialize } from '../src/core/save';
+import { SEED_NODES } from '../src/content/seed';
 import { D } from '../src/core/numbers';
 import type { GameState } from '../src/core/types';
 
@@ -20,7 +21,8 @@ describe('the window is a real limit', () => {
   it('a fresh save can hold few enough concepts to meet it early', () => {
     const s = initialState(1);
     expect(contextWindow(s)).toBeLessThan(40); // met in minutes, not hours
-    expect(contextUsed(s)).toBe(1);            // just `entity`
+    // The opening is the SEED, not `entity` — five mid-graph concepts.
+    expect(contextUsed(s)).toBe(SEED_NODES.length);
     expect(contextFull(s)).toBe(false);
   });
 

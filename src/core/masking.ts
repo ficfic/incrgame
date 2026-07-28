@@ -21,6 +21,7 @@
 // deliberate: showing an English word we could not identify costs nothing;
 // masking one we misidentified corrupts the sentence.
 import type { StoryBeat } from './types';
+import { LANGUAGE } from '../content/language';
 
 /** One piece of rendered text. `concept` is set only on substituted spans, so
  *  the UI can style a masked word without re-parsing anything. */
@@ -55,8 +56,42 @@ export function beatConcepts(
   return table;
 }
 
+/** Every word outside the spans, translated unless the player can read it.
+ *
+ *  ⚠️ THIS VOIDS docs/VOICE.md §4 AS WRITTEN. That section said stakes must
+ *  live in the verb so a sentence survives its nouns being masked — which
+ *  assumed an ENGLISH CARRIER around foreign nouns. Owner: "there must be
+ *  nothing even in GUI… like it's speaking foreign language." With the carrier
+ *  foreign too, "Take the ka-sa side" stops being masked English and becomes a
+ *  sentence in another language, which is the thing that was being asked for.
+ *
+ *  Case and punctuation survive: only the letters are replaced, and a word that
+ *  began a sentence still does. A word the corpus has no form for is left
+ *  alone — inventing one at render time would put a word in the language that
+ *  is in no one's lexicon. */
+function translateCarrier(text: string, canRead: (w: string) => boolean): Segment[] {
+  const out: Segment[] = [];
+  const WORD = /[A-Za-z][A-Za-z'-]*/g;
+  let last = 0;
+  for (let m = WORD.exec(text); m !== null; m = WORD.exec(text)) {
+    const english = m[0];
+    const foreign = LANGUAGE.words[english.toLowerCase()];
+    if (!foreign || canRead(english)) continue;
+    if (m.index > last) out.push({ text: text.slice(last, m.index) });
+    // Preserve the capital: a foreign sentence still starts with one.
+    const shown = /^[A-Z]/.test(english)
+      ? foreign.charAt(0).toUpperCase() + foreign.slice(1)
+      : foreign;
+    out.push({ text: shown, masked: true });
+    last = m.index + english.length;
+  }
+  if (last < text.length) out.push({ text: text.slice(last) });
+  return out;
+}
+
 /**
- * Split text into segments, substituting every ⟦span⟧.
+ * Split text into segments, substituting every ⟦span⟧ and then every carrier
+ * word the player cannot yet read.
  *
  * @param text     the raw beat field
  * @param concepts label → node id, from {@link beatConcepts}
@@ -68,6 +103,10 @@ export function renderMasked(
   concepts: Map<string, number>,
   known: Set<number>,
   wordFor: (id: number) => string,
+  /** Whether the player can read an ordinary English word. Omitted, every
+   *  carrier word stays English — which is what the tests for the SPAN rule
+   *  want, and what a surface with no story context gets. */
+  canRead?: (english: string) => boolean,
 ): Segment[] {
   const out: Segment[] = [];
   let last = 0;
@@ -88,7 +127,13 @@ export function renderMasked(
     last = m.index + m[0].length;
   }
   if (last < text.length) out.push({ text: text.slice(last) });
-  return out;
+  if (!canRead) return out;
+  // Second pass, over the UNSPANNED segments only: a concept's word must never
+  // be re-translated as if it were grammar.
+  return out.flatMap((seg) =>
+    seg.concept === undefined && seg.masked === undefined
+      ? translateCarrier(seg.text, canRead)
+      : [seg]);
 }
 
 /** Plain string, for aria-labels and titles where markup cannot go. */
