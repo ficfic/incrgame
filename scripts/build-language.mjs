@@ -40,6 +40,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { chromeTexts } from './lib/chrome-corpus.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'docs/graph/language.json');
@@ -62,15 +63,39 @@ const PROSE = JSON.parse(readFileSync(join(ROOT, 'docs/graph/prose.json'), 'utf8
 
 // Every word we actually use, outside the concept spans — those already have
 // words from build-lexicon.mjs.
-const texts = [];
+const beatTexts = [];
 for (const [k, v] of Object.entries(FRAMES)) {
   if (k === '_') continue;
-  for (const f of ['title', 'body', 'label']) if (v[f]) texts.push(v[f]);
+  for (const f of ['title', 'body', 'label']) if (v[f]) beatTexts.push(v[f]);
 }
 for (const [k, v] of Object.entries(PROSE)) {
   if (k === '_') continue;
-  texts.push(v.title ?? '', v.body ?? '', ...Object.values(v.choices ?? {}));
+  beatTexts.push(v.title ?? '', v.body ?? '', ...Object.values(v.choices ?? {}));
 }
+
+/* ---- THE CORPUS IS NOT ONLY THE BEATS ------------------------------------
+ *
+ * It was, and that was the hole. `frames.json` + `prose.json` covered the beat
+ * under the dock and nothing else, so the ticker line above it — "something you
+ * never checked wore out" — had no foreign form for `wore`, `checked` or
+ * `never`, and `literacy.canRead` SHOWS a word it has nothing to hide behind.
+ * The result was one screen in two languages, which reads as the foreign half
+ * being decoration.
+ *
+ * scripts/lib/chrome-corpus.mjs reads the ticker and the interface themselves
+ * (not a hand-kept list of their words — that drifts the moment another session
+ * edits App.svelte), and check-story.mjs validates against the SAME extractor,
+ * so the generator and the gate cannot disagree about what the corpus is.
+ *
+ * THE CHROME IS A THIRD OF THE CORPUS BY WEIGHT — 931 tokens against the beats'
+ * 1,515 — and frequency is what decides word length here, so this genuinely
+ * moves the language: a word's rank is now counted across both. That is the
+ * right answer rather than a side effect. `Solid` is on screen in every frame a
+ * player ever sees and `the` is in most beats; both are high-frequency for the
+ * same reason, and both should be short. Ties break alphabetically, so the
+ * concatenation order below carries no meaning. */
+const chrome = chromeTexts();
+const texts = [...beatTexts, ...chrome];
 const bare = texts.join(' ').replace(/⟦[^⟧]+⟧/g, ' ');
 const types = [...new Set((bare.toLowerCase().match(/[a-z']+/g) ?? []))].sort();
 
@@ -103,6 +128,12 @@ const ENGLISH = new Set([
 
 const words = {};
 const taken = new Set();
+/* Watched, not assumed. The single-syllable space is 360 forms and the English
+ * blocklist eats most of it; the corpus grew from 338 types to ~590 when the
+ * ticker and the interface joined it, so how much of the tail has spilled into
+ * two syllables is the number that says whether the phonology is still big
+ * enough. It is printed, and the loop throws rather than spinning if it is not. */
+let twoSyllable = 0;
 byFreq.forEach((w, rank) => {
   /* The single-syllable space is C1 x V x C2 = 360 forms and the English
    * blocklist eats a large part of it. At 245 word types that was comfortable;
@@ -121,14 +152,24 @@ byFreq.forEach((w, rank) => {
   }
   for (let salt = 0; salt < 5000; salt++) {
     const cand = syl(rank * 7 + salt * 331, true) + syl(rank * 13 + salt * 97, false);
-    if (!taken.has(cand) && !ENGLISH.has(cand)) { taken.add(cand); words[w] = cand; return; }
+    if (!taken.has(cand) && !ENGLISH.has(cand)) {
+      taken.add(cand); words[w] = cand; twoSyllable++; return;
+    }
   }
   throw new Error('no free form for ' + w + ' - widen the phonology');
 });
 
 const collisions = types.length - new Set(Object.values(words)).size;
 
+const beatOnly = new Set((beatTexts.join(' ').replace(/⟦[^⟧]+⟧/g, ' ')
+  .toLowerCase().match(/[a-z']+/g) ?? []));
+const fromChrome = types.filter((w) => !beatOnly.has(w));
+
 console.log(`function-word types .. ${types.length}`);
+console.log(`  from beat prose .... ${types.length - fromChrome.length}`);
+console.log(`  ONLY from the ticker and the interface .. ${fromChrome.length}`);
+console.log(`  (these had no foreign form at all and rendered as English)`);
+console.log(`two-syllable forms ... ${twoSyllable} of ${types.length}`);
 console.log(`distinct words ....... ${new Set(Object.values(words)).size}`);
 console.log(`collisions ........... ${collisions}`);
 console.log(`\nthe twenty commonest, which a player learns first by repetition:`);

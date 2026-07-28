@@ -99,13 +99,74 @@
  * from the first frame - a half-translated sentence in a game whose whole
  * premise is that none of it is readable yet.
  *
- * All eight applied, observed and reverted on 2026-07-27; seven still live.
+ * ── 2026-07-28: invariant 6 grew a second half, and it was proven red three
+ *    ways. The first half only ever read the BEATS, so the ticker and the
+ *    interface were invisible to it — which is how "something you never checked
+ *    wore out" shipped in plain English above a fully foreign beat. Each of
+ *    these three is a different way the new half can be defeated, so each was
+ *    applied, observed and reverted.
+ *
+ * Sabotage J - the source is right, the LANGUAGE is stale. Delete eight words
+ * the ticker uses (`wore`, `never`, `checked`, `online`, `watched`, `loose`,
+ * `solid`, `extractor`) from language.json. Observed:
+ *   FAIL  untranslated: 1 word(s) in beat prose are absent from language.json,
+ *         so they render as English at minute zero
+ *     checked
+ *     fix: node scripts/build-language.mjs
+ *   FAIL  untranslated: 8 word(s) in the ticker and the interface
+ *         (src/shell/ticker.ts, src/core/readouts.ts, src/content/machines.ts,
+ *         src/ui/App.svelte) are absent from language.json, so they render as
+ *         English at minute zero
+ *     extractor, online, watched, checked, loose, never, wore, solid
+ *     fix: node scripts/build-language.mjs
+ *   exit 1
+ * Note which words appear in WHICH clause. Seven of the eight are invisible to
+ * the beat half — that gap is the defect this half exists to close, printed.
+ *
+ * Sabotage K - the owner writes a ticker line and does not regenerate. Set
+ * `OWNER_LINES = { 'bottleneck:words': 'the throughput plateau is unmistakable' }`
+ * in src/shell/ticker.ts. Observed:
+ *   FAIL  untranslated: 3 word(s) in the ticker and the interface (…)
+ *     throughput, plateau, unmistakable
+ *   exit 1
+ * This is the one that will actually fire in anger: OWNER_LINES is where prose
+ * gets written, and nothing else would have told anybody.
+ *
+ * Sabotage L - an INTERFACE string changes. In src/ui/App.svelte rename the
+ * Check button to `<b>Corroborate</b>` and `'fewer ways on'` to
+ * `'fewer thoroughfares on'`. Observed:
+ *   FAIL  untranslated: 2 word(s) in the ticker and the interface (…)
+ *     thoroughfares, corroborate
+ *   exit 1
+ * L is the one that proves the extractor really reads App.svelte rather than a
+ * copy of its words — `Corroborate` is a bare text node between tags and
+ * `fewer thoroughfares on` is a string inside a `{…}` expression, which are the
+ * two shapes the markup pass has to handle and the two it could silently miss.
+ *
+ * Sabotage M - invariant 7, and this one is a REGRESSION TEST, not a plant.
+ * Put the plural back: `${MACHINES[id].label}s watched · slower, and checked`
+ * in src/shell/ticker.ts. Observed:
+ *   FAIL  assembled word: 2 template literal(s) glue letters onto a ${…} hole,
+ *         so the word they make is invisible to both the language and this check
+ *     src/shell/ticker.ts: ${…}s  in  `${MACHINES[id].label}s watched · slower…
+ *     fix: put the whole word in the interpolation, or drop the suffix
+ *   exit 1
+ *
+ * M is the state that SHIPPED, and invariants 1-6 were all green while it did.
+ * play.png, 2026-07-28: the dock read "Extractors hil · nar, ni meth ka nusni"
+ * — one English word between five foreign ones — because `Extractor` + `s` is a
+ * word that exists only at runtime, so build-language.mjs never gave it a form
+ * and invariant 6 never missed one. Found by LOOKING AT THE SCREENSHOT, which
+ * is the only reason it was found at all.
+ *
+ * All twelve applied, observed and reverted; eleven still live (D is retired).
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CHROME_SOURCES, chromeTexts, gluedInterpolations } from './lib/chrome-corpus.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const { concepts } = JSON.parse(readFileSync(join(ROOT, 'docs/graph/idmap.json'), 'utf8'));
@@ -258,38 +319,79 @@ for (const b of beats) {
     }
   }
 }
-/* 6. EVERY CARRIER WORD HAS A TRANSLATION.
+/* 6. EVERY CARRIER WORD HAS A TRANSLATION \u2014 IN THE BEATS *AND* IN THE CHROME.
  *
- * The interface is meant to be fully foreign at minute zero. A word used in a
- * beat but missing from language.json renders as ENGLISH, so the sentence comes
- * out half-translated and the effect collapses.
+ * The interface is meant to be fully foreign at minute zero. A word missing
+ * from language.json renders as ENGLISH \u2014 `literacy.canRead` returns true by
+ * default for a word it has nothing to hide behind \u2014 so the surface comes out
+ * half-translated and the effect collapses.
  *
- * Found live, not hypothetically: after 26 beats were added, "talking",
- * "covers", "separates" and "feature" were readable from the first frame,
- * because language.json had been generated from the corpus as it stood before.
- * Prose and language must be regenerated together; this says so out loud
- * instead of relying on remembering. */
+ * Found live in the BEATS, not hypothetically: after 26 beats were added,
+ * "talking", "covers", "separates" and "feature" were readable from the first
+ * frame, because language.json had been generated from the corpus as it stood
+ * before. That is sabotage I.
+ *
+ * Found live in the CHROME on 2026-07-28, which is why this clause grew a
+ * second half: the ticker read "something you never checked wore out" in plain
+ * English directly above a beat that was fully foreign, because the corpus was
+ * frames.json + prose.json and nothing else. Every surface that can put English
+ * in front of a player is now in scripts/lib/chrome-corpus.mjs, and the
+ * generator reads THE SAME extractor \u2014 so this cannot pass by agreeing with a
+ * stale copy of the word list. It goes red on one condition, the only one that
+ * matters: a source string changed and nobody regenerated the language. */
 {
   const lang = JSON.parse(readFileSync(join(ROOT, 'docs/graph/language.json'), 'utf8')).words;
-  const missing = new Set();
-  for (const b of beats) {
-    for (const text of [b.title, b.body].filter(Boolean)) {
+  const report = (what, where, fixHint) => {
+    const missing = new Set();
+    for (const text of what) {
       for (const w of text.replace(/\u27e6[^\u27e7]+\u27e7/g, ' ').toLowerCase().match(/[a-z']+/g) ?? []) {
         if (!lang[w]) missing.add(w);
       }
     }
-  }
-  if (missing.size) {
-    fail.push(
-      `untranslated: ${missing.size} word(s) in beat prose are absent from language.json, ` +
-        `so they render as English at minute zero\n  ${[...missing].slice(0, 8).join(', ')}\n` +
-        `  fix: node scripts/build-language.mjs`,
-    );
-  }
+    if (missing.size) {
+      fail.push(
+        `untranslated: ${missing.size} word(s) in ${where} are absent from language.json, ` +
+          `so they render as English at minute zero\n  ${[...missing].slice(0, 8).join(', ')}\n` +
+          `  fix: ${fixHint}`,
+      );
+    }
+  };
+
+  report(
+    beats.flatMap((b) => [b.title, b.body].filter(Boolean)),
+    'beat prose',
+    'node scripts/build-language.mjs',
+  );
+  report(
+    chromeTexts(),
+    `the ticker and the interface (${CHROME_SOURCES.join(', ')})`,
+    'node scripts/build-language.mjs',
+  );
 }
 
 if (spanProblems.length) {
   fail.push(`span: ${spanProblems.length}\n  ${spanProblems[0]}`);
+}
+
+/* 7. NO WORD IS ASSEMBLED WHERE THE CORPUS CANNOT SEE IT.
+ *
+ * Invariant 6 compares the source text against language.json. A word built at
+ * RUNTIME out of an interpolation plus a suffix is in neither: `${label}s` is
+ * `Extractor` from machines.ts and a bare `s` from the template, and the word
+ * it makes — `extractors` — exists in no file, so the generator never gives it
+ * a form and the gate never misses one. It ships in English with everything
+ * green. That is not a hypothetical; it is what play.png showed on 2026-07-28,
+ * with the ticker reading "Extractors" between two foreign words. */
+{
+  const glued = gluedInterpolations();
+  if (glued.length) {
+    fail.push(
+      `assembled word: ${glued.length} template literal(s) glue letters onto a \${…} hole, ` +
+        `so the word they make is invisible to both the language and this check\n` +
+        `  ${glued[0].file}: \${…}${glued[0].suffix}  in  ${glued[0].where}…\n` +
+        `  fix: put the whole word in the interpolation, or drop the suffix`,
+    );
+  }
 }
 
 if (fail.length) {
@@ -301,3 +403,11 @@ const gated = beats.reduce((n, b) => n + b.choices.filter((c) => !ungated(c)).le
 console.log(`ok  ${beats.length} beats, ${gated} gated choices, every beat has an exit`);
 console.log(`ok  every gate key is taught by some ungated exit (${teachable.size} teachable concepts)`);
 console.log(`ok  no dangling concept references`);
+{
+  const lang = JSON.parse(readFileSync(join(ROOT, 'docs/graph/language.json'), 'utf8')).words;
+  const chromeTypes = new Set(chromeTexts().join(' ').toLowerCase().match(/[a-z']+/g) ?? []);
+  console.log(
+    `ok  every carrier word has a foreign form — ${Object.keys(lang).length} of them, ` +
+      `${chromeTypes.size} reachable from the ticker and the interface`,
+  );
+}

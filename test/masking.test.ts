@@ -15,6 +15,8 @@ import { graphWord, LEXICON } from '../src/content/lexicon';
 import { STORY } from '../src/content/story';
 import { currentBeat } from '../src/core/starmap';
 import { apply, initialState } from '../src/core/engine';
+import { bound } from '../src/core/literacy';
+import { SEED_NODES } from '../src/content/seed';
 import type { GameState, StoryBeat } from '../src/core/types';
 
 const labelOf = (id: number) => (id === 1 ? 'abstraction' : null);
@@ -179,6 +181,66 @@ describe('the graph words are never truncated', () => {
     expect(graphWord(15)).toBe(KA_OBJECT);
     expect(KA_OBJECT.startsWith(KA_PHYSICAL)).toBe(true);
     expect(KA_DEEP.startsWith(KA_OBJECT)).toBe(true);
+  });
+});
+
+describe('the screen from play.png, 2026-07-28', () => {
+  // ⚠️ THIS PINS A REPORTED BUG THAT WAS NOT ONE, so the next session does not
+  // "fix" it by breaking the masker.
+  //
+  // play.png showed four choice buttons under one beat: `kasave`, then
+  // "Moloch", "influence" and "juggernaut" in plain English, with the HUD
+  // reading 3 Words. It was reported as the masker leaking English.
+  //
+  // REPRODUCED IN THE REAL BUILD (npx vite preview + a walking probe). The
+  // three English words are the THREE WORDS. The player had walked into all
+  // three, each walk binds the concept it lands, and a bound concept renders
+  // its English label — the design, not a leak. What made it look like a leak
+  // is that none of the three HAS A BEAT, so `currentBeat` falls back to the
+  // last anchor that does and the player never appears to move: they stand at
+  // `power` watching its exits turn English one at a time.
+  //
+  // Literals below come from the shipped data (public/story/s000.json,
+  // docs/graph/lexicon.json), never from the functions under test — an earlier
+  // version of this file compared `graphWord(n)` to itself and passed with the
+  // mechanic destroyed.
+  const POWER = 176;               // seed concept, beat c176 "Capacity To Act"
+  const CHILDREN = [1845, 1846, 1847];
+  const ENGLISH = ['Moloch', 'influence', 'juggernaut'];
+  const FOREIGN = ['savemoli', 'savemomi', 'savemoni'];
+  const UP = 13;                   // "causal agent", the fourth choice
+  const UP_FOREIGN = 'kasave';
+
+  const beat = STORY.beats.find((b) => b.at === POWER)!;
+  const labelFor = (c: { label: string; toLabel: string }) =>
+    (c.label.trim() ? c.label : `⟦${c.toLabel}⟧`);
+  const strip = (held: number[]) => {
+    const table = beatConcepts(beat, () => null);
+    const known = new Set(bound({ ...initialState(), held }));
+    return beat.choices.map((c) => maskedText(renderMasked(labelFor(c), table, known, graphWord)));
+  };
+
+  it('is the beat and the four exits the screenshot shows', () => {
+    expect(SEED_NODES).toContain(POWER);
+    expect(beat.atLabel).toBe('power');
+    expect(beat.choices.map((c) => c.to)).toEqual([...CHILDREN, UP]);
+    expect(beat.choices.map((c) => c.toLabel)).toEqual([...ENGLISH, 'causal agent']);
+  });
+
+  it('MASKS EVERY EXIT before the player has walked any of them', () => {
+    // The invariant the report was really about: a destination you do not hold
+    // renders as the graph's word for it, whole, never as its English label.
+    expect(strip([...SEED_NODES])).toEqual([...FOREIGN, UP_FOREIGN]);
+  });
+
+  it('renders exactly the walked three in English, and nothing else', () => {
+    const held = [...SEED_NODES, ...CHILDREN];
+    // 3 Words, and they are those three — the HUD in the screenshot.
+    expect(bound({ ...initialState(), held })).toEqual(CHILDREN);
+    // The player has not moved: none of the three has a beat to stand in.
+    for (const id of CHILDREN) expect(STORY.beats.some((b) => b.at === id)).toBe(false);
+    expect(currentBeat({ ...initialState(), held })!.at).toBe(POWER);
+    expect(strip(held)).toEqual([...ENGLISH, UP_FOREIGN]);
   });
 });
 

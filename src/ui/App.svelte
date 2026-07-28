@@ -68,7 +68,7 @@
   import {
     CHECK_PER_TAP, RETRAIN_MIN_WORDS, WATCHED_RATE, WORDS_PER_FACT,
     bottleneck, canBuy, canCheck, canRetrain, canWalk, factMachines,
-    machineCost, potentialPerSecond, stepCost, vocabularySupport,
+    initialState, machineCost, potentialPerSecond, stepCost, vocabularySupport,
   } from '../core/engine';
   import { READOUTS } from '../core/readouts';
   import type { Readout } from '../core/readouts';
@@ -79,6 +79,7 @@
   import type { LaneState } from '../core/starmap';
   import { currentBeat } from '../core/starmap';
   import { beatConcepts, maskedText, renderMasked } from '../core/masking';
+  import type { Segment } from '../core/masking';
   import { graphWord } from '../content/lexicon';
   import { bound, canRead, knownWords } from '../core/literacy';
   import {
@@ -135,6 +136,10 @@
       const amount = readout.count($game);
       return {
         id, noun: readout.noun, explain: readout.explain, amount,
+        // Its NOUN, not its number: whether the player can read the word yet.
+        // A row's number is legible from the frame it appears in; its name is
+        // earned. See readouts.ts.
+        reads: readout.learned($game),
         n: Math.max(0, amount.toNumber()),
       };
     });
@@ -182,7 +187,15 @@
   // Shown only while the VOCABULARY is the binding side. When machines bind,
   // buying one obviously helps and a sentence saying so is noise; the ticker
   // already announces the crossing in both directions.
-  const joinBinds = $derived(hudReady && bottleneck($game) === 'words');
+  //
+  // ⚠️ AND ONLY ONCE THE PLAYER CAN READ THE NOUN IT IS ABOUT. This sentence is
+  // an EXPLANATION — documentation, which the owner asked for in game
+  // (DECISIONS 2026-07-27) — so it stays English rather than being masked into
+  // a paragraph of the graph's tongue that teaches nobody anything. The price
+  // of that is it must not arrive before the word it explains: a sentence about
+  // your vocabulary, shown to a player who cannot yet read `Words`, is noise.
+  const joinBinds = $derived(
+    hudReady && bottleneck($game) === 'words' && READOUTS.words.learned($game));
 
   /** "your 30 Extractors" when one kind of fact machine is running, "your 34
    *  machines" when several are. Naming a mixed roster after one of its members
@@ -548,22 +561,66 @@
    *  the beats they have stood in, so literacy needs no save field. */
   const literate = $derived(knownWords($game));
 
-  /** Render one field's ⟦spans⟧ to HTML. A word the player cannot read is
-   *  marked so it can be styled as the graph's tongue; everything else is
-   *  escaped and emitted verbatim. */
-  function seg(text: string): string {
-    return renderMasked(text, beatTable, knownSet, graphWord, (word) => canRead(literate, word))
-      .map((p) => {
-        const t = p.text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] ?? c));
-        return p.masked ? `<em class="glyph">${t}</em>`
-          : p.concept !== undefined ? `<b class="bound">${t}</b>` : t;
-      })
-      .join('');
-  }
+  const esc = (t: string): string =>
+    t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] ?? c));
+
+  /** Segments to HTML. A word the player cannot read is marked so it can be
+   *  styled as the graph's tongue; everything else is escaped and verbatim. */
+  const html = (parts: Segment[]): string =>
+    parts.map((p) => (p.masked ? `<em class="glyph">${esc(p.text)}</em>`
+      : p.concept !== undefined ? `<b class="bound">${esc(p.text)}</b>` : esc(p.text))).join('');
+
+  /** Render one field's ⟦spans⟧ to HTML. */
+  const seg = (text: string): string => html(
+    renderMasked(text, beatTable, knownSet, graphWord, (word) => canRead(literate, word)));
+
   function plain(text: string): string {
     return maskedText(
       renderMasked(text, beatTable, knownSet, graphWord, (word) => canRead(literate, word)));
   }
+
+  // ---- THE INTERFACE SPEAKS THE LANGUAGE TOO ------------------------------
+  //
+  // Owner: "there must be nothing even in GUI." The beat under the dock has
+  // been foreign since 2026-07-27 and the ticker above it since this morning;
+  // the HUD between them still read `Words · Solid · Raw · Rot`, in English, on
+  // a screen whose whole premise is that nothing is readable yet. One surface
+  // in three languages tells the player the foreign parts are decoration.
+  //
+  // Chrome goes out through EXACTLY the path beat prose goes through —
+  // `renderMasked` + `language.json` — with one extra way in. A carrier word is
+  // normally learned by FREQUENCY across the beats the player has stood in, and
+  // no beat ever says "Solid": frequency alone would hide the HUD forever,
+  // which is a wall, not a game. So a chrome string also carries the quantity
+  // it is ABOUT, and reads as English once the player has earned that.
+  //
+  //   readout label      its own quantity          (readouts.ts `learned`)
+  //   Check              Raw — you learn the verb by having what it acts on
+  //   watched            Solid — the state, and what that state makes
+  //   loose · full speed Raw   — likewise
+  //   a machine's name   owning one you BOUGHT, not the one you woke with
+  //   the lane counter   Words — lanes are what Words are made of
+  //
+  // ⚠️ NUMBERS ARE NEVER TOUCHED. `translateCarrier` matches letters only, so
+  // `3 / 4075`, `×0.55` and a price stay legible from the first frame. A
+  // number you can read over a noun you cannot IS the intended experience: you
+  // can see that something is counted, and not yet what.
+  const NO_SPANS = new Map<string, number>();
+  const NO_CONCEPTS = new Set<number>();
+
+  const chromeSegs = (text: string, earned: boolean): Segment[] =>
+    renderMasked(text, NO_SPANS, NO_CONCEPTS, graphWord,
+      (word) => earned || canRead(literate, word));
+
+  /** An interface string, in whichever language the player has earned. */
+  const chrome = (text: string, earned: boolean): string => maskedText(chromeSegs(text, earned));
+  const chromeHtml = (text: string, earned: boolean): string => html(chromeSegs(text, earned));
+
+  /** Whether each quantity's own noun can be read. The rule and the reason it
+   *  is not `canRead` live in src/core/readouts.ts. */
+  const readsWords = $derived(READOUTS.words.learned($game));
+  const readsSolid = $derived(READOUTS.solid.learned($game));
+  const readsRaw = $derived(READOUTS.raw.learned($game));
 
   /** ⚠️ MOST SHIPPED CHOICES HAVE NO WRITTEN LABEL — beats went to concept
    *  granularity and the prose has not caught up. Rendering those verbatim is a
@@ -624,7 +681,11 @@
     if (c.state === 'locked') { say(`held by ${c.missing.map(graphWord).join(' · ')}`); return; }
     if (c.state === 'solid') { say('already yours'); return; }
     if (!canWalk($game, c.choice.to)) {
-      say(`${formatWhole(c.cost)} ${READOUTS.solid.noun} · ${READOUTS.solid.explain}`);
+      // The same noun the HUD is showing, in the same language. A toast that
+      // says `Solid` beside a bar that says `tuth` is the one-screen-two-
+      // languages defect with a 2.6-second lifetime.
+      say(`${formatWhole(c.cost)} ${chrome(READOUTS.solid.noun, readsSolid)}`
+        + ` · ${chrome(READOUTS.solid.explain, readsSolid)}`);
       return;
     }
     dispatch({ type: 'walk', to: c.choice.to });
@@ -644,6 +705,13 @@
   // information — it is a locked door with no story behind it.
   const REVEAL_AT = 0.6;
 
+  /** The roster a run opens with. A machine you were GIVEN is not one you
+   *  bought, and a machine's NAME is earned by buying one — otherwise the
+   *  Extractor card would be the one piece of chrome that is never masked, on
+   *  the very first screen. Read from the engine rather than typed, so changing
+   *  the opening roster cannot quietly hand the player a word. */
+  const OPENING = initialState().machines;
+
   const machineCards = $derived.by(() => {
     if (!hudReady) return [];
     const purse = READOUTS.solid.count($game);
@@ -654,6 +722,7 @@
           id,
           label: MACHINES[id].label,
           owned: $game.machines[id],
+          reads: $game.machines[id] > OPENING[id],
           cost,
           afford: canBuy($game, id),
           watchable: (FACT_MACHINES as MachineId[]).includes(id),
@@ -728,8 +797,10 @@
     const r = $awayReport;
     if (r && r.elapsedMs > 0) {
       const parts: string[] = [];
-      if (Number(r.solid) > 0) parts.push(`${formatWhole(r.solid)} ${READOUTS.solid.noun}`);
-      if (Number(r.raw) > 0) parts.push(`${formatWhole(r.raw)} ${READOUTS.raw.noun}`);
+      if (Number(r.solid) > 0) {
+        parts.push(`${formatWhole(r.solid)} ${chrome(READOUTS.solid.noun, readsSolid)}`);
+      }
+      if (Number(r.raw) > 0) parts.push(`${formatWhole(r.raw)} ${chrome(READOUTS.raw.noun, readsRaw)}`);
       say(`away ${Math.round(r.elapsedMs / 60000)} min · ${parts.join(' · ') || 'nothing banked'}`);
       awayReport.set(null);
     }
@@ -790,9 +861,12 @@
            4,075 rounded to three significant figures is not one. The
            suffixing formatter is right everywhere a stock can reach the
            trillions and wrong here, where the ceiling is four thousand. -->
-      <div class="readout goal" title={READOUTS.words.explain}>
+      <!-- THE NUMBER IS LEGIBLE AND THE NOUN IS NOT, and that is the point:
+           `1 / 4075` under a word you cannot read says something is counted
+           without saying what. The word arrives at three concepts. -->
+      <div class="readout goal" title={chrome(READOUTS.words.explain, readsWords)}>
         <b>{wordsCount.floor().toString()} / {wordsOf.floor().toString()}</b>
-        <span>{READOUTS.words.noun}</span>
+        <span>{@html chromeHtml(READOUTS.words.noun, readsWords)}</span>
       </div>
 
       <!-- ONE STACKED BAR. Solid, Raw and Rot are one substance in three
@@ -801,7 +875,8 @@
       {#if visibleSubstance.length > 0}
         <div class="bar" role="img"
              aria-label={visibleSubstance
-               .map((row) => `${row.noun} ${formatWhole(row.amount.toString())}`).join(', ')}>
+               .map((row) => `${chrome(row.noun, row.reads)} ${formatWhole(row.amount.toString())}`)
+               .join(', ')}>
           {#each visibleSubstance as row (row.id)}
             <div class="seg {row.id}" style="flex-grow:{row.share}"></div>
           {/each}
@@ -809,9 +884,9 @@
 
         <div class="stats">
           {#each visibleSubstance as row (row.id)}
-            <div class="readout" title={row.explain}>
+            <div class="readout" title={chrome(row.explain, row.reads)}>
               <b class={row.id}>{formatWhole(row.amount.toString())}</b>
-              <span>{row.noun}</span>
+              <span>{@html chromeHtml(row.noun, row.reads)}</span>
             </div>
           {/each}
         </div>
@@ -898,18 +973,23 @@
                  priced IN. Before the first word there is no Solid readout, so
                  a number here would be a quantity with no name — which is the
                  whole disease this rewrite exists to cure. -->
-            <span>{c.state === 'locked'
-              ? c.missing.map((id: number) => graphWord(id)).join(' ')
+            <span>{@html c.state === 'locked'
+              ? esc(c.missing.map((id: number) => graphWord(id)).join(' '))
               : c.state === 'solid' ? ''
-              : hudReady ? `${formatWhole(c.cost)} ${READOUTS.solid.noun}` : ''}</span>
+              : hudReady
+                ? `${esc(formatWhole(c.cost))} ${chromeHtml(READOUTS.solid.noun, readsSolid)}`
+                : ''}</span>
           </button>
         {/each}
       </div>
       {#if beatChoices.length > LANES_SHOWN}
         <button class="more-lanes" onclick={() => (lanesExpanded = !lanesExpanded)}>
-          {lanesExpanded
-            ? 'fewer ways on'
-            : `+${beatChoices.length - LANES_SHOWN} more ways on`}
+          <!-- The lane counter rides on Words, because lanes are what Words are
+               made of: the count is legible from the first frame, the phrase
+               around it once you can read the thing walking a lane gives you. -->
+          {@html lanesExpanded
+            ? chromeHtml('fewer ways on', readsWords)
+            : `+${beatChoices.length - LANES_SHOWN} ${chromeHtml('more ways on', readsWords)}`}
         </button>
       {/if}
     {/if}
@@ -924,7 +1004,13 @@
            is absent entirely when there is nothing to check. -->
       {#if canCheck($game)}
         <button class="act" onclick={() => dispatch({ type: 'check' })}>
-          <b>Check</b><span>{CHECK_PER_TAP} {READOUTS.raw.noun} → {READOUTS.solid.noun}</span>
+          <!-- The verb rides on Raw: you learn what `Check` means by having the
+               thing it acts on. Both nouns in the subtitle keep their own rule,
+               so the line can read half in each language — which is honest,
+               because the player has earned exactly half of it. -->
+          <b>{@html chromeHtml('Check', readsRaw)}</b><span>{CHECK_PER_TAP}
+            {@html chromeHtml(READOUTS.raw.noun, readsRaw)} →
+            {@html chromeHtml(READOUTS.solid.noun, readsSolid)}</span>
         </button>
       {/if}
 
@@ -950,10 +1036,13 @@
       <div class="machines">
         {#each machineCards as m (m.id)}
           <div class="mach">
-            <b>{m.label}<i>×{m.owned}</i></b>
+            <!-- A machine's NAME is earned by buying one — the count beside it
+                 is legible from the first frame, so the card reads as `▮ ×1`
+                 until you have paid for a second. -->
+            <b>{@html chromeHtml(m.label, m.reads)}<i>×{m.owned}</i></b>
             <button class="buy" disabled={!m.afford}
               onclick={() => dispatch({ type: 'buy', id: m.id })}>
-              {formatWhole(m.cost)} {READOUTS.solid.noun}
+              {formatWhole(m.cost)} {@html chromeHtml(READOUTS.solid.noun, readsSolid)}
             </button>
             {#if m.watchable}
               <!-- SPEED VERSUS TRUTH, AND IT IS ONE TAP. Watched: 55% of the
@@ -961,9 +1050,15 @@
                    speed, and everything it makes arrives Raw — which rots. -->
               <button class="watch" class:on={isWatched(m.id)}
                 onclick={() => toggleWatch(m.id)}>
-                {isWatched(m.id)
-                  ? `watched · ×${WATCHED_RATE} → ${READOUTS.solid.noun}`
-                  : `loose · full speed → ${READOUTS.raw.noun}`}
+                <!-- Each half of the toggle rides on what that half MAKES, so
+                     the sentence and its consequence become readable together:
+                     `watched → Solid` on Solid, `loose → Raw` on Raw. The rate
+                     is a number and stays legible throughout. -->
+                {@html isWatched(m.id)
+                  ? `${chromeHtml('watched', readsSolid)} · ×${WATCHED_RATE} → `
+                    + chromeHtml(READOUTS.solid.noun, readsSolid)
+                  : `${chromeHtml('loose', readsRaw)} · ${chromeHtml('full speed', readsRaw)} → `
+                    + chromeHtml(READOUTS.raw.noun, readsRaw)}
               </button>
             {/if}
           </div>
@@ -1332,7 +1427,12 @@
      letter-spaced so the SHARED PREFIX is scannable — `ka-sa-le` and
      `ka-sa-le-then` have to look like kin at a glance, which is the whole
      mechanic and the reason these are never truncated. */
-  .beat :global(.glyph), .lane :global(.glyph) {
+  /* ONE SELECTOR FOR THE WHOLE SCREEN. It was `.beat, .lane` — the two surfaces
+     that could produce a masked word at the time. The HUD, the machine cards
+     and the verbs speak the language too now, and a word rendered in the
+     graph's tongue must LOOK like one everywhere, or the chrome reads as broken
+     English rather than as another language. */
+  .app :global(.glyph) {
     font-family: ui-monospace, monospace; font-style: normal;
     color: #c9a227; letter-spacing: 0.02em;
   }

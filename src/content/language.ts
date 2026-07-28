@@ -1,11 +1,15 @@
 // THE REST OF THE LANGUAGE — everything that is not a concept.
 //
-// 245 word types: the verbs, prepositions and function words used across every
-// beat. Concepts have their own words in lexicon.json, SHAPED DIFFERENTLY on
-// purpose — concepts are multi-syllable and hyphenated with an inherited stem
-// (`ka-ta-ra`), function words are short and unhyphenated (`kith`, `ve`). So a
-// player can tell grammar from content by shape long before reading either,
-// which is what makes an unreadable sentence still look like a sentence.
+// 587 word types: the verbs, prepositions and function words used across every
+// beat, AND every word the ticker and the interface can put on screen — the
+// corpus was the beats alone until 2026-07-28, which is why the dock read
+// "something you never checked wore out" in English above a foreign beat.
+// Concepts have their own words in lexicon.json, SHAPED DIFFERENTLY on
+// purpose — concepts are multi-syllable with an inherited stem (`katara`),
+// function words are short and single-syllable where the corpus allows
+// (`kith`, `ve`). So a player can tell grammar from content by shape long
+// before reading either, which is what makes an unreadable sentence still look
+// like a sentence.
 import data from '../../docs/graph/language.json';
 
 export interface Language {
