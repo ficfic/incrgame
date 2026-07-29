@@ -14,6 +14,21 @@
 // is a word you can see the shape of but not read, is the reason to come back.
 // Hiding locked lanes would be less code and would delete the feature.
 //
+// ⚠️ AMENDED 2026-07-29 — NOT AT THE OPENING, IT ISN'T. `lanes()` still returns
+// every lane in every state and is still the reducer's gate; what changed is
+// that the SCREEN no longer draws all of them. The owner played the deployed
+// build: "we must have like 2 options… and maybe we shouldn't show unavailable
+// options… i don't understand what ANY of the buttons do, i just randomly
+// clicked around until i got to a stop." Measured on the shipped save:
+// `lanes(initialState())` returns EIGHTY-FIVE, three of them locked, all of
+// them named in a language the player cannot read yet.
+//
+// So `offered()` and `closed()` below are the display rule, and the pillar
+// above survives inside it: a locked lane is still never deleted and still
+// shows its key masked — it just does not arrive on the first screen, because a
+// door you cannot open teaches nothing to somebody who has not yet learned that
+// doors open at all. See `LOCKED_LANES_AT`.
+//
 // ---- WHY THE MASK IS SAFE TO BUILD HERE ---------------------------------
 //
 // The prose masking renderer is blocked: it needs span markers inside beat text
@@ -27,6 +42,7 @@
 // and returns a description. It books nothing and mutates nothing.
 import type { GameState, StoryBeat, StoryChoice } from './types';
 import { ownChoices, placeAt } from '../content/story';
+import { bound } from './literacy';
 
 export type LaneState = 'solid' | 'dotted' | 'locked';
 
@@ -134,4 +150,90 @@ function laneFor(
  *  the engine's business, checked where the action is applied. */
 export function laneOpen(lane: Lane): boolean {
   return lane.state !== 'locked';
+}
+
+// ---- WHAT THE SCREEN SHOWS, WHICH IS NOT EVERYTHING ----------------------
+//
+// ★ THE OPENING IS TWO LANES. Not two of eighty-five with the rest a scroll
+// away — two, and nothing else on the board at all.
+//
+// Six identically-priced lanes told apart only by a word you cannot read is a
+// coin flip, not a decision (DECISIONS 2026-07-29). Two is a decision: you can
+// hold both in your head, and the only thing distinguishing them — the shape of
+// the destination's name — is the thing the game is teaching.
+//
+// ★ THE CURVE, AND THE ONE SENTENCE THAT DEFENDS IT: the board widens by one
+// lane per six concepts you can read, because the strip should widen at about
+// the speed the player is learning to read what is on it — reaching the SIX
+// already shipped as the level-of-detail cap (DECISIONS 2026-07-28: "six shown,
+// the rest counted on a +N more button") at Words 24, by which time the machine
+// card, the toggle and Check have each arrived on their own.
+//
+// Words is the index for the same reason every other curve in this economy uses
+// it: it is the only quantity that never falls, so the strip can never narrow
+// under the player's thumb. A board that takes an option away mid-tap is worse
+// than one that showed too many.
+export const LANE_WIDTH_MIN = 2;
+export const LANE_WIDTH_MAX = 6;
+/** Words per extra lane. */
+export const LANE_WIDTH_PER = 6;
+
+/** Where locked lanes rejoin the board.
+ *
+ *  They are a feature — a door whose key is a word from another lane is the
+ *  reason to come back — and they are a WALL to somebody who has not yet
+ *  learned that a lane goes anywhere. 30 is after the strip has reached full
+ *  width (Words 24) and is the last thing the board itself teaches, so it
+ *  arrives alone like everything else. */
+export const LOCKED_LANES_AT = 30;
+
+/** How many lanes the board shows right now. */
+export function laneWidth(state: GameState): number {
+  const w = bound(state).length;
+  return Math.min(LANE_WIDTH_MAX, LANE_WIDTH_MIN + Math.floor(w / LANE_WIDTH_PER));
+}
+
+/** Rank for display: the ways on from WHERE YOU ARE STANDING first.
+ *
+ *  A lane out of some concept you walked through twenty minutes ago is a real
+ *  route and it is not what the beat under the strip is about. */
+function ranked(all: Lane[], here: number): Lane[] {
+  return [...all].sort(
+    (a, b) =>
+      (a.from === here ? 0 : 1) - (b.from === here ? 0 : 1) || a.from - b.from || a.to - b.to,
+  );
+}
+
+/** ★ THE LANES THE PLAYER IS OFFERED. Ways on that DO something, at the width
+ *  above.
+ *
+ *  ⚠️ A `solid` LANE IS NOT ONE OF THEM, and that is the other half of "never
+ *  show an option that cannot be taken". Its far end is a concept you already
+ *  hold, so walking it costs nothing, teaches no word, and — because position
+ *  is the last thing you HELD, and holding it again changes nothing —
+ *  does not move you either. It is a button that provably does nothing, which
+ *  is the exact thing the owner could not tell apart from a broken one. Kept as
+ *  the FALLBACK rather than deleted: if a board ever offers nothing else, a
+ *  no-op is still better than an empty strip.
+ *
+ *  A lane whose PRICE you cannot meet is still offered, and that line is drawn
+ *  deliberately: a price is a wait — the machines are filing and it will be
+ *  affordable in a minute — while a gate is a wall, and the wall is what the
+ *  owner could not tell apart from a refusal. Hiding unaffordable lanes would
+ *  also empty the strip two steps into a fresh run, which reads as the game
+ *  ending. */
+export function offered(state: GameState): Lane[] {
+  const here = currentBeat(state)?.at ?? -1;
+  const open = lanes(state).filter(laneOpen);
+  const teaching = open.filter((l) => l.state === 'dotted');
+  return ranked(teaching.length > 0 ? teaching : open, here).slice(0, laneWidth(state));
+}
+
+/** The locked lanes the board shows: none until `LOCKED_LANES_AT`, then the
+ *  same width of them, ranked the same way. Never takeable — the screen draws
+ *  these as doors, and their key stays masked (`mask`). */
+export function closed(state: GameState): Lane[] {
+  if (bound(state).length < LOCKED_LANES_AT) return [];
+  const here = currentBeat(state)?.at ?? -1;
+  return ranked(lanes(state).filter((l) => !laneOpen(l)), here).slice(0, laneWidth(state));
 }

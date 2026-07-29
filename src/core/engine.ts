@@ -281,6 +281,17 @@ export function rotPerSecond(state: GameState): number {
  *  walk again, so the run resumes at its frontier instead of at its opening. */
 export function stepCost(state: GameState, to: number): string {
   if (state.held.includes(to)) return '0';
+  return nextStepCost(state);
+}
+
+/** What the next NEW concept costs, wherever it is.
+ *
+ *  Every unheld destination is the same price — the curve is indexed on
+ *  concepts-this-run, not on where you are going — so this is a real quantity
+ *  and not an average. It exists because the Retrain screen has to be able to
+ *  quote the price the player is walking away from beside the price they get
+ *  back, and neither of those has a destination attached. */
+export function nextStepCost(state: GameState): string {
   return D(STEP_BASE).mul(Decimal.pow(STEP_RATIO, state.stepsThisRun)).ceil().toString();
 }
 
@@ -415,53 +426,68 @@ export function apply(state: GameState, action: Action): GameState {
     }
 
     case 'retrain': {
-      // Prestige = retraining on your own output. You inherit a share of what
-      // your MACHINES minted — as Raw, because it never was checked — and your
-      // ancestry gets that much more synthetic, which rots faster.
       if (!canRetrain(state)) return state;
-      const inherited = D(state.minted).mul(INHERIT_FRACTION).floor();
-      const fresh = initialState();
-      return {
-        ...fresh,
-        // THE CONCEPTS SURVIVE. Nothing the player chose is ever deleted
-        // (VISION), and free revisits are what make the next run a sprint back
-        // to the frontier rather than a repeat of the opening.
-        held: [...state.held],
-        // ...but the step counter does not, which is the whole prestige: the
-        // cost curve restarts at 6 while the vocabulary cap stays where you
-        // left it.
-        stepsThisRun: 0,
-        // THE APPARATUS SURVIVES, AND IT HAS TO. The inheritance arrives as
-        // RAW — never checked, never spendable — so the only things that can
-        // claim it are a Checker and a tap, and handing back a fresh roster
-        // would zero both at the exact moment the pile is biggest.
-        //
-        // ⚠️ KEEPING THE MACHINES WAS NOT ENOUGH ON ITS OWN. Measured on a
-        // 5,000-Raw inheritance, ten minutes after the Retrain:
-        //
-        //     Checkers kept    0     1     4    10
-        //     banked as Solid  0%   28%   62%   80%
-        //
-        // The first row is what shipped, for every roster, because a Checker
-        // converting a FLAT 0.25/s cannot eat a pile of thousands before it
-        // rots — the reward was real, arrived intact, and evaporated. The
-        // Checker now takes a SHARE of the pile per second, so the split
-        // between Solid and Rot is the ratio of the two rates and holds at any
-        // size. That is what makes this a decision rather than a lie: retrain
-        // with Checkers and you bank it, retrain without and you watch it go.
-        // You keep the machines; you do not keep the Solid that bought them.
-        machines: { ...state.machines },
-        watched: { ...state.watched },
-        raw: inherited.toString(),
-        rot: '0', // the ONLY way Rot ever goes down
-        generation: state.generation + 1,
-        syntheticShare: state.syntheticShare + (1 - state.syntheticShare) * SYNTHETIC_STEP,
-        // Never 0: a fresh clock reads as an eight-hour absence on the next
-        // resume, and that is a real hazard rather than a tidiness question.
-        lastTick: state.lastTick,
-      };
+      return retrained(state);
     }
   }
+}
+
+/** ★ THE STATE A RETRAIN PRODUCES, gate not applied.
+ *
+ *  Prestige = retraining on your own output. You inherit a share of what your
+ *  MACHINES minted — as Raw, because it never was checked — and your ancestry
+ *  gets that much more synthetic, which rots faster.
+ *
+ *  ⚠️ SPLIT OUT OF THE REDUCER SO THE PREVIEW CANNOT DRIFT FROM THE ACTION. The
+ *  owner, playing the deployed build: "i cannot find prestige button… and what
+ *  is lost on prestige anyways? whats the point of it?" — a fair question about
+ *  the DESIGN, not about a button. `retrainExchange` (src/core/retrain.ts)
+ *  answers it by running this function and reading the four readouts off both
+ *  sides, so the screen states what actually happens rather than a second
+ *  description of it that someone has to keep in step. A prestige screen that
+ *  disagrees with prestige is the exact shape of every defect in DECISIONS. */
+export function retrained(state: GameState): GameState {
+  const inherited = D(state.minted).mul(INHERIT_FRACTION).floor();
+  const fresh = initialState();
+  return {
+    ...fresh,
+    // THE CONCEPTS SURVIVE. Nothing the player chose is ever deleted
+    // (VISION), and free revisits are what make the next run a sprint back
+    // to the frontier rather than a repeat of the opening.
+    held: [...state.held],
+    // ...but the step counter does not, which is the whole prestige: the
+    // cost curve restarts at 6 while the vocabulary cap stays where you
+    // left it.
+    stepsThisRun: 0,
+    // THE APPARATUS SURVIVES, AND IT HAS TO. The inheritance arrives as
+    // RAW — never checked, never spendable — so the only things that can
+    // claim it are a Checker and a tap, and handing back a fresh roster
+    // would zero both at the exact moment the pile is biggest.
+    //
+    // ⚠️ KEEPING THE MACHINES WAS NOT ENOUGH ON ITS OWN. Measured on a
+    // 5,000-Raw inheritance, ten minutes after the Retrain:
+    //
+    //     Checkers kept    0     1     4    10
+    //     banked as Solid  0%   28%   62%   80%
+    //
+    // The first row is what shipped, for every roster, because a Checker
+    // converting a FLAT 0.25/s cannot eat a pile of thousands before it
+    // rots — the reward was real, arrived intact, and evaporated. The
+    // Checker now takes a SHARE of the pile per second, so the split
+    // between Solid and Rot is the ratio of the two rates and holds at any
+    // size. That is what makes this a decision rather than a lie: retrain
+    // with Checkers and you bank it, retrain without and you watch it go.
+    // You keep the machines; you do not keep the Solid that bought them.
+    machines: { ...state.machines },
+    watched: { ...state.watched },
+    raw: inherited.toString(),
+    rot: '0', // the ONLY way Rot ever goes down
+    generation: state.generation + 1,
+    syntheticShare: state.syntheticShare + (1 - state.syntheticShare) * SYNTHETIC_STEP,
+    // Never 0: a fresh clock reads as an eight-hour absence on the next
+    // resume, and that is a real hazard rather than a tidiness question.
+    lastTick: state.lastTick,
+  };
 }
 
 /** SPEC sugar — there is no second entry point. */
