@@ -244,14 +244,22 @@
 
   const weights = $derived.by(() => {
     void $ontologyRevision;
-    return weigh($game.held, (id) => conceptAt(id)?.parent ?? -1);
+    // THROWAWAY TEST 2026-07-29. The board drew `$game.held` and NOTHING else,
+    // so the places the only two buttons name were by construction never on
+    // screen. That is the zero-overlap the salvage review measured, and it is
+    // not a text problem. The frontier goes on the board.
+    return weigh([...$game.held, ...offered($game).map((l) => l.to)],
+      (id) => conceptAt(id)?.parent ?? -1);
   });
 
   /** Lines between the concepts you hold, straight from the dataset. A picture
    *  of the graph, not an inventory of it, and not a button. */
   const edges = $derived.by(() => {
     void $ontologyRevision;
-    return potentialEdges($game.held);
+    // THROWAWAY TEST: plus one line per lane you are offered, so the route you
+    // can pay for is a line you can see.
+    return [...potentialEdges($game.held),
+      ...offered($game).map((l) => ({ a: l.from, b: l.to, rel: 0 }))];
   });
 
   /** The springs: every concept pulled toward the ancestor it hangs off, plus
@@ -319,6 +327,8 @@
     void $ontologyRevision; void simTick;
     return detail(weights, {
       zoom: follow ? followZoom : zoom, screen: screenPos, w, h, labelWidth: labelPx,
+      // THROWAWAY TEST: the dots the buttons point at get their labels first.
+      priority: offered($game).map((l) => l.to),
     });
   });
   const rolledUp = $derived(lod.rolled);
@@ -765,6 +775,7 @@
   interface LaneRow {
     key: string;
     to: number;
+    toLabel: string;
     state: LaneState;
     missing: number[];
     label: string;
@@ -799,6 +810,7 @@
       return {
         key: lane.id,
         to: lane.to,
+        toLabel: lane.toLabel,
         state: lane.state,
         missing: lane.missing,
         label: label(text, table),
@@ -1135,10 +1147,12 @@
          above the board is what tells the player what is happening; this is
          what they are reading their way into. -->
     {#if beat}
-      <div class="beat">
-        <h3>{@html seg(beat.title)}</h3>
-        <p>{@html seg(beat.body)}</p>
-      </div>
+      <!-- THROWAWAY TEST 2026-07-29, revert with git checkout. The salvage
+           review measured ZERO OVERLAP between the button labels and the dots
+           on the board: the only two things you could do named places that were
+           not drawn. Hiding the prose and pointing the buttons at the dots
+           tests whether that disconnect was the whole problem, before deleting
+           1,300 lines on the diagnosis. -->
       <div class="lanes">
         {#each laneRows as c (c.key)}
           <button class="lane {c.state}" class:poor={c.state === 'dotted' && !c.takeable}
@@ -1146,7 +1160,7 @@
             aria-disabled={c.state !== 'dotted'}
             aria-label={c.plain}
             onclick={() => walk(c)}>
-            <b>{@html c.label}</b>
+            <b>{@html label(`⟦${c.toLabel}⟧`, new Map([[c.toLabel, c.to]]))}</b>
             <!-- ★ THE PRICE IS ON THE BUTTON FROM THE FIRST FRAME, in English,
                  so the opening move is not a blind spend. A locked lane shows
                  its KEY instead, in the graph's word — an absent edge teaches

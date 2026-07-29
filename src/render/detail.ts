@@ -88,6 +88,11 @@ export interface DetailOpts {
   w: number; h: number;
   /** Rendered width of a concept's label, including its rolled-up count. */
   labelWidth: (id: number, folded: number) => number;
+  /** THROWAWAY TEST 2026-07-29. Ids that must get a label slot before anything
+   *  else competes for it — the places the lane buttons name. Decluttering
+   *  places labels heaviest-first, which is why the two destinations you can
+   *  actually travel to were the two UNLABELLED dots on screen. */
+  priority?: Iterable<number>;
 }
 
 /** How many concepts to draw at a given zoom. Deliberately a budget rather than
@@ -131,7 +136,9 @@ export function detail(weights: Map<number, Weighed>, o: DetailOpts): Lod {
   // ── greedy label decluttering ────────────────────────────────────────────
   const labelled = new Set<number>();
   const placed: Array<[number, number, number, number]> = []; // l, t, r, b
-  for (const id of shown) {
+  const first = new Set(o.priority ?? []);
+  const order2 = [...shown.filter((id) => first.has(id)), ...shown.filter((id) => !first.has(id))];
+  for (const id of order2) {
     const p = o.screen.get(id);
     if (!p) continue;
     const width = o.labelWidth(id, rolled.get(id) ?? 0);
