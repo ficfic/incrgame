@@ -108,23 +108,37 @@ const read = async () => {
   // vocabulary binds, the HUD has to say so. Recorded as a column so a run
   // where it never appears is visible at a glance.
   const join = await page.$$eval('.join', (n) => n[0]?.textContent?.trim() ?? '');
-  // How many ways on the level-of-detail cap is holding back. 79 of 446 beats
-  // offer more than 12 choices and one offers 371, so "the strip shows six" is
-  // only honest if the number it is not showing is on screen too.
-  const more = await page.$$eval('.more-lanes', (n) => n[0]?.textContent?.trim() ?? '');
-  // THE DOCK, IN WHATEVER LANGUAGE THE PLAYER HAS. Added 2026-07-28: every
-  // ticker line shipped that morning was written in words no beat contains, so
-  // they were masked at minute zero and masked at hour ten — and no column in
-  // this table would ever have shown it, because the probe never read the dock.
-  // A surface the probe cannot see is a surface that ships blind.
-  const dock = await page.$$eval('.ticker span', (n) => n.map((s) => s.textContent?.trim() ?? ''));
+  // ★ THE NARRATOR, 2026-07-29. The one English line that makes this game
+  // legible, and therefore the one surface that must never be measured by
+  // whether it EXISTS in the markup — it is read back verbatim, so a session
+  // can see which lines a real run actually produces and in what order. The
+  // ticker replaced by it (`.ticker span`) is no longer rendered; reading a
+  // selector that is gone would have reported an empty dock forever, which is
+  // indistinguishable from a broken one.
+  const narr = await page.$$eval('.narrator', (n) => n[0]?.textContent?.trim() ?? '');
+  // ★ THE FLOATERS. Owner asked for them by name ("im missing some pop ups
+  // above the graph"), and they live for 2.4 seconds — so a screenshot is a
+  // coin flip and a column is not. Every distinct one seen over the run is
+  // collected and printed, which is the only honest way to check a transient.
+  const floats = await page.$$eval('.floater', (n) => n.map((s) => s.textContent?.trim() ?? ''));
   return {
     t: 0,
     words: cells.Words ?? '-', solid: cells.Solid ?? '-',
     raw: cells.Raw ?? '-', rot: cells.Rot ?? '-',
-    nodes, lanes, mach, join, dock,
-    hidden: /\+(\d+)/.exec(more)?.[1] ?? '0',
+    nodes, lanes, mach, join, narr, floats,
   };
+};
+
+/** Sample the two transient surfaces far more often than the 15-second table.
+ *  A floater is on screen for 2.4s and the narrator's event line for 9s, so
+ *  reading them only when a row is logged would miss almost all of both. */
+const narrated = new Map();
+const floated = new Map();
+const catchTransients = async (secs) => {
+  const line = await page.$$eval('.narrator', (n) => n[0]?.textContent?.trim() ?? '');
+  if (line && !narrated.has(line)) narrated.set(line, secs);
+  const fs = await page.$$eval('.floater', (n) => n.map((s) => s.textContent?.trim() ?? ''));
+  for (const f of fs) if (f && !floated.has(f)) floated.set(f, secs);
 };
 
 const log = [];
@@ -155,13 +169,18 @@ const CHECK_EVERY_MS = 20_000;
 
 while ((Date.now() - t0) / 1000 < SECONDS) {
   const secs = Math.floor((Date.now() - t0) / 1000);
+  await catchTransients(secs);
   if (secs % 15 === 0 && secs !== lastLog) {
     lastLog = secs;
     log.push({ ...(await read()), t: secs });
   }
   // THE IDLE PLAYER: one step to make the interface exist, then never again.
+  // ⚠️ READ BY THE READOUT'S NOUN, not by a `.goal` class. `N / 4075` came off
+  // the top of the screen on 2026-07-29 and took that class with it; a probe
+  // asking for a selector that no longer exists reports "never walked" forever.
   const walkedEnough = MODE === 'idle'
-    && (await page.$$eval('.readout.goal b', (n) => n.length > 0));
+    && (await page.$$eval('.readout span',
+        (ns) => ns.some((n) => n.textContent?.trim() === 'Words')));
   const building = MODE === 'idle' ? false : secs >= BUILD_FROM;
 
   // BUY, first once the build phase starts. A machine you cannot feed with
@@ -220,20 +239,23 @@ while ((Date.now() - t0) / 1000 < SECONDS) {
 log.push({ ...(await read()), t: Math.floor((Date.now() - t0) / 1000) });
 
 console.log(`strategy: ${MODE}`);
-console.log('t    Words      Solid Raw   Rot   nodes lanes +more mach bind');
+console.log('t    Words Solid Raw   Rot   nodes lanes mach float bind');
 for (const r of log) {
   console.log(
-    String(r.t).padEnd(4), String(r.words).padEnd(10), String(r.solid).padEnd(5),
+    String(r.t).padEnd(4), String(r.words).padEnd(5), String(r.solid).padEnd(5),
     String(r.raw).padEnd(5), String(r.rot).padEnd(5),
-    String(r.nodes).padEnd(5), String(r.lanes).padEnd(5), String(r.hidden).padEnd(5),
-    String(r.mach).padEnd(4), r.join ? 'words' : '-');
+    String(r.nodes).padEnd(5), String(r.lanes).padEnd(5),
+    String(r.mach).padEnd(4), String(r.floats.length).padEnd(5), r.join ? 'words' : '-');
 }
-// THE DOCK, LINE BY LINE. Printed rather than columned: a ticker line is a
-// sentence, and the point of reading it back is seeing WHICH words are English.
-const said = new Map();
-for (const r of log) for (const line of r.dock) if (line && !said.has(line)) said.set(line, r.t);
-console.log('\nTHE DOCK');
-for (const [line, t] of said) console.log(String(t).padEnd(5), line);
+// ★ THE NARRATOR, LINE BY LINE, IN THE ORDER A REAL RUN PRODUCED THEM. This is
+// the surface the whole item is about, so it is read back verbatim rather than
+// counted: "the narrator exists" is not evidence that it says anything true.
+console.log('\nTHE NARRATOR');
+for (const [line, t] of narrated) console.log(String(t).padEnd(5), line);
+// ★ THE FLOATERS. Transient by design, so they are collected across the whole
+// run rather than sampled at the end.
+console.log('\nFLOATERS');
+for (const [line, t] of floated) console.log(String(t).padEnd(5), line);
 
 const bind = log.map((r) => r.join).filter(Boolean).pop();
 if (bind) console.log('\nJOIN SENTENCE  ' + bind);

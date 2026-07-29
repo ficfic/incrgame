@@ -51,7 +51,21 @@ export const CHROME_SOURCES = [
   'src/shell/ticker.ts',     // every ticker line, mechanical and owner-written
   'src/core/readouts.ts',    // Words · Solid · Raw · Rot, and each one's explain
   'src/content/machines.ts', // Extractor · Reasoner · Checker
-  'src/ui/App.svelte',       // the HUD, the buttons, the toasts, the manual
+  // ⚠️ `src/ui/App.svelte` WAS HERE AND CAME OUT ON 2026-07-29, WITH ITS REASON.
+  // It was added the day the HUD spoke the graph's language, and the owner
+  // reversed exactly that after playing the build: "i think we wont be able to
+  // do it without english narrator or something… i dont understand what ANY of
+  // the buttons do." DECISIONS 2026-07-29 settles it — the interface, the
+  // buttons, the readouts, the narrator and the notifications are ENGLISH; the
+  // foreign language is only ever the GRAPH's. So the screen no longer calls
+  // `renderMasked` on a single interface string, and demanding a foreign form
+  // for `quantity` or `unread` would be this gate policing a rule the game no
+  // longer has.
+  //
+  // The three files above STAY, and the distinction is not arbitrary:
+  // `readouts.ts` and `machines.ts` are read by surfaces that DO still mask
+  // (the ticker), and the ticker is still emitting. The moment anything renders
+  // one of them through the masker again, its words must already have forms.
 ];
 
 /** Block and line comments, and import specifiers.
