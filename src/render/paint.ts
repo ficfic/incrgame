@@ -8,6 +8,7 @@
 import type { GameState } from '../core/types';
 import { type Camera, relHue, toScreen } from './board';
 import { D } from '../core/numbers';
+import { confirmedEdges, edgeKey } from '../core/edges';
 
 const ROT = '#b0566b';
 
@@ -16,8 +17,17 @@ export interface Scene {
   w: number; h: number;
   timeMs: number;
   hue: number;
-  /** Connections available but not drawn, and the node positions — both
-   *  computed once by the shell and handed down, never re-derived here. */
+  /** EVERY connection between concepts on screen, and the node positions — both
+   *  computed once by the shell and handed down, never re-derived here.
+   *
+   *  ⚠️ THE FIELD NAME IS A FOSSIL AND THE CONTENT IS NOT. It held "connections
+   *  the dataset offers and nobody can act on", because for one release every
+   *  line on this board was dashed and stayed dashed. It now holds all of them,
+   *  and which are dashed is read off `state.confirmed` below — so the caller
+   *  passes the same array it always did and the signed board renders with no
+   *  change at the call site at all. Renamed the day something else in
+   *  App.svelte has to move anyway; renaming it today would put this file's
+   *  session inside a file another session owns. */
   dotted: Array<{ a: number; b: number; rel: number }>;
   /** WHILE EXTRACTION RUNS. Pairs it is reading, and concepts reaching toward
    *  relations whose other end you have not discovered. Purely a picture of
@@ -72,36 +82,85 @@ function substrate(ctx: CanvasRenderingContext2D, s: Scene, cam: Camera, t: numb
   ctx.globalAlpha = 1;
 }
 
-/** Lines in three states, because the state of a line IS the game.
- *    dotted  — the dataset offers it and you have not drawn it
- *    filling — a slot is booked on it; the solid part grows from a toward b
- *    solid   — drawn. Coloured by relation when checked; one warning colour
- *              when not, because what matters about an unchecked line is that
- *              it is on its way back to dotted. */
+/** ★ LINES IN TWO STATES, BECAUSE THE STATE OF A LINE IS THE GAME AGAIN.
+ *
+ *    dashed  — the graph holds this connection and nobody has signed it
+ *    solid   — signed. Coloured by relation, because a confirmed connection has
+ *              earned the right to say WHICH relation it is
+ *
+ *  ⚠️ THIS FILE DREW ONE KIND OF LINE UNTIL TODAY. Every connection was dashed
+ *  from the first frame to the last, which is why the owner reported the board
+ *  as something you only look at: it had no state in it and no way to put any
+ *  there. The docstring above this function has described a "filling" state and
+ *  a "back to dotted" state since before the economy that owned them was
+ *  deleted, and neither has been drawn for two rewrites — a comment describing
+ *  a renderer that does not exist is how a board ships blind, so it is gone.
+ *
+ *  THE DASHES MARCH ONLY WHEN A TAP WOULD DO SOMETHING. Confirming spends the
+ *  unchecked pile (`core/edges.ts`), so with no Raw there is nothing behind
+ *  these connections to sign and the board says so by going still. That is the
+ *  same rule the interface follows everywhere now — never show an option that
+ *  cannot be taken — applied to the one surface that is not a button and
+ *  therefore cannot be hidden: a connection is part of the graph whether or not
+ *  you can act on it, so it dims and stops moving instead of disappearing. */
 function lines(ctx: CanvasRenderingContext2D, s: Scene, t: number): void {
   const { state, w, h, hue } = s;
   const centre = { x: w / 2, y: h / 2 };
   const at = (id: number): { x: number; y: number } => s.pos.get(id) ?? centre;
+  const signed = confirmedEdges(state);
+  // Not `canConfirm` per line: this is the same question for every line on the
+  // board, and asking it once a frame instead of once a line is the difference
+  // between a phone that draws 400 connections and one that gets warm.
+  const armed = D(state.raw).gt(0);
 
-  ctx.save();
-  ctx.setLineDash([2, 5]);
-  ctx.lineDashOffset = -t * 8; // a slow march, so possibility reads as alive
-  ctx.lineWidth = 1;
-  const byRel = new Map<number, Array<{ a: number; b: number; rel: number }>>();
+  const open = new Map<number, Array<{ a: number; b: number; rel: number }>>();
+  const done = new Map<number, Array<{ a: number; b: number; rel: number }>>();
   for (const p of s.dotted) {
-    const list = byRel.get(p.rel);
-    if (list) list.push(p); else byRel.set(p.rel, [p]);
+    const into = signed.has(edgeKey(p.a, p.b, p.rel)) ? done : open;
+    const list = into.get(p.rel);
+    if (list) list.push(p); else into.set(p.rel, [p]);
   }
-  for (const [rel, list] of byRel) {
-    // non-taxonomic possibilities are brighter: rarer, and more interesting to
-    // spend a slot on, so they should read that way
-    ctx.strokeStyle = `hsl(${relHue(rel, hue)} ${rel === 0 ? 40 : 65}% 55% / ${rel === 0 ? 0.3 : 0.5})`;
+
+  const strokeAll = (list: Array<{ a: number; b: number; rel: number }>): void => {
     ctx.beginPath();
     for (const p of list) {
       const pa = at(p.a), pb = at(p.b);
       ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y);
     }
     ctx.stroke();
+  };
+
+  // ---- UNSIGNED: dashed, and alive only when there is something to sign ----
+  ctx.save();
+  ctx.setLineDash([2, 5]);
+  // a slow march, so possibility reads as alive — and a dead stop when it is not
+  ctx.lineDashOffset = armed ? -t * 8 : 0;
+  ctx.lineWidth = 1;
+  for (const [rel, list] of open) {
+    // non-taxonomic possibilities are brighter: rarer, and more interesting to
+    // spend a slot on, so they should read that way
+    // ⚠️ 0.65 AND NOT 0.45, MEASURED IN A SCREENSHOT. At 0.45 an unsigned `is a`
+    // line lands at 0.135 alpha and the taxonomy simply vanishes — and since a
+    // new run watches its one Extractor by default, Raw is zero and this is the
+    // DEFAULT state of the board for the first several minutes. Dimming an
+    // unsigned connection is meant to say "not live", never "not there": these
+    // lines are the graph, and the march stopping is the signal that carries.
+    const base = rel === 0 ? 0.3 : 0.5;
+    ctx.strokeStyle = `hsl(${relHue(rel, hue)} ${rel === 0 ? 40 : 65}% 55% / ${armed ? base : base * 0.65})`;
+    strokeAll(list);
+  }
+  ctx.restore();
+
+  // ---- SIGNED: solid, drawn OVER the dashes ------------------------------
+  // Over, not under, and thicker: a connection you confirmed is the foreground
+  // of your own board. Drawn second so a signature is never half-hidden behind
+  // the possibilities it was chosen out of.
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineWidth = 1.6;
+  for (const [rel, list] of done) {
+    ctx.strokeStyle = `hsl(${relHue(rel, hue)} ${rel === 0 ? 52 : 70}% 62% / 0.85)`;
+    strokeAll(list);
   }
   ctx.restore();
 

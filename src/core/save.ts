@@ -152,6 +152,13 @@ export function deserialize(blob: string): LoadResult {
       machines: { ...base.machines, ...(r.machines ?? {}) },
       watched: { ...base.watched, ...(r.watched ?? {}) },
       held: Array.isArray(r.held) ? r.held : base.held,
+      // Same rule as `held`, and the reason a signed board did NOT cost a
+      // version bump: a v17 save written before connections could be confirmed
+      // simply has no key here, so it backfills to `[]` and loads as a run
+      // where nothing has been signed yet — which is true. Saves do not reset.
+      confirmed: Array.isArray(r.confirmed)
+        ? r.confirmed.filter((k): k is string => typeof k === 'string')
+        : base.confirmed,
       version: CURRENT_SAVE_VERSION,
     },
     reset: false,

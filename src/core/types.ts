@@ -152,6 +152,20 @@ export interface GameState {
   /** Facts your machines have minted THIS RUN. A Retrain inherits a share of
    *  it, as Raw, because it never was checked. */
   minted: Dec;
+
+  /** ★ CONNECTIONS SOMEBODY SIGNED OFF, as canonical keys (`src/core/edges.ts`).
+   *
+   *  NOT A QUANTITY. Nothing reads its length, no readout declares it, and
+   *  `scripts/check-vocabulary.mjs` lists it as STRUCTURAL — the one lesson the
+   *  old `Edge.checked` left behind is that a countable inventory standing
+   *  beside an anonymous mass, both called the same thing, is unreadable
+   *  (docs/ECONOMY_SRR.md). Facts are still Solid, Raw and Rot. This is a set of
+   *  signatures on the board, and the only place it reaches a screen is as the
+   *  difference between a dashed line and a solid one.
+   *
+   *  It survives a Retrain, like `held` and for the same reason: nothing the
+   *  player did is ever deleted out from under them (VISION). */
+  confirmed: string[];
 }
 
 /** The four verbs, plus the clock and the toggle.
@@ -169,6 +183,16 @@ export type Action =
    *  by construction, which is "review is the only brake and it is slow" with
    *  no clock in it. */
   | { type: 'check' }
+  /** ★ CONFIRM one connection on the board: CHECK, AIMED. Converts exactly the
+   *  slice `check` converts and signs the connection, so its line goes solid
+   *  and stays solid. `edge` is a canonical key from `src/core/edges.ts`.
+   *
+   *  It is a superset of `check` and not a replacement for it, deliberately: an
+   *  untargeted tap still has to work when the board has nothing left unsigned.
+   *  The supply of AIMED taps is bounded by unconfirmed connections, which
+   *  arrive one per place you walk — that bound is the price, and it is the
+   *  whole reason a manual lever on the board cannot become a job. */
+  | { type: 'confirm'; edge: string }
   /** BUY a machine, in Solid. */
   | { type: 'buy'; id: MachineId }
   /** The toggle. */

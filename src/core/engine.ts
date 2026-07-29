@@ -31,6 +31,7 @@ import { MACHINES } from '../content/machines';
 import { SEED_NODES } from '../content/seed';
 import { bound } from './literacy';
 import { lanes } from './starmap';
+import { parseEdgeKey } from './edges';
 
 export const CURRENT_SAVE_VERSION = 17;
 
@@ -161,6 +162,10 @@ export function initialState(): GameState {
     generation: 0,
     syntheticShare: 0,
     minted: '0',
+    // Nothing is signed at minute zero, and the seed concepts are not connected
+    // to each other — so the opening board is five dots and no lines at all,
+    // which is the honest picture of a graph nobody has walked.
+    confirmed: [],
   };
 }
 
@@ -316,6 +321,33 @@ export function canCheck(state: GameState): boolean {
   return D(state.raw).gt(0);
 }
 
+/** ★ CAN THIS CONNECTION BE CONFIRMED RIGHT NOW?
+ *
+ *  Four conditions, and the interesting one is the third:
+ *
+ *   1. the key is a canonical edge naming a real relation (`parseEdgeKey`);
+ *   2. BOTH ENDS ARE CONCEPTS YOU HOLD — the invariant the engine can actually
+ *      enforce. `src/core` is pure, so the ontology chunks are not visible from
+ *      here and "is this edge really in WordNet" is unanswerable; but a
+ *      signature that does not run between two concepts on your board is
+ *      refused, and that is the property the board's drawing depends on;
+ *   3. it is not already signed — ONE signature per connection, forever, which
+ *      is the bound that makes this a picture filling in rather than a button
+ *      to hold down;
+ *   4. there is Raw to check. A connection with nothing unchecked behind it is
+ *      a line, not a control — see `render/paint.ts`, which stops the dashes
+ *      marching when this is false rather than pretending the tap would work.
+ *
+ *  Enforced in the REDUCER and not only on the canvas, for the reason `canWalk`
+ *  states: a gate that lives in the UI is a gate that does not exist. */
+export function canConfirm(state: GameState, edge: string): boolean {
+  const e = parseEdgeKey(edge);
+  if (!e) return false;
+  if (!state.held.includes(e.a) || !state.held.includes(e.b)) return false;
+  if (state.confirmed.includes(edge)) return false;
+  return canCheck(state);
+}
+
 export function canBuy(state: GameState, id: MachineId): boolean {
   return gte(state.solid, machineCost(state, id));
 }
@@ -409,6 +441,24 @@ export function apply(state: GameState, action: Action): GameState {
       };
     }
 
+    case 'confirm': {
+      // ★ CHECK, AIMED. The SAME conversion as `check` — `checkTake`, one
+      // function, no second constant and no bonus for aiming — plus the
+      // signature, which is the only part that lasts. A separate payout here
+      // would be a second answer to "what is one tap of review worth", and this
+      // repo's entire diagnosis was that two answers to one question is what
+      // makes an economy unreadable.
+      if (!canConfirm(state, action.edge)) return state;
+      const take = D(checkTake(state));
+      if (take.lte(0)) return state;
+      return {
+        ...state,
+        raw: sub(state.raw, take.toString()),
+        solid: add(state.solid, take.toString()),
+        confirmed: [...state.confirmed, action.edge],
+      };
+    }
+
     case 'buy': {
       const cost = machineCost(state, action.id);
       if (!gte(state.solid, cost)) return state;
@@ -455,6 +505,13 @@ export function retrained(state: GameState): GameState {
     // (VISION), and free revisits are what make the next run a sprint back
     // to the frontier rather than a repeat of the opening.
     held: [...state.held],
+    // AND SO DO THE SIGNATURES, for the same reason and it is not decoration:
+    // a confirmed connection is the only permanent record of hand-work in this
+    // economy, and un-signing it at a Retrain would delete the one thing the
+    // player did themselves while keeping everything the machines did. It would
+    // also hand back the whole supply of aimed taps every generation, which is
+    // exactly the grind the bound exists to prevent.
+    confirmed: [...state.confirmed],
     // ...but the step counter does not, which is the whole prestige: the
     // cost curve restarts at 6 while the vocabulary cap stays where you
     // left it.

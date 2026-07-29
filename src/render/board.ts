@@ -11,6 +11,8 @@
 // whatever box CSS gives it, which means there are no magic constants left to
 // get wrong on a short screen, and no viewport plumbing: a zoomed page is just
 // a zoomed page, the way it is on every other website.
+import { edgeKey } from '../core/edges';
+
 /** Deterministic ±0.5 from an integer. Same id, same nudge, every session —
  *  positions must be reproducible or the board would reshuffle on reload. */
 function jitter(i: number, salt: number): number {
@@ -123,6 +125,81 @@ export function frontierPos(slot: number, w: number, h: number): { x: number; y:
   const rx = Math.max(20, w / 2 - 34);
   const ry = Math.max(20, h / 2 - 26);
   return { x: w / 2 + Math.cos(a) * rx, y: h / 2 + Math.sin(a) * ry };
+}
+
+// ---- ★ TAPPING A CONNECTION ----------------------------------------------
+//
+// The one thing the board could not do. `sim.pick` finds the nearest NODE to a
+// finger, which is how dragging works; this finds the nearest LINE, which is
+// how confirming works (`src/core/edges.ts`). Screen space and pure geometry —
+// it takes the positions the frame already computed and returns which
+// connection the finger was on, or nothing.
+//
+// ⚠️ NODES WIN TIES, AND THAT IS THE CALLER'S JOB. Every line ENDS at a node,
+// so a tap on a dot is also a tap on up to a dozen lines. Ask `sim.pick` first
+// and only fall through to this when it returns nothing, or dragging the graph
+// becomes impossible the moment a concept has one connection.
+
+/** How close a finger has to be to a line, in SCREEN px. Screen space because a
+ *  fingertip is a screen-space fact — the same rule dot radii follow — so the
+ *  target does not shrink when the player zooms out to see the whole graph.
+ *
+ *  Smaller than a 44px tap target on purpose: connections converge at the
+ *  nodes, and a generous radius there would hand every tap to whichever line
+ *  happened to be listed first. The recovery is cheap and immediate (nothing
+ *  happens, tap again slightly along the line); the failure it prevents —
+ *  signing a connection you did not mean to, which is permanent — is not. */
+export const EDGE_TAP_PX = 14;
+
+export interface EdgeHit {
+  a: number; b: number; rel: number;
+  /** Canonical key, ready for `{ type: 'confirm', edge }`. */
+  key: string;
+  /** Screen px from the finger to the line. */
+  distance: number;
+}
+
+/** Distance from a point to a SEGMENT, not to the infinite line through it —
+ *  the difference matters at the ends, where an infinite line would claim taps
+ *  from beyond the concept the connection stops at. */
+function toSegment(
+  p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number },
+): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** ★ WHICH CONNECTION IS UNDER THE FINGER, if any.
+ *
+ *  `skip` is the set of keys the tap must ignore — the caller passes the
+ *  signatures already on the save, because a confirmed connection is finished
+ *  and a tap that lands on one and does nothing is indistinguishable from a
+ *  broken control, which is the exact report this whole branch is answering.
+ *  Skipping them also means a dense signed cluster never shadows the one dashed
+ *  line running through it. */
+export function pickEdge(
+  edges: ReadonlyArray<{ a: number; b: number; rel: number }>,
+  pos: ReadonlyMap<number, { x: number; y: number }>,
+  point: { x: number; y: number },
+  within: number = EDGE_TAP_PX,
+  skip?: ReadonlySet<string>,
+): EdgeHit | null {
+  let best: EdgeHit | null = null;
+  for (const e of edges) {
+    const key = edgeKey(e.a, e.b, e.rel);
+    if (skip?.has(key)) continue;
+    const pa = pos.get(e.a), pb = pos.get(e.b);
+    // A connection with an endpoint the level-of-detail pass folded away has no
+    // line on screen, so it has no tap target either.
+    if (!pa || !pb) continue;
+    const d = toSegment(point, pa, pb);
+    if (d > within) continue;
+    if (!best || d < best.distance) best = { a: e.a, b: e.b, rel: e.rel, key, distance: d };
+  }
+  return best;
 }
 
 /** Representative rot: provenance is an aggregate, so a stable share of nodes

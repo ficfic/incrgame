@@ -209,6 +209,11 @@ const STRUCTURAL = {
   held:     'the board itself — the renderer needs the concept ids. Its LENGTH is Words and is banned separately.',
   machines: 'owned counts. A machine card is content: its label and its price live in src/content/machines.ts.',
   watched:  "a toggle's position. Not a number.",
+  confirmed: 'which connections are signed — the renderer needs the keys to know'
+    + ' which lines to draw solid. NOTHING may read its LENGTH: a countable'
+    + ' inventory of checked things standing beside the anonymous Solid/Raw/Rot'
+    + ' mass is precisely the defect docs/ECONOMY_SRR.md diagnosed in'
+    + ' `Edge.checked`, and it is not coming back as a readout.',
 };
 
 /** The receivers a surface holds the save under. `$game` is the Svelte store,
