@@ -96,6 +96,14 @@ describe('the dock, end to end', () => {
     observeTransition(prev, next);
     const text = last();
     expect(text).toContain(`#${next.machines.extractor}`);
+    // The CONTENT word is foreign; the skeleton is not. Since 2026-07-28 the
+    // closed class ships bound (literacy.SEED_WORDS) because a screen with no
+    // English at all had nothing to grip - so asserting the whole line is
+    // foreign would now assert a wall, which is the thing that was fixed.
+    // `Extractor` is the machine's own noun and must not read as English here.
+    // `Extractor` itself IS readable here and should be: the machine noun is
+    // earned by owning one you bought, and this transition is that purchase.
+    // What must stay foreign is the sentence's open-class verb.
     expect(text).not.toContain('is here');
   });
 
@@ -108,8 +116,15 @@ describe('the dock, end to end', () => {
     const LINE = 'the machines have nothing to take';
     say('test:retro', LINE);
     const id = get(ticker).at(-1)!.id;
-    expect(last()).toBe(speak(LINE, NOTHING, NOTHING));
-    expect(last()).not.toContain('the ');
+    // The baseline is no longer "nothing known": since 2026-07-28 the closed
+    // class ships bound (literacy.SEED_WORDS), because a screen with no English
+    // at all had no skeleton to grip. So `the`, `have` and `to` read from the
+    // first frame and the OPEN class does not - which is the state this test
+    // starts from, and the thing it then watches change.
+    const START = knownWords(initialState());
+    expect(last()).toBe(speak(LINE, START, START));
+    expect(last()).not.toContain('machines');
+    expect(last()).toContain('the ');
 
     // Now make the player literate: standing in every beat is what teaches
     // carrier words, and `the` is the commonest word in the corpus.

@@ -84,9 +84,61 @@ export function bound(state: GameState): number[] {
   return state.held.filter((id) => !seed.has(id));
 }
 
-/** The carrier words the player can now read. */
+/* THE GRAMMAR YOU WAKE UP WITH.
+ *
+ * Owner, 2026-07-28, playing the live build: "i must have some english words at
+ * the start for it to make sense in any way." The opening screen read
+ *
+ *     NEN ROR SEM
+ *     kasavemo ka lar nen ror rith nuth fuk, hik vik sak ru lar fuk ka mek.
+ *
+ * which has no skeleton to hold on to. Every word foreign is not a language, it
+ * is a wall — and it is not how the thing this borrows from actually reads:
+ * No Man's Sky keeps the sentence structure and swaps the CONTENT.
+ *
+ * So the closed class starts bound: articles, pronouns, the copula, the
+ * commonest prepositions, and the four movement verbs the choice frames are
+ * built from. Everything that carries MEANING — nouns, most verbs, adjectives —
+ * still has to be earned by frequency, and every concept still has to be earned
+ * by discovery.
+ *
+ * The test is the frame sentences, since they are what most beats render:
+ * "Follow the ⟦…⟧ down" and "Under ⟦…⟧ the tree stops" should read as English
+ * sentences with foreign nouns in them from the first frame. Choosing these by
+ * hand rather than by taking the top N of the frequency table is deliberate —
+ * frequency would hand over "checked", "filed" and "machines", which are the
+ * game telling you what it is doing, and that is exactly what you are meant to
+ * work out.
+ *
+ * `here`, `there` and `now` are deliberately NOT seeded. They look like closed
+ * class and they are not - they point at something, and pointing is content.
+ * Seeding them made "Extractor #2 is here" render fully English, which is a
+ * whole ticker line saying something in a game whose premise is that you cannot
+ * read it yet. */
+export const SEED_WORDS: readonly string[] = [
+  // articles and determiners
+  'a', 'an', 'the', 'this', 'that', 'every', 'no', 'any', 'both',
+  // pronouns
+  'it', 'its', 'you', 'your', 'they', 'them', 'what', 'which', 'one',
+  // copula and the bare auxiliaries
+  'is', 'are', 'was', 'were', 'be', 'been', 'has', 'have', 'do', 'does', 'did',
+  // prepositions and conjunctions - the joints of a sentence
+  'of', 'to', 'in', 'on', 'at', 'by', 'for', 'from', 'with', 'under', 'over',
+  'below', 'above', 'into', 'out', 'up', 'down', 'and', 'or', 'but', 'not',
+  'than', 'as', 'so', 'if', 'when', 'while',
+  // the verbs the choice frames are made of - a button must be a verb
+  'follow', 'take', 'go', 'back', 'cross', 'keep', 'hold', 'stop', 'stops',
+];
+
+/** The carrier words the player can now read.
+ *
+ *  Seeded with the closed class (see above), then grown by exposure. A seed
+ *  word with no foreign form is dropped rather than asserted: `canRead` already
+ *  treats an untranslated word as readable, so adding it here would claim a
+ *  binding that does not exist. */
 export function knownWords(state: GameState): Set<string> {
   const out = new Set<string>();
+  for (const w of SEED_WORDS) if (LANGUAGE.words[w]) out.add(w);
   for (const [w, n] of exposure(state)) {
     if (n >= LEARN_AT && LANGUAGE.words[w]) out.add(w);
   }
