@@ -34,6 +34,16 @@
   let saveNote = $state('');
   /** What the catch-up said, shown until the player does something. */
   let awayLine = $state('');
+  /** ⚠️ THE INTRODUCTION, and there was not one. The owner has said FOUR times
+   *  across four builds that they could not tell what the game was. Every fix
+   *  so far has been about making the screen honest — names on dots, odds on
+   *  buttons, a reason on every shut door — and none of them ever said, in one
+   *  sentence, what you are doing here.
+   *
+   *  It is three lines and it never comes back. It is not a tutorial: nothing
+   *  is gated behind it, nothing waits for it, and one tap anywhere dismisses
+   *  it. `docs/GAME_DESIGN.md`: "three dots and one sentence." */
+  let intro = $state(false);
   let w = $state(360);
   let h = $state(640);
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -50,6 +60,9 @@
     // absence paid, and the sentence saying so was gone before it painted.
     // It clears when the player acts, which is what it was for.
     if (a.type !== 'tick') awayLine = '';
+    // Travelling reframes on the new neighbourhood, so a pan from the old one
+    // would leave the player looking at where they used to be.
+    if (a.type === 'travel') nudge = { x: 0, y: 0 };
   };
 
   const here = $derived(PLACE.get(game.at)!);
@@ -85,7 +98,44 @@
    *  about 130px wide and hangs centred under its dot, so a node placed 40px
    *  from the edge pushed half its own name off the screen — visible in the
    *  screenshot, invisible to every other check. */
-  const BAND = { top: 84, bottom: 288, pad: 74 };
+  const BAND = { top: 92, pad: 78 };
+
+  /** ⚠️ MEASURED, NOT ASSUMED. The bottom of the board was a constant 288px
+   *  while the sheet's height depends on how long the place's prose is — a
+   *  sixty-word body and two work buttons is well over 400px. So the graph was
+   *  centred in a band that did not exist and sat low or high depending on
+   *  which place you were standing in, which is the "miscentred again" the
+   *  owner reported. This reads the sheet's real height every frame it changes. */
+  let sheetEl = $state<HTMLElement | null>(null);
+  let sheetH = $state(300);
+  $effect(() => {
+    if (!sheetEl) { sheetH = 96; return; }
+    const ro = new ResizeObserver(() => {
+      sheetH = (sheetEl?.getBoundingClientRect().height ?? 288) + 24;
+    });
+    ro.observe(sheetEl);
+    sheetH = sheetEl.getBoundingClientRect().height + 24;
+    return () => ro.disconnect();
+  });
+
+  /** How far the player has dragged the board. Cleared when you travel: each
+   *  neighbourhood frames itself, and a pan carried across a move would leave
+   *  you looking at where you used to be. */
+  let nudge = $state({ x: 0, y: 0 });
+  let grab: { x: number; y: number } | null = null;
+
+  function grabStart(e: PointerEvent): void {
+    if ((e.target as HTMLElement).closest('button, .card, .sheet, footer')) return;
+    grab = { x: e.clientX, y: e.clientY };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function grabMove(e: PointerEvent): void {
+    if (!grab) return;
+    nudge = { x: nudge.x + (e.clientX - grab.x), y: nudge.y + (e.clientY - grab.y) };
+    grab = { x: e.clientX, y: e.clientY };
+  }
+  const grabEnd = (): void => { grab = null; };
+  const moved = $derived(Math.abs(nudge.x) > 4 || Math.abs(nudge.y) > 4);
 
   const fit = $derived.by(() => {
     void simTick;
@@ -107,7 +157,7 @@
       minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
     }
     const boxW = Math.max(w - BAND.pad * 2, 80);
-    const boxH = Math.max(h - BAND.top - BAND.bottom, 120);
+    const boxH = Math.max(h - BAND.top - sheetH, 120);
     // A degenerate span (one node, or a column) must not divide by zero and
     // must not zoom to the ceiling either.
     const spanX = Math.max(maxX - minX, 0.05);
@@ -121,11 +171,12 @@
       // `cameraFor` puts the origin at `w/2 + panX`, so this is the offset that
       // lands the graph's own centre in the middle of the band.
       panX: (w / 2) - cx * scale - w / 2,
-      panY: (BAND.top + (h - BAND.bottom)) / 2 - cy * scale - h / 2,
+      panY: (BAND.top + (h - sheetH)) / 2 - cy * scale - h / 2,
     };
   });
 
-  const cam = $derived<Camera>(cameraFor(w, h, fit.zoom, fit.panX, fit.panY));
+  const cam = $derived<Camera>(
+    cameraFor(w, h, fit.zoom, fit.panX + nudge.x, fit.panY + nudge.y));
   const pos = $derived.by(() => {
     void simTick;
     const out = new Map<number, { x: number; y: number }>();
@@ -165,6 +216,10 @@
         if (caught.report.done > 0) awayLine = caught.report.line;
       }
       game = run;
+      // Shown only to somebody who has never played: one place seen, nothing
+      // held, nothing learned. A returning player is never told how to walk.
+      intro = run.seen.length <= 1 && run.pack.length === 0
+        && Object.values(run.xp).every((n) => n === 0);
       // ⚠️ THE CARD FOLLOWS YOU. `open` starts at 0 so the first frame has text
       // on it, but a restored run can be anywhere — and the screenshot showed
       // "The Gate." in the narrator above a card describing The Cut, which is
@@ -398,7 +453,11 @@
     </div>
   {/if}
 
-  <div class="stage">
+  <!-- The board is a draggable surface, not a control: the CONTROLS are the
+       dots and buttons on top of it, each of which is a real button. -->
+  <div class="stage" role="application" aria-label="the board"
+    onpointerdown={grabStart} onpointermove={grabMove}
+    onpointerup={grabEnd} onpointercancel={grabEnd}>
     <canvas bind:this={canvas} style="width:{w}px;height:{h}px"></canvas>
 
     {#each PLACES as p (p.id)}
@@ -460,7 +519,7 @@
            status footer stands down while it is open (status is not what you
            are reading), and the dot it belongs to stays lit with its name on
            it. The title says where you are; the board says it too. -->
-      <div class="card" style="--from:{at.x}px">
+      <div class="card" bind:this={sheetEl} style="--from:{at.x}px">
         <h2>{openPlace.name}</h2>
         {#if game.seen.includes(openPlace.id)}
           <p>{openPlace.body}</p>
@@ -586,6 +645,26 @@
        far as it goes and then names where it stops: text you must read, exact
        numbers, and settings. Moving a save between devices is settings. So it
        is a corner button and a panel, and it does not pretend otherwise. -->
+  {#if moved}
+    <!-- Only while the board has been dragged. A control that is always there
+         to undo something you have not done is one more thing to read. -->
+    <button class="recentre" onclick={() => (nudge = { x: 0, y: 0 })}>Recentre</button>
+  {/if}
+
+  {#if intro}
+    <div class="intro" onclick={() => (intro = false)} role="presentation">
+      <div class="introBox">
+        <h2>You are the lit dot.</h2>
+        <p>The others are places you can walk to. Tap one to go there — some ask
+          for a throw of the dice, and some are shut until you are better at
+          something.</p>
+        <p>Standing still is not wasted: start a job and it keeps working while
+          this is closed.</p>
+        <button class="act">Begin</button>
+      </div>
+    </div>
+  {/if}
+
   <button class="gear" aria-label="save and restore"
     onclick={() => { showSave = !showSave; saveNote = ''; }}>⋯</button>
 
@@ -608,12 +687,25 @@
 </main>
 
 <style>
+  /* ⚠️ SAFE AREA, and it is why the owner could not reset the game. The gear
+     sat at top:8 / right:8 of a 100vh box — which on iOS sits UNDER the browser
+     chrome and the notch, so the only way to Start Over was behind Edge's own
+     UI. The reset was never broken; it was unreachable, and a control you can
+     see in a screenshot and cannot touch on a phone is the same defect this
+     project keeps re-finding.
+     `100dvh` also stops the board resizing every time the URL bar hides. */
+  :global(html) { --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-l: env(safe-area-inset-left, 0px);
+    --safe-r: env(safe-area-inset-right, 0px); }
   :global(body) { margin: 0; background: #070b10; color: #dfe9f0;
-    font: 15px/1.45 ui-sans-serif, system-ui, sans-serif; overscroll-behavior: none; }
-  main { position: relative; height: 100vh; overflow: hidden; }
+    font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%; }
+  main { position: relative; height: 100dvh; overflow: hidden;
+    touch-action: none; }
   /* Right inset clears the gear button, which was sitting on top of the
      narrator's last two words. */
-  .said { position: absolute; inset: 10px 56px auto 12px; margin: 0; z-index: 4;
+  .said { position: absolute; inset: calc(10px + var(--safe-t)) 64px auto calc(12px + var(--safe-l)); margin: 0; z-index: 4;
     font-size: 17px; line-height: 1.35; color: #eaf4fa; text-shadow: 0 1px 6px #070b10; }
   .dice { position: absolute; top: 62px; left: 12px; z-index: 4; display: flex;
     gap: 6px; align-items: center; }
@@ -636,10 +728,10 @@
     /* 44px is the touch floor. The dot LOOKS small and TAPS big. */
     min-width: 44px; min-height: 44px; align-content: center; }
   .dot i { width: 11px; height: 11px; border-radius: 50%; background: #4d6b80; }
-  .dot .name { font-size: 12px; color: #7f97a8; white-space: nowrap; }
+  .dot .name { font-size: 14px; color: #93aabb; white-space: nowrap; }
   .dot.you i { width: 18px; height: 18px; background: #8ff0cf;
     box-shadow: 0 0 18px 5px rgba(143,240,207,.35); }
-  .dot.you .name { color: #eafff7; font-weight: 700; font-size: 13px; }
+  .dot.you .name { color: #eafff7; font-weight: 700; font-size: 15px; }
   .dot.way i { width: 15px; height: 15px; background: #78e8c0; }
   .dot.way .name { color: #bff3e0; }
   .dot.shut i { width: 15px; height: 15px; background: #f0b45f; }
@@ -650,7 +742,7 @@
   .mark.been i { background: #587a8f; }
   .mark .name { font-size: 11px; color: #5d7484; white-space: nowrap; }
 
-  .tag { font-size: 11px; color: #6f8798; }
+  .tag { font-size: 13px; color: #8098a9; }
   .tag.shut { color: #f0b45f; max-width: 116px; white-space: normal; text-align: center;
     line-height: 1.25; }
 
@@ -660,16 +752,17 @@
      overflow:hidden sliced the last word off every line. Seen in the
      screenshot, not in a type error. */
   .card { position: absolute; box-sizing: border-box; z-index: 5;
-    left: 12px; right: 12px; bottom: 12px; padding: 14px 16px 16px;
+    left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r));
+    bottom: calc(12px + var(--safe-b)); padding: 14px 16px 16px;
     border-radius: 12px; background: #0d151dfa; border: 1px solid #24384a;
     box-shadow: 0 10px 30px #000a; }
-  .card h2 { margin: 0 0 6px; font-size: 15px; letter-spacing: .02em; }
-  .card p { margin: 0; font-size: 14px; color: #c3d4e0; }
+  .card h2 { margin: 0 0 8px; font-size: 18px; letter-spacing: .01em; }
+  .card p { margin: 0; font-size: 16px; line-height: 1.5; color: #c8d8e4; }
   .card p.unknown { color: #7f97a8; font-style: italic; }
-  .card .x { position: absolute; top: 4px; right: 6px; background: none; border: 0;
-    color: #6f8798; font-size: 20px; width: 32px; height: 32px; }
+  .card .x { position: absolute; top: 2px; right: 4px; background: none; border: 0;
+    color: #8fa6b6; font-size: 24px; width: 48px; height: 48px; }
   .act { position: relative; overflow: hidden; display: block; width: 100%;
-    margin: 10px 0 0; padding: 9px 10px; border-radius: 9px; background: #12222e;
+    margin: 10px 0 0; padding: 12px 12px; border-radius: 10px; background: #12222e;
     border: 1px solid #2f5568; color: #cdf3e6; font: inherit; text-align: left; }
   .act span, .act em { position: relative; z-index: 1; }
   /* The bar and the button are one object. A timer you cannot see while you are
@@ -679,11 +772,12 @@
   /* A running job is NOT dimmed, even though its button is disabled — it is the
      thing currently happening and it should look alive. */
   .act.busy { opacity: 1; border-color: #8ff0cf; color: #eafff7; }
-  .act em { display: block; font-size: 11px; color: #7fa8b8; font-style: normal; }
+  .act em { display: block; font-size: 13px; color: #8fb6c4; font-style: normal; }
   .act:disabled { opacity: .5; }
   .act.busy:disabled { opacity: 1; }
 
-  footer { position: absolute; inset: auto 12px 12px 12px; z-index: 4;
+  footer { position: absolute; z-index: 4;
+    inset: auto calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l));
     display: grid; gap: 8px; justify-items: start; }
   /* Status stands down while you are reading. It is not gone — it is behind the
      sheet, and closing the sheet is one tap on the ×. */
@@ -691,7 +785,7 @@
   .bar { width: 100%; height: 4px; border-radius: 3px; background: #16232f; }
   .bar i { display: block; height: 100%; border-radius: 3px; background: #8ff0cf; }
   .skills, .pack { display: flex; gap: 12px; margin: 0; padding: 0; list-style: none;
-    flex-wrap: wrap; font-size: 12px; color: #9db3c2; }
+    flex-wrap: wrap; font-size: 13px; color: #9db3c2; }
   .skills b { color: #dfe9f0; font-weight: 600; }
   .skills em { color: #6f8798; font-style: normal; }
   .pack li { padding: 3px 8px; border-radius: 20px; background: #14202c;
@@ -713,7 +807,7 @@
   .buy em { font-style: normal; color: #b99a4a; margin-left: 4px; }
   .buy:disabled { opacity: .45; }
   .stats, .soon { display: flex; gap: 10px; margin: 0; padding: 0; list-style: none;
-    flex-wrap: wrap; font-size: 12px; color: #9db3c2; }
+    flex-wrap: wrap; font-size: 13px; color: #9db3c2; }
   .soon { flex-direction: column; gap: 2px; }
   .soon b { color: #cdf3e6; }
   .soon em { font-style: normal; color: #6f8798; }
@@ -723,10 +817,27 @@
     border: 1px solid #6b5720; color: #ffd479; font: inherit; font-weight: 600; }
   .loot em { font-style: normal; color: #b99a4a; }
 
-  .gear { position: absolute; top: 8px; right: 8px; z-index: 7; width: 40px;
-    height: 40px; border-radius: 50%; background: #0d151dcc; border: 1px solid #24384a;
-    color: #8fa6b6; font-size: 18px; line-height: 1; }
-  .sheet { position: absolute; z-index: 8; inset: auto 12px 12px 12px;
+  .intro { position: absolute; inset: 0; z-index: 10; display: grid;
+    place-items: center; padding: 24px;
+    /* ⚠️ NOT OPAQUE. The whole introduction is one sentence pointing at the
+       board — "you are the lit dot" — and at 93% black you could not see the
+       lit dot it was pointing at. The scrim has to leave the thing it names
+       legible or it is just a wall of text about a wall of text. */
+    background: #070b10c8; }
+  .introBox { max-width: 320px; }
+  .introBox h2 { margin: 0 0 10px; font-size: 20px; color: #eafff7; }
+  .introBox p { margin: 0 0 10px; font-size: 16px; line-height: 1.5; color: #c8d8e4; }
+  .introBox .act { margin-top: 14px; text-align: center; }
+  .recentre { position: absolute; z-index: 9; left: 50%; transform: translateX(-50%);
+    bottom: calc(12px + var(--safe-b)); padding: 10px 16px; border-radius: 22px;
+    background: #0d151de6; border: 1px solid #2f4557; color: #cfe3ef; font: inherit;
+    font-size: 14px; }
+  .gear { position: absolute; top: calc(8px + var(--safe-t));
+    right: calc(8px + var(--safe-r)); z-index: 9; width: 48px; height: 48px;
+    border-radius: 50%; background: #0d151de6; border: 1px solid #2f4557;
+    color: #cfe3ef; font-size: 22px; line-height: 1; }
+  .sheet { position: absolute; z-index: 8;
+    inset: auto calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l));
     box-sizing: border-box; padding: 14px; border-radius: 12px;
     background: #0d151dfa; border: 1px solid #24384a; box-shadow: 0 10px 30px #000a; }
   .sheet h2 { margin: 0 0 4px; font-size: 15px; }

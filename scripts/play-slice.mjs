@@ -21,6 +21,7 @@ const EXE = ['/opt/pw-browsers/chromium/chrome-linux/chrome',
              '/opt/pw-browsers/chromium-1194/chrome-linux/chrome']
   .find((p) => existsSync(p));
 
+const misses = [];
 const SHOT = process.argv[2] ?? 'play.png';
 const RUN = Number(process.argv[3] ?? 90);
 const URL = 'http://localhost:4173/';
@@ -36,6 +37,17 @@ await page.goto(URL, { waitUntil: 'networkidle' });
 // ⚠️ PROVE THE PAGE IS ALIVE BEFORE BELIEVING ANYTHING ELSE. A gate that
 // "passes" against a blank page has happened in this repo more than once.
 await page.waitForSelector('.dot.you', { timeout: 15000 });
+
+// The introduction stands in front of a first-time board, which is the point of
+// it — so dismiss it the way a player does, and SAY whether it was there. A run
+// that silently skipped a modal would report a game nobody can actually reach.
+const sawIntro = await page.locator('.intro').count() > 0;
+if (sawIntro) {
+  await page.locator('.introBox .act').click({ timeout: 4000 })
+    .catch(() => misses.push('the introduction would not dismiss'));
+  await page.waitForTimeout(300);
+}
+console.log('introduction:', sawIntro ? 'shown, then dismissed' : 'not shown (returning player)');
 
 // ⚠️ WAIT FOR THE LAYOUT TO STOP MOVING BEFORE TOUCHING ANYTHING. d3-force
 // settles over a few seconds and the camera re-fits as it does, so every
@@ -74,7 +86,6 @@ const read = async () => page.evaluate(() => ({
 }));
 
 const log = [];
-const misses = [];
 // ⚠️ A SWALLOWED TAP IS THE BUG THIS PROBE EXISTS TO CATCH. The first run
 // reported the player standing still and said nothing about why: the card was
 // covering the dot and every click threw, into an empty catch. So a tap that
