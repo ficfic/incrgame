@@ -1,5 +1,9 @@
 # Routes — the navigator model
 
+> **⛔ RETIRED 2026-07-29.** An unbuilt spec for the replaced game, costed in
+> Solid/Raw/Rot. Kept for the record; charted-solid versus rumoured-dotted
+> routes is theme-free and reusable.
+
 **Status: spec, accepted 2026-07-29, not built.** Owner, after playing the
 deployed build:
 

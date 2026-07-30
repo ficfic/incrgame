@@ -1,5 +1,9 @@
 # ECONOMY — SOLID · RAW · ROT
 
+> **⛔ RETIRED 2026-07-29.** Solid, Raw and Rot were checked and unchecked
+> facts; the pivot deletes facts (`docs/BRIEF.md`). Kept for the record, and
+> for its measured balance notes.
+
 > ## ✅ BUILT — 2026-07-28, in the engine. The screen is not built yet.
 >
 > `src/core/` is this spec. The save is v16 and twelve fields; attention, the

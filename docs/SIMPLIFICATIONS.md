@@ -1,5 +1,9 @@
 # Simplifications register
 
+> **⛔ RETIRED 2026-07-29.** The "label it in-game" rule died with the pivot
+> (`docs/BRIEF.md`) and no mechanic here survives. Kept for the record; write
+> no Field Note against it.
+
 The accuracy rule (CLAUDE.md) promises: **when a mechanic simplifies real theory,
 label the simplification in-game.** This is the checklist of debts owed — every
 row must be surfaced by a **Field Note** (see below) before that mechanic ships.

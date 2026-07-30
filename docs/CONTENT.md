@@ -1,5 +1,9 @@
 # Content — the beat sheet
 
+> **⛔ RETIRED 2026-07-29.** Its triggers name mechanics that no longer exist
+> (`docs/BRIEF.md`). Kept for one rule worth stealing: order writing by the
+> fraction of sessions that reach the beat.
+
 > ## ⚠️ WRITTEN AGAINST AN ECONOMY THAT NO LONGER EXISTS (flagged 2026-07-28)
 > This was the companion to `docs/ECONOMY.md`, deleted with the refinement
 > ladder on 2026-07-28 (`docs/ECONOMY_SRR.md`). Every trigger below that names a

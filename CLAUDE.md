@@ -1,8 +1,8 @@
 # incrgame — project rules & ways of working
 
-A solo incremental/idle game on **GitHub Pages**, played by the owner in **iOS
-Edge**, built entirely through Claude Code on mobile. Sessions are ephemeral:
-anything that must outlive one lives in a committed file.
+A solo graph RPG with incremental elements on **GitHub Pages**, played by the
+owner in **iOS Edge**, built entirely through Claude Code on mobile. Sessions
+are ephemeral: anything that must outlive one lives in a committed file.
 
 **Read `docs/NEXT.md` first. It decides what you work on. Nothing else does.**
 
@@ -55,10 +55,12 @@ fixed unless the item called for it. Meta-work breeds meta-work.
 
 ### Review agents (`.claude/agents/`)
 
-`prof-veritas` (theory), `chad-liquidity` (balance), `the-graph` (consistency),
-`the-auditor` (security/licensing), `the-redditor` (genre credibility),
-`the-process` (are we actually following these rules — it counts, it does not
-opine). Fresh context, so they cannot rubber-stamp their own work.
+`chad-liquidity` (balance), `the-graph` (consistency), `the-auditor`
+(security/licensing), `the-redditor` (genre credibility), `the-process` (are we
+actually following these rules — it counts, it does not opine). Fresh context,
+so they cannot rubber-stamp their own work. **`prof-veritas` reviewed
+RDF/OWL/SPARQL fidelity and the pivot left it no subject** — do not invoke it;
+the file stays on disk.
 
 **One review round per item, and only findings that affect correctness or the
 stated requirement.** A reviewer asked to find gaps will always find some; acting
@@ -90,9 +92,10 @@ tests for the check script.
 - **Destructive git is hard-blocked** by `.claude/hooks/guardrails.sh`:
   `push --force`, `reset --hard`, `clean -f`, `checkout --force`, `branch -D`.
 - **This repo is PUBLIC. Never commit secrets.** The hook scans staged commits.
-- **Develop on `claude/knowledge-recovery-ontology-game-g0f9q0`**; deploy by
-  fast-forwarding `claude/incremental-game-github-pages-w7pvk6` onto it. Push
-  with `-u origin <branch>`. No PRs unless asked.
+- **Develop on `claude/rpg-graph-story-redesign`**; deploy by fast-forwarding
+  `claude/incremental-game-github-pages-w7pvk6` onto it. Push with
+  `-u origin <branch>`. No PRs unless asked. *(The pre-pivot branch
+  `claude/knowledge-recovery-ontology-game-g0f9q0` still deploys. Leave it.)*
 - **★ Player-facing PROSE is machine-drafted and owner-edited.** *(Reversed by
   the owner on 2026-07-27. The previous rule — "all prose is human-written,
   never sentences" — is void. Kept on record here because it was load-bearing
@@ -102,7 +105,6 @@ tests for the check script.
   mocks AI slop — so the bar is that a line must be **good enough that the
   owner would defend it**, not merely present. Drafts are a starting point for
   the owner's passes, never a finished surface.
-  *(WordNet glosses shown verbatim are DATA, not prose, and are fine.)*
 - **Saves are breakable.** *(Reversed by the owner on 2026-07-27: "i'm
   completely ok with breaking saves at any time." The previous rule — "never
   break an existing save, additive forward migrations only" — is void. On
@@ -114,10 +116,13 @@ tests for the check script.
   export/import keeps working because that is how the owner moves a save
   between devices. Say plainly in the commit message when a change resets saves;
   a silent reset is still a defect.
-- **Stay theory-faithful — this game is educational.** Every in-game concept
-  matches its real definition in `docs/GLOSSARY.md`. Where a mechanic simplifies
-  real theory, label the simplification in-game (`docs/SIMPLIFICATIONS.md`). The
-  glossary wins unless we change it deliberately and log it.
+- **★ There is no accuracy guardrail any more.** *(Voided by the pivot,
+  2026-07-29. The previous rule — "stay theory-faithful, this game is
+  educational: every concept matches its definition in `GLOSSARY.md`, every
+  simplification labelled in-game" — is void. On record because it was
+  load-bearing for months: it named mechanics, killed others, and is why
+  `GLOSSARY.md` and `SIMPLIFICATIONS.md` exist.)* The ontology it policed is
+  gone. Invented fantasy answers to the brief, not to a citation.
 - **One word, one quantity.** Every player-facing number is declared in
   `src/core/readouts.ts`; `scripts/check-vocabulary.mjs` enforces it. The board
   once said "25 nodes" beside a HUD saying "3 recovered", both correct.
@@ -133,7 +138,8 @@ break_eternity · **Svelte 5 runes** · **DOM + CSS** for anything with text or 
 tap target · **canvas 2D** for the graph's lines · **d3-force** for layout ·
 Vite + PWA · Vitest. Content is declarative data.
 
-Reference docs, read only when the item needs them: `ARCHITECTURE.md` (why this
-stack), `SPEC.md` (types, save, deploy), `VISION.md`, `GLOSSARY.md` +
-`SIMPLIFICATIONS.md` (accuracy), `ECONOMY_SRR.md` (the economy),
-`HANDOVER.md` (current state).
+**`docs/BRIEF.md` wins over any other doc.** Read the rest only when the item
+needs them: `VISION.md`, `GAME_DESIGN.md`, `SKILLS.md`, `COMBAT.md`,
+`ARCHITECTURE.md` (the stack), `SPEC.md` (types, save, deploy), `HANDOVER.md`
+(current state). A doc banner-marked **RETIRED** is history, never a
+requirement.

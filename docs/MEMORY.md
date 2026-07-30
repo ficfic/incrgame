@@ -1,5 +1,9 @@
 # Node memory — the graph remembers you, and remembers you wrong
 
+> **⛔ RETIRED 2026-07-29.** Unbuilt, and its premise — no objects, so memory
+> replaces inventory — is contradicted: `docs/BRIEF.md` wants keys you carry.
+> Kept for the record.
+
 **Status: spec, not built.** Owner asked for inventory and node memories,
 2026-07-27. This is a save-format decision, which is one of the few things
 `CLAUDE.md` rule 3 says earns a document before code.

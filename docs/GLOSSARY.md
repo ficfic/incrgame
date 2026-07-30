@@ -1,5 +1,9 @@
 # Glossary — real theory ↔ game terms
 
+> **⛔ RETIRED 2026-07-29.** The accuracy guardrail this backed is void
+> (`docs/BRIEF.md`): no ontology, no theory to be faithful to. Kept for the
+> record and its citations.
+
 The **accuracy source of truth**. Every in-game concept maps to a correct,
 real-world definition here, with an authoritative source. Rigor stance:
 **faithful but playable** — mechanics are genuinely accurate; where the game

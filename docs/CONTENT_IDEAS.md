@@ -1,5 +1,9 @@
 # Content experiments — a batch to shoot at
 
+> **⛔ RETIRED 2026-07-29.** Every proposal is costed against labels, rot or
+> the review desk — gone with the theme (`docs/BRIEF.md`). Kept so nobody
+> re-proposes them.
+
 > Proposals only. Each is data or mechanism, never prose. Reviewed by agents
 > below the line; **anything marked KILLED stays in this file** so the next
 > session does not re-propose it and re-learn the same objection.

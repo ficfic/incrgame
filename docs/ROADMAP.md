@@ -1,5 +1,9 @@
 # Build roadmap
 
+> **⛔ RETIRED 2026-07-29.** A milestone plan for the replaced game;
+> `docs/NEXT.md` is the queue. Two infrastructure items at the bottom — Web
+> Worker, ESLint core-purity — are still real.
+
 The durable, phased plan — so any session knows the **next concrete step**.
 Milestones are thin and shippable; each ends with something you can *open on your
 phone*. The rings from the scope fence (🟢 MVP → 🟡 in-vision) are respected:

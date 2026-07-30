@@ -1,5 +1,9 @@
 # Handover — read after CLAUDE.md, before anything else
 
+> **⚠️ STILL LIVE, but pre-pivot (2026-07-29).** The state-of-the-build file;
+> the job survives, the contents describe the replaced game. Rewrite when the
+> redesign lands; trust the code over it.
+
 Last verified against the code on **2026-07-28**, at save **v17**, 12 test files
 / 166 tests green. If this file and the code disagree, the code wins and this
 file is a bug. It has been that bug before — a stale HANDOVER is on record in
