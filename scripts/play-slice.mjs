@@ -229,6 +229,42 @@ const kept = before.you === after.you
 console.log('  verdict:', kept ? 'the run survived' : '⚠️ THE RUN DID NOT SURVIVE');
 if (!kept) misses.push('the run did not survive a reload');
 
+// 4b. ★ OFFLINE. The headline feature and the one that cannot be checked by
+//     waiting: start a job, save, then come back with the CLOCK TWO HOURS
+//     LATER. Date.now is overridden before any script runs, so the page's own
+//     restore path does the arithmetic for real.
+const offline = async () => {
+  if (!(await read()).working) {
+    const act = page.locator('.act').first();
+    if (await act.count() === 0) { misses.push('no work action for the offline check'); return; }
+    await act.click({ timeout: 4000 }).catch(() => {});
+  }
+  await page.waitForTimeout(1500);
+  const before = await read();
+  await page.addInitScript(() => {
+    const skip = 2 * 60 * 60 * 1000;
+    const RealDate = Date;
+    const patched = class extends RealDate {
+      constructor(...a) { super(...(a.length ? a : [RealDate.now() + skip])); }
+      static now() { return RealDate.now() + skip; }
+    };
+    window.Date = patched;
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.dot.you', { timeout: 15000 });
+  await settle();
+  const after = await read();
+  const away = await page.locator('.away').textContent().catch(() => '');
+  console.log('\nTWO HOURS AWAY');
+  console.log('  before :', before.skills.join(' | ') || '(none)');
+  console.log('  after  :', after.skills.join(' | ') || '(none)');
+  console.log('  says   :', away?.trim() || '(nothing)');
+  const paid = before.skills.join('|') !== after.skills.join('|');
+  console.log('  verdict:', paid ? 'the absence paid' : '⚠️ ABSENCE PAID NOTHING');
+  if (!paid) misses.push('two hours away paid nothing');
+};
+await offline();
+
 await page.screenshot({ path: SHOT });
 console.log(`\nscreenshot → ${SHOT}`);
 

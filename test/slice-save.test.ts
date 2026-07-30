@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, SKILLS, type Slice } from '../src/slice/engine';
 import { encode, decode, toText, fromText, restore, SAVE_VERSION } from '../src/slice/save';
+import { NODES } from '../src/slice/gather';
 
 /** A run that has actually done things, so the round-trip has something to lose. */
 function played(): Slice {
@@ -129,5 +130,39 @@ describe('restore never stops the game opening', () => {
     const s = played();
     expect(restore(encode(s)).at).toBe(s.at);
     expect(restore(encode(s)).seed).toBe(s.seed);
+  });
+});
+
+describe('a gathering job survives a reload', () => {
+  // ⚠️ THE ONE THE FIRST VERSION GOT WRONG. `decode` validated a job by looking
+  // it up as a PLACE's work, and a gathering node is not that — so every save
+  // written while fishing was refused, and the run came back with the rod put
+  // away and no explanation. Same shape as the debounce bug that ate runs on
+  // reload: correct in the common case, silent in the one that matters.
+  it('accepts a job that names a gathering node, not a place action', () => {
+    const node = NODES[0]!;
+    let s = initial();
+    s = { ...s, at: node.place, seen: [...new Set([...s.seen, node.place])] };
+    s = apply(s, { type: 'work', id: node.id });
+    expect(s.job, 'the fixture must actually be fishing').not.toBeNull();
+    expect(s.job!.work).toBe(node.id);
+
+    const back = decode(encode(s));
+    expect(back, 'a save made while gathering must load').not.toBeNull();
+    expect(back!.job).toEqual(s.job);
+  });
+
+  it('still refuses a job whose node is not at that place', () => {
+    const node = NODES[0]!;
+    const o = JSON.parse(encode(initial())) as Record<string, unknown>;
+    o.job = { work: node.id, at: 0, left: 5 };
+    if (node.place === 0) return;          // fixture would be legitimate
+    expect(decode(JSON.stringify(o))).toBeNull();
+  });
+
+  it('refuses banked attempts at a node that no longer exists', () => {
+    const o = JSON.parse(encode(initial())) as Record<string, unknown>;
+    o.banked = { 'no-such-pool': 3 };
+    expect(decode(JSON.stringify(o))).toBeNull();
   });
 });

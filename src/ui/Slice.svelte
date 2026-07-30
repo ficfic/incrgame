@@ -12,7 +12,12 @@
   import { GraphSim } from '../render/sim';
   import { cameraFor, toScreen, clampZoom, baseScale, type Camera } from '../render/board';
   import { PLACES, PLACE, EDGES, ITEMS } from '../slice/content';
-  import { encode, restore, toText, fromText } from '../slice/save';
+  import { encode, restore, toText, fromText, savedAt } from '../slice/save';
+  import { catchUpSince } from '../slice/offline';
+  import { nextUnlocks } from '../slice/perks';
+  import { STATS, STAT_IDS } from '../slice/stats';
+  import { NOUN, nextTallyCost, tallyBlocked, TALLY_CAP } from '../slice/economy';
+  import { nodesAt, NODE, locked as nodeLocked, chances } from '../slice/gather';
   import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/storage';
   import {
     apply, initial, level, blocked, chanceOf, SKILLS, xpForLevel,
@@ -27,6 +32,8 @@
   let showSave = $state(false);
   let importText = $state('');
   let saveNote = $state('');
+  /** What the catch-up said, shown until the player does something. */
+  let awayLine = $state('');
   let w = $state(360);
   let h = $state(640);
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -35,7 +42,15 @@
    *  text on it — an empty board taught nobody anything. */
   let open = $state<number | null>(0);
 
-  const dispatch = (a: Action): void => { game = apply(game, a); };
+  const dispatch = (a: Action): void => {
+    game = apply(game, a);
+    // ⚠️ A TICK IS NOT THE PLAYER DOING SOMETHING. Clearing on every action
+    // wiped the "while you were away" line inside one frame, because a restored
+    // run has a job running and the render loop ticks it immediately — the
+    // absence paid, and the sentence saying so was gone before it painted.
+    // It clears when the player acts, which is what it was for.
+    if (a.type !== 'tick') awayLine = '';
+  };
 
   const here = $derived(PLACE.get(game.at)!);
   const openPlace = $derived(open === null ? null : PLACE.get(open) ?? null);
@@ -137,7 +152,19 @@
   $effect(() => {
     void (async () => {
       const blob = await loadBlob().catch(() => null);
-      game = restore(blob);
+      let run = restore(blob);
+      // ★ PAY FOR THE ABSENCE. The clock lives HERE and nowhere below: the
+      // engine and `offline.ts` are both pure, and a `Date.now()` on the far
+      // side of this line is what lets a test write a save "eight hours ago".
+      // A save with no `savedAt` (or one this build refused) banks nothing —
+      // crediting an unknown absence would be inventing time.
+      const then = blob ? savedAt(blob) : null;
+      if (then !== null) {
+        const caught = catchUpSince(run, then, Date.now());
+        run = caught.state;
+        if (caught.report.done > 0) awayLine = caught.report.line;
+      }
+      game = run;
       // ⚠️ THE CARD FOLLOWS YOU. `open` starts at 0 so the first frame has text
       // on it, but a restored run can be anywhere — and the screenshot showed
       // "The Gate." in the narrator above a card describing The Cut, which is
@@ -172,10 +199,18 @@
   let lastWrote = 0;
   $effect(() => {
     if (!loaded) return;
-    const blob = encode(game);
+    // ⚠️ THE TIMESTAMP IS TAKEN WHEN THE WRITE HAPPENS, not when the effect
+    // runs. The debounce delays a write by up to two seconds, so stamping here
+    // would date every save slightly in the past — and the first version of
+    // this called `encode(game)` with no clock at all, which wrote `savedAt: 0`
+    // and made the whole offline catch-up inert. It shipped looking correct:
+    // the unit tests passed, the reload tests passed, and two hours away paid
+    // exactly nothing. Only driving a real browser with a shifted clock found
+    // it.
+    const snapshot = game;
     const write = (): void => {
       lastWrote = performance.now();
-      void saveBlob(blob).catch(() => {});
+      void saveBlob(encode(snapshot, Date.now())).catch(() => {});
     };
     clearTimeout(saveTimer);
     // Starved for too long: write now rather than arming another timeout that
@@ -192,7 +227,7 @@
     const flush = (): void => {
       if (!loaded) return;
       clearTimeout(saveTimer);
-      void saveBlob(encode(game)).catch(() => {});
+      void saveBlob(encode(game, Date.now())).catch(() => {});
     };
     document.addEventListener('visibilitychange', flush);
     window.addEventListener('pagehide', flush);
@@ -296,6 +331,35 @@
   });
 
   const pct = (n: number): string => `${Math.round(n * 100)}%`;
+
+  /** Gathering nodes standing where you are. Locked ones are SHOWN with their
+   *  reason, same rule as a shut door: an absent thing teaches nobody. */
+  const rods = $derived.by(() => nodesAt(game.at).map((n) => ({
+    n,
+    why: nodeLocked(level(game, n.skill), n),
+    banked: game.banked[n.id] ?? 0,
+    running: game.job?.work === n.id,
+    odds: 1 - chances(level(game, n.skill), n).miss,
+  })));
+
+  /** What the next level in each skill you have started will hand you. The most
+   *  motivating thing an incremental can show is what you get next. */
+  const soon = $derived.by(() => {
+    const all = nextUnlocks(game.xp);
+    return (Object.keys(all) as SkillId[])
+      .filter((id) => game.xp[id] > 0)
+      .map((id) => ({ id, ...all[id]! }))
+      .sort((a, b) => a.toGo - b.toGo)
+      .slice(0, 2);
+  });
+
+  /** The stat row stays off screen until a stat has actually moved — a readout
+   *  for a quantity nobody has seen change is noise on a first screen. */
+  const statsMoved = $derived(STAT_IDS.some((id) => game.stats[id] !== 5));
+
+  const heap = $derived(Object.entries(game.materials)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1]));
 </script>
 
 <svelte:window bind:innerWidth={w} bind:innerHeight={h} />
@@ -306,6 +370,12 @@
        pop-up, because a line that is always in the same place is readable and a
        thing that appears over the board is not. -->
   <p class="said">{game.said}</p>
+  {#if awayLine}
+    <!-- ★ WHAT THE ABSENCE PAID. Until now closing the tab did nothing at all;
+         this is the sentence that makes coming back worth something, and every
+         number in it is read back out of the state rather than recomputed. -->
+    <p class="away">{awayLine}</p>
+  {/if}
 
   {#if game.lastRoll}
     <!-- ★ THE DICE ARE SHOWN. The owner's wife enjoys dice throws, and a throw
@@ -381,6 +451,26 @@
               <em>{openPlace.work.secs}s · +{openPlace.work.xp} {SKILLS[openPlace.work.skill].name}</em>
             </button>
           {/if}
+          {#if openPlace.id === game.at}
+            {#each rods as r (r.n.id)}
+              <button class="act" class:busy={r.running}
+                onclick={() => dispatch({ type: 'work', id: r.n.id })}
+                disabled={game.job !== null || r.why !== null}>
+                {r.n.verb} — {r.n.name}
+                <em>{r.why
+                  ? r.why
+                  : `${r.n.secs}s · ${pct(r.odds)} · ${SKILLS[r.n.skill].name}`}</em>
+              </button>
+              {#if r.banked > 0}
+                <!-- The attempts banked while you were elsewhere. The DICE for
+                     them have not been thrown yet — that happens here, on a tap,
+                     because a throw you did not watch is a number, not a throw. -->
+                <button class="loot" onclick={() => dispatch({ type: 'haul', node: r.n.id })}>
+                  Pull up <em>×{r.banked}</em>
+                </button>
+              {/if}
+            {/each}
+          {/if}
         {:else}
           <p class="unknown">You can see it from here. That is all you can say about it.</p>
         {/if}
@@ -393,8 +483,32 @@
        means something (`reveal` by another name — a readout for a quantity the
        player has never seen is noise). -->
   <footer>
+    {#if game.econ.obols > 0 || game.econ.tally > 0}
+      <div class="purse">
+        <b>{Math.floor(game.econ.obols)}</b>
+        <span>{game.econ.obols === 1 ? NOUN.one : NOUN.many}</span>
+        {#if game.econ.tally < TALLY_CAP}
+          <!-- The one sink that raises a rate. Shown only once there is a coin
+               to spend, and it says the price rather than greying out mutely. -->
+          <button class="buy" onclick={() => dispatch({ type: 'buyTally' })}
+            disabled={tallyBlocked(game.econ) !== null}>
+            Ferryman's Tally {game.econ.tally}
+            <em>{nextTallyCost(game.econ)}</em>
+          </button>
+        {/if}
+      </div>
+    {/if}
     {#if game.job}
       <div class="bar"><i style="width:{pct(jobPct)}"></i></div>
+    {/if}
+    {#if statsMoved}
+      <!-- Four numbers on one fixed budget. They only ever swap, so this reads
+           as a shape rather than a score — see `stats.ts`. -->
+      <ul class="stats">
+        {#each STAT_IDS as id (id)}
+          <li title={STATS[id].blurb}><b>{STATS[id].name}</b> {game.stats[id]}</li>
+        {/each}
+      </ul>
     {/if}
     {#if skillRows.length}
       <ul class="skills">
@@ -412,6 +526,22 @@
     {#if game.pack.length}
       <ul class="pack">
         {#each game.pack as it (it)}<li>{ITEMS[it]?.name ?? it}</li>{/each}
+      </ul>
+    {/if}
+    {#if heap.length}
+      <ul class="pack heap">
+        {#each heap.slice(0, 5) as [id, n] (id)}<li>{id.replace(/-/g, ' ')} ×{n}</li>{/each}
+      </ul>
+    {/if}
+    {#if soon.length}
+      <!-- WHAT YOU GET NEXT, AND HOW FAR OFF. `perks.ts` exists partly for this
+           line: a level that unlocks nothing is a number, and a number nobody
+           is waiting for is not progression. -->
+      <ul class="soon">
+        {#each soon as u (u.id)}
+          <li><b>{SKILLS[u.id].name} {u.level}</b> {u.perk.label}
+            <em>{Math.ceil(u.toGo)} to go</em></li>
+        {/each}
       </ul>
     {/if}
   </footer>
@@ -518,6 +648,23 @@
   .skills em { color: #6f8798; font-style: normal; }
   .pack li { padding: 3px 8px; border-radius: 20px; background: #14202c;
     border: 1px solid #2b4356; color: #cfe3ef; }
+  .away { position: absolute; inset: 92px 56px auto 12px; margin: 0; z-index: 4;
+    font-size: 13px; line-height: 1.35; color: #ffd479; text-shadow: 0 1px 6px #070b10; }
+  .purse { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .purse b { color: #ffd479; font-size: 15px; }
+  .purse span { color: #8fa6b6; }
+  .buy { margin-left: 6px; padding: 6px 10px; border-radius: 8px; background: #1d1a10;
+    border: 1px solid #6b5720; color: #ffd479; font: inherit; font-size: 12px; }
+  .buy em { font-style: normal; color: #b99a4a; margin-left: 4px; }
+  .buy:disabled { opacity: .45; }
+  .stats, .soon { display: flex; gap: 10px; margin: 0; padding: 0; list-style: none;
+    flex-wrap: wrap; font-size: 12px; color: #9db3c2; }
+  .soon { flex-direction: column; gap: 2px; }
+  .soon b { color: #cdf3e6; }
+  .soon em { font-style: normal; color: #6f8798; }
+  .stats b { color: #dfe9f0; font-weight: 600; }
+  .heap li { border-color: #3a3320; color: #d8cba8; }
+  .act.busy { border-color: #8ff0cf; }
   .loot { padding: 9px 14px; border-radius: 10px; background: #1d1a10;
     border: 1px solid #6b5720; color: #ffd479; font: inherit; font-weight: 600; }
   .loot em { font-style: normal; color: #b99a4a; }

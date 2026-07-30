@@ -19,7 +19,7 @@ import { PLACE, ITEMS } from './content';
 import type { ItemId } from './schema';
 import { fresh as freshStats, valid as validStats, STAT_IDS, type Stats } from './stats';
 import { emptyEconomy, TALLY_CAP, PASSAGE, type Economy } from './economy';
-import { MATERIALS } from './gather';
+import { MATERIALS, NODE } from './gather';
 
 /** Bumped whenever the shape changes. A save from any other version is
  *  refused — see the note above about not repairing what we do not recognise.
@@ -165,6 +165,18 @@ export function decode(blob: string): Slice | null {
     }
   }
 
+  // ── banked gathering attempts ───────────────────────────────────────────
+  const banked: Record<string, number> = {};
+  if (o.banked !== undefined) {
+    if (typeof o.banked !== 'object' || o.banked === null) return null;
+    for (const [id, n] of Object.entries(o.banked as Record<string, unknown>)) {
+      // A node that no longer exists would bank attempts nothing can spend.
+      if (!NODE.has(id)) return null;
+      if (!isFiniteInt(n) || n < 0) return null;
+      if (n > 0) banked[id] = n;
+    }
+  }
+
   let job: Slice['job'] = null;
   if (o.job !== null && o.job !== undefined) {
     if (typeof o.job !== 'object') return null;
@@ -172,7 +184,15 @@ export function decode(blob: string): Slice | null {
     if (typeof j.work !== 'string' || !isFiniteInt(j.at) || !isFiniteInt(j.left)) return null;
     // The job must still name real work at a real place, or the tick reducer
     // would cancel it on the first frame and the bar would vanish unexplained.
-    if (PLACE.get(j.at)?.work?.id !== j.work) return null;
+    //
+    // ⚠️ A JOB IS EITHER A PLACE'S WORK OR A GATHERING NODE. They share the one
+    // slot, so validating only the first silently refused every save made while
+    // fishing — the run would come back with the rod put away and no reason
+    // given, which is precisely the "reloading ate my run" defect this file
+    // exists to prevent.
+    const placeWork = PLACE.get(j.at)?.work?.id === j.work;
+    const gatherNode = NODE.get(j.work)?.place === j.at;
+    if (!placeWork && !gatherNode) return null;
     job = { work: j.work, at: j.at, left: j.left };
   }
 
@@ -190,6 +210,7 @@ export function decode(blob: string): Slice | null {
     stats,
     econ,
     materials,
+    banked,
   };
 }
 

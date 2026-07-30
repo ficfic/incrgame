@@ -9,7 +9,9 @@ import { check, modifier, type Check } from './dice';
 import { fresh as freshStats, checkArgs, oddsWith, eventForRoll, applyEvent, say as statSay,
   satchelLine, failXp, type Stats } from './stats';
 import { powers, type Powers } from './perks';
-import { emptyEconomy, credit, obolsForAction, type Economy } from './economy';
+import { emptyEconomy, credit, obolsForAction, buyTally, tallyBlocked,
+  buyPassage, passageBlocked, PASSAGE, type Economy, type Material } from './economy';
+import { NODE, MATERIALS, locked, gather, bank as bankGather } from './gather';
 
 export type { SkillId } from './schema';
 import type { SkillId } from './schema';
@@ -22,6 +24,10 @@ export const SKILLS: Record<SkillId, { name: string }> = {
   attunement: { name: 'Attunement' },
 };
 
+/** A job is one slot. `work` names either a place's own action or a gathering
+ *  node standing at that place — they share the slot because a player has one
+ *  pair of hands, and because sharing it means `tick` has one shape and offline
+ *  catch-up keeps working for both without a second code path. */
 export interface Job { work: string; at: number; left: number }
 
 /** What a satchel can contain. Carried on the satchel rather than looked up
@@ -53,13 +59,22 @@ export interface Slice {
   /** Gathered materials, id → count. Kept apart from `pack`: the pack is keys
    *  and one of each, this is a heap and counts. */
   materials: Record<string, number>;
+  /** Gathering attempts the clock has paid for and the player has not yet
+   *  rolled, per node. ⚠️ THE ATTEMPTS BANK, THE DICE DO NOT — the same rule
+   *  as satchels, and for the same reason: absence must never throw for you. */
+  banked: Record<string, number>;
 }
 
 export type Action =
   | { type: 'travel'; to: number }
   | { type: 'work'; id: string }
   | { type: 'tick'; secs: number }
-  | { type: 'open' };
+  | { type: 'open' }
+  /** Take the banked attempts at a gathering node and roll them, under the
+   *  thumb. The XP was already paid by the clock; this is only the materials. */
+  | { type: 'haul'; node: string }
+  | { type: 'buyTally' }
+  | { type: 'buyPassage'; id: string };
 
 /** XP to REACH a level. `step(L) = 40 × 1.2^(L−1)` from `docs/SKILLS.md`, summed:
  *  `200 × (1.2^(L−1) − 1)`. Level 1 is free, level 2 costs 40, level 3 costs 88. */
@@ -99,6 +114,7 @@ export function initial(seed = 0x5eed): Slice {
     stats: freshStats(),
     econ: emptyEconomy(),
     materials: {},
+    banked: {},
   };
 }
 
@@ -311,9 +327,23 @@ export function apply(state: Slice, action: Action): Slice {
     }
 
     case 'work': {
-      const here = PLACE.get(state.at);
-      if (!here?.work || here.work.id !== action.id) return state;
       if (state.job) return state;
+      const here = PLACE.get(state.at);
+
+      // A gathering node standing here, offered through the same action.
+      const n = NODE.get(action.id);
+      if (n && n.place === state.at) {
+        const why = locked(level(state, n.skill), n);
+        if (why) return { ...state, said: why };
+        return {
+          ...state,
+          lastRoll: null,
+          job: { work: action.id, at: state.at, left: n.secs },
+          said: `${n.verb}…`,
+        };
+      }
+
+      if (!here?.work || here.work.id !== action.id) return state;
       return {
         ...state,
         lastRoll: null,
@@ -324,6 +354,30 @@ export function apply(state: Slice, action: Action): Slice {
 
     case 'tick': {
       if (!state.job || action.secs <= 0) return state;
+
+      // ── a gathering node ──────────────────────────────────────────────────
+      // ⚠️ THE ATTEMPTS BANK, THE DICE DO NOT. `gather.ts` pays XP at the ODDS
+      // rather than at the outcome, precisely so an absence is arithmetic and
+      // never a throw. What accumulates here is a COUNT; the roll for what you
+      // actually caught happens on `haul`, under the player's thumb.
+      const node = NODE.get(state.job.work);
+      if (node) {
+        const lvl = level(state, node.skill);
+        const b = bankGather(lvl, node, state.job.left, action.secs);
+        if (b.done === 0) return { ...state, job: { ...state.job, left: b.left } };
+        const mult = powers(state.xp).take[node.skill];
+        const paid = Math.round(b.xp * mult);
+        return {
+          ...state,
+          xp: award(state, node.skill, paid),
+          econ: credit(state.econ, obolsForAction(state.econ, { secs: node.secs, tier: node.tier }) * b.done),
+          banked: { ...state.banked, [node.id]: (state.banked[node.id] ?? 0) + b.done },
+          job: { ...state.job, left: b.left },
+          said: `+${paid} ${SKILLS[node.skill].name}. `
+            + `${(state.banked[node.id] ?? 0) + b.done} to pull up.`,
+        };
+      }
+
       const here = PLACE.get(state.job.at);
       const w = here?.work;
       if (!w) return { ...state, job: null };
@@ -366,6 +420,61 @@ export function apply(state: Slice, action: Action): Slice {
           ? `+${paid} ${SKILLS[w.skill].name}.`
           : `+${paid} ${SKILLS[w.skill].name}, ${done} times over.`,
       };
+    }
+
+    case 'haul': {
+      const n = NODE.get(action.node);
+      if (!n) return state;
+      if (locked(level(state, n.skill), n)) return state;
+      // ⚠️ THE XP IS NOT HERE. `gather.ts` pays XP at the ODDS, by the clock,
+      // in `tick` — paying it again on the tap is the classic offline
+      // double-credit bug, and the module's own comment says so. This tap is
+      // for the MATERIALS and the dice, which is the half the player wants to
+      // watch happen.
+      const banked = state.banked[action.node] ?? 0;
+      if (banked <= 0) return state;
+      const h = gather(state.seed, level(state, n.skill), n, banked);
+      const materials = { ...state.materials };
+      for (const [id, count] of Object.entries(h.got)) {
+        materials[id] = (materials[id] ?? 0) + count;
+      }
+      const total = Object.values(h.got).reduce((a, b) => a + b, 0);
+      const best = h.rows.includes('prime') ? ' Something prime in there.' : '';
+      return {
+        ...state,
+        seed: h.seed,
+        materials,
+        banked: { ...state.banked, [action.node]: 0 },
+        said: total === 0
+          ? `${banked} ${banked === 1 ? 'try' : 'tries'} at the ${n.name}, nothing to show.`
+          : `${total} from the ${n.name}.${best}`,
+      };
+    }
+
+    case 'buyTally': {
+      if (tallyBlocked(state.econ)) return state;
+      const econ = buyTally(state.econ);
+      return {
+        ...state,
+        econ,
+        said: `The Ferryman marks his tally. ${econ.tally} now.`,
+      };
+    }
+
+    case 'buyPassage': {
+      const p = PASSAGE.get(action.id);
+      if (!p) return state;
+      const held: Material[] = Object.entries(state.materials)
+        .flatMap(([id, n]) => Array.from({ length: n },
+          () => ({ id, tier: MATERIALS[id]?.tier ?? 1 })));
+      if (passageBlocked(state.econ, p, held)) return state;
+      const bought = buyPassage(state.econ, p, held);
+      const materials = { ...state.materials };
+      for (const m of bought.consumed) {
+        materials[m.id] = Math.max(0, (materials[m.id] ?? 0) - 1);
+        if (materials[m.id] === 0) delete materials[m.id];
+      }
+      return { ...state, econ: bought.economy, materials, said: p.opens };
     }
 
     case 'open': {
