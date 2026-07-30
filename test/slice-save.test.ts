@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { apply, initial, type Slice } from '../src/slice/engine';
+import { apply, initial, SKILLS, type Slice } from '../src/slice/engine';
 import { encode, decode, toText, fromText, restore, SAVE_VERSION } from '../src/slice/save';
 
 /** A run that has actually done things, so the round-trip has something to lose. */
@@ -103,9 +103,16 @@ describe('a save we cannot honour is REFUSED, not repaired', () => {
   });
 
   it('but a skill missing from an older save starts at zero rather than refusing', () => {
+    // Written against SKILLS rather than a hardcoded list: this test asserted
+    // exactly three skills and went red the moment two more were added, which
+    // is a stale test reporting a working feature as broken.
     const back = decode(bad((o) => { o.xp = { lore: 90 }; }));
     expect(back).not.toBeNull();
-    expect(back!.xp).toEqual({ wayfaring: 0, lore: 90, craft: 0 });
+    expect(back!.xp.lore).toBe(90);
+    for (const id of Object.keys(SKILLS) as (keyof typeof SKILLS)[]) {
+      if (id !== 'lore') expect(back!.xp[id], id).toBe(0);
+    }
+    expect(Object.keys(back!.xp).sort()).toEqual(Object.keys(SKILLS).sort());
   });
 });
 

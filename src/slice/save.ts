@@ -15,7 +15,8 @@
 // does not recognise is REFUSED, not repaired. A half-loaded run is worse than
 // a fresh one, because it looks like a save.
 import { initial, type Slice, type SkillId } from './engine';
-import { PLACE, ITEMS, type ItemId } from './content';
+import { PLACE, ITEMS } from './content';
+import type { ItemId } from './schema';
 
 /** Bumped whenever the shape changes. A save from any other version is
  *  refused — see the note above about not repairing what we do not recognise. */
@@ -29,7 +30,7 @@ export function encode(s: Slice): string {
   return JSON.stringify({ ...keep, version: SAVE_VERSION });
 }
 
-const SKILL_IDS: readonly SkillId[] = ['wayfaring', 'lore', 'craft'];
+const SKILL_IDS: readonly SkillId[] = ['wayfaring', 'lore', 'craft', 'guile', 'attunement'];
 
 const isFiniteInt = (v: unknown): v is number =>
   typeof v === 'number' && Number.isFinite(v);

@@ -3,15 +3,19 @@
 // No DOM, no clock, no `Math.random()`. Time arrives as a `tick` action carrying
 // how many seconds passed, which is what lets the same reducer serve the live
 // screen, the offline catch-up and the tests without a branch in it.
-import { PLACE, START, ITEMS, type Choice, type ItemId } from './content';
+import { PLACE, START, ITEMS } from './content';
+import type { Choice, ItemId } from './schema';
 import { check, odds as oddsOf, type Check } from './dice';
 
-export type SkillId = 'wayfaring' | 'lore' | 'craft';
+export type { SkillId } from './schema';
+import type { SkillId } from './schema';
 
 export const SKILLS: Record<SkillId, { name: string }> = {
   wayfaring: { name: 'Wayfaring' },
   lore: { name: 'Lore' },
   craft: { name: 'Craft' },
+  guile: { name: 'Guile' },
+  attunement: { name: 'Attunement' },
 };
 
 export interface Job { work: string; at: number; left: number }
@@ -61,7 +65,7 @@ export function initial(seed = 0x5eed): Slice {
     seed,
     at: START,
     seen: [START],
-    xp: { wayfaring: 0, lore: 0, craft: 0 },
+    xp: { wayfaring: 0, lore: 0, craft: 0, guile: 0, attunement: 0 },
     pack: [],
     satchels: 0,
     job: null,
@@ -80,7 +84,10 @@ export function blocked(s: Slice, c: Choice): string | null {
   if (!c.needs) return null;
   if ('item' in c.needs) {
     const want = c.needs.item;
-    return s.pack.includes(want) ? null : `needs the ${ITEMS[want].name}`;
+    // `ItemId` is a string so regions can add items without editing a shared
+    // union, so the lookup can miss. A test asserts every `needs` names a real
+    // item; this fallback keeps a typo from blanking the label if one lands.
+    return s.pack.includes(want) ? null : `needs the ${ITEMS[want]?.name ?? want}`;
   }
   const have = level(s, c.needs.skill);
   return have >= c.needs.level
@@ -191,7 +198,7 @@ export function apply(state: Slice, action: Action): Slice {
       const r = check(state.seed, 0, 0);
       const got: ItemId = r.total >= 8 ? 'lead-strip' : 'reed-cord';
       const already = state.pack.includes(got);
-      const item = ITEMS[got];
+      const item = ITEMS[got] ?? { name: got, opens: 'nothing' };
       return {
         ...state,
         seed: r.seed,
