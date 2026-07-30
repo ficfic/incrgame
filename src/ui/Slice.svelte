@@ -451,8 +451,6 @@
     min-width: 44px; min-height: 44px; align-content: center; }
   .dot i { width: 11px; height: 11px; border-radius: 50%; background: #4d6b80; }
   .dot .name { font-size: 12px; color: #7f97a8; white-space: nowrap; }
-  .dot.far i { opacity: .45; }
-  .dot.far .name { opacity: .5; }
   .dot.you i { width: 18px; height: 18px; background: #8ff0cf;
     box-shadow: 0 0 18px 5px rgba(143,240,207,.35); }
   .dot.you .name { color: #eafff7; font-weight: 700; font-size: 13px; }
