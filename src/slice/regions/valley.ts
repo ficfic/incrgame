@@ -41,6 +41,9 @@ const PLACES: readonly Place[] = [
         win: 'You read the current and cross dry.',
         lose: 'You cross wet, and slower, and something in the water takes an interest.',
       } },
+      // SEAM -> the works (100+). The weir holds the water back FOR something,
+      // and the something is downstream of it.
+      { to: 100, label: 'Follow the held water' },
       { to: 0, label: 'Back up the cut' },
     ],
   },
@@ -59,6 +62,8 @@ const PLACES: readonly Place[] = [
         win: 'The spacing is a tally, and the tally is a key.',
         lose: 'The marks stay marks. You have looked at them long enough to know that.',
       } },
+      // SEAM -> the stones (300+). The marks count steps, and steps go up too.
+      { to: 300, label: 'Climb past the stack' },
       { to: 0, label: 'Back down to the fork' },
     ],
   },
@@ -99,6 +104,11 @@ const PLACES: readonly Place[] = [
       + 'beside it the same tally cut again, deeper, by someone with more time. '
       + 'The count is longer this run. You are certain, and you cannot say how.',
     choices: [
+      // SEAM -> under (200+). The slot in the far wall is the same slot as the
+      // low door's, and the tally beside it is cut a third time. Wired here
+      // rather than in the region file because a region owns its own ids and
+      // nothing else: the valley decides what the valley offers.
+      { to: 200, label: 'Put the strip in the far slot', needs: { item: 'lead-strip' } },
       { to: 3, label: 'Step back out' },
     ],
   },
