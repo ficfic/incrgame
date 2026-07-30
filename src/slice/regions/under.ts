@@ -10,6 +10,16 @@
 // The deepest room (209) puts you back at Behind the Door (5) — the slot on its
 // far wall takes the key you used to get in. That edge is the whole point and
 // it is a real edge, not a line of prose.
+//
+// ONE LEVEL GATE PER BRANCH, one on each side of the fork, and each is the sole
+// route to its half:
+//
+//   200 Stair ─ 201 Fork ─┬─(guile)─ 202 Drain ═LORE 12═ 203 Chalk ─ 204 Cell ─┐
+//                         │                                                    ├ 208 Gallery
+//                         └─(way)─ 205 Steps ═ATTUNE 18═ 206 Pool ─ 207 Bell ──┘
+//
+// 208 is reachable down either branch, so a shut gate here costs you a wing,
+// never the region. Neither gate can be routed around: see the comment on each.
 import type { Place, Region } from '../schema';
 
 const PLACES: readonly Place[] = [
@@ -57,11 +67,27 @@ const PLACES: readonly Place[] = [
     body:
       'A pipe you can crawl in, and someone has, often enough to wear the '
       + 'bottom smooth. Every twenty paces there is a scratch on the left wall, '
-      + 'at shoulder height for crawling. You count fourteen of them before the '
-      + 'pipe opens out. You did not decide to count. You were already counting '
-      + 'when you noticed.',
+      + 'at shoulder height for crawling. You count fourteen before the pipe '
+      + 'opens into three more, and only the scratches say which. You did not '
+      + 'decide to count. You were already counting when you noticed.',
     choices: [
-      { to: 203, label: 'Follow the scratches' },
+      // ★ GATE — Lore 12. THE ONLY ROUTE to The Chalk Room (203) and The
+      // Keeper's Cell (204) — 203 has one edge in, 204 hangs off 203 — and
+      // therefore the only route to the QUIET KEY, which drops only on the
+      // check at 203, which is the only thing that opens The Same Room (209).
+      // Raise it and three places strand, one of them the room the whole region
+      // is built to arrive at. (The Long Gallery survives on the wet branch.)
+      //
+      // Fiction: the scratches are a tally at crawling height and a tally is
+      // Lore's business — it is the same skill that read the marks on the strip
+      // of lead at The Stack. Three mouths, one of them right, and the marks
+      // are the only thing that knows.
+      //
+      // The arithmetic: level 12 is 1,286 XP. `Listen to the water` at The Cut
+      // pays Lore 30 XP per 20 s — 90 XP/min, and it is the first action in the
+      // game — so about fourteen minutes; `Read back the sheets` in the works
+      // pays 66/min. Mid-curve, mid-game, and no detour to earn it.
+      { to: 203, label: 'Read the scratches on', needs: { skill: 'lore', level: 12 } },
       { to: 201, label: 'Back to the water' },
     ],
   },
@@ -104,9 +130,30 @@ const PLACES: readonly Place[] = [
       'The steps go under and come up. Six of them are below the water and each '
       + 'one has been swept — no silt on them, none, though silt lies thick to '
       + 'either side. At the head of the far flight the water has been mopped up '
-      + 'and wrung into a jar. The jar is full. The jar has been emptied before.',
+      + 'and wrung into a jar. The jar is full. The jar has been emptied '
+      + 'before. Past it there is no light at all.',
     choices: [
-      { to: 206, label: 'On, dripping' },
+      // ★ GATE — Attunement 18. THE ONLY ROUTE to The Ledger Pool (206) and The
+      // Bell Below (207) — 206 has one edge in, 207 hangs off 206 — and
+      // therefore the only route to the TALLOW STUB, which drops only on the
+      // check at 206, which is the only thing that opens The Tallow Room (210).
+      // Raise it and three places strand. (The Long Gallery survives on the dry
+      // branch, which is why this gate and the Lore 12 one can both be steep
+      // without cutting the region in half.)
+      //
+      // Fiction: past the jar the passage is unlit, and this game has already
+      // said what Attunement is for — you hold still until the cold stops
+      // mattering and find the far side by feel (The Tailrace, 103). You do not
+      // walk into that dark. You wait in it until it resolves.
+      //
+      // The arithmetic: level 18 is 4,237 XP, and Attunement is the thinnest
+      // skill in the slice — two actions pay it: `Watch the water` at the fork
+      // one room back, 45 XP per 35 s (77 XP/min), and `Sit by the cold hearth`
+      // in the stones at 72/min. About 55 minutes at the better rate. That is a
+      // real wait, and it is the point of a level-18 door: you leave it shut,
+      // go and do the other branch, and it is open when you come back.
+      { to: 206, label: 'Feel the way on, dripping',
+        needs: { skill: 'attunement', level: 18 } },
       { to: 201, label: 'Back to the fork' },
     ],
   },

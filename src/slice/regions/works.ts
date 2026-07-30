@@ -8,10 +8,16 @@
 // Shape: a fork at The Wheelhouse that is not two doors to one room. The wet
 // way holds the key; the dry way holds the lock. You do both or you do neither.
 //
-//   100 Headrace ─┬─ 101 Wheelhouse ─┬─(craft)─ 102 Pit ─ 104 Counting Room
+//   100 Headrace ─┬─ 101 Wheelhouse ─┬─(craft)─ 102 Pit ═CRAFT 10═ 104 Counting Room
 //                 │                  │                     └ 106 Gate ─[key]─ 107 Drum
 //                 │                  └─(wayfaring)─ 103 Tailrace ─(attunement)─ 105 Store
-//                 └─ 108 Haul Road ─(lore)─ 109 Blockyard ─ 103
+//                 └═WAY 5═ 108 Haul Road ─(lore)─ 109 Blockyard ─ 103
+//
+// `─(skill)─` is a dice CHECK: it never stops you, it changes what you find.
+// `═SKILL n═` is a LEVEL GATE: it stops you until you have grown into it.
+// Both gates below are the only way in to what is behind them — see the
+// comments on each. Levels 5 and 10 are this region's share of a spread that
+// runs 5 · 8 · 10 · 12 · 18 · 24 across the four regions.
 //
 // ⚠️ `works-gate-iron` is authored as found on the shelf at The Drowned Store
 // (105), but `engine.ts`'s satchel table only mints valley items today, so
@@ -33,7 +39,17 @@ const PLACES: readonly Place[] = [
       + 'agree to it. Downhill it goes into a building.',
     choices: [
       { to: 101, label: 'Follow the race down' },
-      { to: 108, label: 'Climb the haul road' },
+      // ★ GATE — Wayfaring 5. THE ONLY ROUTE to The Haul Road (108) and, through
+      // it, The Blockyard (109). 108's only other edge is 109 coming back up,
+      // and 109's only other edge drops to the tailrace one-way, so nothing
+      // reaches either of them except this climb. Raise it and both strand.
+      //
+      // The arithmetic: level 5 is 215 XP. `Sound the depth` at The Weir — one
+      // step back up the race, open from the first minute of the game — pays
+      // Wayfaring 45 XP per 30 s, so 90 XP/min, so five actions and about two
+      // and a half minutes. The first gate a player meets should teach that a
+      // shut door is a short wait, not a wall.
+      { to: 108, label: 'Climb the haul road', needs: { skill: 'wayfaring', level: 5 } },
       { to: 1, label: 'Back to the weir' },
     ],
   },
@@ -68,10 +84,24 @@ const PLACES: readonly Place[] = [
       'Under the wheel, and dry. The water goes over your head in a wooden '
       + 'trough and comes down somewhere else. The floor is swept. Not clean — '
       + 'swept, in long strokes, from the arch inward, by something with a '
-      + 'wider reach than an arm. The broom is not here. The strokes are '
-      + 'recent.',
+      + 'wider reach than an arm. The broom is not here. Beyond the arch, new '
+      + 'props, badly set and bearing.',
     choices: [
-      { to: 104, label: 'Duck through the low arch' },
+      // ★ GATE — Craft 10. THE ONLY ROUTE to The Counting Room (104), and
+      // through it the only route to The Gate (106) and The Drum (107): 104 has
+      // no other edge in, 106 has no other edge in, and 107 hangs off 106
+      // behind the gate iron. Raise it and three places strand, including the
+      // machine the whole region is about.
+      //
+      // Fiction first: somebody propped this arch in a hurry and the props are
+      // taking load they were not cut for. You do not duck through that. You
+      // re-set it, or you leave.
+      //
+      // The arithmetic: level 10 is 832 XP. `Cut reeds` at The Far Bank pays
+      // Craft 35 XP per 25 s (84 XP/min) and needs no key to stand on; `Bar the
+      // wheel over` is in the room above at 40 per 35 s (69 XP/min). Ten to
+      // twelve minutes, or one short absence.
+      { to: 104, label: 'Re-prop the low arch', needs: { skill: 'craft', level: 10 } },
       { to: 101, label: 'Climb out of the pit' },
     ],
   },

@@ -92,6 +92,19 @@ const PLACES: readonly Place[] = [
       + 'person does.',
     choices: [
       { to: 2, label: 'Back to the stack' },
+      // ⚠️ THIS GATE IS NOT LOAD-BEARING AND IS NOT PRETENDING TO BE. The Far
+      // Bank is reachable from The Weir by crossing, and that crossing is a
+      // dice CHECK, which never stops anybody. So this door is a shortcut with
+      // a price on it, not the only way to anything — raise it to 30 and every
+      // test stays green, which is exactly how this file once held the game's
+      // ONLY skill gate while stopping nobody.
+      //
+      // It stays for two reasons: `test/slice.test.ts` pins its wording as the
+      // example of a legible gate ("needs Wayfaring 3 — you are 1"), and level
+      // 3 is 88 XP, so its whole job is to teach the grammar in the first
+      // minute. The gates that hold the game shut are in the other three region
+      // files, at 5, 8, 10, 12, 18 and 24, and each one names what it is the
+      // sole route to.
       { to: 3, label: 'Take the tally to the far bank', needs: { skill: 'wayfaring', level: 3 } },
     ],
   },

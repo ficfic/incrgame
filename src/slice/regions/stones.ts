@@ -13,6 +13,19 @@
 // shifts it is drawn from the gate of an empty sheepfold, at the bottom of the
 // fold path, on the other side. The top of the hill opens with a thing found
 // at the bottom of it.
+//
+// TWO LEVEL GATES, at the two ends of the curve, and both are the only way in
+// to what is behind them:
+//
+//   2 Stack ─ 300 Cut Steps ═WAY 8═ 301 March Stone ─┬─(way)─ 302 Cairn Line
+//                                                    │            ║ WAY 24
+//                                                    │        303 Ninth Cairn
+//                                                    │         ─ 304 Beacon ─[pin]─ 305 Long Sight
+//                                                    └─(guile)─ 306 Fold ─ 307/308/309
+//
+// Wayfaring 8 is the price of the whole region; Wayfaring 24 is the price of
+// its last three rooms, and 305 is the view the game has been pointing at since
+// the first screen. A door near the cap has to be worth the walk.
 import type { Place, Region } from '../schema';
 
 const PLACES: readonly Place[] = [
@@ -27,7 +40,20 @@ const PLACES: readonly Place[] = [
       + 'the valley stops mattering and the sky starts. Below, the stack, '
       + 'getting smaller.',
     choices: [
-      { to: 301, label: 'Climb to the march stone' },
+      // ★ GATE — Wayfaring 8. THE ONLY ROUTE into the stones. Everything from
+      // 301 to 309 hangs off the march stone: 301's other two edges come back
+      // up from 302 and 306, both of which are only reachable through 301, and
+      // The Long Sight's one-way descent lands back here at 300. Raise it and
+      // nine places strand — a third of the game.
+      //
+      // Fiction: the cut steps end. Above them nothing is cut, nothing is
+      // marked, and the grazing looks identical on both sides of a boundary you
+      // cannot yet see. Finding the stone is the skill.
+      //
+      // The arithmetic: level 8 is 517 XP, and `Sound the depth` at The Weir
+      // pays Wayfaring 90 XP/min — under six minutes, and the player has almost
+      // certainly banked some of it already crossing the weir and pacing ruts.
+      { to: 301, label: 'Climb to the march stone', needs: { skill: 'wayfaring', level: 8 } },
       { to: 2, label: 'Back down to the stack' },
     ],
   },
@@ -65,7 +91,26 @@ const PLACES: readonly Place[] = [
       + 'rest.',
     work: { id: 'stones-sight', label: 'Sight along the cairns', skill: 'wayfaring', secs: 40, xp: 45 },
     choices: [
-      { to: 303, label: 'Walk to the ninth cairn' },
+      // ★ GATE — Wayfaring 24. NEAR THE CAP, and the only route to The Ninth
+      // Cairn (303), The Beacon (304) and The Long Sight (305). 303 has one
+      // edge in and it is this one; 304 hangs off 303; 305 hangs off 304 behind
+      // the gate pin and leaves one-way down to 300. Raise it and the region's
+      // whole crest strands.
+      //
+      // Fiction is already in the body above: THE EIGHTH HAS FALLEN. Nine
+      // cairns were stacked so that from one you can see the next and no
+      // further, which means the line is a chain of sightings and the chain is
+      // broken. Holding a bearing across the gap, with nothing to aim at, is
+      // the hardest wayfinding in the game — so it is priced like it.
+      //
+      // The arithmetic: level 24 is 13,049 XP. Best Wayfaring rate reachable is
+      // `Sound the depth` at 90 XP/min (`Sight along the cairns`, right here,
+      // is 67.5), so ~145 minutes — under one 8 h banked absence and well over
+      // one sitting. That is the intent: the last door is one you come back to.
+      // It is affordable because absence pays it, and it is the only gate in
+      // the game that is.
+      { to: 303, label: 'Hold the bearing to the ninth cairn',
+        needs: { skill: 'wayfaring', level: 24 } },
       { to: 301, label: 'Back to the march stone' },
     ],
   },
