@@ -152,16 +152,36 @@
   // dice on the table do not come back with the run — the SEED does, which is
   // the part that matters.
   //
-  // ⚠️ DEBOUNCED, because a running timer changes state four times a second and
-  // an IndexedDB write per tick is a transaction per tick on a phone. 700ms is
-  // short enough that a tap is safe the moment you look away and long enough
-  // that holding a job open is one write, not two hundred.
+  // ⚠️ DEBOUNCED WITH A MAX WAIT, and the max wait is the whole point.
+  //
+  // This was a bare 700ms debounce, and the comment on it claimed "holding a
+  // job open is one write, not two hundred". It was ZERO writes. A running job
+  // ticks every 250ms, every tick re-ran this effect, and every re-run cleared
+  // the pending timeout before it could fire — so the debounce was starved for
+  // as long as the job ran, which is exactly when a player is doing something.
+  //
+  // Measured by a reviewer on the shipped build: start a job, reload, and
+  // `Lore 1 30/40` came back as `(none)`. The opening move of the game is
+  // starting a 20-second job, and iOS Edge reloads backgrounded tabs, so this
+  // ate runs in the most common situation there is.
+  //
+  // A debounce may delay a write. It may never cancel one indefinitely.
+  const SAVE_DEBOUNCE = 700;
+  const SAVE_MAX_WAIT = 2000;
   let saveTimer = 0;
+  let lastWrote = 0;
   $effect(() => {
     if (!loaded) return;
     const blob = encode(game);
+    const write = (): void => {
+      lastWrote = performance.now();
+      void saveBlob(blob).catch(() => {});
+    };
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => { void saveBlob(blob).catch(() => {}); }, 700) as unknown as number;
+    // Starved for too long: write now rather than arming another timeout that
+    // the next tick will cancel.
+    if (performance.now() - lastWrote >= SAVE_MAX_WAIT) { write(); return; }
+    saveTimer = setTimeout(write, SAVE_DEBOUNCE) as unknown as number;
     return () => clearTimeout(saveTimer);
   });
 

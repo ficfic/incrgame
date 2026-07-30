@@ -168,6 +168,48 @@ console.log('  ways on     :', atDoor.ways.join(' · ') || '(none)');
 for (const s of atDoor.shut) console.log(`  SHUT        : ${s.name} — ${s.why}`);
 console.log('  skills      :', atDoor.skills.join(' | ') || '(none)');
 
+// 3b. ★ RELOAD WHILE A JOB IS RUNNING. This is the case that ate runs: the
+//     autosave was a 700ms debounce re-armed by a 4Hz tick, so it was starved
+//     for exactly as long as a job ran — and starting a job is the opening move
+//     of the game. Reloading with the job STOPPED survived fine, which is why
+//     the earlier reload check missed it entirely.
+const midJob = async () => {
+  // Use the job already running if there is one; otherwise walk back to a place
+  // that has work and start one. Reporting "nowhere to test" would be a guard
+  // that quietly checks nothing, which is the failure mode this repo keeps
+  // rediscovering.
+  if (!(await read()).working) {
+    let found = false;
+    for (let hop = 0; hop < 12 && !found; hop++) {
+      const act = page.locator('.act').first();
+      if (await act.count() > 0 && await act.isEnabled()) {
+        await act.click({ timeout: 4000 }).catch(() => {});
+        found = (await read()).working;
+        if (found) break;
+      }
+      const ways = await page.evaluate(() => [...document.querySelectorAll('.dot.way .name')]
+        .map((n) => n.textContent.trim()));
+      if (!ways.length) break;
+      await tapDot(ways[hop % ways.length]);
+      await page.waitForTimeout(250);
+    }
+    if (!found) { misses.push('could not start a job to test a mid-job reload'); return; }
+  }
+  await page.waitForTimeout(3500);              // let it pay at least once
+  const before = await read();
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.dot.you', { timeout: 15000 });
+  await settle();
+  const after = await read();
+  const kept = JSON.stringify(before.skills) === JSON.stringify(after.skills);
+  console.log('\nRELOAD MID-JOB');
+  console.log('  before :', before.skills.join(' | ') || '(none)');
+  console.log('  after  :', after.skills.join(' | ') || '(none)');
+  console.log('  verdict:', kept ? 'the run survived' : '⚠️ RELOADING MID-JOB ATE THE RUN');
+  if (!kept) misses.push('reloading mid-job ate the run');
+};
+await midJob();
+
 // 4. ★ RELOAD. A save that does not survive this is not a save. The seed has
 //    to come back too, or the next roll differs from the one you were about to
 //    make — see docs/DICE.md.
