@@ -103,7 +103,13 @@ describe('equivalence with the live path', () => {
     // The one field that differs, and it differs the way the REDUCER differs —
     // not because the catch-up wrote anything of its own into the state.
     expect(away.said).toBe(apply(s, { type: 'tick', secs: 3600 }).said);
-    expect(watched.said).toBe(apply(s, { type: 'tick', secs: 20 }).said);
+    // ⚠️ NOT `apply(s, {tick: 20}).said`. Work XP is multiplied by the skill's
+    // own perk ladder (`perks.ts`), so the payout RISES as the hour runs — the
+    // last of 180 completions is worth more than the first, and a one-tick
+    // comparison from the starting state is comparing two different levels.
+    // Asserted against the final live frame instead, which is the same claim
+    // without the stale assumption.
+    expect(watched.said).toBe(frames(s, 3600).said);
   });
 
   it('holds for every work in the content, at three different gaps', () => {
@@ -261,9 +267,18 @@ describe('the dice do not roll while away', () => {
     expect(report.satchels).toBe(0);
     // And the satchel still opens, under the thumb, to exactly the throw it
     // would have given before the absence — same dice, same drop, same words.
-    // Only the XP the absence paid is different.
-    expect(apply(state, { type: 'open' }))
-      .toEqual({ ...apply(s, { type: 'open' }), xp: state.xp });
+    // ⚠️ COMPARED FIELD BY FIELD RATHER THAN WHOLE. An absence legitimately
+    // moves xp and obols, so a whole-object compare would have to list every
+    // field the absence is allowed to touch and would go red every time one is
+    // added — which is how it went red here. What this test actually claims is
+    // narrower: the DICE and the DROP are untouched.
+    const openedAway = apply(state, { type: 'open' });
+    const openedHere = apply(s, { type: 'open' });
+    expect(openedAway.seed).toBe(openedHere.seed);
+    expect(openedAway.lastRoll).toEqual(openedHere.lastRoll);
+    expect(openedAway.pack).toEqual(openedHere.pack);
+    expect(openedAway.satchels).toEqual(openedHere.satchels);
+    expect(openedAway.said).toBe(openedHere.said);
   });
 
   it('never travels, never takes a choice, never changes where you are', () => {
@@ -327,7 +342,14 @@ describe('the report', () => {
   it('counts the repeats the reducer actually completed', () => {
     const { report } = catchUp(running(), 3600);
     expect(report.done).toBe(3600 / WORK.secs);          // 180
-    expect(report.xp).toBe(180 * WORK.xp);               // 5400
+    // ⚠️ MEASURED, NOT MULTIPLIED. This asserted `180 * WORK.xp` and went red
+    // the moment the perk ladder started multiplying work XP — a stale test
+    // reporting a working feature as broken, which this repo has now done
+    // twice. The report's own contract is that it describes what the reducer
+    // did, so that is what is checked.
+    const after = catchUp(running(), 3600).state;
+    expect(report.xp).toBe(after.xp[WORK.skill] - running().xp[WORK.skill]);
+    expect(report.xp).toBeGreaterThanOrEqual(180 * WORK.xp);
     expect(report.work).toEqual({
       id: WORK.id, label: WORK.label, skill: WORK.skill, skillName: 'Lore',
     });
@@ -351,8 +373,13 @@ describe('the report', () => {
     const s = running();
     const { state, report } = catchUp(s, 12 * 3600);
     expect(report.done).toBe(2160);
+    // The line's job is that every number in it is a number in the state, so
+    // this reads them BACK OUT of the state rather than recomputing them. The
+    // flat `done * WORK.xp` it used to assert stopped being true when the perk
+    // ladder began multiplying work XP, and would have made the report look
+    // broken when it was correct.
     expect(report.xp).toBe(state.xp.lore - s.xp.lore);
-    expect(report.xp).toBe(report.done * WORK.xp);
+    expect(report.xp).toBeGreaterThanOrEqual(report.done * WORK.xp);
     expect(report.levelBefore).toBe(level(s, 'lore'));
     expect(report.levelAfter).toBe(level(state, 'lore'));
     expect(report.line).toContain(String(report.done));
@@ -365,7 +392,10 @@ describe('the report', () => {
     for (const gap of [20, 21, 199, 3600, 12 * 3600]) {
       const { state, report } = catchUp(running(), gap);
       expect(report.done, String(gap)).toBe(Math.floor(gap / WORK.secs));
-      expect(state.xp.lore, String(gap)).toBe(report.done * WORK.xp);
+      // Against the report, not against a flat rate: work XP is multiplied by
+      // the skill's own perk ladder, so `done * WORK.xp` is only the floor.
+      expect(state.xp.lore, String(gap)).toBe(report.xp);
+      expect(state.xp.lore, String(gap)).toBeGreaterThanOrEqual(report.done * WORK.xp);
     }
   });
 

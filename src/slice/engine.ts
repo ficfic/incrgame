@@ -5,7 +5,11 @@
 // screen, the offline catch-up and the tests without a branch in it.
 import { PLACE, START, ITEMS } from './content';
 import type { Choice, ItemId } from './schema';
-import { check, modifier, odds as oddsOf, type Check } from './dice';
+import { check, modifier, type Check } from './dice';
+import { fresh as freshStats, checkArgs, oddsWith, eventForRoll, applyEvent, say as statSay,
+  satchelLine, failXp, type Stats } from './stats';
+import { powers, type Powers } from './perks';
+import { emptyEconomy, credit, obolsForAction, type Economy } from './economy';
 
 export type { SkillId } from './schema';
 import type { SkillId } from './schema';
@@ -41,6 +45,14 @@ export interface Slice {
   said: string;
   /** The last check, so the dice can be shown. Cleared by the next action. */
   lastRoll: Check | null;
+  /** Four numbers sharing one fixed budget. Never grown, only redistributed —
+   *  see `stats.ts` for why that is what makes a stat not a second skill. */
+  stats: Stats;
+  /** Obols, the Ferryman's Tally, and passages bought. */
+  econ: Economy;
+  /** Gathered materials, id → count. Kept apart from `pack`: the pack is keys
+   *  and one of each, this is a heap and counts. */
+  materials: Record<string, number>;
 }
 
 export type Action =
@@ -57,6 +69,13 @@ export function xpForLevel(level: number): number {
 
 export const LEVEL_CAP = 30;
 
+/** ⚠️ THE ONE PLACE THE SAVE SHAPE IS NUMBERED. `initial()` stamped this
+ *  literally while `save.ts` held its own constant, so bumping the save format
+ *  left every fresh run claiming the old one and `decode(encode(initial()))`
+ *  refused its own output. `save.ts` re-exports this rather than declaring a
+ *  second copy. */
+export const STATE_VERSION = 3;
+
 export function levelFor(xp: number): number {
   let l = 1;
   while (l < LEVEL_CAP && xp >= xpForLevel(l + 1)) l++;
@@ -67,7 +86,7 @@ export const level = (s: Slice, id: SkillId): number => levelFor(s.xp[id]);
 
 export function initial(seed = 0x5eed): Slice {
   return {
-    version: 2,
+    version: STATE_VERSION,
     seed,
     at: START,
     seen: [START],
@@ -77,6 +96,9 @@ export function initial(seed = 0x5eed): Slice {
     job: null,
     said: 'You are here. Two ways on, and one of them is uphill.',
     lastRoll: null,
+    stats: freshStats(),
+    econ: emptyEconomy(),
+    materials: {},
   };
 }
 
@@ -101,10 +123,19 @@ export function blocked(s: Slice, c: Choice): string | null {
     : `needs ${SKILLS[c.needs.skill].name} ${c.needs.level} — you are ${have}`;
 }
 
-/** The odds shown ON the button, before the tap. */
+/** The odds shown ON the button, before the tap.
+ *
+ *  ⚠️ THROUGH `stats.oddsWith`, NOT `dice.odds`. The number on the button is a
+ *  promise, and if stats move the roll but not the promise then the button
+ *  lies. One call site, so there is one place for the two to disagree and this
+ *  is it. */
 export function chanceOf(s: Slice, c: Choice): number | null {
-  return c.test ? oddsOf(level(s, c.test.skill), c.test.demand) : null;
+  return c.test ? oddsWith(s.stats, level(s, c.test.skill), c.test.demand) : null;
 }
+
+/** Everything the player's levels have unlocked. Pure function of xp, so it is
+ *  derived on demand and never stored — a second copy would be a second truth. */
+export const powersOf = (s: Slice): Powers => powers(s.xp);
 
 const award = (s: Slice, id: SkillId, xp: number): Record<SkillId, number> =>
   ({ ...s.xp, [id]: s.xp[id] + xp });
@@ -232,21 +263,46 @@ export function apply(state: Slice, action: Action): Slice {
       };
 
       if (c.test) {
-        const r = check(state.seed, level(state, c.test.skill), c.test.demand);
+        // ⚠️ THE STATS GO IN THROUGH `checkArgs`, NOT AROUND THE CLAMP.
+        // `stats.ts` re-expresses a stat step as a level offset and hands back
+        // arguments `dice.check` already knows how to clamp, so the best and
+        // worst odds in the game are still 94% and 10%. The button's number
+        // comes from `chanceOf`, which calls the same pair — one promise, one
+        // arithmetic.
+        const lvl = level(state, c.test.skill);
+        const args = checkArgs(state.stats, lvl, c.test.demand);
+        const shown = oddsWith(state.stats, lvl, c.test.demand);
+        const r = check(state.seed, args.level, args.demand);
+        const gained = powersOf(state);
+
+        // A stat moves only on an event worth remembering: a check passed at
+        // long odds, one fluffed at short ones, a triumph, a disaster.
+        const ev = eventForRoll(shown, r);
+        const stats = ev ? applyEvent(state.stats, ev) : state.stats;
+        const note = ev ? statSay(state.stats, ev) : null;
+
+        const won = crossingXp(state, c.test, r.passed, first);
+        const paid = r.passed ? won : failXp(state.stats, won);
+        const line = r.crit === 'triumph' ? `A perfect throw. ${c.test.win}`
+          : r.crit === 'disaster' ? `Both dice come up one. ${c.test.lose}`
+          : r.passed ? c.test.win : c.test.lose;
+
         next = {
           ...next,
           seed: r.seed,
           lastRoll: r,
-          xp: award(next, c.test.skill, crossingXp(state, c.test, r.passed, first)),
-          said: r.crit === 'triumph' ? `A perfect throw. ${c.test.win}`
-            : r.crit === 'disaster' ? `Both dice come up one. ${c.test.lose}`
-            : r.passed ? c.test.win : c.test.lose,
+          stats,
+          xp: award(next, c.test.skill, paid),
+          said: note ? `${line} ${note}` : line,
           // ★ LOOT IS A SATCHEL, NOT AN ITEM. It arrives unopened so the roll
           // that decides what is in it happens under the player's thumb. That
           // is the whole of "dice throws feel good": the throw has to be a
           // thing you DO, not a thing you are told about afterwards.
           // ...and only while the edge still `owes` you one, or it is a stream.
-          satchels: c.test.loot && r.passed && owes(state, c.test.loot)
+          // Guile 20 pays out on a FAILED check too — the one perk that makes
+          // losing a throw worth something beyond the plateau.
+          satchels: c.test.loot && (r.passed || gained.lootOnFail)
+            && owes(state, c.test.loot)
             ? [...next.satchels, c.test.loot]
             : next.satchels,
         };
@@ -281,13 +337,34 @@ export function apply(state: Slice, action: Action): Slice {
       while (left <= 0) { done++; left += w.secs; }
       if (done === 0) return { ...state, job: { ...state.job, left } };
 
+      // A level's own unlocks multiply its work, capped at x2 (`perks.ts`), and
+      // the Ferryman's Tally multiplies the obols (`economy.ts`). Both are pure
+      // functions of state, so banked time and live time pay identically —
+      // which is the only reason offline catch-up can reuse this branch.
+      // ⚠️ PAID ONE COMPLETION AT A TIME, and that is not a style choice.
+      // The perk multiplier is a function of the skill's own XP, so it RISES as
+      // the batch runs. Multiplying once by the starting level under-pays a
+      // long absence against the same time spent watching — and
+      // `test/slice-offline.test.ts` asserts the two are identical down to the
+      // whole state, which is the only reason offline catch-up is allowed to
+      // reuse this branch at all. It caught this the first time it ran.
+      // Bounded by the 12h cap over the shortest job: about 2,160 iterations.
+      let xp = state.xp;
+      let paid = 0;
+      for (let i = 0; i < done; i++) {
+        const step = Math.round(w.xp * powers(xp).take[w.skill]);
+        paid += step;
+        xp = { ...xp, [w.skill]: xp[w.skill] + step };
+      }
+      const coin = obolsForAction(state.econ, { secs: w.secs }) * done;
       return {
         ...state,
-        xp: award(state, w.skill, w.xp * done),
+        xp,
+        econ: credit(state.econ, coin),
         job: { ...state.job, left },
         said: done === 1
-          ? `+${w.xp} ${SKILLS[w.skill].name}.`
-          : `+${w.xp * done} ${SKILLS[w.skill].name}, ${done} times over.`,
+          ? `+${paid} ${SKILLS[w.skill].name}.`
+          : `+${paid} ${SKILLS[w.skill].name}, ${done} times over.`,
       };
     }
 
@@ -303,8 +380,14 @@ export function apply(state: Slice, action: Action): Slice {
       // `2d10 ≥ 8` is 79%, so the key is the usual outcome and the cord is the
       // 21% disappointment. Progression is not luck-gated: the check that pays
       // the satchel can be walked again, so a bad roll costs a trip, never a run.
+      // ⚠️ THE ROLL TAKES NO MODIFIER, THE LINE MOVES. `docs/DICE.md` §6 is
+      // firm that pure luck is the fun here, so Fortune and Craft do not touch
+      // the dice — they lower the number the dice have to beat, which is the
+      // same move `dice.ts` makes for levels and for the same reason. Base 8
+      // (79%); Fortune and Craft can pull it to 4 (90%+).
       const r = check(state.seed, 0, 0);
-      const got = r.total >= 8 ? drop.good : drop.poor;
+      const line = Math.min(satchelLine(state.stats), powersOf(state).satchelTarget);
+      const got = r.total >= line ? drop.good : drop.poor;
       const rest = state.satchels.slice(1);
       if (!got) {
         return {

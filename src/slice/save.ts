@@ -14,24 +14,44 @@
 // Saves are breakable (CLAUDE.md, reversed 2026-07-27), so a save this code
 // does not recognise is REFUSED, not repaired. A half-loaded run is worse than
 // a fresh one, because it looks like a save.
-import { initial, type Slice, type SkillId } from './engine';
+import { initial, STATE_VERSION, type Slice, type SkillId } from './engine';
 import { PLACE, ITEMS } from './content';
 import type { ItemId } from './schema';
+import { fresh as freshStats, valid as validStats, STAT_IDS, type Stats } from './stats';
+import { emptyEconomy, TALLY_CAP, PASSAGE, type Economy } from './economy';
+import { MATERIALS } from './gather';
 
 /** Bumped whenever the shape changes. A save from any other version is
  *  refused — see the note above about not repairing what we do not recognise.
  *
  *  2 — satchels became a list of drop specs instead of a count, because the
- *      count could only ever mint the two valley items. Saves from 1 reset;
- *      authorised (CLAUDE.md, saves are breakable). */
-export const SAVE_VERSION = 2;
+ *      count could only ever mint the two valley items. Saves from 1 reset.
+ *  3 — stats, the economy and gathered materials arrive, and every save now
+ *      carries `savedAt` so absence can finally be paid for (`offline.ts`).
+ *      Saves from 2 reset; authorised (CLAUDE.md, saves are breakable). */
+export const SAVE_VERSION = STATE_VERSION;
 
-export function encode(s: Slice): string {
+/** ⚠️ `nowMs` IS AN ARGUMENT, NOT A `Date.now()` CALL. This module stays pure
+ *  and the shell owns the clock — which is what lets a test write a save
+ *  "eight hours ago" without touching the system time. */
+export function encode(s: Slice, nowMs = 0): string {
   // `lastRoll` is deliberately NOT saved. It is the dice sitting on the table
   // from the action you just took, and restoring it would show a throw the
   // player did not make in this sitting. The seed is what carries.
   const { lastRoll: _drop, ...keep } = s;
-  return JSON.stringify({ ...keep, version: SAVE_VERSION });
+  return JSON.stringify({ ...keep, version: SAVE_VERSION, savedAt: nowMs });
+}
+
+/** When this save was written, or null if it does not say. Null means a
+ *  catch-up must not run: crediting an unknown absence is inventing time. */
+export function savedAt(blob: string): number | null {
+  try {
+    const o = JSON.parse(blob) as Record<string, unknown>;
+    return typeof o.savedAt === 'number' && Number.isFinite(o.savedAt) && o.savedAt > 0
+      ? o.savedAt : null;
+  } catch {
+    return null;
+  }
 }
 
 const SKILL_IDS: readonly SkillId[] = ['wayfaring', 'lore', 'craft', 'guile', 'attunement'];
@@ -94,6 +114,57 @@ export function decode(blob: string): Slice | null {
     xp[id] = v;
   }
 
+  // ── stats ───────────────────────────────────────────────────────────────
+  // Validated as a SHAPE, not as four numbers: `stats.ts` holds them to one
+  // fixed budget, and a save carrying 40 points would be a different game
+  // wearing this one's save format.
+  let stats: Stats;
+  if (o.stats === undefined) {
+    stats = freshStats();
+  } else {
+    if (typeof o.stats !== 'object' || o.stats === null) return null;
+    const raw = o.stats as Record<string, unknown>;
+    const built = {} as Stats;
+    for (const id of STAT_IDS) {
+      const v = raw[id];
+      if (!isFiniteInt(v) || v < 0) return null;
+      built[id] = v;
+    }
+    if (!validStats(built)) return null;
+    stats = built;
+  }
+
+  // ── economy ─────────────────────────────────────────────────────────────
+  let econ: Economy;
+  if (o.econ === undefined) {
+    econ = emptyEconomy();
+  } else {
+    if (typeof o.econ !== 'object' || o.econ === null) return null;
+    const e = o.econ as Record<string, unknown>;
+    if (!isFiniteInt(e.obols) || e.obols < 0) return null;
+    if (!isFiniteInt(e.tally) || e.tally < 0 || e.tally > TALLY_CAP) return null;
+    if (!Array.isArray(e.passages)) return null;
+    const passages: string[] = [];
+    for (const id of e.passages) {
+      // A passage that no longer exists would leave a paid-for door shut with
+      // no way to notice.
+      if (typeof id !== 'string' || !PASSAGE.has(id)) return null;
+      if (!passages.includes(id)) passages.push(id);
+    }
+    econ = { obols: e.obols, tally: e.tally, passages };
+  }
+
+  // ── materials ───────────────────────────────────────────────────────────
+  const materials: Record<string, number> = {};
+  if (o.materials !== undefined) {
+    if (typeof o.materials !== 'object' || o.materials === null) return null;
+    for (const [id, n] of Object.entries(o.materials as Record<string, unknown>)) {
+      if (!(id in MATERIALS)) return null;
+      if (!isFiniteInt(n) || n < 0) return null;
+      if (n > 0) materials[id] = n;
+    }
+  }
+
   let job: Slice['job'] = null;
   if (o.job !== null && o.job !== undefined) {
     if (typeof o.job !== 'object') return null;
@@ -116,6 +187,9 @@ export function decode(blob: string): Slice | null {
     job,
     said: o.said,
     lastRoll: null,
+    stats,
+    econ,
+    materials,
   };
 }
 

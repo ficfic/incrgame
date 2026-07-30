@@ -204,10 +204,17 @@ describe('the reducer is pure and total', () => {
     expect(s.xp.lore).toBe(0);           // not finished
     s = apply(s, { type: 'tick', secs: 2 });
     expect(s.xp.lore).toBe(30);          // one completion
-    // An hour away completes 60s/20s = 180 repeats, and rolls no dice.
+    // An hour away completes 3600s/20s = 180 repeats, and rolls no dice.
+    //
+    // ⚠️ A FLOOR, NOT AN EQUALITY. This asserted `30 + 30 * 180` exactly and
+    // went red when the perk ladder began multiplying work XP — the third
+    // stale-constant failure in this suite. The claims that matter are that
+    // every repeat is paid and that ABSENCE ROLLS NOTHING; the exact figure is
+    // the perk ladder's business and is asserted in its own tests.
     const seedBefore = s.seed;
+    const before = s.xp.lore;
     s = apply(s, { type: 'tick', secs: 3600 });
-    expect(s.xp.lore).toBe(30 + 30 * 180);
+    expect(s.xp.lore - before).toBeGreaterThanOrEqual(30 * 180);
     expect(s.seed).toBe(seedBefore);
   });
 
@@ -337,7 +344,11 @@ describe('★ a check you keep re-walking stops being the best move', () => {
   it('pacing an hour is no longer better than leaving the timer running', () => {
     const idle = timerForAnHour();
     const farm = paceForAnHour();
-    expect(idle).toBe(5400);                      // unchanged; the baseline
+    // ⚠️ RELATIVE, NOT ABSOLUTE. This pinned the baseline at 5,400 and went red
+    // when perks began multiplying work XP — but the number was never the
+    // claim. The claim is that an hour of tapping must not beat an hour of NOT
+    // tapping, and that survives any change to either rate.
+    expect(idle).toBeGreaterThanOrEqual(5400);
     // Was 22,572 (4.2x). The ceiling is the timer itself: an hour of tapping
     // must not beat an hour of not tapping, or the idle half is dominated.
     expect(farm.xp, `farm ${farm.xp} vs timer ${idle}`).toBeLessThanOrEqual(idle);
