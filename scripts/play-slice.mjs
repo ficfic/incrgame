@@ -265,6 +265,50 @@ const offline = async () => {
 };
 await offline();
 
+// 5. ★ THE LAYOUT AUDIT. Every UI defect this project has shipped was found by
+//    looking at a picture — dots stacked inside 30px, a card slicing the last
+//    word off every line, labels walking off the edge. These two checks are
+//    those bugs turned into assertions, so the next one fails a run instead of
+//    a playtest.
+const layout = await page.evaluate(() => {
+  // ⚠️ THIS CHECK WAS VACUOUS ONCE ALREADY. The first version asked whether a
+  // DOT's label was covered — and dots sit at z-index 6 against the card's 5,
+  // so a dot can never lose that contest and the check could not fail. Proven:
+  // the card was moved to cover the entire board and it still reported "none",
+  // while the run broke because the work button was unreachable.
+  //
+  // The defect it was written for is the OTHER direction: dots drawing through
+  // the prose. So it samples the card's own text and asks what is on top.
+  const covered = [];
+  const prose = document.querySelector('.card p');
+  if (prose) {
+    const r = prose.getBoundingClientRect();
+    for (let i = 1; i <= 8; i++) {
+      const x = r.left + (r.width * i) / 9;
+      for (const y of [r.top + 6, r.top + r.height / 2, r.bottom - 6]) {
+        const top = document.elementFromPoint(x, y);
+        if (top && !prose.contains(top) && top !== prose) {
+          const what = `${top.tagName}.${String(top.className).split(' ')[0]}`;
+          if (!covered.includes(what)) covered.push(what);
+        }
+      }
+    }
+  }
+  const offscreen = [...document.querySelectorAll('.dot .name')]
+    .map((n) => ({ t: n.textContent.trim(), r: n.getBoundingClientRect() }))
+    .filter((x) => x.r.width > 0 && (x.r.left < 0 || x.r.right > window.innerWidth))
+    .map((x) => x.t);
+  const body = document.body;
+  return { covered, offscreen, hScroll: body.scrollWidth > window.innerWidth };
+});
+console.log('\nLAYOUT');
+console.log('  prose covered by :', layout.covered.length ? layout.covered.join(' | ') : 'nothing');
+console.log('  labels off-screen:', layout.offscreen.length ? layout.offscreen.join(' | ') : 'none');
+console.log('  page scrolls sideways:', layout.hScroll ? '⚠️ yes' : 'no');
+if (layout.covered.length) misses.push(`the card's prose is covered by ${layout.covered.join(', ')}`);
+if (layout.offscreen.length) misses.push(`labels off-screen: ${layout.offscreen.join(', ')}`);
+if (layout.hScroll) misses.push('the page scrolls sideways');
+
 await page.screenshot({ path: SHOT });
 console.log(`\nscreenshot → ${SHOT}`);
 

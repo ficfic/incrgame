@@ -320,9 +320,17 @@
   }
 
   // ---- SKILLS, as a row that only shows what has moved --------------------
-  const skillRows = $derived.by(() => (Object.keys(SKILLS) as SkillId[])
-    .map((id) => ({ id, name: SKILLS[id].name, lvl: level(game, id), xp: game.xp[id] }))
-    .filter((r) => r.xp > 0));
+  const skillRows = $derived.by(() => {
+    // The skill the running job is paying goes first, so the progress bar above
+    // it has something to be about. Everything else follows by level.
+    const busy = game.job
+      ? (NODE.get(game.job.work)?.skill ?? PLACE.get(game.job.at)?.work?.skill)
+      : undefined;
+    return (Object.keys(SKILLS) as SkillId[])
+      .map((id) => ({ id, name: SKILLS[id].name, lvl: level(game, id), xp: game.xp[id] }))
+      .filter((r) => r.xp > 0)
+      .sort((a, b) => (a.id === busy ? -1 : b.id === busy ? 1 : b.lvl - a.lvl));
+  });
 
   const jobPct = $derived.by(() => {
     if (!game.job) return 0;
@@ -350,7 +358,11 @@
       .filter((id) => game.xp[id] > 0)
       .map((id) => ({ id, ...all[id]! }))
       .sort((a, b) => a.toGo - b.toGo)
-      .slice(0, 2);
+      // ⚠️ ONE. The footer already carries a bar, a purse, four stats, up to
+      // five skills, the pack and the heap; two more lines of "what's next"
+      // turned it into a wall in the screenshot. The nearest unlock is the
+      // motivating one and the rest are noise until it lands.
+      .slice(0, 1);
   });
 
   /** The stat row stays off screen until a stat has actually moved — a readout
@@ -369,13 +381,11 @@
        "pop ups above the graph when something happens"; this is that, minus the
        pop-up, because a line that is always in the same place is readable and a
        thing that appears over the board is not. -->
-  <p class="said">{game.said}</p>
-  {#if awayLine}
-    <!-- ★ WHAT THE ABSENCE PAID. Until now closing the tab did nothing at all;
-         this is the sentence that makes coming back worth something, and every
-         number in it is read back out of the state rather than recomputed. -->
-    <p class="away">{awayLine}</p>
-  {/if}
+  <!-- ONE LINE, ONE PLACE. The away sentence used to sit in its own block under
+       the narrator, and the two then said the same thing twice — the screenshot
+       read "+11360 Craft, 206 times over." above "Away 2 hours… +11360 Craft."
+       Same slot, amber when it is the absence talking. -->
+  <p class="said" class:away={awayLine}>{awayLine || game.said}</p>
 
   {#if game.lastRoll}
     <!-- ★ THE DICE ARE SHOWN. The owner's wife enjoys dice throws, and a throw
@@ -409,6 +419,8 @@
             class:you={p.id === game.at}
             class:way={way !== undefined && way.why === null}
             class:shut={way?.why != null}
+            class:hushed={open !== null && open !== p.id && p.id !== game.at
+              && way === undefined}
             style="left:{at.x}px; top:{at.y}px"
             aria-label={p.name}
             onclick={() => {
@@ -439,16 +451,35 @@
          place. 40–70 words and it never scrolls. -->
     {#if openPlace && pos.get(openPlace.id)}
       {@const at = pos.get(openPlace.id)!}
-      <div class="card" style="left:{Math.min(Math.max(12, at.x - 140), Math.max(12, w - 292))}px;
-                               top:{Math.min(at.y + 26, h - 220)}px">
+      <!-- ⚠️ A SHEET, NOT A CARD PINNED TO ITS DOT. `GAME_DESIGN.md` asked for
+           the prose to expand in place, and in place is 280px wide sitting on
+           top of the very dots that are the game's controls — the screenshot
+           showed "The Tailrace" and its 45% printing straight through the
+           sentence. Dimming them was worse: they are the ways on.
+           So it lands in the band already reserved for it at the bottom, the
+           status footer stands down while it is open (status is not what you
+           are reading), and the dot it belongs to stays lit with its name on
+           it. The title says where you are; the board says it too. -->
+      <div class="card" style="--from:{at.x}px">
         <h2>{openPlace.name}</h2>
         {#if game.seen.includes(openPlace.id)}
           <p>{openPlace.body}</p>
           {#if openPlace.id === game.at && openPlace.work}
-            <button class="act" onclick={() => dispatch({ type: 'work', id: openPlace.work!.id })}
+            {@const mine = game.job?.work === openPlace.work.id}
+            <!-- ⚠️ A DISABLED BUTTON MUST SAY WHY, and the running one must show
+                 that it is running. This was greyed out with the offer still on
+                 it — "35s · +40 Craft" — while that exact job was already
+                 turning, and the progress bar was in the footer, which the
+                 sheet stands down. So the player was reading a dead button and
+                 could not see their own timer. The fill IS the bar now. -->
+            <button class="act" class:busy={mine}
+              onclick={() => dispatch({ type: 'work', id: openPlace.work!.id })}
               disabled={game.job !== null}>
-              {openPlace.work.label}
-              <em>{openPlace.work.secs}s · +{openPlace.work.xp} {SKILLS[openPlace.work.skill].name}</em>
+              {#if mine}<i class="fill" style="width:{pct(jobPct)}"></i>{/if}
+              <span>{mine ? `${openPlace.work.label}…` : openPlace.work.label}</span>
+              <em>{mine ? `${Math.ceil(game.job!.left)}s left`
+                : game.job ? 'busy elsewhere'
+                : `${openPlace.work.secs}s · +${openPlace.work.xp} ${SKILLS[openPlace.work.skill].name}`}</em>
             </button>
           {/if}
           {#if openPlace.id === game.at}
@@ -456,9 +487,11 @@
               <button class="act" class:busy={r.running}
                 onclick={() => dispatch({ type: 'work', id: r.n.id })}
                 disabled={game.job !== null || r.why !== null}>
-                {r.n.verb} — {r.n.name}
-                <em>{r.why
-                  ? r.why
+                {#if r.running}<i class="fill" style="width:{pct(jobPct)}"></i>{/if}
+                <span>{r.n.verb} — {r.n.name}</span>
+                <em>{r.why ? r.why
+                  : r.running ? `${Math.ceil(game.job!.left)}s left`
+                  : game.job ? 'busy elsewhere'
                   : `${r.n.secs}s · ${pct(r.odds)} · ${SKILLS[r.n.skill].name}`}</em>
               </button>
               {#if r.banked > 0}
@@ -482,7 +515,7 @@
   <!-- ★ THE ONLY PERSISTENT CHROME. Three things, and each appears only once it
        means something (`reveal` by another name — a readout for a quantity the
        player has never seen is noise). -->
-  <footer>
+  <footer class:stood-down={open !== null}>
     {#if game.econ.obols > 0 || game.econ.tally > 0}
       <div class="purse">
         <b>{Math.floor(game.econ.obols)}</b>
@@ -523,14 +556,17 @@
         Open satchel <em>×{game.satchels.length}</em>
       </button>
     {/if}
-    {#if game.pack.length}
+    {#if game.pack.length || heap.length}
+      <!-- Keys and materials on ONE row. They were two, and with five of each
+           the footer took a third of the screen. Materials are counted and
+           truncated; keys are never hidden because a key is what opens a door
+           you have already been told about. -->
       <ul class="pack">
         {#each game.pack as it (it)}<li>{ITEMS[it]?.name ?? it}</li>{/each}
-      </ul>
-    {/if}
-    {#if heap.length}
-      <ul class="pack heap">
-        {#each heap.slice(0, 5) as [id, n] (id)}<li>{id.replace(/-/g, ' ')} ×{n}</li>{/each}
+        {#each heap.slice(0, 3) as [id, n] (id)}
+          <li class="mat">{id.replace(/-/g, ' ')} ×{n}</li>
+        {/each}
+        {#if heap.length > 3}<li class="mat more">+{heap.length - 3}</li>{/if}
       </ul>
     {/if}
     {#if soon.length}
@@ -624,7 +660,7 @@
      overflow:hidden sliced the last word off every line. Seen in the
      screenshot, not in a type error. */
   .card { position: absolute; box-sizing: border-box; z-index: 5;
-    width: min(280px, calc(100vw - 24px)); padding: 12px 14px 14px;
+    left: 12px; right: 12px; bottom: 12px; padding: 14px 16px 16px;
     border-radius: 12px; background: #0d151dfa; border: 1px solid #24384a;
     box-shadow: 0 10px 30px #000a; }
   .card h2 { margin: 0 0 6px; font-size: 15px; letter-spacing: .02em; }
@@ -632,14 +668,26 @@
   .card p.unknown { color: #7f97a8; font-style: italic; }
   .card .x { position: absolute; top: 4px; right: 6px; background: none; border: 0;
     color: #6f8798; font-size: 20px; width: 32px; height: 32px; }
-  .act { display: block; width: 100%; margin: 10px 0 0; padding: 9px 10px;
-    border-radius: 9px; background: #12222e; border: 1px solid #2f5568;
-    color: #cdf3e6; font: inherit; text-align: left; }
+  .act { position: relative; overflow: hidden; display: block; width: 100%;
+    margin: 10px 0 0; padding: 9px 10px; border-radius: 9px; background: #12222e;
+    border: 1px solid #2f5568; color: #cdf3e6; font: inherit; text-align: left; }
+  .act span, .act em { position: relative; z-index: 1; }
+  /* The bar and the button are one object. A timer you cannot see while you are
+     reading the place it is happening at is a timer nobody trusts. */
+  .act .fill { position: absolute; inset: 0 auto 0 0; background: #16362f;
+    border-right: 1px solid #8ff0cf; }
+  /* A running job is NOT dimmed, even though its button is disabled — it is the
+     thing currently happening and it should look alive. */
+  .act.busy { opacity: 1; border-color: #8ff0cf; color: #eafff7; }
   .act em { display: block; font-size: 11px; color: #7fa8b8; font-style: normal; }
-  .act:disabled { opacity: .45; }
+  .act:disabled { opacity: .5; }
+  .act.busy:disabled { opacity: 1; }
 
   footer { position: absolute; inset: auto 12px 12px 12px; z-index: 4;
     display: grid; gap: 8px; justify-items: start; }
+  /* Status stands down while you are reading. It is not gone — it is behind the
+     sheet, and closing the sheet is one tap on the ×. */
+  footer.stood-down { opacity: 0; pointer-events: none; }
   .bar { width: 100%; height: 4px; border-radius: 3px; background: #16232f; }
   .bar i { display: block; height: 100%; border-radius: 3px; background: #8ff0cf; }
   .skills, .pack { display: flex; gap: 12px; margin: 0; padding: 0; list-style: none;
@@ -648,8 +696,15 @@
   .skills em { color: #6f8798; font-style: normal; }
   .pack li { padding: 3px 8px; border-radius: 20px; background: #14202c;
     border: 1px solid #2b4356; color: #cfe3ef; }
-  .away { position: absolute; inset: 92px 56px auto 12px; margin: 0; z-index: 4;
-    font-size: 13px; line-height: 1.35; color: #ffd479; text-shadow: 0 1px 6px #070b10; }
+  .pack li.mat { background: #191a12; border-color: #3a3320; color: #d8cba8; }
+  .pack li.more { color: #8b8168; }
+  .said.away { color: #ffd479; font-size: 15px; }
+  /* A dot that is neither where you are nor a way on drops back while a card is
+     open, so the prose has something to sit against. It stays TAPPABLE — this
+     is opacity, not pointer-events, because a control you can see and cannot
+     press is the exact complaint this project keeps collecting. */
+  .dot.hushed { opacity: .25; }
+  .dot.hushed .name, .dot.hushed .tag { opacity: 0; }
   .purse { display: flex; align-items: center; gap: 6px; font-size: 13px; }
   .purse b { color: #ffd479; font-size: 15px; }
   .purse span { color: #8fa6b6; }
@@ -663,7 +718,6 @@
   .soon b { color: #cdf3e6; }
   .soon em { font-style: normal; color: #6f8798; }
   .stats b { color: #dfe9f0; font-weight: 600; }
-  .heap li { border-color: #3a3320; color: #d8cba8; }
   .act.busy { border-color: #8ff0cf; }
   .loot { padding: 9px 14px; border-radius: 10px; background: #1d1a10;
     border: 1px solid #6b5720; color: #ffd479; font: inherit; font-weight: 600; }
