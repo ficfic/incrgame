@@ -24,39 +24,38 @@ file.**
 > Solid/Raw/Rot screen went with the theme. `docs/BRIEF.md` is the source of
 > truth; `docs/RESET.md` is why.
 >
-> **The build is RED**: `src/ui/App.svelte` imports four deleted modules, so
-> `npm run play` cannot run. Item 1 replaces that screen rather than repairing
-> it.
+> **Item 1 SHIPPED 2026-07-29** — the vertical slice. `src/slice/` (dice,
+> content, engine), `src/ui/Slice.svelte`, `test/slice.test.ts` (22 tests),
+> `scripts/play-slice.mjs`. `src/main.ts` now mounts `Slice.svelte`; the old
+> `App.svelte` still compiles and is unreferenced. The RED-build note that used
+> to be here was stale — `vite build` and `npm run check` are clean.
 >
 > **No generated prose.** `RESET.md` measured the last attempt at 1.2%
 > authored, and the owner found no story in the rest. **Saves reset** — say so
 > in the commit.
 
-## 1. One room, one timer, one shut door
+## 1. Owner's pass over the slice
 
-The smallest playable thing that shows the new direction. The owner has said
-three times they could not tell what a build was; the test is whether a stranger
-can tell in ten seconds.
+**Not a build item.** Six places are drafted prose (`src/slice/content.ts`) and
+CLAUDE.md says player-facing prose is machine-drafted and **owner-edited**. The
+slice cannot be judged as a game until the words are ones the owner would
+defend, because "is this fun" and "is this well written" are not separable here.
 
-One screen: a graph of **four or five hand-written places**, your dot on one.
-Tap a place, read a hand-written paragraph, pick a choice. A choice starts an
-**action that takes real time** — a bar that finishes whether or not you watch
-— paying **XP in one named skill**. One edge is drawn but shut, and says what
-it wants: *needs Foraging 3*.
+Also open for the owner, from `docs/DICE.md` and `docs/SKILLS.md`: is 2d10 read
+as summed 2–20 (built) or percentile d100, and is the currency called the Obol.
 
-**Done when:** `npm run play` screenshot pasted, showing the graph, the
-authored text, a running timer and the shut door with its requirement — and the
-skill levels on a second run of the action.
+**Done when:** the owner has passed over the six bodies and answered those two.
 
 ## 2. The key behind the detour
 
-Item 1's door, opened the long way. A **fork** where one side carries an object
-and the other does not, an **inventory** showing what you carry, and that shut
-edge opening because you carry the thing. Choices you passed stay drawn, closed.
+Mostly landed with the slice — the strip of lead opens the low door, and both
+states of that edge are in `play.png`. What is NOT built: a **saved game**. The
+slice has no persistence at all, so a reload is a new run, and `docs/SPEC.md`'s
+export/import is how the owner moves a save between devices.
 
-**Done when:** `npm run play` screenshots both states of one edge — shut
-without the key, open with it — and `check-story.mjs` passes on the authored
-graph: no dead end, no unobtainable key, no orphan.
+**Done when:** a run survives a reload, export and import round-trip, and the
+seed comes back with it — a save whose dice re-roll differently is a different
+game.
 
 ## 3. Two dots, one fight
 
