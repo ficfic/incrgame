@@ -24,6 +24,11 @@ file.**
 > Solid/Raw/Rot screen went with the theme. `docs/BRIEF.md` is the source of
 > truth; `docs/RESET.md` is why.
 >
+> **Item 2 (persistence) SHIPPED 2026-07-29** — `src/slice/save.ts`,
+> IndexedDB autosave via the existing `shell/storage.ts`, export/import as
+> pasteable base64, 15 tests. The probe reloads the page and compares; the seed
+> round-trips, so the dice after a reload are the ones you were about to throw.
+>
 > **Item 1 SHIPPED 2026-07-29** — the vertical slice. `src/slice/` (dice,
 > content, engine), `src/ui/Slice.svelte`, `test/slice.test.ts` (22 tests),
 > `scripts/play-slice.mjs`. `src/main.ts` now mounts `Slice.svelte`; the old
@@ -46,16 +51,20 @@ as summed 2–20 (built) or percentile d100, and is the currency called the Obol
 
 **Done when:** the owner has passed over the six bodies and answered those two.
 
-## 2. The key behind the detour
+## 2. Two dots, one fight
 
-Mostly landed with the slice — the strip of lead opens the low door, and both
-states of that edge are in `play.png`. What is NOT built: a **saved game**. The
-slice has no persistence at all, so a reload is a new run, and `docs/SPEC.md`'s
-export/import is how the owner moves a save between devices.
+`docs/COMBAT.md`, at slice scale. An enemy dot authored onto one of the six
+places. Radius is health, so losing is shrinking and out is out. One poke per
+tick down the contested edge, resolved by the same timer machinery the work
+actions already use. Your side reads one skill level; levelling is why you win.
 
-**Done when:** a run survives a reload, export and import round-trip, and the
-seed comes back with it — a save whose dice re-roll differently is a different
-game.
+Losing relights you one node back and **keeps the XP for damage dealt** — that
+is the whole answer to "failure is a plateau, never a loss screen", and it is
+the constraint most likely to get fudged.
+
+**Done when:** `npm run play` screenshots a fight and its outcome, a lost fight
+leaves the game playable without a reload, and the shrinking dot is visible in
+the screenshot rather than asserted.
 
 ## 3. Two dots, one fight
 

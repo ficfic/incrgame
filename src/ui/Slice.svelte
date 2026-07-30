@@ -12,12 +12,21 @@
   import { GraphSim } from '../render/sim';
   import { cameraFor, toScreen, clampZoom, baseScale, type Camera } from '../render/board';
   import { PLACES, PLACE, EDGES, ITEMS } from '../slice/content';
+  import { encode, restore, toText, fromText } from '../slice/save';
+  import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/storage';
   import {
     apply, initial, level, blocked, chanceOf, SKILLS, xpForLevel,
     type Slice, type Action, type SkillId,
   } from '../slice/engine';
 
   let game = $state<Slice>(initial());
+  /** Nothing is written until the save on disk has been READ. Without this the
+   *  first autosave races the load and overwrites the run with a fresh one —
+   *  which looks exactly like a save that was never written. */
+  let loaded = $state(false);
+  let showSave = $state(false);
+  let importText = $state('');
+  let saveNote = $state('');
   let w = $state(360);
   let h = $state(640);
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -108,6 +117,82 @@
     chance: chanceOf(game, c),
   })));
   const wayTo = $derived(new Map(ways.map((x) => [x.c.to, x])));
+
+  // ---- PERSISTENCE --------------------------------------------------------
+  //
+  // IndexedDB via `src/shell/storage.ts`, reused unchanged: it is a blob store
+  // and knows nothing about what is in the blob. localStorage is not an option
+  // — iOS evicts it after about seven idle days, which is precisely the gap
+  // between sittings this game is built for.
+  $effect(() => {
+    void (async () => {
+      const blob = await loadBlob().catch(() => null);
+      game = restore(blob);
+      loaded = true;
+      void requestPersistence();
+    })();
+  });
+
+  // Autosave on every change once loaded. `encode` drops `lastRoll`, so the
+  // dice on the table do not come back with the run — the SEED does, which is
+  // the part that matters.
+  //
+  // ⚠️ DEBOUNCED, because a running timer changes state four times a second and
+  // an IndexedDB write per tick is a transaction per tick on a phone. 700ms is
+  // short enough that a tap is safe the moment you look away and long enough
+  // that holding a job open is one write, not two hundred.
+  let saveTimer = 0;
+  $effect(() => {
+    if (!loaded) return;
+    const blob = encode(game);
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => { void saveBlob(blob).catch(() => {}); }, 700) as unknown as number;
+    return () => clearTimeout(saveTimer);
+  });
+
+  // A tab going away on iOS gets no further frames, so the pending debounce
+  // would never fire. Flush on the way out — this is the case that matters,
+  // because it is how every sitting actually ends.
+  $effect(() => {
+    const flush = (): void => {
+      if (!loaded) return;
+      clearTimeout(saveTimer);
+      void saveBlob(encode(game)).catch(() => {});
+    };
+    document.addEventListener('visibilitychange', flush);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', flush);
+      window.removeEventListener('pagehide', flush);
+    };
+  });
+
+  async function wipe(): Promise<void> {
+    await deleteBlob().catch(() => {});
+    game = initial();
+    saveNote = 'Started over.';
+  }
+
+  async function copyOut(): Promise<void> {
+    const text = toText(game);
+    try {
+      await navigator.clipboard.writeText(text);
+      saveNote = 'Copied. Paste it on the other device.';
+    } catch {
+      // Clipboard is denied often enough on iOS that failing silently would
+      // look like a broken button. Show the text and let the owner select it.
+      importText = text;
+      saveNote = 'Could not reach the clipboard — copy it from the box.';
+    }
+  }
+
+  function pasteIn(): void {
+    const s = fromText(importText);
+    if (!s) { saveNote = 'That is not a save this version can read.'; return; }
+    game = s;
+    importText = '';
+    saveNote = `Loaded. You are at ${PLACE.get(s.at)?.name ?? '—'}.`;
+  }
 
   // ---- THE CLOCK ----------------------------------------------------------
   //
@@ -285,13 +370,39 @@
       </ul>
     {/if}
   </footer>
+
+  <!-- ⚠️ SETTINGS ARE NOT A GRAPH. `docs/GAME_DESIGN.md` pushes graph-as-UI as
+       far as it goes and then names where it stops: text you must read, exact
+       numbers, and settings. Moving a save between devices is settings. So it
+       is a corner button and a panel, and it does not pretend otherwise. -->
+  <button class="gear" aria-label="save and restore"
+    onclick={() => { showSave = !showSave; saveNote = ''; }}>⋯</button>
+
+  {#if showSave}
+    <div class="sheet">
+      <h2>This run</h2>
+      <p class="hint">Saved as you play. Copy it out to move it to another
+        device — the dice come with it.</p>
+      <div class="row">
+        <button onclick={copyOut}>Copy this run</button>
+        <button onclick={pasteIn} disabled={!importText.trim()}>Load pasted</button>
+      </div>
+      <textarea bind:value={importText} rows="3"
+        placeholder="paste a run here"></textarea>
+      {#if saveNote}<p class="note">{saveNote}</p>{/if}
+      <button class="danger" onclick={wipe}>Start over</button>
+      <button class="x" aria-label="close" onclick={() => (showSave = false)}>×</button>
+    </div>
+  {/if}
 </main>
 
 <style>
   :global(body) { margin: 0; background: #070b10; color: #dfe9f0;
     font: 15px/1.45 ui-sans-serif, system-ui, sans-serif; overscroll-behavior: none; }
   main { position: relative; height: 100vh; overflow: hidden; }
-  .said { position: absolute; inset: 10px 12px auto 12px; margin: 0; z-index: 4;
+  /* Right inset clears the gear button, which was sitting on top of the
+     narrator's last two words. */
+  .said { position: absolute; inset: 10px 56px auto 12px; margin: 0; z-index: 4;
     font-size: 17px; line-height: 1.35; color: #eaf4fa; text-shadow: 0 1px 6px #070b10; }
   .dice { position: absolute; top: 62px; left: 12px; z-index: 4; display: flex;
     gap: 6px; align-items: center; }
@@ -361,4 +472,25 @@
   .loot { padding: 9px 14px; border-radius: 10px; background: #1d1a10;
     border: 1px solid #6b5720; color: #ffd479; font: inherit; font-weight: 600; }
   .loot em { font-style: normal; color: #b99a4a; }
+
+  .gear { position: absolute; top: 8px; right: 8px; z-index: 7; width: 40px;
+    height: 40px; border-radius: 50%; background: #0d151dcc; border: 1px solid #24384a;
+    color: #8fa6b6; font-size: 18px; line-height: 1; }
+  .sheet { position: absolute; z-index: 8; inset: auto 12px 12px 12px;
+    box-sizing: border-box; padding: 14px; border-radius: 12px;
+    background: #0d151dfa; border: 1px solid #24384a; box-shadow: 0 10px 30px #000a; }
+  .sheet h2 { margin: 0 0 4px; font-size: 15px; }
+  .sheet .hint { margin: 0 0 10px; font-size: 12px; color: #7f97a8; }
+  .sheet .row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .sheet button { padding: 9px 12px; border-radius: 9px; background: #12222e;
+    border: 1px solid #2f5568; color: #cdf3e6; font: inherit; }
+  .sheet button:disabled { opacity: .45; }
+  .sheet textarea { width: 100%; box-sizing: border-box; padding: 8px;
+    border-radius: 8px; background: #070d13; border: 1px solid #24384a;
+    color: #cfe3ef; font: 12px/1.4 ui-monospace, monospace; resize: none; }
+  .sheet .note { margin: 8px 0 0; font-size: 12px; color: #ffd479; }
+  .sheet .danger { margin-top: 10px; background: #1d1013; border-color: #6b2020;
+    color: #ffb3b3; }
+  .sheet .x { position: absolute; top: 4px; right: 6px; background: none;
+    border: 0; color: #6f8798; font-size: 20px; width: 32px; height: 32px; }
 </style>

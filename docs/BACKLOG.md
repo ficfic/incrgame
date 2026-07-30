@@ -565,3 +565,10 @@ that a beat is reachable from where the player starts.
 - [ ] **The four readouts do not sit on one baseline.** `Words` and `Rot` have no rate line; `Solid` and `Raw` carry a `+0.00`, which pushes their nouns down a row. Owner noticed it unprompted, twice.
 - [ ] **The reset/PWA button floats at middle-left with no anchor.** Owner: *"in a random place in the middle left of the screen, and its placement is a bit random."*
 - [ ] **`Nothing else has been configured for you yet` reads oddly.** Owner: *"sounds strange, but it's fine."* Low priority, recorded because it was said.
+
+### Cosmetics left on the slice, 2026-07-29 (seen in play.png / play-save.png)
+
+- [ ] **The prose card overlaps dots and their labels.** Inherent to `GAME_DESIGN.md`'s in-place card: a 280px card next to a node covers its neighbours. Dots win the z-order so nothing is unreachable, but "The Cut" over The Tally / The Weir reads as a collision. Options: shrink the card, tether it with a leader line to a clear corner, or fade the dots under it.
+- [ ] **The save sheet covers the skills row.** Both are bottom-anchored. Harmless, but the sheet should lift the footer or the footer should hide while it is open.
+- [ ] **The top ~180px of the board is empty.** `BAND.top` is 84 and the fit is width-bound at six nodes, so the graph sits low. Fine now, wrong as soon as there are twenty places — revisit when the content grows rather than tuning it for six.
+- [ ] **Odds are only shown on a choice that has a test, which is correct, but the probe reports "(none shown)" for the opening screen and reads like a defect.** Either report per-place or say "no check here".

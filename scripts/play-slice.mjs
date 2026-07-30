@@ -164,8 +164,38 @@ console.log('  ways on     :', atDoor.ways.join(' · ') || '(none)');
 for (const s of atDoor.shut) console.log(`  SHUT        : ${s.name} — ${s.why}`);
 console.log('  skills      :', atDoor.skills.join(' | ') || '(none)');
 
+// 4. ★ RELOAD. A save that does not survive this is not a save. The seed has
+//    to come back too, or the next roll differs from the one you were about to
+//    make — see docs/DICE.md.
+const before = await read();
+await page.waitForTimeout(1200);            // let the debounced write land
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForSelector('.dot.you', { timeout: 15000 });
+await settle();
+const after = await read();
+
+console.log('\nRELOAD');
+console.log('  before :', before.you, '|', before.skills.join(' | '), '|', before.pack.join(' · ') || 'empty pack');
+console.log('  after  :', after.you, '|', after.skills.join(' | '), '|', after.pack.join(' · ') || 'empty pack');
+const kept = before.you === after.you
+  && JSON.stringify(before.skills) === JSON.stringify(after.skills)
+  && JSON.stringify(before.pack) === JSON.stringify(after.pack);
+console.log('  verdict:', kept ? 'the run survived' : '⚠️ THE RUN DID NOT SURVIVE');
+if (!kept) misses.push('the run did not survive a reload');
+
 await page.screenshot({ path: SHOT });
 console.log(`\nscreenshot → ${SHOT}`);
+
+// 5. The save sheet, so "you can move a run between devices" is a thing that
+//    was SEEN and not merely asserted.
+await page.locator('.gear').click({ timeout: 3000 }).catch(() => misses.push('gear did not open'));
+await page.waitForTimeout(300);
+const sheetShot = SHOT.replace(/\.png$/, '-save.png');
+const sheetUp = await page.locator('.sheet').count() > 0;
+console.log('  save sheet  :', sheetUp ? 'open' : '⚠️ did not open');
+if (!sheetUp) misses.push('the save sheet did not open');
+await page.screenshot({ path: sheetShot });
+console.log(`screenshot → ${sheetShot}`);
 
 if (misses.length) {
   console.log('\n⚠️ TAPS THAT DID NOT DO WHAT A PLAYER WOULD EXPECT');
