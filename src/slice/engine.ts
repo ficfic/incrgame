@@ -5,7 +5,7 @@
 // screen, the offline catch-up and the tests without a branch in it.
 import { PLACE, START, ITEMS } from './content';
 import type { Choice, ItemId } from './schema';
-import { check, odds as oddsOf, type Check } from './dice';
+import { check, modifier, odds as oddsOf, type Check } from './dice';
 
 export type { SkillId } from './schema';
 import type { SkillId } from './schema';
@@ -109,6 +109,101 @@ export function chanceOf(s: Slice, c: Choice): number | null {
 const award = (s: Slice, id: SkillId, xp: number): Record<SkillId, number> =>
   ({ ...s.xp, [id]: s.xp[id] + xp });
 
+// ★ THE FARM, AND WHY A CROSSING WEARS OUT.
+//
+// Measured on the shipped build, one hour of each, at 2,400 taps an hour
+// (1.5 s a tap — 1,200 round trips, which reproduces both figures exactly):
+//
+//     timer, unattended               :  5,400 XP  ·     0 satchels
+//     pacing The Stack <-> The Tally  : 22,572 XP  · 1,081 satchels  (4.2x)
+//
+// Two taps, forever: 2 -> 4 throws a Lore check that paid a flat 20/8 and
+// dropped a satchel on every pass, and 4 -> 2 is free and untested. So the
+// optimal opening move was to NEVER START A JOB, which strictly dominates the
+// idle half of an idle game, and a satchel every two taps turns loot from an
+// event into a stream of duplicates the pack already refuses ("Another X. You
+// already have one").
+//
+// Three rules, and NO NEW FIELD ON `Slice` (see the note at the bottom):
+//
+//   1. FIRST TIME THROUGH IS UNTOUCHED. A crossing that takes you somewhere you
+//      have never stood pays the full 20/8 whatever your level. Nobody's first
+//      walk through this game is worth less than it was yesterday — that is the
+//      whole of "the fix is invisible to a player who is just playing".
+//   2. AFTER THAT IT PAYS WHAT IT STILL TEACHES. Divided by
+//      `1 + max(0, modifier(level, demand))` — the dice's own measure of how far
+//      past a check you are, three levels to a step, capped at 6. A worn-out
+//      crossing bottoms out at 20/7 -> 3 and 8/7 -> 1 and NEVER at 0, because
+//      failure is a plateau: it still moves you, and it still pays.
+//   3. A SATCHEL IS ONLY PACKED WHEN THE EDGE STILL OWES YOU ONE — when it can
+//      drop something you are not already carrying, counting satchels you have
+//      not opened yet, or "never open them" would just be the new farm.
+//
+// After, same hour, same pace — `test/slice.test.ts` measures it rather than
+// asserting it from memory:
+//
+//     timer, unattended               :  5,400 XP  ·     0 satchels
+//     pacing The Stack <-> The Tally  :  5,030 XP  ·     2 satchels  (0.93x)
+//     ...hoarding the satchels unopened: 5,031 XP  ·     1 satchel
+//
+// Pacing is now worth about what leaving the tab open is worth, so the reason to
+// walk an edge again is the key behind it, not the number beside it. The best
+// farm left is rotating five skills across the five loot edges, which resets the
+// divisor per skill: ~7,900 XP an hour BEFORE the transit taps between regions,
+// so ~1.2x rather than 4.2x — and it is a player walking the whole map with
+// their thumb down for an hour, which is a game being played, not a loop.
+//
+// Rejected on the numbers: dividing by `1 + (level − demand)` instead of by the
+// modifier's three-level step. It measures 2,641 XP an hour paced (0.49x) and
+// 4,320 rotating (0.80x) — active play strictly WORSE than leaving the tab shut,
+// which is the same defect with the sign flipped.
+//
+// ---- What this deliberately does NOT do ----
+// It does not block movement on a failed check. That would turn a 45% roll into
+// a wall, and `docs/DICE.md` §8 and `COMBAT.md` §4 both rule it out by name. A
+// check you failed is still walkable, still moves you, still pays, and still
+// owes you its drop — which is exactly how a player collects a key they missed,
+// and exactly what `test/slice-completable.test.ts` does 600 times a seed.
+//
+// ---- Why no new field on `Slice` ----
+// A per-edge visit counter would be exact. It would also be a map of every edge
+// ever walked living in every save, a branch in `decode`, and a migration — for
+// a number `seen` and `xp` already imply between them: where you have been, and
+// how far past this check you are. The one approximation it costs: reaching a
+// place by a free edge before the tested one spends that place's "first time"
+// (109 -> 103 before 101 -> 103). At that point your level is at or under the
+// demand anyway, so the divisor is 1 and nothing is actually lost.
+
+/** XP for a crossing that still tests you. */
+export const PASS_XP = 20;
+export const FAIL_XP = 8;
+
+/** What a tested edge pays. Exported because a farm you cannot measure is a
+ *  farm you cannot claim to have fixed — see the guard in `test/slice.test.ts`. */
+export function crossingXp(
+  s: Slice,
+  t: { skill: SkillId; demand: number },
+  passed: boolean,
+  first: boolean,
+): number {
+  const base = passed ? PASS_XP : FAIL_XP;
+  if (first) return base;
+  const past = Math.max(0, modifier(level(s, t.skill), t.demand));
+  return Math.max(1, Math.round(base / (1 + past)));
+}
+
+/** Has this edge still got something in it for you?
+ *
+ *  ⚠️ COUNTS UNOPENED SATCHELS, and a pending one counts for BOTH of its
+ *  outcomes. Without that, the farm just moves: hoard the satchels, never tap
+ *  one, and the edge never notices you are carrying what it drops. Opening it
+ *  resolves to one item and leaves the other still owed, so nothing is stranded. */
+export function owes(s: Slice, loot: Drop): boolean {
+  const held = (id: ItemId): boolean =>
+    s.pack.includes(id) || s.satchels.some((d) => d.good === id || d.poor === id);
+  return !held(loot.good) || (loot.poor !== undefined && !held(loot.poor));
+}
+
 export function apply(state: Slice, action: Action): Slice {
   switch (action.type) {
     case 'travel': {
@@ -119,6 +214,9 @@ export function apply(state: Slice, action: Action): Slice {
 
       const dest = PLACE.get(action.to);
       if (!dest) return state;
+
+      // Read BEFORE `seen` grows below, or every crossing is a first one.
+      const first = !state.seen.includes(action.to);
 
       let next: Slice = {
         ...state,
@@ -139,7 +237,7 @@ export function apply(state: Slice, action: Action): Slice {
           ...next,
           seed: r.seed,
           lastRoll: r,
-          xp: award(next, c.test.skill, r.passed ? 20 : 8),
+          xp: award(next, c.test.skill, crossingXp(state, c.test, r.passed, first)),
           said: r.crit === 'triumph' ? `A perfect throw. ${c.test.win}`
             : r.crit === 'disaster' ? `Both dice come up one. ${c.test.lose}`
             : r.passed ? c.test.win : c.test.lose,
@@ -147,7 +245,8 @@ export function apply(state: Slice, action: Action): Slice {
           // that decides what is in it happens under the player's thumb. That
           // is the whole of "dice throws feel good": the throw has to be a
           // thing you DO, not a thing you are told about afterwards.
-          satchels: c.test.loot && r.passed
+          // ...and only while the edge still `owes` you one, or it is a stream.
+          satchels: c.test.loot && r.passed && owes(state, c.test.loot)
             ? [...next.satchels, c.test.loot]
             : next.satchels,
         };
