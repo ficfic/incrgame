@@ -58,7 +58,7 @@ const PLACES: readonly Place[] = [
       + 'forget.',
     choices: [
       { to: 4, label: 'Read the marks', test: {
-        skill: 'lore', demand: 3, loot: true,
+        skill: 'lore', demand: 3, loot: { good: 'lead-strip', poor: 'reed-cord' },
         win: 'The spacing is a tally, and the tally is a key.',
         lose: 'The marks stay marks. You have looked at them long enough to know that.',
       } },

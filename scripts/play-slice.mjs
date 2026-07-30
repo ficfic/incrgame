@@ -121,25 +121,33 @@ while ((Date.now() - t0) / 1000 < Math.min(RUN, 50)) {
   log.push({ t: Math.round((Date.now() - t0) / 1000), ...s });
 }
 
-// 2. Walk to the stack, read the marks (a 2d10 Lore check), open the satchel.
-await tapDot('The Cut');
-await tapDot('The Stack');
-await page.waitForTimeout(400);
-await tapDot('The Tally');
-await page.waitForTimeout(400);
-const afterCheck = await read();
-if (afterCheck.satchels) await page.locator('.loot').click().catch(() => {});
-await page.waitForTimeout(400);
-const afterLoot = await read();
-
-// 3. Go find the shut door.
-await tapDot('The Stack');
-await tapDot('The Cut');
-await tapDot('The Weir');
-await page.waitForTimeout(400);
-await tapDot('The Far Bank');
-await page.waitForTimeout(600);
-await settle();
+// 2. WALK. The route used to be hardcoded for a six-place valley; at
+//    thirty-seven places that script asked for dots that were not adjacent and
+//    reported them as failures. A player taps whatever way is open, so this
+//    does that — and it exercises whichever region the walk wanders into.
+const path = [];
+const rolls = [];
+let satchelsSeen = 0;
+for (let step = 0; step < 14; step++) {
+  const openWays = await page.evaluate(() => [...document.querySelectorAll('.dot.way .name')]
+    .map((n) => n.textContent.trim()));
+  if (!openWays.length) break;
+  // Prefer somewhere new, so the walk pushes outward instead of pacing.
+  const fresh = openWays.filter((n) => !path.includes(n));
+  const pick = (fresh.length ? fresh : openWays)[step % (fresh.length || openWays.length)];
+  if (!await tapDot(pick)) break;
+  path.push(pick);
+  const s = await read();
+  if (s.dice) rolls.push(`${pick}: ${s.dice}`);
+  if (s.satchels) {
+    satchelsSeen++;
+    await page.locator('.loot').click({ timeout: 3000 }).catch(() => misses.push('satchel would not open'));
+    await page.waitForTimeout(250);
+    const after = await read();
+    rolls.push(`  satchel -> ${after.said}`);
+  }
+  await page.waitForTimeout(200);
+}
 const atDoor = await read();
 
 console.log('\nOVER TIME  (t, you, working, skills)');
@@ -147,19 +155,15 @@ for (const r of log) {
   console.log(`  ${String(r.t).padEnd(4)} ${r.you.padEnd(14)} ${r.working ? 'timer' : '     '}  ${r.skills.join(' | ')}`);
 }
 
-console.log('\nTHE 2d10 CHECK');
-console.log('  odds shown before the tap :', opening.tags.join(' · ') || '(none shown)');
-console.log('  dice after the tap        :', afterCheck.dice || '(no dice shown)');
-console.log('  narrator                  :', afterCheck.said);
+console.log('\nTHE WALK');
+console.log('  path  :', path.join(' -> ') || '(went nowhere)');
+console.log('  rolls :');
+for (const r of rolls) console.log('   ', r);
+console.log('  satchels found :', satchelsSeen);
 
-console.log('\nLOOT');
-console.log('  satchel held :', afterCheck.satchels || '(none)');
-console.log('  after opening:', afterLoot.said);
-console.log('  pack         :', afterLoot.pack.join(' · ') || '(empty)');
-console.log('  dice         :', afterLoot.dice || '(none)');
-
-console.log('\nTHE SHUT DOOR');
+console.log('\nWHERE IT ENDED');
 console.log('  standing at :', atDoor.you);
+console.log('  pack        :', atDoor.pack.join(' · ') || '(empty)');
 console.log('  ways on     :', atDoor.ways.join(' · ') || '(none)');
 for (const s of atDoor.shut) console.log(`  SHUT        : ${s.name} — ${s.why}`);
 console.log('  skills      :', atDoor.skills.join(' | ') || '(none)');

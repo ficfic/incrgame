@@ -54,7 +54,7 @@ const PLACES: readonly Place[] = [
         lose: 'You go under by the water side, wet, and the swept floor keeps your prints.',
       } },
       { to: 103, label: 'Take the tailrace out', test: {
-        skill: 'wayfaring', demand: 5, loot: true,
+        skill: 'wayfaring', demand: 5, loot: { good: 'works-gate-iron', poor: 'works-lead-sheet' },
         win: 'You time the fast water and walk the coping the whole way.',
         lose: 'The coping gives. The current puts you out further down than you meant to go.',
       } },

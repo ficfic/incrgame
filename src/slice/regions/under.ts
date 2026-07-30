@@ -77,7 +77,7 @@ const PLACES: readonly Place[] = [
     work: { id: 'under-chalk', label: 'Count the gates', skill: 'lore', secs: 45, xp: 55 },
     choices: [
       { to: 204, label: 'Draw the fifth stroke', test: {
-        skill: 'attunement', demand: 6, loot: true,
+        skill: 'attunement', demand: 6, loot: { good: 'under-quiet-key', poor: 'under-wax-crumb' },
         win: 'The chalk is still soft. You close the gate, and the wall behind it gives.',
         lose: 'You close the gate and stop. Your hand knew the width of it before you looked.',
       } },
@@ -122,7 +122,7 @@ const PLACES: readonly Place[] = [
     work: { id: 'under-ledger', label: 'Dry a page', skill: 'craft', secs: 50, xp: 60 },
     choices: [
       { to: 207, label: 'Read the wet page', test: {
-        skill: 'attunement', demand: 7, loot: true,
+        skill: 'attunement', demand: 7, loot: { good: 'under-tallow-stub', poor: 'under-wax-crumb' },
         win: 'The page gives up one word. The word is a date, and the date is today.',
         lose: 'It tears along a fold that was already there, folded once, by a thumb your width.',
       } },
@@ -192,5 +192,8 @@ export const UNDER: Region = {
   items: {
     'under-quiet-key': { name: 'quiet key', opens: 'the slotted door at the end of the gallery' },
     'under-tallow-stub': { name: 'tallow stub', opens: 'the socket beside it' },
+    // The consolation drop. Every satchel has to be able to disappoint, or the
+    // 2d10 roll that opens it is decoration.
+    'under-wax-crumb': { name: 'crumb of wax', opens: 'nothing' },
   },
 };

@@ -20,6 +20,11 @@ export const SKILLS: Record<SkillId, { name: string }> = {
 
 export interface Job { work: string; at: number; left: number }
 
+/** What a satchel can contain. Carried on the satchel rather than looked up
+ *  from the place, so a satchel banked at one place and opened at another still
+ *  knows what it is. */
+export interface Drop { good: ItemId; poor?: ItemId }
+
 export interface Slice {
   version: number;
   /** The dice, carried in the save. See `dice.ts` for why this is still pure. */
@@ -28,8 +33,9 @@ export interface Slice {
   seen: number[];
   xp: Record<SkillId, number>;
   pack: ItemId[];
-  /** Unopened. ⚠️ Loot from banked time is NOT rolled while away — see `tick`. */
-  satchels: number;
+  /** Unopened satchels, each remembering what it can yield. ⚠️ Loot from banked
+   *  time is NOT rolled while away — see `tick`. */
+  satchels: Drop[];
   job: Job | null;
   /** The last thing that happened, for the one line above the board. */
   said: string;
@@ -61,13 +67,13 @@ export const level = (s: Slice, id: SkillId): number => levelFor(s.xp[id]);
 
 export function initial(seed = 0x5eed): Slice {
   return {
-    version: 1,
+    version: 2,
     seed,
     at: START,
     seen: [START],
     xp: { wayfaring: 0, lore: 0, craft: 0, guile: 0, attunement: 0 },
     pack: [],
-    satchels: 0,
+    satchels: [],
     job: null,
     said: 'You are here. Two ways on, and one of them is uphill.',
     lastRoll: null,
@@ -141,7 +147,9 @@ export function apply(state: Slice, action: Action): Slice {
           // that decides what is in it happens under the player's thumb. That
           // is the whole of "dice throws feel good": the throw has to be a
           // thing you DO, not a thing you are told about afterwards.
-          satchels: next.satchels + (c.test.loot && r.passed ? 1 : 0),
+          satchels: c.test.loot && r.passed
+            ? [...next.satchels, c.test.loot]
+            : next.satchels,
         };
       }
       return next;
@@ -185,7 +193,8 @@ export function apply(state: Slice, action: Action): Slice {
     }
 
     case 'open': {
-      if (state.satchels <= 0) return state;
+      const drop = state.satchels[0];
+      if (!drop) return state;
       // The drop table. 2d10, so the middle is common and the ends are the
       // good stuff — the curve is the reason for 2d10 over a flat d20.
       // ⚠️ A SATCHEL IS AN UNMODIFIED ROLL. No skill helps here on purpose —
@@ -196,13 +205,23 @@ export function apply(state: Slice, action: Action): Slice {
       // 21% disappointment. Progression is not luck-gated: the check that pays
       // the satchel can be walked again, so a bad roll costs a trip, never a run.
       const r = check(state.seed, 0, 0);
-      const got: ItemId = r.total >= 8 ? 'lead-strip' : 'reed-cord';
+      const got = r.total >= 8 ? drop.good : drop.poor;
+      const rest = state.satchels.slice(1);
+      if (!got) {
+        return {
+          ...state,
+          seed: r.seed,
+          satchels: rest,
+          lastRoll: r,
+          said: 'Empty. Something was in it once, and the check can be walked again.',
+        };
+      }
       const already = state.pack.includes(got);
       const item = ITEMS[got] ?? { name: got, opens: 'nothing' };
       return {
         ...state,
         seed: r.seed,
-        satchels: state.satchels - 1,
+        satchels: rest,
         lastRoll: r,
         pack: already ? state.pack : [...state.pack, got],
         said: already

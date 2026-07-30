@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, levelFor, xpForLevel, blocked, level } from '../src/slice/engine';
 import { check, odds, modifier, roll2d10, TARGET } from '../src/slice/dice';
-import { PLACES, PLACE, EDGES } from '../src/slice/content';
+import { PLACES, PLACE, EDGES, ITEMS } from '../src/slice/content';
 
 describe('2d10', () => {
   it('spans 2..20 and nothing else', () => {
@@ -133,6 +133,42 @@ describe('the authored graph', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
+  it('★ every gated item can actually be obtained', () => {
+    // THE DEFECT THIS EXISTS FOR. `test.loot` used to be a boolean and the
+    // engine held a hardcoded table of two VALLEY items, so a check in any
+    // other region minted a strip of lead. Every key the other regions gate
+    // their doors on was unobtainable and all of that content was dead. Nothing
+    // caught it: the types were fine, the graph was connected, and the places
+    // were reachable — you just could never open the door.
+    const droppable = new Set<string>();
+    for (const p of PLACES) {
+      for (const c of p.choices) {
+        if (!c.test?.loot) continue;
+        droppable.add(c.test.loot.good);
+        if (c.test.loot.poor) droppable.add(c.test.loot.poor);
+      }
+    }
+    for (const p of PLACES) {
+      for (const c of p.choices) {
+        if (!c.needs || !('item' in c.needs)) continue;
+        expect(droppable, `${p.name} -> ${c.label} wants ${c.needs.item}`)
+          .toContain(c.needs.item);
+      }
+    }
+  });
+
+  it('every item named by a drop or a gate is declared', () => {
+    for (const p of PLACES) {
+      for (const c of p.choices) {
+        if (c.needs && 'item' in c.needs) expect(ITEMS, p.name).toHaveProperty(c.needs.item);
+        if (c.test?.loot) {
+          expect(ITEMS, p.name).toHaveProperty(c.test.loot.good);
+          if (c.test.loot.poor) expect(ITEMS, p.name).toHaveProperty(c.test.loot.poor);
+        }
+      }
+    }
+  });
+
   it('every authored body is a card, not an essay', () => {
     // docs/GAME_DESIGN.md: 40-70 words, never scrolls. A body that outgrows the
     // card is the "wall of text" the owner rejected, arriving by drift.
@@ -221,14 +257,14 @@ describe('the reducer is pure and total', () => {
     // Walk the Lore check until it passes, so we hold a satchel.
     let s = initial();
     let guard = 0;
-    while (s.satchels === 0 && guard++ < 200) {
+    while (s.satchels.length === 0 && guard++ < 200) {
       s = apply(s, { type: 'travel', to: 2 });
       s = apply(s, { type: 'travel', to: 4 });
     }
-    expect(s.satchels).toBeGreaterThan(0);
+    expect(s.satchels.length).toBeGreaterThan(0);
     const seedBefore = s.seed;
     const opened = apply(s, { type: 'open' });
-    expect(opened.satchels).toBe(s.satchels - 1);
+    expect(opened.satchels.length).toBe(s.satchels.length - 1);
     expect(opened.seed).not.toBe(seedBefore);   // the roll happened on the tap
     expect(opened.pack.length).toBe(1);
   });
@@ -241,7 +277,7 @@ describe('the reducer is pure and total', () => {
     while (!s.pack.includes('lead-strip') && guard++ < 300) {
       s = apply(s, { type: 'travel', to: 2 });
       s = apply(s, { type: 'travel', to: 4 });
-      while (s.satchels > 0) s = apply(s, { type: 'open' });
+      while (s.satchels.length > 0) s = apply(s, { type: 'open' });
       if (s.at === 4) s = apply(s, { type: 'travel', to: 2 });
       s = apply(s, { type: 'travel', to: 0 });
     }

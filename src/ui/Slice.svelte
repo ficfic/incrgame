@@ -74,7 +74,17 @@
 
   const fit = $derived.by(() => {
     void simTick;
-    const ps = [...sim.positions().values()];
+    // ⚠️ FIT THE NEIGHBOURHOOD, NOT THE WORLD. Fitting all thirty-seven places
+    // shrank the local ones until they overlapped, and Playwright reported the
+    // only open route at The Far Bank as un-tappable — the game was stuck and
+    // nothing but the probe said so. The camera now frames where you STAND and
+    // the places you can step to; everything else is still drawn, just further
+    // out. That is also the model `docs/ROUTES.md` argued for and this is the
+    // first build where it is literally true: you are at a node, and the ways
+    // on are unmistakable.
+    const all = sim.positions();
+    const local = new Set<number>([game.at, ...here.choices.map((c) => c.to)]);
+    const ps = [...local].map((id) => all.get(id)).filter((p) => p !== undefined);
     if (!ps.length) return { zoom: 1, panX: 0, panY: 0 };
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const p of ps) {
@@ -128,6 +138,11 @@
     void (async () => {
       const blob = await loadBlob().catch(() => null);
       game = restore(blob);
+      // ⚠️ THE CARD FOLLOWS YOU. `open` starts at 0 so the first frame has text
+      // on it, but a restored run can be anywhere — and the screenshot showed
+      // "The Gate." in the narrator above a card describing The Cut, which is
+      // the game telling you about somewhere you are not.
+      open = game.at;
       loaded = true;
       void requestPersistence();
     })();
@@ -291,32 +306,42 @@
       {#if at}
         {@const way = wayTo.get(p.id)}
         {@const reachable = p.id === game.at || way !== undefined}
-        {@const known = game.seen.includes(p.id)}
-        <button
-          class="dot"
-          class:you={p.id === game.at}
-          class:way={way !== undefined && way.why === null}
-          class:shut={way?.why != null}
-          class:far={!reachable}
-          style="left:{at.x}px; top:{at.y}px"
-          aria-label={p.name}
-          onclick={() => {
-            if (way && way.why === null) { dispatch({ type: 'travel', to: p.id }); open = p.id; }
-            else open = open === p.id ? null : p.id;
-          }}>
-          <i></i>
-          <!-- ⚠️ ALWAYS NAMED. This rendered '—' for anywhere unvisited, which
-               put the game straight back into the failure the whole redesign is
-               answering: the owner played a build whose only two controls named
-               places that were not on screen, and could not tell what any
-               button did. A place you can walk to must say where it goes. The
-               mystery lives in the PROSE, never in the label. -->
-          <span class="name">{p.name}</span>
-          {#if way?.why}<span class="tag shut">{way.why}</span>
-          {:else if way?.chance !== null && way?.chance !== undefined}
-            <span class="tag">{pct(way.chance)}</span>
-          {/if}
-        </button>
+        {#if reachable}
+          <!-- ⚠️ ONLY WHERE YOU CAN GO IS A BUTTON. `docs/GAME_DESIGN.md` puts
+               the ceiling at about fourteen actionable nodes, because a tap
+               target is 44px and they cannot overlap. At six places every dot
+               could be a control; at THIRTY-SEVEN they collided and Playwright
+               reported every single tap blocked — the game was unplayable and
+               nothing but the probe said so. So the world stays drawn, and only
+               the places you can actually reach take taps. -->
+          <button
+            class="dot"
+            class:you={p.id === game.at}
+            class:way={way !== undefined && way.why === null}
+            class:shut={way?.why != null}
+            style="left:{at.x}px; top:{at.y}px"
+            aria-label={p.name}
+            onclick={() => {
+              if (way && way.why === null) { dispatch({ type: 'travel', to: p.id }); open = p.id; }
+              else open = open === p.id ? null : p.id;
+            }}>
+            <i></i>
+            <span class="name">{p.name}</span>
+            {#if way?.why}<span class="tag shut">{way.why}</span>
+            {:else if way?.chance !== null && way?.chance !== undefined}
+              <span class="tag">{pct(way.chance)}</span>
+            {/if}
+          </button>
+        {:else}
+          <!-- The rest of the world: drawn, never tappable, and named only once
+               you have stood there. Somewhere you have not been is a light you
+               can see from here, which is the reason to walk toward it. -->
+          <span class="mark" class:been={game.seen.includes(p.id)}
+            style="left:{at.x}px; top:{at.y}px">
+            <i></i>
+            {#if game.seen.includes(p.id)}<span class="name">{p.name}</span>{/if}
+          </span>
+        {/if}
       {/if}
     {/each}
 
@@ -359,9 +384,9 @@
         {/each}
       </ul>
     {/if}
-    {#if game.satchels > 0}
+    {#if game.satchels.length > 0}
       <button class="loot" onclick={() => dispatch({ type: 'open' })}>
-        Open satchel <em>×{game.satchels}</em>
+        Open satchel <em>×{game.satchels.length}</em>
       </button>
     {/if}
     {#if game.pack.length}
@@ -435,6 +460,12 @@
   .dot.way .name { color: #bff3e0; }
   .dot.shut i { width: 15px; height: 15px; background: #f0b45f; }
   .dot.shut .name { color: #f3d6a8; }
+  .mark { position: absolute; z-index: 3; transform: translate(-50%, -50%);
+    display: grid; justify-items: center; gap: 3px; pointer-events: none; }
+  .mark i { width: 7px; height: 7px; border-radius: 50%; background: #3a5164; }
+  .mark.been i { background: #587a8f; }
+  .mark .name { font-size: 11px; color: #5d7484; white-space: nowrap; }
+
   .tag { font-size: 11px; color: #6f8798; }
   .tag.shut { color: #f0b45f; max-width: 116px; white-space: normal; text-align: center;
     line-height: 1.25; }

@@ -19,8 +19,12 @@ import { PLACE, ITEMS } from './content';
 import type { ItemId } from './schema';
 
 /** Bumped whenever the shape changes. A save from any other version is
- *  refused — see the note above about not repairing what we do not recognise. */
-export const SAVE_VERSION = 1;
+ *  refused — see the note above about not repairing what we do not recognise.
+ *
+ *  2 — satchels became a list of drop specs instead of a count, because the
+ *      count could only ever mint the two valley items. Saves from 1 reset;
+ *      authorised (CLAUDE.md, saves are breakable). */
+export const SAVE_VERSION = 2;
 
 export function encode(s: Slice): string {
   // `lastRoll` is deliberately NOT saved. It is the dice sitting on the table
@@ -54,7 +58,17 @@ export function decode(blob: string): Slice | null {
   if (o.version !== SAVE_VERSION) return null;
   if (!isFiniteInt(o.seed) || o.seed < 0) return null;
   if (!isFiniteInt(o.at) || !PLACE.has(o.at)) return null;
-  if (!isFiniteInt(o.satchels) || o.satchels < 0) return null;
+  if (!Array.isArray(o.satchels)) return null;
+  const satchels: Slice['satchels'] = [];
+  for (const d of o.satchels) {
+    if (typeof d !== 'object' || d === null) return null;
+    const drop = d as Record<string, unknown>;
+    if (typeof drop.good !== 'string' || !(drop.good in ITEMS)) return null;
+    if (drop.poor !== undefined && (typeof drop.poor !== 'string' || !(drop.poor in ITEMS))) return null;
+    satchels.push(drop.poor === undefined
+      ? { good: drop.good }
+      : { good: drop.good, poor: drop.poor as string });
+  }
   if (typeof o.said !== 'string') return null;
 
   if (!Array.isArray(o.seen) || !o.seen.every((id) => isFiniteInt(id) && PLACE.has(id))) return null;
@@ -98,7 +112,7 @@ export function decode(blob: string): Slice | null {
     seen: [...o.seen] as number[],
     xp,
     pack,
-    satchels: o.satchels,
+    satchels,
     job,
     said: o.said,
     lastRoll: null,

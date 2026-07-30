@@ -126,7 +126,7 @@ const PLACES: readonly Place[] = [
     work: { id: 'stones-coping', label: 'Re-set the coping stones', skill: 'craft', secs: 30, xp: 35 },
     choices: [
       { to: 307, label: 'Draw the gate pin', test: {
-        skill: 'craft', demand: 4, loot: true,
+        skill: 'craft', demand: 4, loot: { good: 'stones-gate-pin', poor: 'stones-fleece-scrap' },
         win: 'The pin lifts out cold and clean and the gate sags open on nothing. You keep it. It is a lever as much as a hinge.',
         lose: 'The pin will not turn. You go over the wall instead, and see from the top that the gate was hung to open inward, against the hill, where no gate can swing.',
       } },
@@ -186,5 +186,7 @@ export const STONES: Region = {
   places: PLACES,
   items: {
     'stones-gate-pin': { name: 'iron gate pin', opens: 'the shelter stone below the beacon' },
+    // The consolation drop, so the satchel roll can go badly.
+    'stones-fleece-scrap': { name: 'scrap of fleece', opens: 'nothing' },
   },
 };

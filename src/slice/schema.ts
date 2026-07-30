@@ -19,7 +19,18 @@ export interface Choice {
   label: string;
   /** A skill check on the way. Failing does not block the move — it changes
    *  what you find, which is the only kind of failure this game has. */
-  test?: { skill: SkillId; demand: number; win: string; lose: string; loot?: boolean };
+  test?: {
+    skill: SkillId; demand: number; win: string; lose: string;
+    /** ⚠️ LOOT NAMES ITS OWN DROPS. This was `loot: true` and the engine held a
+     *  hardcoded table of two VALLEY items, so a check in any other region
+     *  minted a strip of lead — which meant every key the other regions gate
+     *  their doors on could never enter the pack, and all of that content was
+     *  unreachable. Found by the author of `works.ts`, who could not fix it
+     *  because the engine was not theirs to edit.
+     *
+     *  `good` on a satchel roll of 8+ (79%), `poor` below it. */
+    loot?: { good: ItemId; poor?: ItemId };
+  };
   /** What you must already carry, or already be. Shown, never hidden. */
   needs?: { skill: SkillId; level: number } | { item: ItemId };
 }

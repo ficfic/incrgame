@@ -99,6 +99,7 @@ describe('a save we cannot honour is REFUSED, not repaired', () => {
     expect(decode(bad((o) => { o.seed = 'abc'; }))).toBeNull();
     expect(decode(bad((o) => { o.seed = Number.NaN; }))).toBeNull();
     expect(decode(bad((o) => { o.satchels = -2; }))).toBeNull();
+    expect(decode(bad((o) => { o.satchels = [{ good: 'no-such-item' }]; }))).toBeNull();
     expect(decode(bad((o) => { o.xp = { wayfaring: -5, lore: 0, craft: 0 }; }))).toBeNull();
   });
 
