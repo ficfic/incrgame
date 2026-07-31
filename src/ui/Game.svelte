@@ -14,7 +14,8 @@
   // where you can go. The graph comes back when it has earned its way back, as
   // a thing you open — not as the floor everything else is balanced on.
   import { onMount } from 'svelte';
-  import { PLACE } from '../game/places';
+  import { PLACE, PLACES } from '../game/places';
+  import { SPOT, VIEW } from '../game/layout';
   import { apply, initial, waysFrom, waitFor, SECS_PER_PACE,
     type Game, type Action } from '../game/engine';
   import { load, save, wipe, elapsedSince } from '../game/store';
@@ -99,6 +100,37 @@
     };
   });
 
+  /** Everything the map draws, decided here so the markup stays a shape.
+   *  A place you have not reached has no name on it — the valley is drawn, but
+   *  what is out there is not spoiled. */
+  const map = $derived.by(() => {
+    const reachable = new Map(ways.map((w) => [w.to, w]));
+    return {
+      edges: PLACES.flatMap((p) => p.ways
+        .filter((to) => to > p.id)
+        .map((to) => ({
+          key: `${p.id}-${to}`,
+          a: SPOT.get(p.id)!, b: SPOT.get(to)!,
+          // An edge you could take right now is the one that matters.
+          live: (p.id === game.at && reachable.get(to)?.why === null)
+            || (to === game.at && reachable.get(p.id)?.why === null),
+          known: game.seen.includes(p.id) && game.seen.includes(to),
+        }))),
+      dots: PLACES.map((p) => {
+        const w = reachable.get(p.id);
+        return {
+          id: p.id,
+          at: SPOT.get(p.id)!,
+          name: game.seen.includes(p.id) ? p.name : '',
+          you: p.id === game.at,
+          open: w !== undefined && w.why === null,
+          shut: w !== undefined && w.why !== null,
+          known: game.seen.includes(p.id),
+        };
+      }),
+    };
+  });
+
   const mmss = (s: number): string =>
     s >= 60 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${Math.round(s)}s`;
 </script>
@@ -113,6 +145,32 @@
       </button>
     </div>
   </header>
+
+  <!-- ★ THE GRAPH IS THE GAME (`docs/BRIEF.md`, the north star). It is drawn
+       first, it is the biggest thing on the screen, and it is not a view you
+       open — you are looking at the valley and standing in it.
+
+       SVG with a `viewBox` and no width/height of its own: the browser scales
+       the whole box to the column, so there is no camera, nothing measured
+       against the window, and no alignment left to get wrong. The layout came
+       out of `layout.ts` already solved, so nothing here moves after the first
+       paint. -->
+  <section class="map">
+    <svg viewBox="{VIEW.x} {VIEW.y} {VIEW.w} {VIEW.h}" role="img"
+      aria-label="the valley, {game.seen.length} of {PLACE.size} places found">
+      {#each map.edges as e (e.key)}
+        <line x1={e.a.x} y1={e.a.y} x2={e.b.x} y2={e.b.y}
+          class:live={e.live} class:known={e.known} />
+      {/each}
+      {#each map.dots as d (d.id)}
+        <g class:you={d.you} class:open={d.open} class:shut={d.shut}
+          class:known={d.known}>
+          <circle cx={d.at.x} cy={d.at.y} r={d.you ? 7 : d.open || d.shut ? 5.5 : 3.5} />
+          {#if d.name}<text x={d.at.x} y={d.at.y + 16}>{d.name}</text>{/if}
+        </g>
+      {/each}
+    </svg>
+  </section>
 
   <section class="place">
     <h1>{here.name}</h1>
@@ -180,6 +238,26 @@
   .reset { margin-left: auto; padding: 8px 12px; border-radius: 8px;
     background: none; border: 1px solid #2b4356; color: #8fa6b6; font: inherit;
     font-size: 13px; }
+
+  .map { margin: 14px 0 4px; }
+  /* No `overflow: visible` — the viewBox already carries padding for the
+     labels, and letting the drawing escape its own box is how it ended up
+     under the sticky header. */
+  .map svg { display: block; width: 100%; height: auto; }
+  .map line { stroke: #1d2c3a; stroke-width: 1; }
+  .map line.known { stroke: #2b4356; }
+  .map line.live { stroke: #8ff0cf; stroke-width: 2; }
+  .map circle { fill: #2b3a49; }
+  .map .known circle { fill: #4d6b80; }
+  .map .open circle { fill: #78e8c0; }
+  .map .shut circle { fill: #f0b45f; }
+  .map .you circle { fill: #8ff0cf; stroke: #8ff0cf; stroke-width: 6;
+    stroke-opacity: .25; }
+  .map text { fill: #7f97a8; font-size: 11px; text-anchor: middle;
+    paint-order: stroke; stroke: #070b10; stroke-width: 3px; }
+  .map .you text { fill: #eafff7; font-weight: 700; }
+  .map .open text { fill: #bff3e0; }
+  .map .shut text { fill: #f3d6a8; }
 
   h1 { margin: 20px 0 8px; font-size: 24px; }
   h2 { margin: 26px 0 8px; font-size: 14px; letter-spacing: .08em;
