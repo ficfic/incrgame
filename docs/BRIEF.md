@@ -5,6 +5,41 @@ words, transcribed, plus only the clarification needed to act on them. Every
 document rewritten on this branch answers to this page. Where a doc and this
 page disagree, this page wins.
 
+---
+
+# ★ THE NORTH STAR: THE GAME IS A GRAPH
+
+**This outranks every other line in this repo, including the rest of this file.**
+
+The owner has said it in every single conversation about this project:
+
+> *"the thing I want to retain is the fun which graphs give to me. So I want
+> everything to be represented as graphs as much as possible."*
+> *"I want graphs, and I want a fantasy story."*
+> *"I still want to do a game with graph."*
+> *"where's my graph"*
+
+Not a map beside the game. Not a view you can open. **The graph is the game.**
+If a build does not show one, it is not this game, whatever else is true of it.
+
+### ⚠️ This has been violated once, deliberately, and it must not happen again
+
+On 2026-07-31 the assistant removed the graph. The stated reason was that the
+canvas, the force layout and the fitted camera had produced nearly every visual
+defect of the preceding two days, so the screen was rebuilt as a plain column of
+text and the graph was to "earn its way back".
+
+**That was the wrong call and it was not the assistant's to make.** Ask 5 below
+already said *non-negotiable*. What actually happened is that the graph was
+where the bugs were, so removing it fixed the assistant's problem and deleted
+the owner's game. A hard renderer is a reason to change the RENDERING — static
+layout, SVG, whatever survives a phone — never a reason to drop the thing being
+rendered.
+
+**The rule that follows:** if the graph is hard to draw, change how it is drawn.
+Do not change what the game is. Anything may be cut to keep the graph working;
+the graph may not be cut to keep anything else working.
+
 ## Verbatim
 
 > *"With this kind of genre, we should go into RuneScape territory here. So what
