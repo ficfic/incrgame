@@ -44,6 +44,17 @@
    *  is gated behind it, nothing waits for it, and one tap anywhere dismisses
    *  it. `docs/GAME_DESIGN.md`: "three dots and one sentence." */
   let intro = $state(false);
+  /** ⚠️ THE BOX WE DRAW INTO, NOT THE WINDOW. These were bound to
+   *  `window.innerWidth/innerHeight` while `main` is `height: 100dvh`, and on
+   *  iOS those are two different numbers whenever the URL bar is showing:
+   *  `innerHeight` reports the LARGE viewport (as if the bar were hidden),
+   *  `dvh` reports the one actually on screen. So the camera centred the board
+   *  for a taller screen than it was painting into, and everything sat low —
+   *  the "still misaligned on my screen" that no headless run could reproduce,
+   *  because a headless browser has no URL bar and the two numbers agree.
+   *
+   *  Bound to the stage's own client box instead, which is true by
+   *  construction on every device and needs no guessing about chrome. */
   let w = $state(360);
   let h = $state(640);
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -449,8 +460,6 @@
     .sort((a, b) => b[1] - a[1]));
 </script>
 
-<svelte:window bind:innerWidth={w} bind:innerHeight={h} />
-
 <main>
   <!-- ONE LINE, and it is the last thing that happened. The owner asked for
        "pop ups above the graph when something happens"; this is that, minus the
@@ -476,6 +485,7 @@
   <!-- The board is a draggable surface, not a control: the CONTROLS are the
        dots and buttons on top of it, each of which is a real button. -->
   <div class="stage" role="application" aria-label="the board"
+    bind:clientWidth={w} bind:clientHeight={h}
     onpointerdown={grabStart} onpointermove={grabMove}
     onpointerup={grabEnd} onpointercancel={grabEnd}>
     <canvas bind:this={canvas} style="width:{w}px;height:{h}px"></canvas>
@@ -782,9 +792,19 @@
      390px viewport past the clamp that was supposed to hold it, and `main`'s
      overflow:hidden sliced the last word off every line. Seen in the
      screenshot, not in a type error. */
+  /* ⚠️ CAPPED AT HALF THE SCREEN, AND IT SCROLLS PAST THAT.
+     `docs/GAME_DESIGN.md` says the card never scrolls, and that was right when
+     it held forty to seventy words and nothing else. It now also carries a work
+     button and up to two gathering buttons, so on a shorter screen — an iPhone
+     with the URL bar showing, ~660px of usable box — it ran to two thirds of
+     the height and squeezed the board into a strip: the dots' centre sat at 24%
+     of the stage instead of near the middle. That is the "still misaligned"
+     the owner saw and no full-height headless run could show.
+     Half the screen for the board, half for what you are reading. */
   .card { position: absolute; box-sizing: border-box; z-index: 5;
     left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r));
     bottom: calc(12px + var(--safe-b)); padding: 14px 16px 16px;
+    max-height: 52%; overflow-y: auto; overscroll-behavior: contain;
     border-radius: 12px; background: #0d151dfa; border: 1px solid #24384a;
     box-shadow: 0 10px 30px #000a; }
   .card h2 { margin: 0 0 8px; font-size: 18px; letter-spacing: .01em; }

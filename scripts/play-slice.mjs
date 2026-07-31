@@ -338,6 +338,56 @@ if (layout.crowded.length) misses.push(`labels overlap: ${layout.crowded.join(',
 if (layout.offscreen.length) misses.push(`labels off-screen: ${layout.offscreen.join(', ')}`);
 if (layout.hScroll) misses.push('the page scrolls sideways');
 
+// 6. ★ THE LAYOUT MUST NOT DEPEND ON THE BROWSER'S CHROME.
+//    `w`/`h` were bound to window.innerWidth/innerHeight while the box is
+//    100dvh — two different numbers on iOS whenever the URL bar is showing, so
+//    the camera centred the board for a taller screen than it painted into.
+//    A headless browser has no URL bar and the two agree, which is exactly why
+//    every run here was green while the owner's phone was not. This forces the
+//    drawn box to be shorter than the window and checks the picture is the same.
+const centreFraction = async (shortenTo) => {
+  const p2 = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  if (shortenTo) {
+    await p2.addInitScript((px) => {
+      addEventListener('DOMContentLoaded', () => {
+        const st = document.createElement('style');
+        st.textContent = `main { height: ${px}px !important; }`;
+        document.head.appendChild(st);
+      });
+    }, shortenTo);
+  }
+  await p2.goto(URL, { waitUntil: 'networkidle' });
+  await p2.waitForSelector('.dot.you', { timeout: 15000 });
+  await p2.locator('.introBox .act').click({ timeout: 4000 }).catch(() => {});
+  await p2.waitForTimeout(5000);
+  const out = await p2.evaluate(() => {
+    const stage = document.querySelector('.stage').getBoundingClientRect();
+    const dots = [...document.querySelectorAll('.dot.you, .dot.way, .dot.shut')]
+      .map((d) => d.getBoundingClientRect());
+    if (!dots.length) return null;
+    const cy = dots.reduce((a, r) => a + r.top + r.height / 2, 0) / dots.length;
+    const spilled = dots.filter((r) => r.bottom > stage.bottom || r.top < stage.top).length;
+    return { frac: (cy - stage.top) / stage.height, spilled, box: Math.round(stage.height) };
+  });
+  await p2.close();
+  return out;
+};
+const full = await centreFraction(0);
+const short = await centreFraction(660);
+console.log('\nCHROME INDEPENDENCE');
+if (!full || !short) {
+  console.log('  ⚠️ could not measure');
+  misses.push('could not measure the layout against a shortened box');
+} else {
+  console.log(`  full box  ${full.box}px: dots centred at ${(full.frac * 100).toFixed(0)}%`);
+  console.log(`  short box ${short.box}px: dots centred at ${(short.frac * 100).toFixed(0)}%`);
+  const drift = Math.abs(full.frac - short.frac) * 100;
+  console.log('  verdict:', drift <= 6 ? `the same picture (${drift.toFixed(0)} pts apart)`
+    : `⚠️ THE LAYOUT MOVES WITH THE BROWSER CHROME (${drift.toFixed(0)} pts apart)`);
+  if (drift > 6) misses.push(`layout depends on browser chrome: ${drift.toFixed(0)} points of drift`);
+  if (short.spilled) misses.push(`${short.spilled} dots outside the drawn box on a short screen`);
+}
+
 await page.screenshot({ path: SHOT });
 console.log(`\nscreenshot → ${SHOT}`);
 
