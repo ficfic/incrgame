@@ -41,7 +41,7 @@
         game = back.game;
         // Absence pays: the same reducer, one big tick. Capped at twelve hours.
         const secs = Math.min(elapsedSince(back.savedAt), 12 * 3600);
-        if (secs > 1 && back.game.working) {
+        if (secs > 1) {
           const before = back.game.paces;
           game = apply(back.game, { type: 'tick', secs });
           const got = game.paces - before;
@@ -59,7 +59,7 @@
     let raf = 0;
     const frame = (t: number): void => {
       const secs = (t - last) / 1000;
-      if (secs >= 0.2) { last = t; if (game.working) act({ type: 'tick', secs }); }
+      if (secs >= 0.2) { last = t; act({ type: 'tick', secs }); }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -176,17 +176,12 @@
     <h1>{here.name}</h1>
     <p>{here.body}</p>
 
-    {#if here.work}
-      <button class="do" class:on={game.working}
-        onclick={() => act(game.working ? { type: 'stop' } : { type: 'work' })}>
-        {game.working ? `${here.work.label}…` : here.work.label}
-        <em>{game.working
-          ? `1 pace every ${SECS_PER_PACE}s — keeps going while this is shut`
-          : `rest here · 1 pace every ${SECS_PER_PACE}s`}</em>
-      </button>
-    {:else}
-      <p class="nowork">Nothing to do here. Somewhere you have been will have work.</p>
-    {/if}
+    <!-- ⚠️ THERE IS NO REST BUTTON. Standing still IS resting: paces accrue
+         because time passed. A verb that exists only to be switched on once
+         needs a control, a label and a state to explain it, and an idle game
+         you can forget to start was never an idle game. -->
+    <p class="rate">Standing here gathers a pace every {SECS_PER_PACE} seconds,
+      whether this is open or shut.</p>
 
     {#if wait}
       <!-- The one number an idle game owes you: how long until the next thing. -->
@@ -263,19 +258,18 @@
   h2 { margin: 26px 0 8px; font-size: 14px; letter-spacing: .08em;
     text-transform: uppercase; color: #7f97a8; font-weight: 600; }
   .place p { margin: 0; color: #c8d8e4; }
-  .nowork { color: #7f97a8; font-style: italic; font-size: 15px; }
+  .rate { margin-top: 12px !important; font-size: 15px; color: #8fa6b6; }
   .wait { margin-top: 10px !important; font-size: 15px; color: #8fa6b6; }
   .wait b { color: #cdf3e6; font-weight: 600; }
 
   /* Every control is a real button, at least 56px tall, full width. Nothing
      overlaps anything because nothing is positioned. */
-  .do, .way { display: block; width: 100%; box-sizing: border-box; min-height: 56px;
+  .way { display: block; width: 100%; box-sizing: border-box; min-height: 56px;
     margin-top: 10px; padding: 12px 14px; border-radius: 12px; text-align: left;
     background: #12222e; border: 1px solid #2f5568; color: #cdf3e6; font: inherit;
     font-size: 17px; }
-  .do em, .way em { display: block; margin-top: 2px; font-style: normal;
+  .way em { display: block; margin-top: 2px; font-style: normal;
     font-size: 14px; color: #8fb6c4; }
-  .do.on { border-color: #8ff0cf; color: #eafff7; background: #16362f; }
 
   ul { list-style: none; margin: 0; padding: 0; }
   .way .name { font-weight: 600; }

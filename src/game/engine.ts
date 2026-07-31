@@ -37,16 +37,24 @@ export interface Game {
   paces: number;
   /** Fractional progress toward the next pace, never shown. */
   part: number;
-  /** Whether the work here is running. One slot, because you have one pair of
-   *  hands and two would need a screen to explain them. */
-  working: boolean;
   /** The last thing that happened, in one line. */
   said: string;
 }
 
+/** ⚠️ ONE VERB. There was a `work` action and a `stop` action and a `working`
+ *  flag, and a button to press to begin gathering.
+ *
+ *  The owner, after playing: "it was not working right not because of the
+ *  slightly misaligned graph, but because of all the rest of the UI." They are
+ *  right, and the rest of the UI existed to drive verbs the game did not need.
+ *  STANDING STILL IS RESTING. Paces accrue because time passed, so there is
+ *  nothing to start, nothing to remember to restart, and nothing to explain —
+ *  and an idle game where you can forget to switch the idle on was never an
+ *  idle game anyway.
+ *
+ *  What is left is: tap a place to go there. That is the whole input surface,
+ *  and it is a graph. */
 export type Action =
-  | { type: 'work' }
-  | { type: 'stop' }
   | { type: 'tick'; secs: number }
   | { type: 'go'; to: number };
 
@@ -107,26 +115,14 @@ export function initial(): Game {
     seen: [START],
     paces: 0,
     part: 0,
-    working: false,
-    said: 'You are here. Rest to gather paces; spend them to go somewhere new.',
+    said: 'Paces gather while you stand. Spend them to go somewhere new.',
   };
 }
 
 export function apply(g: Game, a: Action): Game {
   switch (a.type) {
-    case 'work': {
-      const w = PLACE.get(g.at)?.work;
-      if (!w || g.working) return g;
-      return { ...g, working: true, said: `${w.label}…` };
-    }
-
-    case 'stop':
-      return g.working ? { ...g, working: false, said: 'Stopped.' } : g;
-
     case 'tick': {
-      if (!g.working || a.secs <= 0) return g;
-      const w = PLACE.get(g.at)?.work;
-      if (!w) return { ...g, working: false };
+      if (a.secs <= 0) return g;
       // ⚠️ THE REMAINDER CARRIES, AND IT CARRIES IN SECONDS. Dropping it would
       // make a hundred small ticks pay less than one big one, and then an hour
       // watched and an hour away would disagree — the bug that ate a run in the
@@ -141,7 +137,6 @@ export function apply(g: Game, a: Action): Game {
         ...g,
         paces: g.paces + got,
         part: total - got * SECS_PER_PACE,
-        said: `+${got} ${got === 1 ? 'pace' : 'paces'}.`,
       };
     }
 
@@ -156,10 +151,9 @@ export function apply(g: Game, a: Action): Game {
         at: a.to,
         seen: first ? [...g.seen, a.to] : g.seen,
         paces: g.paces - cost,
-        // Moving puts the work down. A timer running somewhere you are not is
-        // a second place you exist and there is no screen for that.
-        working: false,
-        said: first ? dest.name : `Back to ${dest.name}.`,
+        // ★ ARRIVING IS WHAT THE PROSE IS FOR. It is the one thing you get for
+        // spending, and the only text on the screen.
+        said: first ? dest.body : `Back to ${dest.name}.`,
       };
     }
   }
@@ -187,6 +181,6 @@ export function waitFor(g: Game): { name: string; secs: number } | null {
   const short = waysFrom(g)
     .filter((wy) => wy.cost > g.paces)
     .sort((a, b) => a.cost - b.cost)[0];
-  if (!short || !PLACE.get(g.at)?.work) return null;
+  if (!short) return null;
   return { name: short.name, secs: Math.ceil((short.cost - g.paces) * SECS_PER_PACE) };
 }

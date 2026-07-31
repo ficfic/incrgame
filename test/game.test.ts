@@ -3,8 +3,8 @@ import { apply, initial, costOf, blocked, waysFrom, waitFor,
   SECS_PER_PACE, COST_BASE, COST_GROWTH, type Game } from '../src/game/engine';
 import { PLACES, PLACE, START } from '../src/game/places';
 
-const work = (g: Game, secs: number): Game =>
-  apply(apply(g, { type: 'work' }), { type: 'tick', secs });
+/** Standing still IS resting — there is no verb for it any more. */
+const work = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
 
 describe('the places', () => {
   it('every way is two-way', () => {
@@ -42,10 +42,7 @@ describe('the places', () => {
     }
   });
 
-  it('offers work somewhere you can reach on the first pace', () => {
-    // The loop cannot start if the opening place has nothing to do.
-    expect(PLACE.get(START)?.work, 'the start must have work').toBeDefined();
-  });
+
 });
 
 describe('one resource, two verbs', () => {
@@ -62,17 +59,19 @@ describe('one resource, two verbs', () => {
     // is genuinely fed less time than the fast one. Asserting equality here was
     // asserting that floating point is exact. The engine carries SECONDS so the
     // drift cannot accumulate beyond this.
-    let slow = apply(initial(), { type: 'work' });
+    let slow = initial();
     for (let i = 0; i < 600; i++) slow = apply(slow, { type: 'tick', secs: 0.1 });
     const fast = work(initial(), 60);
     expect(fast.paces).toBe(60 / SECS_PER_PACE);
     expect(Math.abs(slow.paces - fast.paces)).toBeLessThanOrEqual(1);
   });
 
-  it('does nothing while you are not working', () => {
-    const g = apply(initial(), { type: 'tick', secs: 3600 });
-    expect(g.paces).toBe(0);
-    expect(g).toEqual(initial());
+  it('★ gathers just by existing — there is nothing to switch on', () => {
+    // The whole reason the rest of the UI is gone. An idle game you can forget
+    // to start is not one, and a verb that exists only to be pressed once needs
+    // a control, a label and a state to explain it.
+    const g = apply(initial(), { type: 'tick', secs: 30 });
+    expect(g.paces).toBe(30 / SECS_PER_PACE);
   });
 
   it('charges more for each new place and nothing to go back', () => {
@@ -101,13 +100,13 @@ describe('one resource, two verbs', () => {
 
   it('spends the paces, moves, and puts the work down', () => {
     let g = work(initial(), COST_BASE * SECS_PER_PACE);
-    expect(g.working).toBe(true);
     const to = PLACE.get(START)!.ways[0]!;
     g = apply(g, { type: 'go', to });
     expect(g.at).toBe(to);
     expect(g.paces).toBe(0);
-    expect(g.working).toBe(false);
     expect(g.seen).toContain(to);
+    // Arriving hands you the prose. It is the only text the screen has.
+    expect(g.said).toBe(PLACE.get(to)!.body);
   });
 
   it('never lets paces go negative', () => {
@@ -168,9 +167,6 @@ describe('the player is never stuck', () => {
 
       if (g.paces < best.cost) {
         // Rest at the nearest place that has work. Getting there is free.
-        const rest = g.seen.find((id) => PLACE.get(id)?.work);
-        if (rest === undefined) break;
-        g = hop(g.at, rest, g);
         let spins = 0;
         while (g.paces < best.cost && spins++ < 500) g = work(g, 30);
       }

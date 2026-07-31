@@ -23,7 +23,7 @@ const read = () => page.evaluate(() => ({
   place: document.querySelector('.place h1')?.textContent?.trim() ?? '',
   body: document.querySelector('.place p')?.textContent?.trim().slice(0, 60) ?? '',
   paces: document.querySelector('.purse b')?.textContent?.trim() ?? '',
-  work: document.querySelector('.do')?.textContent?.replace(/\s+/g, ' ').trim() ?? '(none)',
+  rate: document.querySelector('.rate')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
   wait: document.querySelector('.wait')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
   ways: [...document.querySelectorAll('.way')].map((w) => w.textContent.replace(/\s+/g, ' ').trim()),
   tally: document.querySelector('.tally')?.textContent?.trim() ?? '',
@@ -35,12 +35,12 @@ console.log('  it says   :', open.said);
 console.log('  you are at:', open.place);
 console.log('  prose     :', `"${open.body}…"`);
 console.log('  paces     :', open.paces);
-console.log('  the verb  :', open.work);
+console.log('  the rate  :', open.rate);
 console.log('  next thing:', open.wait || '(nothing pending)');
 for (const w of open.ways) console.log('  way       :', w);
 
 // Rest, and watch it pay.
-await page.locator('.do').click({ timeout: 4000 }).catch((e) => misses.push(`could not rest: ${e}`));
+// Nothing to press: standing still gathers.
 console.log('\nRESTING');
 for (let i = 0; i < 5; i++) {
   await page.waitForTimeout(5000);
@@ -62,8 +62,6 @@ for (let step = 0; step < 8; step++) {
   const s = await read();
   if (s.place !== label?.trim()) misses.push(`tapped ${label}, still at ${s.place}`);
   path.push(`${s.place} (${s.paces} left)`);
-  // Rest again if we can, so the walk keeps going.
-  await page.locator('.do').click({ timeout: 1500 }).catch(() => {});
   await page.waitForTimeout(2500);
 }
 console.log('  ' + (path.join(' -> ') || '(went nowhere)'));
@@ -83,11 +81,20 @@ await page.waitForTimeout(600);
 const after = await read();
 console.log('\nRELOAD');
 console.log(`  ${before.place} ${before.paces} paces  ->  ${after.place} ${after.paces} paces`);
-// ⚠️ COMPARES THE PACES TOO. Judging only the place gave a FALSE PASS on the
-// first run: the paces had been wiped to zero but the player happened to be
-// standing at the starting place, so "survived" and "reset to a fresh game"
-// looked identical. A guard that cannot tell those apart is not a guard.
-const kept = before.place === after.place && before.paces === after.paces;
+// ⚠️ NOT EQUALITY, AND NOT ONLY THE PLACE EITHER.
+//
+// Judging only the place gave a FALSE PASS once: the paces had been wiped to
+// zero but the player was standing at the starting place, so "survived" and
+// "reset to a fresh game" looked identical.
+//
+// Then equality on the paces made it FLAKY, because paces now accrue every
+// three seconds whether or not anything is pressed — so a reload legitimately
+// lands on a different number and the run had done nothing wrong.
+//
+// The actual claim is that the run was not WIPED: same place, and the paces did
+// not fall back toward a fresh game.
+const kept = before.place === after.place
+  && Number(after.paces) >= Number(before.paces) - 1;
 console.log('  verdict:', kept ? 'the run survived' : '⚠️ THE RUN DID NOT SURVIVE');
 if (!kept) misses.push('the run did not survive a reload');
 
@@ -95,11 +102,7 @@ if (!kept) misses.push('the run did not survive a reload');
 // work the walk had already started — and then "two hours away paid nothing"
 // was the probe's own doing rather than the game's. Absence only banks what was
 // running when you left, which is the design, so the check has to set that up.
-const running = async () => page.evaluate(() =>
-  document.querySelector('.do')?.classList.contains('on') ?? false);
-if (!await running()) await page.locator('.do').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(1500);
-if (!await running()) misses.push('could not leave the work running for the offline check');
 const paced = (await read()).paces;
 await page.addInitScript(() => {
   const R = Date; const skip = 2 * 3600 * 1000;
