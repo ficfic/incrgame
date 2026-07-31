@@ -50,6 +50,31 @@ for (const t of tabs) {
   if (bad.length) misses.push(`${t}: ${bad.join(', ')}`);
 }
 
+// ★ HERE — the room, not the map. A few dots, and one of them says what you are
+// doing right now. This is build-order step 4 and the thing it must not be is a
+// zoomed copy of the Journey.
+await page.locator('nav button', { hasText: 'Journey' }).click();
+await page.waitForTimeout(300);
+const worldDots = await page.$$eval('.map g', (g) => g.length);
+await page.locator('nav button', { hasText: 'Here' }).click();
+await page.waitForTimeout(400);
+const hereDots = await page.$$eval('.map g', (g) => g.length);
+console.log('\nHERE');
+console.log('  dots    :', `${hereDots} here vs ${worldDots} on the journey`);
+if (hereDots >= worldDots) misses.push(`Here draws ${hereDots} dots — it is the whole map again`);
+const doing = page.locator(".map g[data-kind='doing']");
+if (await doing.count()) {
+  const label = await doing.locator('text').textContent();
+  await doing.click({ timeout: 3000 }).catch((e) => misses.push(`doing dot: ${e}`));
+  await page.waitForTimeout(300);
+  const said = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
+  console.log('  doing   :', `"${label}" — ${said}`);
+  if (!/pace every \d+ seconds/.test(said)) misses.push('the doing node does not say the rate');
+  if (!/\d+s\.|Enough in hand|Every way from here/.test(said)) {
+    misses.push('the doing node does not say what is next');
+  }
+} else { misses.push('Here has no node for what you are doing'); }
+
 // ★ FORGING. Select where you stand, arm Connect, tap a neighbour, watch the
 // line fill, then walk it. This is the interaction the owner asked for by name.
 await page.locator('nav button', { hasText: 'Journey' }).click();
@@ -90,6 +115,12 @@ if (await page.locator('.deed.arm').count()) {
   console.log('  filling :', filling ? `${filling} line drawing` : '⚠️ nothing is filling');
   console.log('  panel   :', note);
   if (!filling) misses.push('the route did not start filling');
+  // ★ A ROUTE BEING MADE MUST NOT ALREADY LOOK MADE. It shipped drawing solid
+  // for its whole length the instant it started, so the far end read as reached
+  // with twelve seconds still to run.
+  const early = await page.$$eval('.map line:not(.unmade):not(.filling)', (l) => l.length);
+  console.log('  during  :', early ? `⚠️ ${early} route(s) already drawn made` : 'still dashed under the fill');
+  if (early) misses.push(`${early} route(s) drawn as made while still filling`);
   // Watch it finish.
   for (let i = 0; i < 30; i++) {
     await page.waitForTimeout(2000);

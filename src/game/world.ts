@@ -8,12 +8,13 @@
 // That is the owner's ask, in their words: "in the underlying data model for
 // the game, I want the graph to have everything connected so that we have one
 // systemic model which describes everything."
-import { PLACES, PLACE } from './places';
+import { PLACES, PLACE, nameOf } from './places';
 import type { Game } from './engine';
-import { waysFrom, costOf, unforgeable, forgeSecs, edgeKey } from './engine';
+import { waysFrom, costOf, unforgeable, forgeSecs, edgeKey, waitFor,
+  SECS_PER_PACE } from './engine';
 
-export type Kind = 'place' | 'item' | 'concept' | 'you';
-export type Rel = 'route' | 'carries' | 'means' | 'stands';
+export type Kind = 'place' | 'item' | 'concept' | 'you' | 'doing';
+export type Rel = 'route' | 'carries' | 'means' | 'stands' | 'doing';
 
 export interface Node {
   id: string;
@@ -52,22 +53,79 @@ export function journey(g: Game): View {
   };
 }
 
-/** HERE — the place you are standing in, and the ways out of it, and nothing
- *  else. The same nodes as the journey, filtered to one hop. */
+/** The id of the one node that is not a thing in the world but a thing you are
+ *  doing. Constant, so the layout cache does not re-solve while it counts down. */
+export const DOING = 'doing';
+
+/** ⚠️ WHAT AM I DOING IN THE NEXT THIRTY SECONDS. `engine.ts` opens by naming
+ *  that as the question the eleven-system build could not answer, and until now
+ *  neither could this one: paces accrued silently and `waitFor` — "the one
+ *  number an idle game owes the player" — was exported and used by nothing.
+ *
+ *  So the Here tab carries a node for it. It is not a new mechanic and there is
+ *  nothing to press: resting is what standing still already does. What is new
+ *  is that the game SAYS so, in the place's own words where the authored
+ *  content gave it any ("Listen to the water", "Count the gates"), and puts the
+ *  countdown on the graph rather than in a status bar. */
+function doing(g: Game): Node {
+  const at = PLACE.get(g.at)!;
+  if (g.forging) {
+    const [x, y] = g.forging.key.split('|').map(Number);
+    const far = x === g.at ? y! : x!;
+    return {
+      id: DOING, kind: 'doing', name: 'Making a way',
+      body: `Toward ${nameOf(far)}. ${Math.ceil(g.forging.left)}s left, and it `
+        + 'carries on while this is shut.',
+    };
+  }
+  const rate = `A pace every ${SECS_PER_PACE} seconds, watched or not.`;
+  // What the rate is FOR, from here: the nearest way you can already buy, else
+  // how long until the cheapest one you cannot.
+  const ready = waysFrom(g)
+    .filter((w) => !w.made && w.cost <= g.paces)
+    .sort((a, b) => a.cost - b.cost)[0];
+  const wait = waitFor(g);
+  const next = ready ? `Enough in hand for the way to ${ready.name}.`
+    : wait ? `The way to ${wait.name} in ${wait.secs}s.`
+    : 'Every way from here is made.';
+  return {
+    id: DOING, kind: 'doing',
+    name: at.work?.label ?? 'Standing still',
+    body: `${rate} ${next}`,
+  };
+}
+
+/** HERE — the room you are in, rather than the map you are on.
+ *
+ *  `docs/TABS.md` build order 4, and the owner's ask: "within the location, as
+ *  a separate tab… to not have everything on one screen." Three or four dots
+ *  instead of thirty-seven, which is what makes this — not the Journey — the
+ *  surface the moment-to-moment loop is actually played on.
+ *
+ *  R1.3: still a FILTER over the one graph. The places and routes here are the
+ *  same nodes and edges the Journey draws, cut to one hop. The only addition is
+ *  the `doing` node, which is a node like any other and hangs off this place by
+ *  a `doing` edge. */
 export function here(g: Game): View {
   const at = PLACE.get(g.at)!;
-  const ids = [g.at, ...at.ways];
   return {
-    nodes: ids.map((id) => {
-      const p = PLACE.get(id)!;
-      return {
-        id: placeId(id),
-        kind: 'place' as const,
-        name: g.seen.includes(id) ? p.name : '',
-        body: g.seen.includes(id) ? p.body : undefined,
-      };
-    }),
-    edges: at.ways.map((to) => ({ a: placeId(g.at), b: placeId(to), rel: 'route' as const })),
+    nodes: [
+      { id: placeId(g.at), kind: 'place', name: at.name, body: at.body },
+      doing(g),
+      ...at.ways.map((id) => {
+        const p = PLACE.get(id)!;
+        return {
+          id: placeId(id),
+          kind: 'place' as const,
+          name: g.seen.includes(id) ? p.name : '',
+          body: g.seen.includes(id) ? p.body : undefined,
+        };
+      }),
+    ],
+    edges: [
+      { a: placeId(g.at), b: DOING, rel: 'doing' as const },
+      ...at.ways.map((to) => ({ a: placeId(g.at), b: placeId(to), rel: 'route' as const })),
+    ],
   };
 }
 

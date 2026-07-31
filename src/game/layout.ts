@@ -129,6 +129,17 @@ export interface Solved { spots: Placed[]; box: { x: number; y: number; w: numbe
 
 const cache = new Map<string, Solved>();
 
+/** The smallest box any tab is drawn in, in the same units as the layout. Close
+ *  to the journey's own box (396 × 403) so that a label is the same size on
+ *  every tab — see the note in `solve`. */
+export const MIN_BOX = { w: 360, h: 300 };
+
+/** Widen a box to at least `w` × `h`, keeping its centre. */
+function grow(b: Solved['box'], w: number, h: number): Solved['box'] {
+  const dw = Math.max(0, w - b.w), dh = Math.max(0, h - b.h);
+  return { x: b.x - dw / 2, y: b.y - dh / 2, w: b.w + dw, h: b.h + dh };
+}
+
 /** ⚠️ NO RUNTIME FORCE SIMULATION. This runs to completion once per distinct
  *  shape and the answer is then a constant. The old board re-solved every
  *  frame, which is why its dots were moving targets that neither Playwright nor
@@ -173,15 +184,44 @@ export function solve(view: View): Solved {
     }
   }
 
-  const spots = ids.map((id) => ({ id, ...pos.get(id)! }));
+  // ⚠️ SPREAD THE DOTS, DO NOT ZOOM THE BOX. The viewBox is handed to the
+  // browser to scale, so it is also the font size and the dot size: a four-dot
+  // view solved into a 130-unit box was drawn at three times the journey's zoom
+  // and its labels came out three times bigger. Screenshotted on Here, "The Cut"
+  // in 22px straddling the dot beside it.
+  //
+  // The fix is not a bigger empty box — that leaves a thumbnail in a field of
+  // black. It is to push the dots APART until they fill a box of the journey's
+  // size, so a small view uses the whole page at the same zoom as every other
+  // tab. Capped, because two nodes would otherwise be flung to the corners.
   const pad = 34;
+  {
+    const xs0 = ids.map((id) => pos.get(id)!.x), ys0 = ids.map((id) => pos.get(id)!.y);
+    const w0 = Math.max(...xs0) - Math.min(...xs0), h0 = Math.max(...ys0) - Math.min(...ys0);
+    const kx = w0 > 1 ? (MIN_BOX.w - pad * 2) / w0 : Infinity;
+    const ky = h0 > 1 ? (MIN_BOX.h - pad * 2.4) / h0 : Infinity;
+    const k = Math.min(3, Math.max(1, Math.min(kx, ky)));
+    if (k > 1) {
+      const cx = (Math.max(...xs0) + Math.min(...xs0)) / 2;
+      const cy = (Math.max(...ys0) + Math.min(...ys0)) / 2;
+      for (const id of ids) {
+        const p = pos.get(id)!;
+        pos.set(id, { x: cx + (p.x - cx) * k, y: cy + (p.y - cy) * k });
+      }
+    }
+  }
+
+  const spots = ids.map((id) => ({ id, ...pos.get(id)! }));
   const xs = spots.map((s) => s.x), ys = spots.map((s) => s.y);
-  const box = {
+  // And a floor under the box, so a view that could not be spread far enough
+  // (two dots, one dot) is still drawn at the journey's zoom rather than blown
+  // up to fill the column.
+  const box = grow({
     x: Math.min(...xs) - pad,
     y: Math.min(...ys) - pad,
     w: Math.max(...xs) - Math.min(...xs) + pad * 2,
     h: Math.max(...ys) - Math.min(...ys) + pad * 2.4,
-  };
+  }, MIN_BOX.w, MIN_BOX.h);
   const out = { spots, box };
   cache.set(key, out);
   return out;

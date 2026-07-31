@@ -107,22 +107,42 @@ overlays anything.
 Each step ends in something playable and screenshotted. Nothing starts until
 the one before it is on the phone.
 
-1. **The model and the tab shell.** One typed graph; four tabs; nothing overlays
-   anything. Journey renders places, Here/Self/Thoughts render what little
-   exists. *This alone fixes the reported defect.*
-2. **Selection and actions (R3).** Tap a node, see its actions in a fixed panel.
-   Travel becomes an action on a node rather than a list beneath the map.
-3. **Forging (R4).** Two taps, a dotted line, and the fill. The signature move.
-4. **Here.** The place you are standing in, as its own tab. Encounters land here
-   later; first it is what you can see and do.
+1. ✅ **The model and the tab shell.** One typed graph; four tabs; nothing
+   overlays anything. Journey renders places, Here/Self/Thoughts render what
+   little exists. *This alone fixes the reported defect.*
+2. ✅ **Selection and actions (R3).** Tap a node, see its actions in a fixed
+   panel. Travel becomes an action on a node rather than a list beneath the map.
+3. ✅ **Forging (R4).** Two taps, a dotted line, and the fill. The signature move.
+4. ✅ **Here.** The place you are standing in, as its own tab. Encounters land
+   here later; first it is what you can see and do.
 5. **Self.** Skills and stats as a graph, carried things hanging off it.
 6. **Thoughts.** Concepts and how they connect; tap one to read it.
 
+### What step 4 settled
+
+- **Here is the room, not a zoomed map.** Where you stand, every way out, and
+  one node for **what you are doing** — the place's own words for resting where
+  the authored content gave it any ("Listen to the water"), the countdown while
+  a way is being made. It is a node, not a status bar, and there is nothing to
+  press: standing still is already resting.
+- **It is still a filter (R1.3).** Every place and route Here draws is the same
+  node and the same edge the Journey draws. The only addition is the `doing`
+  node and its one edge.
+- **Every tab is drawn at one zoom.** The `viewBox` is also the font size, so a
+  four-dot tab was scaled three times harder than the thirty-seven-dot one. A
+  small view now spreads its dots to fill a box of the Journey's size instead.
+
+### Settled by step 3, on record here
+
+- **R4.5** — the pairs that may be joined are the ones the authored valley
+  already joins. Nothing invented.
+- **Forging REPLACES travel cost.** Paces buy a route, not a step; a made route
+  is free to walk forever. Two costs for one move is friction with nothing to
+  show for it, and this way the graph is literally the thing you are building.
+
 ## Not yet decided — do not invent these
 
-- **R4.5** Which pairs may be connected, and what forging costs.
-- Whether forging replaces travel cost or sits beside it.
 - What an encounter is, mechanically (`docs/COMBAT.md` has a design; it is not
-  built and is not assumed here).
+  built and is not assumed here). It lands on **Here** when it is decided.
 - Whether skills and stats come back at all, and in what form. `Self` may be
   nearly empty for a while, and that is honest.

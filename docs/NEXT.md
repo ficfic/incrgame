@@ -20,58 +20,49 @@ file.**
 
 ---
 
-> **Queue replaced 2026-07-29.** Node memory, the WordNet junk cut and the
-> Solid/Raw/Rot screen went with the theme. `docs/BRIEF.md` is the source of
-> truth; `docs/RESET.md` is why.
+> **Queue replaced 2026-07-31.** The slice and its eleven systems are retired
+> (`src/slice/` stays on disk for its authored prose only). The queue is now
+> **the build order in `docs/TABS.md`**, which answers to `docs/BRIEF.md`'s
+> north star: the game is a graph.
 >
-> **Item 2 (persistence) SHIPPED 2026-07-29** — `src/slice/save.ts`,
-> IndexedDB autosave via the existing `shell/storage.ts`, export/import as
-> pasteable base64, 15 tests. The probe reloads the page and compares; the seed
-> round-trips, so the dice after a reload are the ones you were about to throw.
+> **Steps 1–4 SHIPPED 2026-07-31** — the tab shell and the one graph model
+> (`src/game/world.ts`), selection and actions in a fixed panel, forging
+> (two taps, a dotted line, the fill), and Here as the room you stand in with
+> a node for what you are doing. `scripts/play-tabs.mjs` is the probe.
 >
-> **Item 1 SHIPPED 2026-07-29** — the vertical slice. `src/slice/` (dice,
-> content, engine), `src/ui/Slice.svelte`, `test/slice.test.ts` (22 tests),
-> `scripts/play-slice.mjs`. `src/main.ts` now mounts `Slice.svelte`; the old
-> `App.svelte` still compiles and is unreferenced. The RED-build note that used
-> to be here was stale — `vite build` and `npm run check` are clean.
->
-> **No generated prose.** `RESET.md` measured the last attempt at 1.2%
-> authored, and the owner found no story in the rest. **Saves reset** — say so
-> in the commit.
+> **Saves are breakable.** Say so in the commit when a change resets them.
 
-## 1. Owner's pass over the slice
+## 1. Self — you, as a graph
 
-**Not a build item.** Six places are drafted prose (`src/slice/content.ts`) and
-CLAUDE.md says player-facing prose is machine-drafted and **owner-edited**. The
-slice cannot be judged as a game until the words are ones the owner would
-defend, because "is this fun" and "is this well written" are not separable here.
+`docs/TABS.md` build order 5. Today the tab holds two dots and is honest about
+it. Whether skills and stats come back **at all**, and in what form, is still
+the owner's call and is listed under "do not invent" — so this item is a
+question before it is a build.
 
-Also open for the owner, from `docs/DICE.md` and `docs/SKILLS.md`: is 2d10 read
-as summed 2–20 (built) or percentile d100, and is the currency called the Obol.
+**Done when:** the owner has answered whether skills return, and Self shows
+whatever the answer makes true. Not before.
 
-**Done when:** the owner has passed over the six bodies and answered those two.
+## 2. Thoughts — what you know, and how it connects
 
-## 2. Two dots, one fight
+`docs/TABS.md` build order 6. Today it draws the places you have proved. The
+owner asked for "a glossary way" — concepts and their relations, tap one to
+read it. Needs something to put in it that is not a place.
 
-`docs/COMBAT.md`, at slice scale. An enemy dot authored onto one of the six
-places. Radius is health, so losing is shrinking and out is out. One poke per
-tick down the contested edge, resolved by the same timer machinery the work
-actions already use. Your side reads one skill level; levelling is why you win.
+**Done when:** `npm run play` screenshots the tab with at least one concept
+that is not a place, and tapping it reads.
 
-Losing relights you one node back and **keeps the XP for damage dealt** — that
-is the whole answer to "failure is a plateau, never a loss screen", and it is
-the constraint most likely to get fudged.
+## 3. Two dots, one fight
+
+`docs/COMBAT.md`, on the **Here** tab — that is where the owner said encounters
+land. An enemy dot beside yours; they poke each other on a timer; one goes out.
+Radius is health, so losing is shrinking and out is out. **What an encounter is
+mechanically is still undecided** (`docs/TABS.md`), so this item starts with the
+owner, not with code.
+
+Losing relights you one node back and keeps what was earned — that is the whole
+answer to "failure is a plateau, never a loss screen", and it is the constraint
+most likely to get fudged.
 
 **Done when:** `npm run play` screenshots a fight and its outcome, a lost fight
 leaves the game playable without a reload, and the shrinking dot is visible in
 the screenshot rather than asserted.
-
-## 3. Two dots, one fight
-
-An enemy dot adjacent to yours. They poke each other on a timer; one goes out.
-**On the graph**, not on a combat screen. Your side reads from item 1's skill,
-so levelling is why you win. Losing pushes you back a node — never a loss
-screen.
-
-**Done when:** `npm run play` screenshots a fight and its outcome, and a lost
-fight leaves the player playing on without a reload.

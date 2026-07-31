@@ -14,7 +14,7 @@
   // over the canvas, nothing to dismiss.
   import { onMount } from 'svelte';
   import { PLACE, PLACES } from '../game/places';
-  import { TABS, deedsFor, numOf, fillOf, type TabId } from '../game/world';
+  import { TABS, deedsFor, numOf, fillOf, DOING, type TabId } from '../game/world';
   import { solve, JOURNEY } from '../game/layout';
   import { apply, initial, waysFrom, unforgeable, SECS_PER_PACE,
     type Game, type Action } from '../game/engine';
@@ -55,7 +55,7 @@
     const num = isPlace ? numOf(n.id) : -1;
     const w = isPlace ? reach.get(num) : undefined;
     return {
-      n, at,
+      n, at, place: isPlace,
       you: isPlace && num === game.at,
       open: w !== undefined && w.why === null,
       shut: w !== undefined && w.why !== null,
@@ -175,8 +175,13 @@
                dotted; the one being made fills from your end to the far end
                over real time; a made one is solid. The owner remembered this
                from an earlier build and asked for it back by name. -->
+          <!-- ⚠️ `fill < 1`, NOT `fill === 0`. With the strict test, a route the
+               moment it began filling lost its dashes and drew SOLID for its
+               whole length, so the far end looked reached before any of it was
+               — the bright overlay was growing along a line that already said
+               "made". Screenshotted on Here at 12 of 12 seconds remaining. -->
           <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-            class="{e.rel}" class:unmade={fill === 0} />
+            class="{e.rel}" class:unmade={fill < 1} />
           {#if fill > 0 && fill < 1}
             <line class="filling"
               x1={a.x} y1={a.y}
@@ -186,7 +191,7 @@
       {/each}
       {#each dots as d (d.n.id)}
         <g class:you={d.you} class:open={d.open} class:shut={d.shut}
-          class:known={d.known} class:on={d.on}
+          class:known={d.known} class:on={d.on} data-kind={d.n.kind}
           role="button" tabindex="0" aria-label={d.n.name || 'somewhere unvisited'}
           onclick={() => tap(d.n.id)}
           onkeydown={(e) => { if (e.key === 'Enter') tap(d.n.id); }}>
@@ -194,7 +199,7 @@
                and the tap target is not. -->
           <circle class="hit" cx={d.at!.x} cy={d.at!.y} r="16" />
           <circle class="dot" cx={d.at!.x} cy={d.at!.y}
-            r={d.you ? 7 : d.open || d.shut ? 5.5 : 3.5} />
+            r={d.you ? 7 : !d.place || d.open || d.shut ? 5.5 : 3.5} />
           {#if d.n.name}<text x={d.at!.x} y={d.at!.y + 16}>{d.n.name}</text>{/if}
         </g>
       {/each}
@@ -220,7 +225,9 @@
           <em>{arming ? 'or tap here again to stop' : 'tap a neighbouring dot to make a way to it'}</em>
         </button>
       {/if}
-      {#if game.forging}
+      <!-- The Here tab carries the countdown on a dot of its own, so saying it
+           again underneath would be the same number twice on one screen. -->
+      {#if game.forging && chosen.id !== DOING}
         <p class="note">Making a way — {Math.ceil(game.forging.left)}s left.
           It carries on while this is shut.</p>
       {/if}
@@ -268,7 +275,18 @@
   .map line.filling { stroke: #8ff0cf; stroke-width: 3; stroke-linecap: round; }
   .map line.stands { stroke: #2f5568; stroke-width: 2; }
   .map line.means { stroke: #2b4356; }
-  .map g { cursor: pointer; }
+  .map line.doing { stroke: #3f7d6b; stroke-width: 2; }
+  /* What you are doing is not a place, so it does not look like one: a hollow
+     ring rather than a filled dot. */
+  .map g[data-kind='doing'] .dot { fill: #070b10; stroke: #78e8c0; stroke-width: 2; }
+  .map g[data-kind='doing'] text { fill: #9fd8c6; }
+  .map g[data-kind='you'] .dot { fill: #8ff0cf; }
+  /* No focus box. The browser draws its outline around the whole `<g>`, tap
+     target and label included, which on a four-dot tab is a white rectangle
+     covering a third of the board — and R2.2 says nothing is drawn over
+     anything. Selection is already shown by the ring on the dot itself. */
+  .map g { cursor: pointer; outline: none; }
+  .map g:focus-visible .dot { stroke: #eafff7; stroke-width: 2.5; }
   .map .hit { fill: transparent; }
   .map .dot { fill: #2b3a49; }
   .map .known .dot { fill: #4d6b80; }
