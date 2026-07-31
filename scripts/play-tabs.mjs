@@ -50,6 +50,56 @@ for (const t of tabs) {
   if (bad.length) misses.push(`${t}: ${bad.join(', ')}`);
 }
 
+// ★ FORGING. Select where you stand, arm Connect, tap a neighbour, watch the
+// line fill, then walk it. This is the interaction the owner asked for by name.
+await page.locator('nav button', { hasText: 'Journey' }).click();
+await page.waitForTimeout(400);
+console.log('\nFORGING');
+for (let i = 0; i < 12; i++) {
+  const n = await page.$$eval('.map g.you', (g) => g.length);
+  if (n) break;
+  await page.waitForTimeout(500);
+}
+await page.locator('.map g.you').first().click({ timeout: 3000 })
+  .catch((e) => misses.push(`could not select where you stand: ${e}`));
+await page.waitForTimeout(300);
+const armLabel = await page.$eval('.deed.arm', (e) => e.textContent.replace(/\s+/g, ' ').trim())
+  .catch(() => null);
+console.log('  offers  :', armLabel ?? '(no Connect — cannot afford one yet)');
+if (!armLabel) {
+  // Rest until a route is affordable, then look again.
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(3000);
+    await page.locator('.map g.you').first().click({ timeout: 2000 }).catch(() => {});
+    await page.waitForTimeout(200);
+    if (await page.locator('.deed.arm').count()) break;
+    await page.locator('.map g.you').first().click({ timeout: 2000 }).catch(() => {});
+  }
+}
+if (await page.locator('.deed.arm').count()) {
+  await page.locator('.deed.arm').click({ timeout: 3000 });
+  await page.waitForTimeout(200);
+  console.log('  armed   :', await page.$eval('.deed.arm', (e) => e.textContent.replace(/\s+/g,' ').trim()));
+  // Tap a neighbour that is not us.
+  const target = page.locator('.map g:not(.you)').first();
+  await target.click({ timeout: 3000 }).catch((e) => misses.push(`second tap: ${e}`));
+  await page.waitForTimeout(400);
+  const filling = await page.$$eval('.map line.filling', (l) => l.length);
+  const note = await page.$eval('.panel .note', (e) => e.textContent.replace(/\s+/g,' ').trim())
+    .catch(() => '(none)');
+  console.log('  filling :', filling ? `${filling} line drawing` : '⚠️ nothing is filling');
+  console.log('  panel   :', note);
+  if (!filling) misses.push('the route did not start filling');
+  // Watch it finish.
+  for (let i = 0; i < 30; i++) {
+    await page.waitForTimeout(2000);
+    if (!await page.$$eval('.map line.filling', (l) => l.length)) break;
+  }
+  const made = await page.$$eval('.map line:not(.unmade):not(.filling)', (l) => l.length);
+  console.log('  made    :', made ? `${made} solid route(s)` : '⚠️ nothing became solid');
+  if (!made) misses.push('the route never became solid');
+} else { misses.push('Connect was never offered'); }
+
 // Tap a dot on Journey and travel from the panel.
 await page.locator('nav button', { hasText: 'Journey' }).click();
 await page.waitForTimeout(400);

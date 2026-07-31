@@ -37,9 +37,21 @@ export interface Game {
   paces: number;
   /** Fractional progress toward the next pace, never shown. */
   part: number;
+  /** ⚠️ ROUTES YOU HAVE PROVED. `docs/TABS.md` R4.4: a solid edge is a route you
+   *  can travel, a dotted one is not yet. Every way in the authored valley
+   *  starts dotted — the shape of the world is visible from the first frame,
+   *  but none of it is walkable until you have made it so. */
+  solid: string[];
+  /** The one route being forged, and how much of it is left. One at a time:
+   *  two would need a screen to explain them. */
+  forging: { key: string; left: number; secs: number } | null;
   /** The last thing that happened, in one line. */
   said: string;
 }
+
+/** An edge's name, low id first so `a-b` and `b-a` are the same route. */
+export const edgeKey = (a: number, b: number): string =>
+  a < b ? `${a}|${b}` : `${b}|${a}`;
 
 /** ⚠️ ONE VERB. There was a `work` action and a `stop` action and a `working`
  *  flag, and a button to press to begin gathering.
@@ -56,7 +68,9 @@ export interface Game {
  *  and it is a graph. */
 export type Action =
   | { type: 'tick'; secs: number }
-  | { type: 'go'; to: number };
+  | { type: 'go'; to: number }
+  /** Start filling the route between where you are and `to`. */
+  | { type: 'forge'; to: number };
 
 /** Seconds of work per pace. */
 export const SECS_PER_PACE = 3;
@@ -90,9 +104,27 @@ export const SECS_PER_PACE = 3;
 export const COST_BASE = 6;
 export const COST_GROWTH = 1.2;
 
+/** ⚠️ PACES BUY A ROUTE, NOT A STEP — and this is a PROPOSAL, flagged in
+ *  `docs/TABS.md` as "whether forging replaces travel cost or sits beside it"
+ *  being undecided. Resolved this way because two costs for one move is
+ *  friction with nothing to show for it: you spend to FORGE a way, and once it
+ *  is solid you may walk it as often as you like for nothing. The graph is then
+ *  literally the thing you are building, which is the point of the game.
+ *
+ *  Priced off routes proved rather than places seen, for the same reason: the
+ *  route is the thing you bought. */
 export function costOf(g: Game, to: number): number {
-  if (g.seen.includes(to)) return 0;
-  return Math.round(COST_BASE * COST_GROWTH ** (g.seen.length - 1));
+  const key = edgeKey(g.at, to);
+  if (g.solid.includes(key)) return 0;
+  return Math.round(COST_BASE * COST_GROWTH ** g.solid.length);
+}
+
+/** How long a route takes to fill, in seconds. Grows with the price so a later
+ *  route is a longer thing to watch, and stays short enough at the start that
+ *  the first one is over before anybody wonders whether it is broken. */
+export const FORGE_BASE = 12;
+export function forgeSecs(g: Game): number {
+  return Math.round(FORGE_BASE * 1.12 ** g.solid.length);
 }
 
 /** Why you cannot go there, in English, or null if you can.
@@ -100,9 +132,20 @@ export function costOf(g: Game, to: number): number {
  *  ⚠️ NEVER HIDDEN AND ALWAYS A REASON. Every version of this game that showed
  *  a control without saying why it was dead got the same report back: "I just
  *  randomly clicked around until I got to a stop." */
+/** Why you cannot WALK there. R4.4: a dotted route is not one yet. */
 export function blocked(g: Game, to: number): string | null {
   const here = PLACE.get(g.at);
   if (!here?.ways.includes(to)) return 'no way from here';
+  if (!g.solid.includes(edgeKey(g.at, to))) return 'the way is not made yet';
+  return null;
+}
+
+/** Why you cannot FORGE it. */
+export function unforgeable(g: Game, to: number): string | null {
+  const here = PLACE.get(g.at);
+  if (!here?.ways.includes(to)) return 'nothing joins these';
+  if (g.solid.includes(edgeKey(g.at, to))) return 'already made';
+  if (g.forging) return 'you are already making one';
   const cost = costOf(g, to);
   if (cost > g.paces) return `${cost} paces — you have ${g.paces}`;
   return null;
@@ -115,7 +158,9 @@ export function initial(): Game {
     seen: [START],
     paces: 0,
     part: 0,
-    said: 'Paces gather while you stand. Spend them to go somewhere new.',
+    solid: [],
+    forging: null,
+    said: 'Paces gather while you stand. Spend them to make a way.',
   };
 }
 
@@ -132,11 +177,39 @@ export function apply(g: Game, a: Action): Game {
       // an accumulating error.
       const total = g.part + a.secs;
       const got = Math.floor(total / SECS_PER_PACE);
-      if (got <= 0) return { ...g, part: total };
+      let next: Game = got > 0
+        ? { ...g, paces: g.paces + got, part: total - got * SECS_PER_PACE }
+        : { ...g, part: total };
+
+      // ⚠️ THE FILL IS BANKED LIKE EVERYTHING ELSE. An absence finishes the
+      // route it was left making — the one animation in the game is not a
+      // reason to sit and watch it.
+      if (next.forging) {
+        const left = next.forging.left - a.secs;
+        if (left > 0) {
+          next = { ...next, forging: { ...next.forging, left } };
+        } else {
+          const [x, y] = next.forging.key.split('|').map(Number);
+          const other = x === next.at ? y : x;
+          next = {
+            ...next,
+            solid: [...next.solid, next.forging.key],
+            forging: null,
+            said: `The way to ${PLACE.get(other!)?.name ?? 'there'} is made.`,
+          };
+        }
+      }
+      return next;
+    }
+
+    case 'forge': {
+      if (unforgeable(g, a.to)) return g;
+      const dest = PLACE.get(a.to)!;
       return {
         ...g,
-        paces: g.paces + got,
-        part: total - got * SECS_PER_PACE,
+        paces: g.paces - costOf(g, a.to),
+        forging: { key: edgeKey(g.at, a.to), left: forgeSecs(g), secs: forgeSecs(g) },
+        said: `Making the way toward ${dest.name}…`,
       };
     }
 
@@ -144,13 +217,12 @@ export function apply(g: Game, a: Action): Game {
       if (blocked(g, a.to)) return g;
       const dest = PLACE.get(a.to);
       if (!dest) return g;
-      const cost = costOf(g, a.to);
       const first = !g.seen.includes(a.to);
       return {
         ...g,
         at: a.to,
         seen: first ? [...g.seen, a.to] : g.seen,
-        paces: g.paces - cost,
+        // ★ WALKING A MADE ROUTE IS FREE. The paces went into making it.
         // ★ ARRIVING IS WHAT THE PROSE IS FOR. It is the one thing you get for
         // spending, and the only text on the screen.
         said: first ? dest.body : `Back to ${dest.name}.`,
@@ -160,7 +232,8 @@ export function apply(g: Game, a: Action): Game {
 }
 
 /** Everything the screen needs about where you can go, already decided. */
-export interface Way { to: number; name: string; cost: number; why: string | null; seen: boolean }
+export interface Way { to: number; name: string; cost: number; why: string | null;
+  seen: boolean; made: boolean }
 
 export function waysFrom(g: Game): Way[] {
   const here = PLACE.get(g.at);
@@ -171,6 +244,7 @@ export function waysFrom(g: Game): Way[] {
     cost: costOf(g, to),
     why: blocked(g, to),
     seen: g.seen.includes(to),
+    made: g.solid.includes(edgeKey(g.at, to)),
   }));
 }
 
@@ -179,7 +253,7 @@ export function waysFrom(g: Game): Way[] {
  *  owes the player: how long until the next thing. */
 export function waitFor(g: Game): { name: string; secs: number } | null {
   const short = waysFrom(g)
-    .filter((wy) => wy.cost > g.paces)
+    .filter((wy) => !wy.made && wy.cost > g.paces)
     .sort((a, b) => a.cost - b.cost)[0];
   if (!short) return null;
   return { name: short.name, secs: Math.ceil((short.cost - g.paces) * SECS_PER_PACE) };

@@ -14,9 +14,10 @@
   // over the canvas, nothing to dismiss.
   import { onMount } from 'svelte';
   import { PLACE, PLACES } from '../game/places';
-  import { TABS, deedsFor, numOf, type TabId } from '../game/world';
+  import { TABS, deedsFor, numOf, fillOf, type TabId } from '../game/world';
   import { solve, JOURNEY } from '../game/layout';
-  import { apply, initial, waysFrom, SECS_PER_PACE, type Game, type Action } from '../game/engine';
+  import { apply, initial, waysFrom, unforgeable, SECS_PER_PACE,
+    type Game, type Action } from '../game/engine';
   import { load, save, wipe, elapsedSince } from '../game/store';
 
   let game = $state<Game>(initial());
@@ -26,6 +27,12 @@
    *  a window over it (R3.1) — which is why there is nothing to close. */
   let picked = $state<string | null>(null);
   let awayLine = $state('');
+  /** ⚠️ TWO TAPS AND A VERB, ON THE CANVAS. The owner asked for exactly this:
+   *  "you should be able to click on one node and then on a second node and
+   *  establish a connection there." So Connect ARMS, and the next dot you touch
+   *  is the far end. Armed state lives in the panel where you pressed it — it
+   *  does not follow your finger around and it does not float over the graph. */
+  let arming = $state(false);
 
   const act = (a: Action): void => {
     game = apply(game, a);
@@ -109,11 +116,28 @@
     };
   });
 
-  function tap(id: string): void { picked = picked === id ? null : id; }
+  function tap(id: string): void {
+    if (arming && picked !== null && id !== picked) {
+      // The second tap of a connection. Only places can be joined.
+      if (id.startsWith('place:') && picked.startsWith('place:')) {
+        act({ type: 'forge', to: numOf(id) });
+      }
+      arming = false;
+      return;
+    }
+    arming = false;
+    picked = picked === id ? null : id;
+  }
   function go(to: number): void {
     act({ type: 'go', to });
     picked = null;
+    arming = false;
   }
+
+  /** Where you stand, so Connect can offer itself from the selected node. */
+  const canArm = $derived(picked !== null && picked === `place:${game.at}`
+    && game.forging === null
+    && PLACE.get(game.at)!.ways.some((to) => unforgeable(game, to) === null));
 </script>
 
 <main>
@@ -145,7 +169,19 @@
         {@const a = spotOf.get(e.a)}
         {@const b = spotOf.get(e.b)}
         {#if a && b}
-          <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} class={e.rel} />
+          {@const fill = e.rel === 'route' && e.a.startsWith('place:')
+            ? fillOf(game, numOf(e.a), numOf(e.b)) : 1}
+          <!-- ★ THE ONE ANIMATION THE GAME GETS. A route not yet made is
+               dotted; the one being made fills from your end to the far end
+               over real time; a made one is solid. The owner remembered this
+               from an earlier build and asked for it back by name. -->
+          <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+            class="{e.rel}" class:unmade={fill === 0} />
+          {#if fill > 0 && fill < 1}
+            <line class="filling"
+              x1={a.x} y1={a.y}
+              x2={a.x + (b.x - a.x) * fill} y2={a.y + (b.y - a.y) * fill} />
+          {/if}
         {/if}
       {/each}
       {#each dots as d (d.n.id)}
@@ -171,12 +207,23 @@
     {#if chosen}
       <h2>{chosen.name || 'Somewhere you have not been'}</h2>
       {#if chosen.body}<p>{chosen.body}</p>{/if}
-      {#each deeds as d (d.to)}
-        <button class="deed" disabled={d.why !== null} onclick={() => go(d.to)}>
+      {#each deeds as d (`${d.kind}${d.to}`)}
+        <button class="deed" class:make={d.kind === 'forge'} disabled={d.why !== null}
+          onclick={() => (d.kind === 'go' ? go(d.to) : act({ type: 'forge', to: d.to }))}>
           {d.label}
-          <em>{d.why ?? (d.cost === 0 ? 'free — you have been there' : `${d.cost} paces`)}</em>
+          <em>{d.note}</em>
         </button>
       {/each}
+      {#if canArm}
+        <button class="deed arm" class:armed={arming} onclick={() => (arming = !arming)}>
+          {arming ? 'Now tap where it should go' : 'Connect…'}
+          <em>{arming ? 'or tap here again to stop' : 'tap a neighbouring dot to make a way to it'}</em>
+        </button>
+      {/if}
+      {#if game.forging}
+        <p class="note">Making a way — {Math.ceil(game.forging.left)}s left.
+          It carries on while this is shut.</p>
+      {/if}
       {#if !deeds.length && chosen.id.startsWith('place:') && numOf(chosen.id) === game.at}
         <p class="note">You are standing here.</p>
       {/if}
@@ -216,7 +263,9 @@
     font-weight: 600; }
 
   .map svg { display: block; width: 100%; height: auto; }
-  .map line { stroke: #22333f; stroke-width: 1; }
+  .map line { stroke: #4d6b80; stroke-width: 2; }
+  .map line.unmade { stroke: #22333f; stroke-width: 1; stroke-dasharray: 3 5; }
+  .map line.filling { stroke: #8ff0cf; stroke-width: 3; stroke-linecap: round; }
   .map line.stands { stroke: #2f5568; stroke-width: 2; }
   .map line.means { stroke: #2b4356; }
   .map g { cursor: pointer; }
@@ -244,4 +293,7 @@
   .deed em { display: block; margin-top: 2px; font-style: normal; font-size: 14px;
     color: #8fb6c4; }
   .deed:disabled { background: #14161a; border-color: #3a3320; color: #b9a276; }
+  .deed.make { background: #16362f; border-color: #3f7d6b; }
+  .deed.arm { background: #0f1a24; }
+  .deed.arm.armed { background: #1d1a10; border-color: #6b5720; color: #ffd479; }
 </style>

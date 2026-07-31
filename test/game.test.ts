@@ -1,10 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { apply, initial, costOf, blocked, waysFrom, waitFor,
-  SECS_PER_PACE, COST_BASE, COST_GROWTH, type Game } from '../src/game/engine';
+import { apply, initial, costOf, blocked, unforgeable, waysFrom, waitFor, edgeKey,
+  forgeSecs, SECS_PER_PACE, COST_BASE, COST_GROWTH, type Game } from '../src/game/engine';
 import { PLACES, PLACE, START } from '../src/game/places';
 
 /** Standing still IS resting — there is no verb for it any more. */
 const work = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
+
+/** Rest until you can afford it, make the way, wait for it, then walk it. */
+function reach(g: Game, to: number): Game {
+  let out = g;
+  for (let i = 0; i < 500 && unforgeable(out, to); i++) out = work(out, 30);
+  out = apply(out, { type: 'forge', to });
+  out = work(out, forgeSecs(g) + 1);
+  return apply(out, { type: 'go', to });
+}
 
 describe('the places', () => {
   it('every way is two-way', () => {
@@ -78,17 +87,59 @@ describe('one resource, two verbs', () => {
     const g = initial();
     const first = PLACE.get(START)!.ways[0]!;
     expect(costOf(g, first)).toBe(COST_BASE);
-    const moved = { ...g, seen: [START, first, 99999].slice(0, 3) } as Game;
-    expect(costOf(moved, first)).toBe(0);              // been there
-    expect(costOf({ ...g, seen: [START, first] }, PLACE.get(START)!.ways[1] ?? first))
-      .toBe(Math.round(COST_BASE * COST_GROWTH));
+    expect(costOf({ ...g, solid: [edgeKey(START, first)] }, first)).toBe(0);  // made
+    expect(costOf({ ...g, solid: ['9|9'] }, first)).toBe(Math.round(COST_BASE * COST_GROWTH));
   });
 
-  it('refuses a move you cannot pay for, and says the price', () => {
+  it('★ a route must be made before it can be walked', () => {
+    // docs/TABS.md R4.4. The shape of the valley is visible from the first
+    // frame; none of it is walkable until you have made it so.
     const g = initial();
     const to = PLACE.get(START)!.ways[0]!;
-    expect(blocked(g, to)).toBe(`${COST_BASE} paces — you have 0`);
+    expect(blocked(g, to)).toBe('the way is not made yet');
     expect(apply(g, { type: 'go', to })).toBe(g);
+    expect(unforgeable(g, to)).toBe(`${COST_BASE} paces — you have 0`);
+  });
+
+  it('forging costs paces, takes time, and then the way is free forever', () => {
+    let g = work(initial(), COST_BASE * SECS_PER_PACE);
+    const to = PLACE.get(START)!.ways[0]!;
+    expect(unforgeable(g, to)).toBeNull();
+    const secs = forgeSecs(g);
+    g = apply(g, { type: 'forge', to });
+    expect(g.paces).toBe(0);
+    expect(g.forging?.key).toBe(edgeKey(START, to));
+    // Half way is still not walkable.
+    g = work(g, secs / 2);
+    expect(blocked(g, to)).toBe('the way is not made yet');
+    g = work(g, secs);
+    expect(g.forging).toBeNull();
+    expect(g.solid).toContain(edgeKey(START, to));
+    // ...and walking it costs nothing, now or ever.
+    const before = g.paces;
+    g = apply(g, { type: 'go', to });
+    expect(g.at).toBe(to);
+    expect(g.paces).toBe(before);
+    expect(costOf(g, START)).toBe(0);
+  });
+
+  it('will not make two ways at once, or one that is already made', () => {
+    let g = work(initial(), 900);
+    const [a, b] = PLACE.get(START)!.ways;
+    g = apply(g, { type: 'forge', to: a! });
+    expect(unforgeable(g, b!)).toBe('you are already making one');
+    g = work(g, forgeSecs(initial()) + 900);
+    expect(unforgeable(g, a!)).toBe('already made');
+  });
+
+  it('★ an absence finishes the route it was left making', () => {
+    let g = work(initial(), COST_BASE * SECS_PER_PACE);
+    const to = PLACE.get(START)!.ways[0]!;
+    g = apply(g, { type: 'forge', to });
+    // One big tick, exactly as the offline catch-up delivers it.
+    g = apply(g, { type: 'tick', secs: 3600 });
+    expect(g.forging).toBeNull();
+    expect(g.solid).toContain(edgeKey(START, to));
   });
 
   it('refuses a move to somewhere that is not next to you', () => {
@@ -98,25 +149,25 @@ describe('one resource, two verbs', () => {
     expect(apply(g, { type: 'go', to: far.id })).toBe(g);
   });
 
-  it('spends the paces, moves, and puts the work down', () => {
-    let g = work(initial(), COST_BASE * SECS_PER_PACE);
+  it('arriving hands you the prose — the only text the screen has', () => {
     const to = PLACE.get(START)!.ways[0]!;
-    g = apply(g, { type: 'go', to });
+    const g = reach(initial(), to);
     expect(g.at).toBe(to);
-    expect(g.paces).toBe(0);
     expect(g.seen).toContain(to);
-    // Arriving hands you the prose. It is the only text the screen has.
     expect(g.said).toBe(PLACE.get(to)!.body);
   });
 
   it('never lets paces go negative', () => {
-    let g = { ...initial(), paces: 1000 };
-    for (let i = 0; i < 200; i++) {
-      const open = waysFrom(g).filter((wy) => !wy.why);
-      if (!open.length) break;
-      g = apply(g, { type: 'go', to: open[i % open.length]!.to });
+    let g = { ...initial(), paces: 40 };
+    for (let i = 0; i < 60; i++) {
+      const to = PLACE.get(g.at)!.ways.find((t) => unforgeable(g, t) === null);
+      if (to === undefined) { g = work(g, 60); continue; }
+      g = apply(g, { type: 'forge', to });
       expect(g.paces).toBeGreaterThanOrEqual(0);
+      g = work(g, forgeSecs(g) + 2);
+      g = apply(g, { type: 'go', to });
     }
+    expect(g.paces).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -138,7 +189,8 @@ describe('the player is never stuck', () => {
         const at = q.shift()!;
         if (at === to) break;
         for (const n of PLACE.get(at)!.ways) {
-          if (prev.has(n) || !g0.seen.includes(n)) continue;
+          // Only routes already made are free to walk.
+          if (prev.has(n) || !g0.solid.includes(edgeKey(at, n))) continue;
           prev.set(n, at);
           q.push(n);
         }
@@ -165,13 +217,17 @@ describe('the player is never stuck', () => {
       }
       if (!best) break;
 
-      if (g.paces < best.cost) {
-        // Rest at the nearest place that has work. Getting there is free.
-        let spins = 0;
-        while (g.paces < best.cost && spins++ < 500) g = work(g, 30);
-      }
+      // Stand at the near end of the frontier route — made ground is free.
       g = hop(g.at, best.from, g);
+      if (g.at !== best.from) break;
+      // Rest until it can be made, make it, wait for the fill, walk it.
+      let spins = 0;
+      while (unforgeable(g, best.to) && spins++ < 900) g = work(g, 60);
+      if (unforgeable(g, best.to)) break;
+      g = apply(g, { type: 'forge', to: best.to });
+      g = work(g, forgeSecs(g) + 2);
       g = apply(g, { type: 'go', to: best.to });
+      if (g.at !== best.to) break;
     }
     const missed = PLACES.filter((p) => !g.seen.includes(p.id)).map((p) => p.name);
     expect(missed, `never reached ${missed.join(', ')}`).toEqual([]);
@@ -185,12 +241,16 @@ describe('the player is never stuck', () => {
     // constants no matter what the function did — replacing costOf with the old
     // linear curve left it green. A test that re-implements the thing it is
     // testing is testing itself.
+    // Asks `costOf` rather than recomputing the formula, and grows the thing
+    // the price is actually keyed off — the routes MADE, not the places seen.
+    // Getting that wrong is how this reported 0.2 hours for a 17-hour valley.
     let total = 0;
-    const seen: number[] = [START];
+    const made: string[] = [];
+    const at = START;
     for (let k = 1; k <= PLACES.length - 1; k++) {
-      const next = PLACES.find((p) => !seen.includes(p.id))!.id;
-      total += costOf({ ...initial(), seen: [...seen] }, next);
-      seen.push(next);
+      const to = PLACES[k]!.id;
+      total += costOf({ ...initial(), at, solid: [...made] }, to);
+      made.push(edgeKey(at, to));
     }
     const hours = (total * SECS_PER_PACE) / 3600;
     expect(hours, `the valley costs ${hours.toFixed(1)} hours of resting`)

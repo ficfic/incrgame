@@ -10,7 +10,7 @@
 // systemic model which describes everything."
 import { PLACES, PLACE } from './places';
 import type { Game } from './engine';
-import { waysFrom, costOf } from './engine';
+import { waysFrom, costOf, unforgeable, forgeSecs, edgeKey } from './engine';
 
 export type Kind = 'place' | 'item' | 'concept' | 'you';
 export type Rel = 'route' | 'carries' | 'means' | 'stands';
@@ -121,7 +121,13 @@ export const TABS: ReadonlyArray<{ id: TabId; label: string; view: (g: Game) => 
 
 /** What tapping a place can do, decided in one place so every tab agrees.
  *  R3.3: an action that cannot be taken shows its reason, it is never hidden. */
-export interface Deed { label: string; to: number; cost: number; why: string | null }
+export interface Deed {
+  kind: 'go' | 'forge';
+  label: string;
+  note: string;
+  to: number;
+  why: string | null;
+}
 
 export function deedsFor(g: Game, nodeId: string): Deed[] {
   if (!nodeId.startsWith('place:')) return [];
@@ -129,10 +135,31 @@ export function deedsFor(g: Game, nodeId: string): Deed[] {
   if (id === g.at) return [];
   const w = waysFrom(g).find((x) => x.to === id);
   if (!w) return [];
+
+  // A made route: walk it, free, as often as you like.
+  if (w.made) {
+    return [{
+      kind: 'go', to: id, why: w.why,
+      label: w.seen ? `Go back to ${w.name}` : `Go to ${w.name}`,
+      note: 'the way is made — free',
+    }];
+  }
+  // Not made: the only thing on offer is making it.
+  const why = unforgeable(g, id);
   return [{
-    label: w.seen ? `Go back to ${w.name}` : `Go to ${w.name}`,
-    to: id,
-    cost: costOf(g, id),
-    why: w.why,
+    kind: 'forge', to: id, why,
+    label: `Make the way to ${w.name}`,
+    note: why ?? `${costOf(g, id)} paces · ${forgeSecs(g)}s to fill`,
   }];
+}
+
+/** How far along each route is, for drawing. 1 is solid, 0 is dotted, and
+ *  anything between is the one being filled. */
+export function fillOf(g: Game, a: number, b: number): number {
+  const key = edgeKey(a, b);
+  if (g.solid.includes(key)) return 1;
+  if (g.forging?.key === key) {
+    return 1 - g.forging.left / g.forging.secs;
+  }
+  return 0;
 }

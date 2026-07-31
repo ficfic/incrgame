@@ -5,7 +5,7 @@ import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/sto
 import { initial, type Game } from './engine';
 import { PLACE } from './places';
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;   // routes must be forged before they are walked
 
 interface Blob { v: number; savedAt: number; game: Game }
 
@@ -30,6 +30,12 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     if (!g.seen.includes(g.at)) return null;
     if (!Number.isFinite(g.paces) || g.paces < 0) return null;
     if (!Number.isFinite(g.part) || g.part < 0) return null;
+    if (!Array.isArray(g.solid) || !g.solid.every((k) => typeof k === 'string')) return null;
+    // A half-made route pointing at nothing would draw a line to nowhere and
+    // never finish. Refused, not repaired.
+    if (g.forging && !(typeof g.forging.key === 'string'
+      && Number.isFinite(g.forging.left) && Number.isFinite(g.forging.secs)
+      && g.forging.secs > 0)) return null;
     void requestPersistence();
     return { game: { ...initial(), ...g }, savedAt: b.savedAt };
   } catch {
