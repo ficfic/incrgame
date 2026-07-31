@@ -18,6 +18,7 @@
 //   NO RANDOMNESS. Same positions on every device and every load, so a
 //   screenshot of a bug is a screenshot anyone can reproduce.
 import { PLACES, PLACE, START } from './places';
+import { placeId, type View } from './world';
 
 export interface Spot { id: number; x: number; y: number }
 
@@ -111,3 +112,84 @@ export const VIEW = (() => {
   const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad * 1.4;
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 })();
+
+
+// ===========================================================================
+// ANY VIEW, NOT JUST THE JOURNEY
+// ===========================================================================
+//
+// `docs/TABS.md` R1.4: layout is per-view and solved once. The journey's
+// positions above are a constant because its shape never changes; the other
+// tabs are filters whose shape depends on the run, so they are solved on
+// demand and MEMOISED by the exact set of nodes and edges. Same input, same
+// picture, every time — which is what makes a screenshot of a bug reproducible.
+
+export interface Placed { id: string; x: number; y: number }
+export interface Solved { spots: Placed[]; box: { x: number; y: number; w: number; h: number } }
+
+const cache = new Map<string, Solved>();
+
+/** ⚠️ NO RUNTIME FORCE SIMULATION. This runs to completion once per distinct
+ *  shape and the answer is then a constant. The old board re-solved every
+ *  frame, which is why its dots were moving targets that neither Playwright nor
+ *  a thumb could hit. */
+export function solve(view: View): Solved {
+  const key = view.nodes.map((n) => n.id).join(',') + '|'
+    + view.edges.map((e) => `${e.a}-${e.b}`).join(',');
+  const had = cache.get(key);
+  if (had) return had;
+
+  const ids = view.nodes.map((n) => n.id);
+  const pos = new Map<string, { x: number; y: number }>();
+
+  // A ring to start from, ordered by id so it is the same on every device.
+  ids.forEach((id, i) => {
+    const a = (i / Math.max(1, ids.length)) * Math.PI * 2;
+    const r = ids.length === 1 ? 0 : 26 + ids.length * 3;
+    pos.set(id, { x: Math.cos(a) * r, y: Math.sin(a) * r });
+  });
+
+  const near = view.edges.filter((e) => pos.has(e.a) && pos.has(e.b));
+  for (let pass = 0; pass < 240; pass++) {
+    for (const a of ids) {
+      const pa = pos.get(a)!;
+      for (const b of ids) {
+        if (a === b) continue;
+        const pb = pos.get(b)!;
+        let dx = pa.x - pb.x, dy = pa.y - pb.y;
+        let d2 = dx * dx + dy * dy;
+        if (d2 < 1e-6) { dx = (ids.indexOf(a) - ids.indexOf(b)) * 1e-3; dy = 1e-3; d2 = dx * dx + dy * dy; }
+        const d = Math.sqrt(d2);
+        if (d < 46) { const push = (46 - d) / d * 0.14; pa.x += dx * push; pa.y += dy * push; }
+      }
+    }
+    for (const e of near) {
+      const pa = pos.get(e.a)!, pb = pos.get(e.b)!;
+      const dx = pb.x - pa.x, dy = pb.y - pa.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const pull = (d - 62) / d * 0.06;
+      pa.x += dx * pull; pa.y += dy * pull;
+      pb.x -= dx * pull; pb.y -= dy * pull;
+    }
+  }
+
+  const spots = ids.map((id) => ({ id, ...pos.get(id)! }));
+  const pad = 34;
+  const xs = spots.map((s) => s.x), ys = spots.map((s) => s.y);
+  const box = {
+    x: Math.min(...xs) - pad,
+    y: Math.min(...ys) - pad,
+    w: Math.max(...xs) - Math.min(...xs) + pad * 2,
+    h: Math.max(...ys) - Math.min(...ys) + pad * 2.4,
+  };
+  const out = { spots, box };
+  cache.set(key, out);
+  return out;
+}
+
+/** The journey never changes shape, so it uses the constant solved at load
+ *  rather than going through the cache. */
+export const JOURNEY: Solved = {
+  spots: SPOTS.map((s) => ({ id: placeId(s.id), x: s.x, y: s.y })),
+  box: { x: VIEW.x, y: VIEW.y, w: VIEW.w, h: VIEW.h },
+};
