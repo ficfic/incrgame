@@ -9,6 +9,7 @@
 // the game, I want the graph to have everything connected so that we have one
 // systemic model which describes everything."
 import { PLACES, PLACE, nameOf } from './places';
+import { NOTIONS, NOTION, type Notion } from './notions';
 import type { Game } from './engine';
 import { waysFrom, costOf, unforgeable, forgeSecs, edgeKey, waitFor,
   SECS_PER_PACE } from './engine';
@@ -206,23 +207,41 @@ export function self(g: Game): View {
   };
 }
 
-/** THOUGHTS — what you know and how it connects.
+/** THOUGHTS — what you understand, and how it connects.
  *
- *  Today that is the places you have been and the routes you have proved
- *  between them: your own map, as opposed to the world's. It grows into the
- *  glossary the owner asked for when there are concepts to put in it. */
+ *  ⚠️ NOT PLACES ANY MORE. This tab used to redraw the places you had been and
+ *  call them concepts, which was a placeholder standing in for content that did
+ *  not exist — and places already have two tabs of their own. `src/game/
+ *  notions.ts` is the content: seven things the game expects you to understand,
+ *  each naming a rule the engine actually enforces.
+ *
+ *  Drawn in full from the first frame with no NAME on what you have not thought
+ *  yet — exactly what the Journey does with places, for exactly the same
+ *  reason. The shape of what there is to know is honest; none of it is spoiled.
+ *
+ *  ★ This is also where `docs/BRIEF.md` ask 8 quietly becomes true: knowledge
+ *  is a graph, and it fills in as you travel one. Nothing says so. */
 export function thoughts(g: Game): View {
-  const known = new Set(g.seen);
+  const seen = (n: Notion): boolean => n.known(g);
+  const edges: Edge[] = [];
+  const drawn = new Set<string>();
+  for (const n of NOTIONS) {
+    for (const to of n.near) {
+      if (!NOTION.has(to)) continue;
+      const key = [n.id, to].sort().join('~');
+      if (drawn.has(key)) continue;
+      drawn.add(key);
+      edges.push({ a: `notion:${n.id}`, b: `notion:${to}`, rel: 'means' });
+    }
+  }
   return {
-    nodes: g.seen.map((id) => ({
-      id: placeId(id),
+    nodes: NOTIONS.map((n) => ({
+      id: `notion:${n.id}`,
       kind: 'concept' as const,
-      name: PLACE.get(id)!.name,
-      body: PLACE.get(id)!.body,
+      name: seen(n) ? n.name : '',
+      body: seen(n) ? n.body : undefined,
     })),
-    edges: PLACES.filter((p) => known.has(p.id)).flatMap((p) => p.ways
-      .filter((to) => to > p.id && known.has(to))
-      .map((to) => ({ a: placeId(p.id), b: placeId(to), rel: 'means' as const }))),
+    edges,
   };
 }
 

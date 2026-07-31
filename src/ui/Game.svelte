@@ -59,7 +59,11 @@
       you: isPlace && num === game.at,
       open: w !== undefined && w.why === null,
       shut: w !== undefined && w.why !== null,
-      known: !isPlace || game.seen.includes(num),
+      // ⚠️ "KNOWN" IS HAVING A NAME, for anything that is not a place. This
+      // read `!isPlace || …`, so every notion on Thoughts drew at full
+      // brightness and full size whether you had thought it or not — the dim
+      // dot is the whole way that tab shows progress, and it showed none.
+      known: isPlace ? game.seen.includes(num) : n.name !== '',
       on: n.id === picked,
     };
   }).filter((d) => d.at !== undefined));
@@ -199,7 +203,7 @@
                and the tap target is not. -->
           <circle class="hit" cx={d.at!.x} cy={d.at!.y} r="16" />
           <circle class="dot" cx={d.at!.x} cy={d.at!.y}
-            r={d.you ? 7 : !d.place || d.open || d.shut ? 5.5 : 3.5} />
+            r={d.you ? 7 : d.open || d.shut || (!d.place && d.known) ? 5.5 : 3.5} />
           {#if d.n.name}<text x={d.at!.x} y={d.at!.y + 16}>{d.n.name}</text>{/if}
         </g>
       {/each}
@@ -210,8 +214,15 @@
        you tap something, and it says so rather than appearing from nowhere. -->
   <section class="panel">
     {#if chosen}
-      <h2>{chosen.name || 'Somewhere you have not been'}</h2>
+      <h2>{chosen.name
+        || (chosen.kind === 'concept' ? 'Not thought yet' : 'Somewhere you have not been')}</h2>
       {#if chosen.body}<p>{chosen.body}</p>{/if}
+      <!-- An unnamed dot is a promise, not a bug — the same one the Journey
+           makes about a place you have not reached. Say which promise it is. -->
+      {#if !chosen.name && chosen.kind === 'concept'}
+        <p class="note">Something the valley has not had occasion to teach you.
+          It fills in by itself, from what you do.</p>
+      {/if}
       {#each deeds as d (`${d.kind}${d.to}`)}
         <button class="deed" class:make={d.kind === 'forge'} disabled={d.why !== null}
           onclick={() => (d.kind === 'go' ? go(d.to) : act({ type: 'forge', to: d.to }))}>

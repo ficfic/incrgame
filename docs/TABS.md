@@ -117,7 +117,9 @@ the one before it is on the phone.
    here later; first it is what you can see and do.
 5. ✅ **Self.** ~~Skills and stats~~ — **you, and four true numbers**, as a graph.
    See below: skills are blocked, and the block is structural.
-6. **Thoughts.** Concepts and how they connect; tap one to read it.
+6. ✅ **Thoughts.** Concepts and how they connect; tap one to read it.
+
+**The build order is complete.** What follows is in `docs/NEXT.md`.
 
 ### What step 4 settled
 
@@ -154,6 +156,23 @@ they will not interlock — that is the eleven-systems lesson in one line.
 So Self holds what is true today, each as a node hanging off you: paces in hand,
 ways made of all in the valley, places found of all, and how far out you have
 reached (graph distance from the start — not places seen, not routes made).
+
+### What step 6 settled
+
+- **Thoughts holds notions, not places.** `src/game/notions.ts` — seven things
+  the game expects you to understand, each **naming a rule the engine actually
+  enforces**: "Free ground" is `costOf` returning 0 for a made route, "The
+  frontier" is `COST_GROWTH`, "Standing still" is the absence of a work verb.
+  A glossary describing a system the code does not have is a lie the player
+  eventually catches, and this project has shipped that once already.
+- **Knowing is a predicate over the run, never a flag in the save.** So it
+  cannot drift out of step with what it describes, and there is nothing to
+  migrate.
+- **Drawn in full from the first frame, unnamed until thought** — the same
+  promise the Journey makes about a place you have not reached.
+- **★ Ask 8 is now mechanically true before anybody states it.** The reveal is
+  that you are a model travelling a graph to learn. This tab is knowledge as a
+  graph, filling in as you traverse one. Nothing says so, and nothing should.
 
 ### Settled by step 3, on record here
 

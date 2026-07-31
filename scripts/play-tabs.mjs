@@ -121,6 +121,39 @@ if (!ring.on) misses.push('nothing was selected after tapping a fact');
 else if (!ring.off) misses.push('no second fact to compare the selection against');
 else if (ring.on === ring.off) misses.push('the selected fact looks exactly like an unselected one');
 
+// ★ THOUGHTS — what you understand, and how it connects. Build-order step 6.
+// The item it answers said the tab needed something in it that is NOT a place.
+await page.locator('nav button', { hasText: 'Thoughts' }).click();
+await page.waitForTimeout(400);
+console.log('\nTHOUGHTS');
+const thought = await page.$$eval('.map g text', (t) => t.map((x) => x.textContent));
+const allDots = await page.$$eval('.map g', (g) => g.length);
+console.log('  known   :', thought.length ? thought.join(' · ') : '(none)');
+console.log('  dots    :', `${allDots} in all, ${allDots - thought.length} not thought yet`);
+if (!thought.length) misses.push('Thoughts names nothing at all');
+if (allDots <= thought.length) misses.push('Thoughts draws nothing left to learn');
+// Tapping a known one must read; tapping an unknown one must say why it is blank.
+const lit = page.locator('.map g').filter({ has: page.locator('text') }).first();
+await lit.click({ timeout: 3000 }).catch((e) => misses.push(`thought dot: ${e}`));
+await page.waitForTimeout(300);
+const read = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
+console.log('  reads   :', `"${read.slice(0, 110)}"`);
+if (read.startsWith('Tap a dot')) misses.push('tapping a thought read nothing');
+if (/Somewhere you have not been/.test(read)) misses.push('a notion is described as a place');
+// ★ A NOTION YOU HAVE NOT THOUGHT MUST LOOK UNTHOUGHT. This is how the tab
+// shows progress at all, and it drew every dot at full brightness and full size
+// regardless — measured, because "dimmer" is not something a unit test can see.
+const lear = await page.evaluate(() => {
+  const s = (el) => el && `${getComputedStyle(el).fill} r${el.getAttribute('r')}`;
+  const gs = [...document.querySelectorAll('.map g')];
+  const on = gs.find((g) => g.querySelector('text') && !g.classList.contains('on'));
+  const off = gs.find((g) => !g.querySelector('text'));
+  return { on: s(on?.querySelector('.dot')), off: s(off?.querySelector('.dot')) };
+});
+console.log('  dim     :', `thought ${lear.on} vs unthought ${lear.off}`);
+if (!lear.off) misses.push('no unthought notion to compare against');
+else if (lear.on === lear.off) misses.push('an unthought notion looks exactly like a thought one');
+
 // ★ FORGING. Select where you stand, arm Connect, tap a neighbour, watch the
 // line fill, then walk it. This is the interaction the owner asked for by name.
 await page.locator('nav button', { hasText: 'Journey' }).click();

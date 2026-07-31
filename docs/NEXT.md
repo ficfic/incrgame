@@ -25,11 +25,17 @@ file.**
 > **the build order in `docs/TABS.md`**, which answers to `docs/BRIEF.md`'s
 > north star: the game is a graph.
 >
-> **Steps 1–5 SHIPPED 2026-07-31** — the tab shell and the one graph model
-> (`src/game/world.ts`), selection and actions in a fixed panel, forging
-> (two taps, a dotted line, the fill), Here as the room you stand in with a
-> node for what you are doing, and Self as you plus four true numbers.
-> `scripts/play-tabs.mjs` is the probe.
+> **THE BUILD ORDER IS COMPLETE, 2026-07-31.** All six steps: the tab shell and
+> the one graph model (`src/game/world.ts`), selection and actions in a fixed
+> panel, forging (two taps, a dotted line, the fill), Here as the room you stand
+> in with a node for what you are doing, Self as you plus four true numbers, and
+> Thoughts as seven notions that fill in from what you do
+> (`src/game/notions.ts`). `scripts/play-tabs.mjs` is the probe.
+>
+> **What exists now is a complete small game**: rest, make a way, walk it, and
+> watch four graphs describe it. The next items ADD to that rather than finish
+> it — so the first question for the owner is whether it is fun before anything
+> else goes in.
 >
 > **★ SKILLS ARE BLOCKED, STRUCTURALLY.** `costOf` and `forgeSecs` both key off
 > `solid.length`, so a skill trained by making ways cancels itself out; and a
@@ -40,15 +46,18 @@ file.**
 >
 > **Saves are breakable.** Say so in the commit when a change resets them.
 
-## 1. Thoughts — what you know, and how it connects
+## 1. The owner plays it, and says
 
-`docs/TABS.md` build order 6, the last one. Today the tab draws the places you
-have proved and calls them concepts, which is a placeholder. The owner asked for
-"a glossary way" — concepts and their relations, tap one to read it. Needs
-something to put in it that is not a place.
+**Not a build item, and it outranks the two below.** Six steps shipped without
+the owner touching any of them. `CLAUDE.md` rule 3 — build the smallest playable
+version, then LOOK at it, then decide — and the looking has been a screenshot in
+a headless browser every time.
 
-**Done when:** `npm run play` screenshots the tab holding at least one concept
-that is not a place, and tapping it reads.
+Two things are wanted: is the loop fun for more than five minutes, and is the
+prose (37 places, 7 notions) prose the owner would defend. Prose is
+machine-drafted and **owner-edited**; none of it has been edited yet.
+
+**Done when:** the owner has played it on the phone and said what is wrong.
 
 ## 2. A second thing to do — and the first skill with it
 
