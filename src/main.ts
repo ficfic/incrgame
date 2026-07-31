@@ -1,6 +1,6 @@
 import { mount } from 'svelte';
 import { registerSW } from 'virtual:pwa-register';
-import App from './ui/Slice.svelte';
+import App from './ui/Game.svelte';
 import './style.css';
 
 // ---- MAKING A DEPLOY ACTUALLY REACH THE PHONE ---------------------------
