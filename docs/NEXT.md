@@ -25,31 +25,43 @@ file.**
 > **the build order in `docs/TABS.md`**, which answers to `docs/BRIEF.md`'s
 > north star: the game is a graph.
 >
-> **Steps 1–4 SHIPPED 2026-07-31** — the tab shell and the one graph model
+> **Steps 1–5 SHIPPED 2026-07-31** — the tab shell and the one graph model
 > (`src/game/world.ts`), selection and actions in a fixed panel, forging
-> (two taps, a dotted line, the fill), and Here as the room you stand in with
-> a node for what you are doing. `scripts/play-tabs.mjs` is the probe.
+> (two taps, a dotted line, the fill), Here as the room you stand in with a
+> node for what you are doing, and Self as you plus four true numbers.
+> `scripts/play-tabs.mjs` is the probe.
+>
+> **★ SKILLS ARE BLOCKED, STRUCTURALLY.** `costOf` and `forgeSecs` both key off
+> `solid.length`, so a skill trained by making ways cancels itself out; and a
+> skill is a choice about where to spend time, of which there is one. See
+> `docs/TABS.md`. **Whoever adds a second activity adds the first skill in the
+> same item** — otherwise they do not interlock, which is exactly how eleven
+> systems each passed their own tests and added up to nothing.
 >
 > **Saves are breakable.** Say so in the commit when a change resets them.
 
-## 1. Self — you, as a graph
+## 1. Thoughts — what you know, and how it connects
 
-`docs/TABS.md` build order 5. Today the tab holds two dots and is honest about
-it. Whether skills and stats come back **at all**, and in what form, is still
-the owner's call and is listed under "do not invent" — so this item is a
-question before it is a build.
+`docs/TABS.md` build order 6, the last one. Today the tab draws the places you
+have proved and calls them concepts, which is a placeholder. The owner asked for
+"a glossary way" — concepts and their relations, tap one to read it. Needs
+something to put in it that is not a place.
 
-**Done when:** the owner has answered whether skills return, and Self shows
-whatever the answer makes true. Not before.
-
-## 2. Thoughts — what you know, and how it connects
-
-`docs/TABS.md` build order 6. Today it draws the places you have proved. The
-owner asked for "a glossary way" — concepts and their relations, tap one to
-read it. Needs something to put in it that is not a place.
-
-**Done when:** `npm run play` screenshots the tab with at least one concept
+**Done when:** `npm run play` screenshots the tab holding at least one concept
 that is not a place, and tapping it reads.
+
+## 2. A second thing to do — and the first skill with it
+
+The unblocker for `docs/BRIEF.md` ask 2. One verb means no choice, so no skill
+has anywhere to bite. Add a second activity — something you can do INSTEAD of
+banking paces, at a place, on a timer — and add the one skill it trains in the
+same item, gating something you can see from here (ask 4, thresholds).
+
+**Not two items.** They interlock or neither works.
+
+**Done when:** `npm run play` screenshots a choice between two activities, the
+skill levels from one of them, and a threshold visibly shuts a door the level
+opens.
 
 ## 3. Two dots, one fight
 

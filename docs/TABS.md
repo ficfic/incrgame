@@ -115,7 +115,8 @@ the one before it is on the phone.
 3. ✅ **Forging (R4).** Two taps, a dotted line, and the fill. The signature move.
 4. ✅ **Here.** The place you are standing in, as its own tab. Encounters land
    here later; first it is what you can see and do.
-5. **Self.** Skills and stats as a graph, carried things hanging off it.
+5. ✅ **Self.** ~~Skills and stats~~ — **you, and four true numbers**, as a graph.
+   See below: skills are blocked, and the block is structural.
 6. **Thoughts.** Concepts and how they connect; tap one to read it.
 
 ### What step 4 settled
@@ -131,6 +132,28 @@ the one before it is on the phone.
 - **Every tab is drawn at one zoom.** The `viewBox` is also the font size, so a
   four-dot tab was scaled three times harder than the thirty-seven-dot one. A
   small view now spreads its dots to fill a box of the Journey's size instead.
+
+### What step 5 settled — ★ WHY THERE ARE NO SKILLS YET
+
+`docs/BRIEF.md` ask 2 wants RuneScape-shaped progression, and it is still
+wanted. It **cannot be built on the current loop**, and that is a structural
+fact rather than a scheduling one:
+
+- `costOf` and `forgeSecs` **both key off `solid.length`**. A skill trained by
+  making ways would rise in exact lockstep with the thing it is meant to
+  offset, and cancel itself out.
+- A skill is a **choice about where to spend time**. There is one verb —
+  standing still — so there is nothing to choose between. Five skills over one
+  activity is five names for the same number, which is what the retired build
+  had.
+
+**Skills come back when a second thing to do does, and not one session before.**
+Whoever adds a second activity should add the first skill in the same item, or
+they will not interlock — that is the eleven-systems lesson in one line.
+
+So Self holds what is true today, each as a node hanging off you: paces in hand,
+ways made of all in the valley, places found of all, and how far out you have
+reached (graph distance from the start — not places seen, not routes made).
 
 ### Settled by step 3, on record here
 

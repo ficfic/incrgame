@@ -281,6 +281,11 @@
   .map g[data-kind='doing'] .dot { fill: #070b10; stroke: #78e8c0; stroke-width: 2; }
   .map g[data-kind='doing'] text { fill: #9fd8c6; }
   .map g[data-kind='you'] .dot { fill: #8ff0cf; }
+  .map line.has { stroke: #2b4356; stroke-width: 1.5; }
+  /* A fact is a reading, not a place: square-ish and quiet, so Self does not
+     look like a map of four more towns. */
+  .map g[data-kind='fact'] .dot { fill: #16232f; stroke: #4d6b80; stroke-width: 2; }
+  .map g[data-kind='fact'] text { fill: #9fb4c4; }
   /* No focus box. The browser draws its outline around the whole `<g>`, tap
      target and label included, which on a four-dot tab is a white rectangle
      covering a third of the board — and R2.2 says nothing is drawn over
@@ -293,7 +298,11 @@
   .map .open .dot { fill: #78e8c0; }
   .map .shut .dot { fill: #f0b45f; }
   .map .you .dot { fill: #8ff0cf; stroke: #8ff0cf; stroke-width: 6; stroke-opacity: .22; }
-  .map .on .dot { stroke: #eafff7; stroke-width: 2.5; stroke-opacity: 1; }
+  /* ⚠️ `g.on`, NOT `.on` — the kind rules above are `g[data-kind='…'] .dot`,
+     which outranks a three-class selector however late it appears, so the
+     selection ring was invisible on every fact and on the doing node. The one
+     thing the panel below cannot tell you is WHICH dot it is describing. */
+  .map g.on .dot { stroke: #eafff7; stroke-width: 2.5; stroke-opacity: 1; }
   .map text { fill: #7f97a8; font-size: 11px; text-anchor: middle;
     paint-order: stroke; stroke: #070b10; stroke-width: 3px; }
   .map .you text { fill: #eafff7; font-weight: 700; }

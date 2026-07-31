@@ -13,8 +13,8 @@ import type { Game } from './engine';
 import { waysFrom, costOf, unforgeable, forgeSecs, edgeKey, waitFor,
   SECS_PER_PACE } from './engine';
 
-export type Kind = 'place' | 'item' | 'concept' | 'you' | 'doing';
-export type Rel = 'route' | 'carries' | 'means' | 'stands' | 'doing';
+export type Kind = 'place' | 'item' | 'concept' | 'you' | 'doing' | 'fact';
+export type Rel = 'route' | 'carries' | 'means' | 'stands' | 'doing' | 'has';
 
 export interface Node {
   id: string;
@@ -129,22 +129,80 @@ export function here(g: Game): View {
   };
 }
 
-/** SELF — you, and what hangs off you.
+/** Every route in the valley, counted once. The denominator on Self. */
+export const ROUTES_IN_ALL = PLACES.reduce(
+  (n, p) => n + p.ways.filter((to) => to > p.id).length, 0);
+
+/** How many ways out from the start each place is. Solved once — the world's
+ *  shape never changes. */
+const DEPTH = (() => {
+  const d = new Map<number, number>([[PLACES[0]!.id, 0]]);
+  const q = [PLACES[0]!.id];
+  while (q.length) {
+    const at = q.shift()!;
+    for (const to of PLACE.get(at)!.ways) {
+      if (d.has(to)) continue;
+      d.set(to, d.get(at)! + 1);
+      q.push(to);
+    }
+  }
+  return d;
+})();
+
+/** SELF — you, and every true thing about you, each as a node.
  *
- *  ⚠️ NEARLY EMPTY, ON PURPOSE. `docs/TABS.md` says skills and stats may not
- *  come back at all, and inventing a stat sheet to make a tab look busy is
- *  exactly the eleven-systems mistake this rebuild is undoing. What is true
- *  today is: you are somewhere, and you have paces. So that is what it shows. */
+ *  ⚠️ NO SKILLS, AND THAT IS A FINDING RATHER THAN A DELAY. `docs/BRIEF.md`
+ *  ask 2 wants RuneScape-shaped progression and it is still wanted. It cannot
+ *  be built yet, for a reason the code makes plain: `costOf` and `forgeSecs`
+ *  both key off `solid.length`, so a skill trained by making ways would rise in
+ *  exact lockstep with the thing it is meant to offset and cancel itself out.
+ *  A skill is a CHOICE about where to spend time, and there is one verb — so
+ *  there is nothing to choose between. Skills come back when a second thing to
+ *  do does, and not one session before.
+ *
+ *  What is left is honest: four numbers that are all true today, drawn as nodes
+ *  hanging off you rather than as a stat block, because the graph is the UI. */
 export function self(g: Game): View {
+  const at = PLACE.get(g.at)!;
+  const far = g.seen.reduce((best, id) =>
+    (DEPTH.get(id) ?? 0) > (DEPTH.get(best) ?? 0) ? id : best, g.seen[0]!);
+  const farOut = DEPTH.get(far) ?? 0;
+  const next = waysFrom(g).filter((w) => !w.made).sort((a, b) => a.cost - b.cost)[0];
+
+  const facts: Node[] = [
+    { id: 'fact:paces', kind: 'fact',
+      name: `${g.paces} ${g.paces === 1 ? 'pace' : 'paces'}`,
+      body: `In hand, and one more every ${SECS_PER_PACE} seconds wherever you `
+        + 'stand. Paces buy a route, never a step — walking a made way is free.' },
+    { id: 'fact:ways', kind: 'fact',
+      name: `${g.solid.length} of ${ROUTES_IN_ALL} ways`,
+      body: `Routes you have made, out of every route in the valley. `
+        + (next ? `The next from here costs ${next.cost}.`
+                : 'Every way from where you stand is already made.') },
+    { id: 'fact:places', kind: 'fact',
+      name: `${g.seen.length} of ${PLACES.length} places`,
+      body: 'Places you have stood in. The rest are on the Journey with no name '
+        + 'on them, which is the shape of the valley without the spoiling of it.' },
+    { id: 'fact:reach', kind: 'fact',
+      name: farOut === 0 ? 'Still at the start' : `${farOut} ways out`,
+      body: farOut === 0
+        ? `You have not left ${PLACES[0]!.name} yet.`
+        : `${nameOf(far)} is the furthest you have been from ${PLACES[0]!.name} `
+          + `— ${farOut} ways out. Nothing you have reached is deeper.` },
+  ];
+
   return {
     nodes: [
-      { id: 'you', kind: 'you', name: 'You', body:
-        `${g.paces} ${g.paces === 1 ? 'pace' : 'paces'} in hand. `
-        + `${g.seen.length} of ${PLACES.length} places found.` },
-      { id: placeId(g.at), kind: 'place', name: PLACE.get(g.at)!.name,
-        body: PLACE.get(g.at)!.body },
+      { id: 'you', kind: 'you', name: 'You',
+        body: `Standing in ${at.name}. Everything here is true of you right now; `
+          + 'tap one to read it.' },
+      { id: placeId(g.at), kind: 'place', name: at.name, body: at.body },
+      ...facts,
     ],
-    edges: [{ a: 'you', b: placeId(g.at), rel: 'stands' }],
+    edges: [
+      { a: 'you', b: placeId(g.at), rel: 'stands' },
+      ...facts.map((f) => ({ a: 'you', b: f.id, rel: 'has' as const })),
+    ],
   };
 }
 

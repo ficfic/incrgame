@@ -75,6 +75,52 @@ if (await doing.count()) {
   }
 } else { misses.push('Here has no node for what you are doing'); }
 
+// ★ SELF — you, and four true numbers hanging off you. Build-order step 5. No
+// skills: `costOf` and `forgeSecs` both key off the same number, so a skill
+// trained by making ways would cancel itself out. The probe holds that line.
+await page.locator('nav button', { hasText: 'Self' }).click();
+await page.waitForTimeout(400);
+console.log('\nSELF');
+const facts = await page.$$eval(".map g[data-kind='fact'] text", (t) => t.map((x) => x.textContent));
+console.log('  facts   :', facts.length ? facts.join(' · ') : '(none)');
+if (facts.length < 4) misses.push(`Self shows ${facts.length} facts`);
+for (const bad of ['skill', 'level', 'xp']) {
+  if (facts.join(' ').toLowerCase().includes(bad)) misses.push(`Self names "${bad}"`);
+}
+const factOne = page.locator(".map g[data-kind='fact']").first();
+await factOne.click({ timeout: 3000 }).catch((e) => misses.push(`fact dot: ${e}`));
+await page.waitForTimeout(300);
+const factSaid = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
+console.log('  reads   :', `"${factSaid.slice(0, 110)}"`);
+if (factSaid.startsWith('Tap a dot')) misses.push('tapping a fact read nothing');
+
+// ★ THE SELECTED DOT MUST LOOK SELECTED, on every kind of node. This is a CSS
+// SPECIFICITY check, which no unit test can make: the per-kind rules are
+// `g[data-kind=…] .dot` and outranked a plain `.on .dot` however late it came,
+// so the ring was invisible on facts and on the doing node — leaving nothing on
+// screen to say which dot the panel below is describing.
+//
+// ⚠️ COMPARED AGAINST A DOT OF THE SAME KIND, and the first version was not —
+// it took any unselected dot, got the `you` node (no stroke at all), and so
+// reported a difference while the ring was invisible. Proven vacuous by
+// sabotage before this line was rewritten. A fact next to a fact is the only
+// comparison that means anything.
+const ring = await page.evaluate(() => {
+  const s = (el) => {
+    if (!el) return null;
+    const c = getComputedStyle(el);
+    return `${c.stroke} ${c.strokeWidth}`;
+  };
+  return {
+    on: s(document.querySelector(".map g[data-kind='fact'].on .dot")),
+    off: s(document.querySelector(".map g[data-kind='fact']:not(.on) .dot")),
+  };
+});
+console.log('  ring    :', `selected fact ${ring.on} vs unselected fact ${ring.off}`);
+if (!ring.on) misses.push('nothing was selected after tapping a fact');
+else if (!ring.off) misses.push('no second fact to compare the selection against');
+else if (ring.on === ring.off) misses.push('the selected fact looks exactly like an unselected one');
+
 // ★ FORGING. Select where you stand, arm Connect, tap a neighbour, watch the
 // line fill, then walk it. This is the interaction the owner asked for by name.
 await page.locator('nav button', { hasText: 'Journey' }).click();
