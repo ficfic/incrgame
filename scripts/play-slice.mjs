@@ -305,18 +305,36 @@ const layout = await page.evaluate(() => {
       }
     }
   }
+  // ⚠️ LABELS THAT TOUCH. `elementFromPoint` cannot see this: two names side by
+  // side are siblings, each on top at its own centre, and neither is "covered".
+  // Fitting the board one hop wider crowded "The Cut" against "The Stack" and
+  // every other check stayed green. So this measures the boxes directly.
+  const crowded = [];
+  const names = [...document.querySelectorAll('.dot .name')]
+    .map((n) => ({ t: n.textContent.trim(), r: n.getBoundingClientRect() }))
+    .filter((x) => x.r.width > 0);
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      const a = names[i].r, c = names[j].r;
+      if (a.left < c.right && a.right > c.left && a.top < c.bottom && a.bottom > c.top) {
+        crowded.push(`${names[i].t} / ${names[j].t}`);
+      }
+    }
+  }
   const offscreen = [...document.querySelectorAll('.dot .name')]
     .map((n) => ({ t: n.textContent.trim(), r: n.getBoundingClientRect() }))
     .filter((x) => x.r.width > 0 && (x.r.left < 0 || x.r.right > window.innerWidth))
     .map((x) => x.t);
   const body = document.body;
-  return { covered, offscreen, hScroll: body.scrollWidth > window.innerWidth };
+  return { covered, crowded, offscreen, hScroll: body.scrollWidth > window.innerWidth };
 });
 console.log('\nLAYOUT');
 console.log('  prose covered by :', layout.covered.length ? layout.covered.join(' | ') : 'nothing');
+console.log('  labels touching  :', layout.crowded.length ? layout.crowded.join(' | ') : 'none');
 console.log('  labels off-screen:', layout.offscreen.length ? layout.offscreen.join(' | ') : 'none');
 console.log('  page scrolls sideways:', layout.hScroll ? '⚠️ yes' : 'no');
 if (layout.covered.length) misses.push(`the card's prose is covered by ${layout.covered.join(', ')}`);
+if (layout.crowded.length) misses.push(`labels overlap: ${layout.crowded.join(', ')}`);
 if (layout.offscreen.length) misses.push(`labels off-screen: ${layout.offscreen.join(', ')}`);
 if (layout.hScroll) misses.push('the page scrolls sideways');
 

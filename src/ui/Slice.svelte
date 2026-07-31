@@ -107,16 +107,28 @@
    *  which place you were standing in, which is the "miscentred again" the
    *  owner reported. This reads the sheet's real height every frame it changes. */
   let sheetEl = $state<HTMLElement | null>(null);
+  let footEl = $state<HTMLElement | null>(null);
   let sheetH = $state(300);
-  $effect(() => {
-    if (!sheetEl) { sheetH = 96; return; }
-    const ro = new ResizeObserver(() => {
-      sheetH = (sheetEl?.getBoundingClientRect().height ?? 288) + 24;
-    });
-    ro.observe(sheetEl);
-    sheetH = sheetEl.getBoundingClientRect().height + 24;
+  let footH = $state(96);
+
+  /** ⚠️ RESERVE FOR WHATEVER IS ACTUALLY DOWN THERE. The card was measured and
+   *  the footer was not, so closing the card dropped the reserved space to a
+   *  96px guess while the footer was still showing four rows — obols, skills,
+   *  the pack and the next unlock. The board then fitted itself underneath all
+   *  of it and the graph's own edges ran behind the text. Seen on the owner's
+   *  phone, not in any headless run, because the probe leaves the card open. */
+  const watch = (el: HTMLElement | null, set: (n: number) => void): (() => void) | void => {
+    if (!el) return;
+    const ro = new ResizeObserver(() => set(el.getBoundingClientRect().height));
+    ro.observe(el);
+    set(el.getBoundingClientRect().height);
     return () => ro.disconnect();
-  });
+  };
+  $effect(() => watch(sheetEl, (n) => (sheetH = n + 24)));
+  $effect(() => watch(footEl, (n) => (footH = n + 24)));
+
+  /** The board stops above whichever of the two is on screen. */
+  const reserved = $derived(open !== null ? sheetH : footH);
 
   /** How far the player has dragged the board. Cleared when you travel: each
    *  neighbourhood frames itself, and a pan carried across a move would leave
@@ -148,6 +160,14 @@
     // first build where it is literally true: you are at a node, and the ways
     // on are unmistakable.
     const all = sim.positions();
+    // ⚠️ THE NEIGHBOURHOOD ONLY, AND THAT IS A DELIBERATE TRADE.
+    //
+    // Fitting all 37 places was the original bug: it shrank the board until six
+    // dots sat inside 30px and taps landed on the wrong one. Fitting one hop
+    // FURTHER out was tried to fill the empty top of the screen — it balanced
+    // the picture and immediately crowded the labels, "The Cut" touching "The
+    // Stack" with 57px between their dots. Legibility wins: a name you cannot
+    // read is worse than space you are not using.
     const local = new Set<number>([game.at, ...here.choices.map((c) => c.to)]);
     const ps = [...local].map((id) => all.get(id)).filter((p) => p !== undefined);
     if (!ps.length) return { zoom: 1, panX: 0, panY: 0 };
@@ -157,7 +177,7 @@
       minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
     }
     const boxW = Math.max(w - BAND.pad * 2, 80);
-    const boxH = Math.max(h - BAND.top - sheetH, 120);
+    const boxH = Math.max(h - BAND.top - reserved, 120);
     // A degenerate span (one node, or a column) must not divide by zero and
     // must not zoom to the ceiling either.
     const spanX = Math.max(maxX - minX, 0.05);
@@ -171,7 +191,7 @@
       // `cameraFor` puts the origin at `w/2 + panX`, so this is the offset that
       // lands the graph's own centre in the middle of the band.
       panX: (w / 2) - cx * scale - w / 2,
-      panY: (BAND.top + (h - sheetH)) / 2 - cy * scale - h / 2,
+      panY: (BAND.top + (h - reserved)) / 2 - cy * scale - h / 2,
     };
   });
 
@@ -574,7 +594,18 @@
   <!-- ★ THE ONLY PERSISTENT CHROME. Three things, and each appears only once it
        means something (`reveal` by another name — a readout for a quantity the
        player has never seen is noise). -->
-  <footer class:stood-down={open !== null}>
+  <footer bind:this={footEl} class:stood-down={open !== null}>
+    {#if open === null}
+      <!-- ⚠️ WITH THE CARD SHUT THE GAME HAD NO VERB. Every action — read the
+           place, start a job, pull up a catch — lives inside the card, and
+           nothing on screen said that tapping your own dot brings it back. The
+           owner's screenshot is exactly this state: a board, some readouts, and
+           nothing to do. So the way back in is always on screen and it names
+           where you are. -->
+      <button class="here" onclick={() => (open = game.at)}>
+        {here.name}<em>read this place</em>
+      </button>
+    {/if}
     {#if game.econ.obols > 0 || game.econ.tally > 0}
       <div class="purse">
         <b>{Math.floor(game.econ.obols)}</b>
@@ -776,9 +807,15 @@
   .act:disabled { opacity: .5; }
   .act.busy:disabled { opacity: 1; }
 
+  /* ⚠️ A SCRIM, because the readouts were sitting directly on the graph's own
+     lines and dots — "5 obols" with an edge running through it. The board is
+     drawn on a canvas that fills the screen, so anything laid over it needs
+     something behind it or the two just interleave. */
   footer { position: absolute; z-index: 4;
-    inset: auto calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l));
-    display: grid; gap: 8px; justify-items: start; }
+    inset: auto 0 0 0;
+    padding: 20px calc(12px + var(--safe-r)) calc(12px + var(--safe-b)) calc(12px + var(--safe-l));
+    display: grid; gap: 8px; justify-items: start;
+    background: linear-gradient(to top, #070b10 60%, #070b10e0 80%, transparent); }
   /* Status stands down while you are reading. It is not gone — it is behind the
      sheet, and closing the sheet is one tap on the ×. */
   footer.stood-down { opacity: 0; pointer-events: none; }
@@ -799,6 +836,11 @@
      press is the exact complaint this project keeps collecting. */
   .dot.hushed { opacity: .25; }
   .dot.hushed .name, .dot.hushed .tag { opacity: 0; }
+  .here { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 10px;
+    background: #12222e; border: 1px solid #2f5568; color: #eafff7; font: inherit;
+    font-size: 16px; font-weight: 600; text-align: left; }
+  .here em { display: block; font-style: normal; font-size: 13px; font-weight: 400;
+    color: #8fb6c4; }
   .purse { display: flex; align-items: center; gap: 6px; font-size: 13px; }
   .purse b { color: #ffd479; font-size: 15px; }
   .purse span { color: #8fa6b6; }
@@ -828,9 +870,13 @@
   .introBox h2 { margin: 0 0 10px; font-size: 20px; color: #eafff7; }
   .introBox p { margin: 0 0 10px; font-size: 16px; line-height: 1.5; color: #c8d8e4; }
   .introBox .act { margin-top: 14px; text-align: center; }
+  /* ⚠️ TOP, NOT BOTTOM. This sat at bottom:12 — exactly where the footer's
+     readouts are — and printed straight through "Lore 6 You keep notes now…"
+     on the owner's phone. The bottom of this screen is spoken for twice over;
+     the top is not. */
   .recentre { position: absolute; z-index: 9; left: 50%; transform: translateX(-50%);
-    bottom: calc(12px + var(--safe-b)); padding: 10px 16px; border-radius: 22px;
-    background: #0d151de6; border: 1px solid #2f4557; color: #cfe3ef; font: inherit;
+    top: calc(var(--safe-t) + 76px); padding: 8px 16px; border-radius: 22px;
+    background: #0d151df2; border: 1px solid #2f4557; color: #cfe3ef; font: inherit;
     font-size: 14px; }
   .gear { position: absolute; top: calc(8px + var(--safe-t));
     right: calc(8px + var(--safe-r)); z-index: 9; width: 48px; height: 48px;
