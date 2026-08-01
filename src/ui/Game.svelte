@@ -17,7 +17,8 @@
   import { TABS, deedsFor, numOf, fillOf, DOING, type TabId } from '../game/world';
   import { solve, JOURNEY } from '../game/layout';
   import Board from './Board.svelte';
-  import { TERRAIN } from '../game/terrain';
+  import { TERRAIN_SHAPES } from '../game/terrain';
+  import { INK, TOL } from '../game/ink';
   import { apply, initial, waysFrom, unforgeable, SECS_PER_PACE,
     type Game, type Action } from '../game/engine';
   import { load, save, wipe, elapsedSince } from '../game/store';
@@ -111,6 +112,14 @@
       ready = true;
     })();
 
+    // ★ THE PALETTE, HANDED TO THE PROBE. `scripts/play-tabs.mjs` checks the
+    // board by counting pixels of a known colour, and it used to carry its own
+    // copy of every hex — so the app could change a colour and the probe would
+    // go on counting the old one, find none missing, and pass. Reading it off
+    // the running page means the probe can only ever check what is really drawn.
+    (window as unknown as { __INK: typeof INK; __TOL: typeof TOL }).__INK = INK;
+    (window as unknown as { __TOL: typeof TOL }).__TOL = TOL;
+
     let last = performance.now();
     let raf = 0;
     const frame = (t: number): void => {
@@ -197,7 +206,7 @@
          for exactly that. Everywhere else a dot is a diagram and nudging one
          is harmless. -->
     <Board {dots} {lines} box={laid.box} label={tab} onTap={tap}
-      terrain={tab === 'journey' ? TERRAIN : null}
+      decor={tab === 'journey' ? TERRAIN_SHAPES : []}
       drag={tab !== 'journey'} />
   </section>
 

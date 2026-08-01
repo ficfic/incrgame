@@ -26,7 +26,8 @@
   // dots a thumb cannot hit and Playwright cannot click. That shipped once and
   // it is why `layout.ts` ticks to completion and stops.
   import type { Box } from '../game/layout';
-  import { GROUND_INK, RIVER_INK, type Terrain } from '../game/terrain';
+  import { INK, LOOK, type InkName } from '../game/ink';
+  import type { Shape, Pt } from '../game/shapes';
 
   export interface Dot {
     id: string; name: string; kind: string; wx: number; wy: number;
@@ -35,11 +36,14 @@
   }
   export interface Line { a: string; b: string; rel: string; fill: number }
 
-  let { dots, lines, box, label, onTap, terrain = null, drag = true }: {
+  let { dots, lines, box, label, onTap, decor = [], drag = true }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
     onTap: (id: string) => void;
-    /** Scenery, on the tabs that have any. Null everywhere else. */
-    terrain?: Terrain | null;
+    /** ★ ANYTHING ON THE MAP THAT IS NOT THE GRAPH — scenery, and later
+     *  bridges, fords, glyphs, region tints. A list, so adding one is data.
+     *  The graph itself stays separate because its nodes need DOM twins to be
+     *  tappable and readable; decor is never tapped, so it is pure canvas. */
+    decor?: Shape[];
     /** ⚠️ OFF ON THE JOURNEY. The owner: "I am able to reposition the graph
      *  nodes on the Journey tab. I don't think it makes sense because this is
      *  kind of a map, right?" Tapping still works — see `onUp`. */
@@ -112,129 +116,117 @@
     return () => ro.disconnect();
   });
 
-  // ---- the baked scenery --------------------------------------------------
+  // ---- painting ------------------------------------------------------------
   //
-  // ★ THE WHOLE REASON THE MAP CAN BE BUSY AND STILL CHEAP. The scatter never
-  // changes, so it is drawn ONCE into an offscreen bitmap in WORLD coordinates
-  // and blitted with the camera transform. Redrawing ~500 marks at 60fps while
-  // a thumb pans would be ~30,000 path operations a second; one `drawImage` is
-  // effectively free, and the bitmap survives every pan and zoom untouched.
+  // ★ ONE FUNCTION DRAWS EVERY SHAPE, so a new thing on the map is an entry in
+  // a list rather than a branch in here. `Board.svelte` used to walk two
+  // hardcoded arrays and nothing else could be drawn without editing the loop.
   //
   // ⚠️ NO `shadowBlur` ANYWHERE. It is the one genuinely expensive canvas call
-  // and it is the usual way a "just a bit of atmosphere" change starts dropping
-  // frames on a phone.
+  // and it is how "just a bit of atmosphere" starts dropping frames on a phone.
+
+  /** Offscreen bitmaps for `baked` shapes, kept by key across every frame. */
+  const bakery = new Map<string, HTMLCanvasElement>();
   const BAKE = 2;   // bitmap pixels per world unit
-  let baked: HTMLCanvasElement | null = null;
-  let bakedFor = '';
 
-  function bake(t: Terrain): HTMLCanvasElement | null {
-    const key = `${t.box.x},${t.box.y},${t.box.w},${t.box.h},${t.marks.length}`;
-    if (baked && bakedFor === key) return baked;
-    if (typeof document === 'undefined') return null;
-    const cv = document.createElement('canvas');
-    cv.width = Math.max(1, Math.round(t.box.w * BAKE));
-    cv.height = Math.max(1, Math.round(t.box.h * BAKE));
-    const c = cv.getContext('2d');
-    if (!c) return null;
-    c.setTransform(BAKE, 0, 0, BAKE, -t.box.x * BAKE, -t.box.y * BAKE);
-    for (const m of t.marks) {
-      c.fillStyle = GROUND_INK[m.g];
-      c.strokeStyle = GROUND_INK[m.g];
-      c.lineWidth = 1.1;
-      if (m.g === 'wood') {
-        // A tree: a squat triangle. Three lines, no fill rule, no curve.
-        c.beginPath();
-        c.moveTo(m.x, m.y - m.r * 1.6);
-        c.lineTo(m.x + m.r, m.y + m.r * 0.8);
-        c.lineTo(m.x - m.r, m.y + m.r * 0.8);
-        c.closePath();
-        c.fill();
-      } else if (m.g === 'moor') {
-        // Open ground: a low tuft, two strokes.
-        c.beginPath();
-        c.moveTo(m.x - m.r, m.y);
-        c.quadraticCurveTo(m.x, m.y - m.r * 1.4, m.x + m.r, m.y);
-        c.stroke();
-      } else if (m.g === 'crag' || m.g === 'stone') {
-        // Broken rock: a chevron, angled by the mark's own seed.
-        c.save();
-        c.translate(m.x, m.y);
-        c.rotate(m.a);
-        c.beginPath();
-        c.moveTo(-m.r, m.r * 0.6);
-        c.lineTo(0, -m.r * 0.9);
-        c.lineTo(m.r, m.r * 0.6);
-        c.stroke();
-        c.restore();
-      } else {
-        // Under: hatching, because it is below the ground rather than on it.
-        c.beginPath();
-        c.moveTo(m.x - m.r, m.y - m.r);
-        c.lineTo(m.x + m.r, m.y + m.r);
-        c.stroke();
-      }
-    }
-    baked = cv;
-    bakedFor = key;
-    return cv;
-  }
-
-  /** A smooth line through every point, Catmull-Rom converted to beziers.
+  /** Catmull-Rom through the points, as beziers.
    *  ⚠️ RIVERS ARE NOT STRAIGHT — the owner's words. Roads are, which is what
    *  keeps the two readable apart at a glance. */
-  function meander(c: CanvasRenderingContext2D, pts: ReadonlyArray<{ x: number; y: number }>): void {
-    if (pts.length < 2) return;
-    c.beginPath();
-    c.moveTo(sx(pts[0]!.x), sy(pts[0]!.y));
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[i - 1] ?? pts[i]!;
-      const p1 = pts[i]!;
-      const p2 = pts[i + 1]!;
-      const p3 = pts[i + 2] ?? p2;
-      c.bezierCurveTo(
-        sx(p1.x + (p2.x - p0.x) / 6), sy(p1.y + (p2.y - p0.y) / 6),
-        sx(p2.x - (p3.x - p1.x) / 6), sy(p2.y - (p3.y - p1.y) / 6),
-        sx(p2.x), sy(p2.y),
-      );
+  function trace(c: CanvasRenderingContext2D, pts: Pt[],
+    X: (n: number) => number, Y: (n: number) => number, curve: boolean): void {
+    if (!pts.length) return;
+    c.moveTo(X(pts[0]!.x), Y(pts[0]!.y));
+    if (!curve || pts.length < 3) {
+      for (let i = 1; i < pts.length; i++) c.lineTo(X(pts[i]!.x), Y(pts[i]!.y));
+      return;
     }
-    c.stroke();
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] ?? pts[i]!, p1 = pts[i]!;
+      const p2 = pts[i + 1]!, p3 = pts[i + 2] ?? p2;
+      c.bezierCurveTo(
+        X(p1.x + (p2.x - p0.x) / 6), Y(p1.y + (p2.y - p0.y) / 6),
+        X(p2.x - (p3.x - p1.x) / 6), Y(p2.y - (p3.y - p1.y) / 6),
+        X(p2.x), Y(p2.y));
+    }
   }
 
-  // ---- the drawing --------------------------------------------------------
-  const EDGE: Record<string, { c: string; w: number }> = {
-    route: { c: '#4d6b80', w: 2 },
-    stands: { c: '#2f5568', w: 2 },
-    means: { c: '#2b4356', w: 2 },
-    doing: { c: '#3f7d6b', w: 2 },
-    has: { c: '#2b4356', w: 1.5 },
-  };
+  /** Draw one shape. `X`/`Y` map world to wherever we are drawing — the live
+   *  canvas through the camera, or a bitmap through its own fixed scale. */
+  function paint(c: CanvasRenderingContext2D, sh: Shape,
+    X: (n: number) => number, Y: (n: number) => number, scale: number): void {
+    c.globalAlpha = sh.alpha ?? 1;
+    if (sh.s === 'baked') {
+      let bmp = bakery.get(sh.key);
+      if (!bmp) {
+        bmp = document.createElement('canvas');
+        bmp.width = Math.max(1, Math.round(sh.box.w * BAKE));
+        bmp.height = Math.max(1, Math.round(sh.box.h * BAKE));
+        const b2 = bmp.getContext('2d');
+        if (b2) {
+          b2.lineCap = 'round';
+          const bx = (n: number): number => (n - sh.box.x) * BAKE;
+          const by = (n: number): number => (n - sh.box.y) * BAKE;
+          for (const inner of sh.shapes) paint(b2, inner, bx, by, BAKE);
+        }
+        bakery.set(sh.key, bmp);
+      }
+      c.drawImage(bmp, X(sh.box.x), Y(sh.box.y), sh.box.w * scale, sh.box.h * scale);
+      c.globalAlpha = 1;
+      return;
+    }
+    if (sh.s === 'disc') {
+      c.beginPath();
+      c.arc(X(sh.x), Y(sh.y), sh.r, 0, Math.PI * 2);
+      c.fillStyle = INK[sh.ink];
+      c.fill();
+      if (sh.ring) { c.strokeStyle = INK[sh.ring]; c.lineWidth = sh.rw ?? 2; c.stroke(); }
+      c.globalAlpha = 1;
+      return;
+    }
+    c.beginPath();
+    trace(c, sh.pts, X, Y, sh.curve ?? false);
+    if (sh.close) c.closePath();
+    if (sh.fill) {
+      c.fillStyle = INK[sh.ink];
+      c.fill();
+    } else {
+      c.strokeStyle = INK[sh.ink];
+      c.lineWidth = Math.max(0.6, (sh.w ?? 2) * (scale === BAKE ? 1 : Math.min(1.6, scale)));
+      if (sh.dash) c.setLineDash(sh.dash); 
+      c.stroke();
+      c.setLineDash([]);
+    }
+    c.globalAlpha = 1;
+  }
 
-  function dotStyle(d: Dot): { fill: string; ring?: string; ringW?: number; r: number } {
-    let fill = d.known ? '#4d6b80' : '#2b3a49';
-    if (d.kind === 'fact') fill = '#16232f';
-    if (d.kind === 'doing') fill = '#070b10';
-    if (d.open) fill = '#78e8c0';
-    if (d.shut) fill = '#f0b45f';
-    if (d.you || d.kind === 'you') fill = '#8ff0cf';
-    let ring: string | undefined;
-    let ringW = 2;
-    if (d.kind === 'fact') ring = '#4d6b80';
-    if (d.kind === 'doing') { ring = '#78e8c0'; }
-    // ⚠️ Selection wins over every kind. On the old board the per-kind rules
-    // outranked it in CSS and the ring was invisible on facts entirely — the
-    // one thing the panel below cannot tell you is WHICH dot it describes.
-    if (d.on) { ring = '#eafff7'; ringW = 2.5; }
-    const r = d.you ? 7 : d.open || d.shut || (!d.place && d.known) ? 5.5 : 3.5;
-    return { fill, ring, ringW, r };
+  /** ★ HOW A NODE LOOKS, FROM THE TABLE IN `ink.ts`. State outranks kind: where
+   *  you stand, what you can afford and what is selected all say more than what
+   *  sort of thing it is. */
+  function discOf(d: Dot): Extract<Shape, { s: 'disc' }> {
+    const look = LOOK[d.kind] ?? LOOK.place!;
+    // ★ KNOWN OUTRANKS KIND, WHERE THE KIND HAS A `lit`. Places you have
+    // reached and notions you have thought draw brighter than ones you have
+    // not — on Thoughts that IS the progress. Kinds with no `lit` (a fact, the
+    // doing node) have nothing to discover and keep one fill.
+    let fill: InkName = d.known && look.lit ? look.lit : look.fill;
+    if (d.open) fill = 'open';
+    if (d.shut) fill = 'shut';
+    if (d.you) fill = 'you';
+    let ring = look.ring;
+    let rw = 2;
+    if (d.on) { ring = 'ring'; rw = 2.5; }
+    const p = posOf.get(d.id)!;
+    const r = d.you ? 7 : d.open || d.shut || (!d.place && d.known) ? 5.5 : look.r;
+    return { s: 'disc', x: p.x, y: p.y, r, ink: fill, ring, rw };
   }
 
   function draw(): void {
     if (!cv || !cssW || !cssH) return;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
-    // ★ DEVICE PIXELS FOR THE BUFFER, CSS PIXELS FOR THE DRAWING. This is the
-    // whole answer to "a few pixels here and there are wrong": without it every
-    // line is drawn at 1/dpr of its intended width and lands between pixels.
+    // ★ DEVICE PIXELS FOR THE BUFFER, CSS PIXELS FOR THE DRAWING. The whole
+    // answer to "a few pixels here and there are wrong": without it every line
+    // is drawn at 1/dpr of its width and lands between pixels.
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
     const w = Math.round(cssW * dpr), h = Math.round(cssH * dpr);
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
@@ -242,87 +234,42 @@
     ctx.clearRect(0, 0, cssW, cssH);
     ctx.lineCap = 'round';
 
-    if (terrain) {
-      const bmp = bake(terrain);
-      if (bmp) {
-        const t = terrain.box;
-        ctx.globalAlpha = 0.85;
-        ctx.drawImage(bmp, sx(t.x), sy(t.y), t.w * k, t.h * k);
-        ctx.globalAlpha = 1;
-      }
-      // The river, live and therefore crisp at any zoom. Two strokes: a wide
-      // soft bed under a brighter thread, which is most of what makes water
-      // read as water rather than as another road.
-      ctx.strokeStyle = RIVER_INK;
-      ctx.lineWidth = Math.max(2, 7 * k);
-      ctx.globalAlpha = 0.5;
-      meander(ctx, terrain.river);
-      ctx.globalAlpha = 1;
-      ctx.lineWidth = Math.max(1, 2.5 * k);
-      meander(ctx, terrain.river);
-    }
+    for (const sh of decor) paint(ctx, sh, sx, sy, k);
 
     for (const l of lines) {
       const a = posOf.get(l.a), b = posOf.get(l.b);
       if (!a || !b) continue;
-      const ax = sx(a.x), ay = sy(a.y), bx = sx(b.x), by = sy(b.y);
       const made = l.fill >= 1;
-      const style = EDGE[l.rel] ?? EDGE.route!;
-      ctx.beginPath();
-      ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
-      if (made) {
-        ctx.strokeStyle = style.c;
-        ctx.lineWidth = style.w;
-        ctx.setLineDash([]);
-      } else {
-        // ⚠️ DASHED UNTIL IT IS FINISHED, NOT UNTIL IT IS STARTED. With the
-        // strict test a route lost its dashes the instant it began filling and
-        // drew solid for its whole length, so the far end looked reached before
-        // any of it was.
-        ctx.strokeStyle = '#22333f';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([3, 5]);
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // ⚠️ DASHED UNTIL IT IS FINISHED, NOT UNTIL IT IS STARTED. With the strict
+      // test a route lost its dashes the instant it began filling and drew solid
+      // for its whole length, so the far end looked reached before any of it was.
+      paint(ctx, made
+        ? { s: 'path', pts: [a, b], ink: (l.rel as InkName) in INK ? l.rel as InkName : 'route', w: 2 }
+        : { s: 'path', pts: [a, b], ink: 'unmade', w: 1, dash: [3, 5] }, sx, sy, 1);
       // ★ THE ONE ANIMATION THE GAME GETS: the way being made fills from your
-      // end to the far end over real time. The owner asked for it back by name.
+      // end to the far end over real time. Asked for back by name.
       if (l.fill > 0 && l.fill < 1) {
-        ctx.beginPath();
-        ctx.moveTo(ax, ay);
-        ctx.lineTo(ax + (bx - ax) * l.fill, ay + (by - ay) * l.fill);
-        ctx.strokeStyle = '#8ff0cf';
-        ctx.lineWidth = 3;
-        ctx.stroke();
+        paint(ctx, { s: 'path', ink: 'fill', w: 3, pts: [a,
+          { x: a.x + (b.x - a.x) * l.fill, y: a.y + (b.y - a.y) * l.fill }] }, sx, sy, 1);
       }
     }
 
     for (const d of dots) {
-      const p = posOf.get(d.id)!;
-      const x = sx(p.x), y = sy(p.y);
-      const s = dotStyle(d);
       if (d.you) {
+        const p = posOf.get(d.id)!;
         ctx.beginPath();
-        ctx.arc(x, y, s.r + 3, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(143,240,207,.22)';
+        ctx.arc(sx(p.x), sy(p.y), 10, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(143,240,207,.22)';   // the halo round where you stand
         ctx.lineWidth = 6;
         ctx.stroke();
       }
-      ctx.beginPath();
-      ctx.arc(x, y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = s.fill;
-      ctx.fill();
-      if (s.ring) {
-        ctx.strokeStyle = s.ring;
-        ctx.lineWidth = s.ringW!;
-        ctx.stroke();
-      }
+      paint(ctx, discOf(d), sx, sy, 1);
     }
   }
 
   $effect(() => {
     // Re-read everything the picture depends on so the effect tracks it.
-    void dots; void lines; void k; void tx; void ty; void moved; void cssW; void cssH;
+    void dots; void lines; void decor; void k; void tx; void ty; void moved; void cssW; void cssH;
     draw();
   });
 
@@ -432,6 +379,8 @@
       class:known={d.known} class:on={d.on} data-kind={d.kind} data-id={d.id}
       style="left:{sx(p.x)}px; top:{sy(p.y)}px"
       aria-label={d.name || 'somewhere unvisited'}
+      style:--label={INK[d.you ? 'ring' : d.open ? 'open' : d.known
+        ? (LOOK[d.kind]?.label ?? 'known') : 'dot']}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(d.id); } }}>
       {#if d.name}<span class="label">{d.name}</span>{/if}
     </button>
@@ -452,14 +401,15 @@
   .node { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px;
     padding: 0; border: 0; background: none; cursor: pointer; outline: none;
     display: flex; justify-content: center; align-items: flex-start; }
+  /* ⚠️ THE COLOUR COMES FROM `ink.ts`, through a custom property. It used to be
+     five `.node[data-kind='…']` rules here plus five branches in the script —
+     the same decision written twice, in two languages, with nothing checking
+     they agreed. */
   .label { position: absolute; top: 24px; white-space: nowrap;
-    font: 11px/1 ui-sans-serif, system-ui, sans-serif; color: #7f97a8;
+    font: 11px/1 ui-sans-serif, system-ui, sans-serif; color: var(--label, #7f97a8);
     pointer-events: none;
     /* The halo that keeps a name legible where it crosses a line. */
     text-shadow: 0 0 3px #070b10, 0 0 3px #070b10, 0 0 2px #070b10; }
-  .node.known .label { color: #9fb4c4; }
-  .node.open .label { color: #bff3e0; }
-  .node.you .label { color: #eafff7; font-weight: 700; }
-  .node[data-kind='doing'] .label { color: #9fd8c6; }
-  .node:focus-visible .label { color: #eafff7; text-decoration: underline; }
+  .node.you .label { font-weight: 700; }
+  .node:focus-visible .label { text-decoration: underline; }
 </style>

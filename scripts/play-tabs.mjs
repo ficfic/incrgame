@@ -31,11 +31,21 @@ const inked = (hex, tol = 26) => page.evaluate(([hex, tol]) => {
   }
   return n;
 }, [hex, tol]);
-const INK = { route: '#4d6b80', unmade: '#22333f', fill: '#8ff0cf', ring: '#eafff7',
-  dim: '#2b3a49', open: '#78e8c0',
-  // Scenery. `test/terrain.test.ts` holds these more than 26 apart from every
-  // ink above, so counting one can never be counting the other.
-  river: '#24607f', wood: '#123f1c', moor: '#3d3520', under: '#523a60' };
+// ★ THE PALETTE COMES OFF THE RUNNING PAGE, NOT FROM A COPY IN HERE.
+//
+// ⚠️ THIS FILE USED TO CARRY ITS OWN HEXES. That meant the app could change a
+// colour and the probe would go on counting the OLD one, find none of it
+// missing, and pass — a guard that silently stops guarding, which is this
+// repo's most reliable failure. `src/game/ink.ts` is the one definition,
+// `Game.svelte` hands it over, and `test/ink.test.ts` holds the distances that
+// make counting pixels meaningful at all.
+const INK = await page.evaluate(() => window.__INK);
+const TOL = await page.evaluate(() => window.__TOL);
+/** Count an ink at the tolerance the palette says it may be counted at. */
+const ink = (name) => inked(INK[name], TOL[name] ?? 12);
+if (!INK || !INK.route) {
+  misses.push('the page did not hand over its palette — the probe is counting nothing');
+}
 
 const tabs = await page.$$eval('nav button', (bs) => bs.map((x) => x.textContent.trim()));
 console.log('TABS:', tabs.join(' · '));
@@ -166,6 +176,33 @@ const stillTaps = await page.$eval('.panel', (e) => e.textContent.trim());
 console.log('  tap     :', `"${stillTaps.slice(0, 40)}"`);
 if (stillTaps.startsWith('Tap a dot')) misses.push('turning off dragging also killed tapping on the Journey');
 
+// ★ A FRAME BUDGET, so a heavy feature cannot land silently.
+//
+// Measured during a sustained pan, which is the worst case because it redraws
+// every frame. The vsync floor is ~16.7ms, so what is being watched is the WORK
+// on top of it. Generous on purpose — this is a regression alarm, not a
+// benchmark, and a shared CI box is noisy.
+const frames = await page.evaluate(async () => {
+  const out = { n: 0, total: 0, worst: 0 };
+  const host = document.querySelector('.map .board');
+  const r = host.getBoundingClientRect();
+  const send = (t, x, y) => host.dispatchEvent(new PointerEvent(t, {
+    pointerId: 1, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+  send('pointerdown', r.left + 40, r.top + 40);
+  for (let i = 0; i < 60; i++) {
+    const a = performance.now();
+    send('pointermove', r.left + 40 + (i % 30), r.top + 40 + (i % 20));
+    await new Promise((res) => requestAnimationFrame(res));
+    const d = performance.now() - a;
+    out.n++; out.total += d; out.worst = Math.max(out.worst, d);
+  }
+  send('pointerup', r.left + 70, r.top + 60);
+  return out;
+});
+const mean = frames.total / frames.n;
+console.log('  frames  :', `${mean.toFixed(1)}ms mean, ${frames.worst.toFixed(1)}ms worst, panning`);
+if (mean > 34) misses.push(`panning costs ${mean.toFixed(1)}ms a frame — something got heavy`);
+
 // ★ SCENERY. The owner asked for a map that is alive and for it to be cheap.
 // Cheap means the scatter is baked into a bitmap once and blitted — so what is
 // checked is that it is THERE, and that it is only where it belongs.
@@ -220,8 +257,8 @@ if (await doing.count()) {
 // ground under it would be claiming the valley is in you.
 await page.locator('nav button', { hasText: 'Self' }).click();
 await page.waitForTimeout(500);
-const strayRiver = await inked(INK.river, 12);
-const strayWood = await inked(INK.wood, 12);
+const strayRiver = await ink('river');
+const strayWood = await ink('wood');
 console.log('\nSELF  scenery:', `river ${strayRiver}px, wood ${strayWood}px (both must be 0)`);
 if (strayRiver || strayWood) misses.push('scenery is drawn on Self, which is not a place');
 // ★ AND DRAGGING IS STILL ON HERE — the owner said the map must be fixed, not
@@ -285,11 +322,15 @@ if (/Somewhere you have not been/.test(read)) misses.push('a notion is described
 // shows progress at all, and it once drew every dot at full brightness and full
 // size regardless. Both inks must actually be on the canvas: if the dim one is
 // missing, every notion is being drawn as known.
-// ⚠️ TOLERANCE 6, NOT 20. At 20 the dim-dot ink (#2b3a49) also matches the
-// `means` edge ink (#2b4356) — the check counted the LINES and would have
-// passed with no dim dot on the board at all. Caught by arithmetic, not by luck.
-const litPx = await inked(INK.route, 6);
-const dimPx = await inked(INK.dim, 6);
+// ⚠️ `known`, NOT `route`. This counted the ROUTE ink and passed for weeks —
+// only because the reached-dot colour and the road colour were literally the
+// same hex. The moment `ink.ts` separated them (they are different things and
+// the probe could not tell a made road from a reached place) this check dropped
+// to 2 pixels and would have gone vacuous. The tolerances come from the palette
+// too: `dot` is counted at 6 because it sits 13 from the `means` edge ink, and
+// a wider net would count the lines.
+const litPx = await ink('known');
+const dimPx = await ink('dot');
 console.log('  dim     :', `${litPx}px thought vs ${dimPx}px unthought`);
 if (dimPx <= 0) misses.push('no unthought notion is drawn dim — they all look known');
 if (litPx <= 0) misses.push('no thought notion is drawn lit');
@@ -328,7 +369,16 @@ if (await page.locator('.deed.arm').count()) {
   const target = page.locator('.map .node:not(.you)').first();
   await target.click({ timeout: 3000 }).catch((e) => misses.push(`second tap: ${e}`));
   await page.waitForTimeout(400);
-  const filling = await inked(INK.fill, 20);
+  // ⚠️ MEASURED AFTER A MOMENT, NOT THE INSTANT IT STARTS. At fill ≈ 0 the line
+  // has no length and all that is on the canvas is its round cap — this read 25
+  // pixels and one slow frame from reading zero. Give it a few seconds of
+  // growth so the check is looking at a line rather than at a dot.
+  //
+  // (Before `ink.ts` split `fill` from `you` this read 1485px and looked
+  // healthy. It was counting the dot the player is standing on, which is always
+  // there, so it would have passed with nothing filling at all.)
+  await page.waitForTimeout(3500);
+  const filling = await ink('fill');
   const note = await page.$eval('.panel .note', (e) => e.textContent.replace(/\s+/g,' ').trim())
     .catch(() => '(none)');
   console.log('  filling :', filling ? `${filling}px of fill drawn` : '⚠️ nothing is filling');
@@ -340,17 +390,17 @@ if (await page.locator('.deed.arm').count()) {
   // ★ A ROUTE BEING MADE MUST NOT ALREADY LOOK MADE. It shipped drawing solid
   // for its whole length the instant it started, so the far end read as reached
   // with twelve seconds still to run. The dashed ink must still be under it.
-  const dashedDuring = await inked(INK.unmade, 14);
+  const dashedDuring = await ink('unmade');
   console.log('  during  :', dashedDuring ? 'still dashed under the fill'
     : '⚠️ the dashes are gone — it is already drawn made');
   if (!dashedDuring) misses.push('the route lost its dashes while still filling');
-  const routeBefore = await inked(INK.route, 14);
+  const routeBefore = await ink('route');
   // Watch it finish.
   for (let i = 0; i < 30; i++) {
     await page.waitForTimeout(2000);
-    if (!await inked(INK.fill, 20)) break;
+    if (!await ink('fill')) break;
   }
-  const routeAfter = await inked(INK.route, 14);
+  const routeAfter = await ink('route');
   console.log('  made    :', `route ink ${routeBefore}px → ${routeAfter}px`);
   if (routeAfter <= routeBefore) misses.push('no new solid route was drawn when the fill finished');
 } else { misses.push('Connect was never offered'); }

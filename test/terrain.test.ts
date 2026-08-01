@@ -120,44 +120,7 @@ describe('★ the scatter keeps out of the way', () => {
   });
 });
 
-describe('★ the palette cannot collide with the probe', () => {
-  // `scripts/play-tabs.mjs` checks the board by COUNTING PIXELS of a known
-  // colour — that is how the dot, route, fill and selection checks work now
-  // that the board is painted. A scenery ink within tolerance of one of those
-  // would be counted as dots and the check would go quietly vacuous. It has
-  // already happened once: the dim-dot ink sat within 20 of the edge ink, and
-  // the Thoughts check was counting lines.
-  const PROBE = {
-    route: '#4d6b80', unmade: '#22333f', fill: '#8ff0cf',
-    ring: '#eafff7', dim: '#2b3a49', open: '#78e8c0',
-  };
-  const WIDEST = 26;   // the largest tolerance the probe uses
-
-  it('keeps every ground ink clear of every ink the probe counts', () => {
-    for (const [g, ink] of Object.entries(GROUND_INK)) {
-      for (const [name, other] of Object.entries(PROBE)) {
-        expect(apart(ink, other),
-          `ground "${g}" (${ink}) is within ${apart(ink, other)} of probe ink "${name}" (${other})`)
-          .toBeGreaterThan(WIDEST);
-      }
-    }
-  });
-
-  it('keeps the river clear too', () => {
-    for (const [name, other] of Object.entries(PROBE)) {
-      expect(apart(RIVER_INK, other),
-        `the river (${RIVER_INK}) is within ${apart(RIVER_INK, other)} of "${name}"`)
-        .toBeGreaterThan(WIDEST);
-    }
-  });
-
-  it('and the grounds are told apart from each other', () => {
-    const inks = Object.entries(GROUND_INK);
-    for (let i = 0; i < inks.length; i++) {
-      for (let j = i + 1; j < inks.length; j++) {
-        expect(apart(inks[i]![1], inks[j]![1]),
-          `${inks[i]![0]} and ${inks[j]![0]} are the same colour`).toBeGreaterThan(8);
-      }
-    }
-  });
-});
+// ⚠️ THE PALETTE CHECKS THAT LIVED HERE HAVE MOVED TO `test/ink.test.ts`, along
+// with the palette itself. They were written for scenery and they turned out to
+// be a property of every colour in the game — and keeping a copy of the probe's
+// hexes in this file was the very duplication the move was meant to end.

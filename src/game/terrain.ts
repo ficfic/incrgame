@@ -16,24 +16,20 @@
 // Nothing here knows about the canvas, the camera or the game. It is geometry.
 import { PLACES, PLACE } from './places';
 import { SPOT, boxOf, type Box } from './layout';
+import { INK } from './ink';
+import type { Shape, Pt } from './shapes';
 
 export type Ground = 'wood' | 'moor' | 'crag' | 'under' | 'stone';
 
-/** ⚠️ THE PALETTE IS CONSTRAINED, NOT CHOSEN FREELY. `scripts/play-tabs.mjs`
- *  counts pixels of a known colour to check the board — that is how the dot,
- *  route and fill checks work now that the board is painted. A scenery colour
- *  that lands within tolerance of one of those inks would be counted as dots,
- *  and the check would go quietly vacuous. It has already happened once (the
- *  dim-dot ink sat within 20 of the edge ink). `test/terrain.test.ts` holds the
- *  distance, so this palette cannot drift into the probe's. */
+/** ⚠️ THE COLOURS LIVE IN `ink.ts` NOW, with every other colour in the game.
+ *  Re-exported because the constraint on them is still specific to scenery: the
+ *  probe counts pixels of known inks, so a ground colour within tolerance of a
+ *  dot or edge ink would be counted as dots and the check would go quietly
+ *  vacuous. `test/ink.test.ts` holds the distances for all of them now. */
 export const GROUND_INK: Record<Ground, string> = {
-  wood: '#123f1c',
-  moor: '#3d3520',
-  crag: '#5a5348',
-  under: '#523a60',
-  stone: '#6a6259',
+  wood: INK.wood, moor: INK.moor, crag: INK.crag, under: INK.under, stone: INK.stone,
 };
-export const RIVER_INK = '#24607f';
+export const RIVER_INK = INK.river;
 
 /** Which region a place belongs to, from its id. The content is already
  *  partitioned this way — valley 0–5, works 100–109, under 200–210,
@@ -104,6 +100,38 @@ export interface Terrain {
   river: ReadonlyArray<{ x: number; y: number }>;
 }
 
+/** One scenery mark as the shapes that draw it. Four grounds, four gestures —
+ *  and every one is an ordinary `Shape`, so the board needs no special case and
+ *  this file needs no canvas. */
+function markShapes(m: Mark): Shape[] {
+  const w = 1.1;
+  if (m.g === 'wood') {
+    return [{ s: 'path', ink: m.g, fill: true, close: true, pts: [
+      { x: m.x, y: m.y - m.r * 1.6 },
+      { x: m.x + m.r, y: m.y + m.r * 0.8 },
+      { x: m.x - m.r, y: m.y + m.r * 0.8 },
+    ] }];
+  }
+  if (m.g === 'moor') {
+    return [{ s: 'path', ink: m.g, w, curve: true, pts: [
+      { x: m.x - m.r, y: m.y },
+      { x: m.x, y: m.y - m.r * 1.3 },
+      { x: m.x + m.r, y: m.y },
+    ] }];
+  }
+  if (m.g === 'crag' || m.g === 'stone') {
+    const c = Math.cos(m.a), sn = Math.sin(m.a);
+    const at = (dx: number, dy: number): Pt =>
+      ({ x: m.x + dx * c - dy * sn, y: m.y + dx * sn + dy * c });
+    return [{ s: 'path', ink: m.g, w, pts: [
+      at(-m.r, m.r * 0.6), at(0, -m.r * 0.9), at(m.r, m.r * 0.6),
+    ] }];
+  }
+  return [{ s: 'path', ink: m.g, w, pts: [
+    { x: m.x - m.r, y: m.y - m.r }, { x: m.x + m.r, y: m.y + m.r },
+  ] }];
+}
+
 /** ⚠️ SOLVED ONCE AT MODULE LOAD, like the layout it is drawn over. */
 export const TERRAIN: Terrain = (() => {
   const marks = scatter();
@@ -119,3 +147,23 @@ export const TERRAIN: Terrain = (() => {
   ];
   return { box: boxOf(pts, 24), marks, river };
 })();
+
+/** ★ THE WHOLE MAP'S SCENERY, AS SHAPES THE BOARD JUST DRAWS.
+ *
+ *  The scatter is `baked` — one bitmap, one blit per frame, however many marks
+ *  it holds. The river is not, because eight control points cost nothing to
+ *  stroke live and drawing it live is what keeps it crisp when you zoom, which
+ *  the owner singled out as the thing that looks right.
+ *
+ *  A bridge, a ford, a glyph beside a place or a tint over a region all come
+ *  back here as more entries. That is the point of it. */
+export const TERRAIN_SHAPES: Shape[] = [
+  {
+    s: 'baked', key: 'ground', box: TERRAIN.box, alpha: 0.85,
+    shapes: TERRAIN.marks.flatMap(markShapes),
+  },
+  // A wide soft bed under a brighter thread — most of what makes water read as
+  // water rather than as one more road.
+  { s: 'path', pts: [...TERRAIN.river], ink: 'river', w: 7, curve: true, alpha: 0.5 },
+  { s: 'path', pts: [...TERRAIN.river], ink: 'river', w: 2.5, curve: true },
+];

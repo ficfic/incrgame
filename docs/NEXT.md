@@ -526,3 +526,37 @@ worth doing before encounters, not before the next visual. 6 is fifteen minutes.
 
 None of this is urgent and none of it is a defect. It is the difference between
 snapping the next six features on and hand-fitting each one.
+
+
+## ~~21. Make features cheap to add~~ ✅ 2026-08-01
+
+Items 1–3 and 6 of the review above, plus what doing them uncovered.
+
+**One palette** (`src/game/ink.ts`). Every colour, once. The probe reads it off
+the running page (`window.__INK`); `test/ink.test.ts` holds the distances.
+Tolerances live beside the colours, because a blanket distance is the wrong rule
+— a thin line needs a loose match to be found at all, two similar colours need a
+tight one to be told apart.
+
+**One look table.** `LOOK[kind]` replaces five `d.kind === …` branches and five
+CSS rules — the same decision written twice, in two languages, with nothing
+checking they agreed.
+
+**One paint function** (`src/game/shapes.ts`). The board draws the graph plus a
+list of `Shape`s. A bridge, a ford, a glyph, a region tint is now an entry, not
+surgery on the draw loop. `baked` shapes cache themselves into a bitmap.
+
+**A frame budget in the probe**, so a heavy feature cannot land quietly.
+
+### ★ Four guards were silently broken, and writing the palette down found them
+
+| what | was |
+|---|---|
+| `known` and `route` | **the same hex** — counting made roads also counted reached places |
+| `you` and `fill` | **the same hex** — the "is the road filling?" check was counting the dot you stand on, which is always there. It would have passed with nothing filling |
+| Thoughts' "lit" check | counted `route` ink, and only worked because of the first collision. Separating them dropped it to **2 pixels** |
+| the fill check | measured the instant filling began, when the line has no length — **25px, one slow frame from zero** |
+
+And one regression introduced and caught in the same hour: collapsing the look
+table lost the lit/unlit distinction, so every notion on Thoughts drew the same
+whether thought or not. The probe read **0px thought**.
