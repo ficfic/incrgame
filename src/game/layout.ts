@@ -1,149 +1,150 @@
-// WHERE EVERY PLACE SITS ON THE MAP. Solved ONCE, deterministically, at load.
+// WHERE EVERY NODE SITS. Solved by d3-force, run to completion, then FROZEN.
 //
-// ⚠️ THIS IS THE THIRD RENDERER AND IT AVOIDS WHAT ACTUALLY FAILED, not graphs.
-// `docs/BRIEF.md` opens with the rule: if the graph is hard to draw, change how
-// it is drawn — never what the game is. So what is gone is the three things
-// that broke, and nothing else:
+// ⚠️ THIS REPLACES A HAND-ROLLED RELAXATION, AT THE OWNER'S REQUEST, 2026-08-01.
+// After playing: *"the graph, as far as I understand, it is now just statically
+// rendered, and I don't like that… the connections seem slightly misaligned…
+// I feel like we still need to use some existing library in order to render
+// that. I like nodes that jingle like in Obsidian, but maybe if we can stop them
+// from jingling it would be best."*
 //
-//   NO LIVE FORCE SIMULATION. The old board re-solved every frame, which meant
-//   controls were moving targets, Playwright could not click them, and a thumb
-//   had the same problem. This runs a fixed number of passes once, at module
-//   load, and the answer never changes again.
+// `d3-force` had been a dependency of this project the whole time and was never
+// once imported. `CLAUDE.md`'s own stack names it. So the layout is d3's now,
+// and the two things the previous renderer got RIGHT are kept, because both
+// were bought with real bugs:
 //
-//   NO CAMERA FITTED TO A MEASURED WINDOW. The old one sized itself from
-//   `window.innerHeight` while the box was `100dvh`, which are different
-//   numbers on iOS whenever the URL bar shows. There is no camera here: the
-//   SVG carries a `viewBox` and the browser does the scaling.
+//   IT SETTLES AND STOPS. The simulation is ticked to completion here, in one
+//   go, and the positions are then a constant. A board that re-solves every
+//   frame has dots that a thumb cannot hit and Playwright cannot click — that
+//   shipped once. The owner asked for the jingling to stop, and it stops.
+//   Dragging a node is the ONE thing that moves anything, and that is the shell.
 //
-//   NO RANDOMNESS. Same positions on every device and every load, so a
-//   screenshot of a bug is a screenshot anyone can reproduce.
+//   IT IS DETERMINISTIC. d3-force reaches for `Math.random` to shake apart
+//   coincident nodes; `randomSource` below replaces it with a seeded generator,
+//   so the same graph lands in the same place on every device and every load —
+//   which is what makes a screenshot of a bug reproducible.
+import { forceSimulation, forceLink, forceManyBody, forceCollide, forceX, forceY,
+  type SimulationNodeDatum } from 'd3-force';
 import { PLACES, PLACE, START } from './places';
 import { placeId, type View } from './world';
 
 export interface Spot { id: number; x: number; y: number }
+export interface Placed { id: string; x: number; y: number }
+export interface Box { x: number; y: number; w: number; h: number }
+export interface Solved { spots: Placed[]; box: Box }
 
-/** Rings by distance from the start, which is what a valley looks like when you
- *  are walking out of it: where you began in the middle, the frontier at the
- *  edge. It also guarantees a sane starting shape, so the relaxation below only
- *  has to tidy rather than discover. */
-function seed(): Map<number, { x: number; y: number }> {
-  const depth = new Map<number, number>([[START, 0]]);
+/** A seeded generator, handed to d3 via `randomSource`, so that d3's own
+ *  `Math.random` is never reached.
+ *
+ *  ⚠️ HONESTLY: THIS IS INSURANCE, NOT LOAD-BEARING, and that was established by
+ *  removing it and watching the determinism test STAY GREEN. d3 only reaches for
+ *  randomness to jiggle *coincident* nodes apart, and the seeded ring below
+ *  never places two nodes on the same point — so today the path is unreachable.
+ *  It stays because it costs four lines and the day some view does produce a
+ *  coincidence is the day the layout differs on one device in ten. The check
+ *  that has teeth is the second-load test, proven red by seeding the ring from
+ *  `Math.random` instead. The constants are the standard 32-bit LCG. */
+function seeded(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+/** How many ticks d3 itself considers "run to completion": the number at which
+ *  alpha decays from 1 to alphaMin at the default rate. Written out rather than
+ *  hard-coded to 300 so it stays right if the decay is ever tuned. */
+const TICKS = Math.ceil(Math.log(0.001) / Math.log(1 - 0.0228));
+
+interface Node extends SimulationNodeDatum { id: string }
+
+/** Run a graph to rest. Same input, same answer, always. */
+function settle(ids: string[], links: Array<{ source: string; target: string }>,
+  seed: number): Map<string, { x: number; y: number }> {
+  // Seeded initial ring rather than d3's phyllotaxis: a shape that already
+  // roughly resembles the answer means fewer ticks spent untangling, and an
+  // untangled start is most of why the picture comes out readable.
+  const nodes: Node[] = ids.map((id, i) => ({
+    id,
+    x: Math.cos((i / ids.length) * Math.PI * 2) * (30 + ids.length * 2.2),
+    y: Math.sin((i / ids.length) * Math.PI * 2) * (30 + ids.length * 2.2),
+  }));
+
+  const sim = forceSimulation(nodes)
+    .randomSource(seeded(seed))
+    .force('link', forceLink<Node, { source: string; target: string }>(links)
+      .id((d) => d.id).distance(78).strength(0.7))
+    .force('charge', forceManyBody().strength(-320).distanceMax(420))
+    // A dot is ~7 units and its label sits under it, so nothing may come within
+    // a label's height of anything else. This is what stopped the old board
+    // printing two names on top of each other.
+    .force('collide', forceCollide(30).strength(0.9))
+    // Gravity towards the origin instead of `forceCenter`, which yanks the
+    // whole cloud each tick and makes the last few ticks wobble rather than
+    // settle. Weak enough not to crush the frontier into the middle.
+    .force('x', forceX(0).strength(0.045))
+    .force('y', forceY(0).strength(0.045))
+    .stop();
+
+  sim.tick(TICKS);
+  return new Map(nodes.map((n) => [n.id, { x: n.x ?? 0, y: n.y ?? 0 }]));
+}
+
+/** The box a set of positions occupies, with room for a label under the lowest
+ *  dot. The shell fits this to the canvas; nothing here measures a screen. */
+export function boxOf(spots: Placed[], pad = 40): Box {
+  if (!spots.length) return { x: -pad, y: -pad, w: pad * 2, h: pad * 2 };
+  const xs = spots.map((s) => s.x), ys = spots.map((s) => s.y);
+  const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
+  const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad * 1.3;
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+// ---- THE JOURNEY ---------------------------------------------------------
+// Its shape never changes, so it is solved once at module load and is a
+// constant for the rest of the session.
+
+const journeyPos = settle(
+  PLACES.map((p) => placeId(p.id)),
+  PLACES.flatMap((p) => p.ways.filter((to) => to > p.id)
+    .map((to) => ({ source: placeId(p.id), target: placeId(to) }))),
+  0x5eed,
+);
+
+export const SPOTS: readonly Spot[] = PLACES.map((p) => ({
+  id: p.id, ...journeyPos.get(placeId(p.id))!,
+}));
+export const SPOT = new Map(SPOTS.map((s) => [s.id, s]));
+export const VIEW: Box = boxOf(SPOTS.map((s) => ({ id: placeId(s.id), x: s.x, y: s.y })));
+
+export const JOURNEY: Solved = {
+  spots: SPOTS.map((s) => ({ id: placeId(s.id), x: s.x, y: s.y })),
+  box: VIEW,
+};
+
+/** Distance from the start, kept here because the seed used to need it and the
+ *  Self tab still does. */
+export const DEPTH = (() => {
+  const d = new Map<number, number>([[START, 0]]);
   const q = [START];
   while (q.length) {
     const at = q.shift()!;
     for (const to of PLACE.get(at)!.ways) {
-      if (depth.has(to)) continue;
-      depth.set(to, depth.get(at)! + 1);
+      if (d.has(to)) continue;
+      d.set(to, d.get(at)! + 1);
       q.push(to);
     }
   }
-  const byRing = new Map<number, number[]>();
-  for (const p of PLACES) {
-    const d = depth.get(p.id) ?? 0;
-    if (!byRing.has(d)) byRing.set(d, []);
-    byRing.get(d)!.push(p.id);
-  }
-  const pos = new Map<number, { x: number; y: number }>();
-  for (const [ring, ids] of byRing) {
-    ids.sort((a, b) => a - b);
-    const r = ring * 34;
-    ids.forEach((id, i) => {
-      // A half-turn offset per ring stops successive rings lining up into
-      // spokes, which is what makes a radial layout look like a wheel.
-      const a = (i / ids.length) * Math.PI * 2 + ring * 0.7;
-      pos.set(id, { x: Math.cos(a) * r, y: Math.sin(a) * r });
-    });
-  }
-  return pos;
-}
-
-/** A few fixed passes of "push everything apart, pull neighbours together".
- *  Deterministic and bounded: 240 passes over 37 nodes is nothing, it happens
- *  once, and the result is a constant for the rest of the session. */
-function relax(pos: Map<number, { x: number; y: number }>): void {
-  const ids = PLACES.map((p) => p.id);
-  for (let pass = 0; pass < 240; pass++) {
-    for (const a of ids) {
-      const pa = pos.get(a)!;
-      for (const b of ids) {
-        if (a === b) continue;
-        const pb = pos.get(b)!;
-        let dx = pa.x - pb.x, dy = pa.y - pb.y;
-        let d2 = dx * dx + dy * dy;
-        if (d2 < 1e-6) { dx = (a - b) * 1e-3; dy = 1e-3; d2 = dx * dx + dy * dy; }
-        const d = Math.sqrt(d2);
-        if (d < 46) {
-          const push = (46 - d) / d * 0.14;
-          pa.x += dx * push; pa.y += dy * push;
-        }
-      }
-    }
-    for (const p of PLACES) {
-      const pa = pos.get(p.id)!;
-      for (const to of p.ways) {
-        const pb = pos.get(to)!;
-        const dx = pb.x - pa.x, dy = pb.y - pa.y;
-        const d = Math.hypot(dx, dy) || 1;
-        const pull = (d - 62) / d * 0.06;
-        pa.x += dx * pull; pa.y += dy * pull;
-        pb.x -= dx * pull; pb.y -= dy * pull;
-      }
-    }
-  }
-}
-
-const solved = (() => {
-  const pos = seed();
-  relax(pos);
-  return PLACES.map((p) => ({ id: p.id, ...pos.get(p.id)! }));
+  return d;
 })();
 
-export const SPOTS: readonly Spot[] = solved;
-export const SPOT = new Map(SPOTS.map((s) => [s.id, s]));
-
-/** The box the whole map fits in, with room for a label under every dot. This
- *  becomes the SVG's `viewBox`, which is the entire reason there is no camera:
- *  the browser scales the box to the element and nothing here measures a
- *  window, a screen or a piece of browser chrome. */
-export const VIEW = (() => {
-  const pad = 34;
-  const xs = SPOTS.map((s) => s.x), ys = SPOTS.map((s) => s.y);
-  const minX = Math.min(...xs) - pad, maxX = Math.max(...xs) + pad;
-  const minY = Math.min(...ys) - pad, maxY = Math.max(...ys) + pad * 1.4;
-  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-})();
-
-
-// ===========================================================================
-// ANY VIEW, NOT JUST THE JOURNEY
-// ===========================================================================
-//
-// `docs/TABS.md` R1.4: layout is per-view and solved once. The journey's
-// positions above are a constant because its shape never changes; the other
-// tabs are filters whose shape depends on the run, so they are solved on
-// demand and MEMOISED by the exact set of nodes and edges. Same input, same
-// picture, every time — which is what makes a screenshot of a bug reproducible.
-
-export interface Placed { id: string; x: number; y: number }
-export interface Solved { spots: Placed[]; box: { x: number; y: number; w: number; h: number } }
+// ---- EVERY OTHER TAB -----------------------------------------------------
+// `docs/TABS.md` R1.4: layout is per-view and solved once. The other tabs are
+// filters whose shape follows the run, so they are solved on demand and
+// MEMOISED by their exact shape — same nodes and edges, same picture.
 
 const cache = new Map<string, Solved>();
 
-/** The smallest box any tab is drawn in, in the same units as the layout. Close
- *  to the journey's own box (396 × 403) so that a label is the same size on
- *  every tab — see the note in `solve`. */
-export const MIN_BOX = { w: 360, h: 300 };
-
-/** Widen a box to at least `w` × `h`, keeping its centre. */
-function grow(b: Solved['box'], w: number, h: number): Solved['box'] {
-  const dw = Math.max(0, w - b.w), dh = Math.max(0, h - b.h);
-  return { x: b.x - dw / 2, y: b.y - dh / 2, w: b.w + dw, h: b.h + dh };
-}
-
-/** ⚠️ NO RUNTIME FORCE SIMULATION. This runs to completion once per distinct
- *  shape and the answer is then a constant. The old board re-solved every
- *  frame, which is why its dots were moving targets that neither Playwright nor
- *  a thumb could hit. */
 export function solve(view: View): Solved {
   const key = view.nodes.map((n) => n.id).join(',') + '|'
     + view.edges.map((e) => `${e.a}-${e.b}`).join(',');
@@ -151,85 +152,19 @@ export function solve(view: View): Solved {
   if (had) return had;
 
   const ids = view.nodes.map((n) => n.id);
-  const pos = new Map<string, { x: number; y: number }>();
+  const have = new Set(ids);
+  const links = view.edges.filter((e) => have.has(e.a) && have.has(e.b))
+    .map((e) => ({ source: e.a, target: e.b }));
 
-  // A ring to start from, ordered by id so it is the same on every device.
-  ids.forEach((id, i) => {
-    const a = (i / Math.max(1, ids.length)) * Math.PI * 2;
-    const r = ids.length === 1 ? 0 : 26 + ids.length * 3;
-    pos.set(id, { x: Math.cos(a) * r, y: Math.sin(a) * r });
-  });
+  // ⚠️ THE SEED IS THE SHAPE, NOT A COUNTER. Keyed off the view so a tab is the
+  // same picture every time you open it, and so two tabs that happen to have
+  // the same number of nodes do not come out as the same drawing.
+  let seed = 0x9e37;
+  for (let i = 0; i < key.length; i++) seed = (Math.imul(seed, 31) + key.charCodeAt(i)) >>> 0;
 
-  const near = view.edges.filter((e) => pos.has(e.a) && pos.has(e.b));
-  for (let pass = 0; pass < 240; pass++) {
-    for (const a of ids) {
-      const pa = pos.get(a)!;
-      for (const b of ids) {
-        if (a === b) continue;
-        const pb = pos.get(b)!;
-        let dx = pa.x - pb.x, dy = pa.y - pb.y;
-        let d2 = dx * dx + dy * dy;
-        if (d2 < 1e-6) { dx = (ids.indexOf(a) - ids.indexOf(b)) * 1e-3; dy = 1e-3; d2 = dx * dx + dy * dy; }
-        const d = Math.sqrt(d2);
-        if (d < 46) { const push = (46 - d) / d * 0.14; pa.x += dx * push; pa.y += dy * push; }
-      }
-    }
-    for (const e of near) {
-      const pa = pos.get(e.a)!, pb = pos.get(e.b)!;
-      const dx = pb.x - pa.x, dy = pb.y - pa.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const pull = (d - 62) / d * 0.06;
-      pa.x += dx * pull; pa.y += dy * pull;
-      pb.x -= dx * pull; pb.y -= dy * pull;
-    }
-  }
-
-  // ⚠️ SPREAD THE DOTS, DO NOT ZOOM THE BOX. The viewBox is handed to the
-  // browser to scale, so it is also the font size and the dot size: a four-dot
-  // view solved into a 130-unit box was drawn at three times the journey's zoom
-  // and its labels came out three times bigger. Screenshotted on Here, "The Cut"
-  // in 22px straddling the dot beside it.
-  //
-  // The fix is not a bigger empty box — that leaves a thumbnail in a field of
-  // black. It is to push the dots APART until they fill a box of the journey's
-  // size, so a small view uses the whole page at the same zoom as every other
-  // tab. Capped, because two nodes would otherwise be flung to the corners.
-  const pad = 34;
-  {
-    const xs0 = ids.map((id) => pos.get(id)!.x), ys0 = ids.map((id) => pos.get(id)!.y);
-    const w0 = Math.max(...xs0) - Math.min(...xs0), h0 = Math.max(...ys0) - Math.min(...ys0);
-    const kx = w0 > 1 ? (MIN_BOX.w - pad * 2) / w0 : Infinity;
-    const ky = h0 > 1 ? (MIN_BOX.h - pad * 2.4) / h0 : Infinity;
-    const k = Math.min(3, Math.max(1, Math.min(kx, ky)));
-    if (k > 1) {
-      const cx = (Math.max(...xs0) + Math.min(...xs0)) / 2;
-      const cy = (Math.max(...ys0) + Math.min(...ys0)) / 2;
-      for (const id of ids) {
-        const p = pos.get(id)!;
-        pos.set(id, { x: cx + (p.x - cx) * k, y: cy + (p.y - cy) * k });
-      }
-    }
-  }
-
+  const pos = settle(ids, links, seed);
   const spots = ids.map((id) => ({ id, ...pos.get(id)! }));
-  const xs = spots.map((s) => s.x), ys = spots.map((s) => s.y);
-  // And a floor under the box, so a view that could not be spread far enough
-  // (two dots, one dot) is still drawn at the journey's zoom rather than blown
-  // up to fill the column.
-  const box = grow({
-    x: Math.min(...xs) - pad,
-    y: Math.min(...ys) - pad,
-    w: Math.max(...xs) - Math.min(...xs) + pad * 2,
-    h: Math.max(...ys) - Math.min(...ys) + pad * 2.4,
-  }, MIN_BOX.w, MIN_BOX.h);
-  const out = { spots, box };
+  const out = { spots, box: boxOf(spots) };
   cache.set(key, out);
   return out;
 }
-
-/** The journey never changes shape, so it uses the constant solved at load
- *  rather than going through the cache. */
-export const JOURNEY: Solved = {
-  spots: SPOTS.map((s) => ({ id: placeId(s.id), x: s.x, y: s.y })),
-  box: { x: VIEW.x, y: VIEW.y, w: VIEW.w, h: VIEW.h },
-};

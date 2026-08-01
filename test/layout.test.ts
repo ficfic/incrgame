@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { SPOTS, SPOT, VIEW, MIN_BOX, solve } from '../src/game/layout';
+import { describe, it, expect, vi } from 'vitest';
+import { SPOTS, SPOT, VIEW, solve } from '../src/game/layout';
 import { PLACES, PLACE } from '../src/game/places';
 import { here, self, thoughts } from '../src/game/world';
 import { initial } from '../src/game/engine';
@@ -47,25 +47,26 @@ describe('the map layout', () => {
     expect(a).toBe(b);
   });
 
-  it('★ a small tab is not a zoomed-in one', () => {
-    // ⚠️ THE viewBox IS ALSO THE FONT SIZE. Every tab hands the browser a box
-    // and lets it scale to the column, so a four-dot view in a 130-unit box was
-    // drawn at three times the journey's zoom and its labels came out three
-    // times bigger — screenshotted on Here, "The Cut" straddling its neighbour.
-    // Nothing was wrong with the layout. The tab was zoomed in.
-    const g = initial();
-    for (const [name, view] of [['here', here(g)], ['self', self(g)],
-      ['thoughts', thoughts(g)]] as const) {
-      const { box } = solve(view);
-      expect(box.w, `${name} is ${box.w.toFixed(0)} units wide`)
-        .toBeGreaterThanOrEqual(MIN_BOX.w);
-      expect(box.h, `${name} is ${box.h.toFixed(0)} units tall`)
-        .toBeGreaterThanOrEqual(MIN_BOX.h);
-    }
-    // And the floor is close enough to the journey's own box that a label is
-    // the same size on every tab — within a fifth, not within an order.
-    expect(VIEW.w / MIN_BOX.w).toBeLessThan(1.2);
+  it('★ is the same on a SECOND LOAD, not just a second read', () => {
+    // ⚠️ THE ONE THAT ACTUALLY CATCHES `Math.random`. Comparing SPOTS to itself
+    // passes no matter what the solver does; this re-imports the module from
+    // scratch and compares the two runs. d3-force reaches for Math.random to
+    // shake coincident nodes apart, so without `randomSource` this goes red.
+    vi.resetModules();
+    return import('../src/game/layout').then((again) => {
+      const one = SPOTS.map((s) => `${s.id}:${s.x.toFixed(9)},${s.y.toFixed(9)}`);
+      const two = again.SPOTS.map((s) => `${s.id}:${s.x.toFixed(9)},${s.y.toFixed(9)}`);
+      expect(two).toEqual(one);
+    });
   });
+
+  // ⚠️ THE "A SMALL TAB IS NOT A ZOOMED-IN ONE" TEST IS GONE, and its bug with
+  // it. That defect existed because the box WAS the font size — every tab handed
+  // the browser a viewBox and let it scale, so a four-dot view came out at three
+  // times the zoom with three times the label size, and `MIN_BOX` was the
+  // workaround. The board now draws to a canvas and every label is DOM text at a
+  // CSS font size, so a tab's node count cannot affect how big its words are.
+  // Structurally impossible beats guarded against.
 
   it('still fits its own dots after the box is grown', () => {
     const { spots, box } = solve(here(initial()));

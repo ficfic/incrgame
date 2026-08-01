@@ -16,6 +16,7 @@
   import { PLACE, PLACES } from '../game/places';
   import { TABS, deedsFor, numOf, fillOf, DOING, type TabId } from '../game/world';
   import { solve, JOURNEY } from '../game/layout';
+  import Board from './Board.svelte';
   import { apply, initial, waysFrom, unforgeable, SECS_PER_PACE,
     type Game, type Action } from '../game/engine';
   import { load, save, wipe, elapsedSince } from '../game/store';
@@ -55,7 +56,9 @@
     const num = isPlace ? numOf(n.id) : -1;
     const w = isPlace ? reach.get(num) : undefined;
     return {
-      n, at, place: isPlace,
+      id: n.id, name: n.name, kind: n.kind,
+      wx: at?.x ?? 0, wy: at?.y ?? 0, at,
+      place: isPlace,
       you: isPlace && num === game.at,
       open: w !== undefined && w.why === null,
       shut: w !== undefined && w.why !== null,
@@ -67,6 +70,14 @@
       on: n.id === picked,
     };
   }).filter((d) => d.at !== undefined));
+
+  /** Edges with the fill the board needs, so the board knows nothing about the
+   *  game and the game knows nothing about drawing. */
+  const lines = $derived(view.edges.map((e) => ({
+    a: e.a, b: e.b, rel: e.rel,
+    fill: e.rel === 'route' && e.a.startsWith('place:')
+      ? fillOf(game, numOf(e.a), numOf(e.b)) : 1,
+  })));
 
   // ---- the clock, and the only one ----------------------------------------
   onMount(() => {
@@ -163,51 +174,10 @@
     {/each}
   </nav>
 
-  <!-- THE GRAPH. `viewBox` and nothing else: the browser scales the box to the
-       column, so there is no camera and nothing is measured against a window,
-       a screen or a piece of browser chrome. -->
+  <!-- THE GRAPH. Canvas for the lines and the dots, DOM for every word and
+       every tap target, laid out by d3-force and settled. See Board.svelte. -->
   <section class="map">
-    <svg viewBox="{laid.box.x} {laid.box.y} {laid.box.w} {laid.box.h}"
-      role="img" aria-label="{tab}">
-      {#each view.edges as e (`${e.a}-${e.b}`)}
-        {@const a = spotOf.get(e.a)}
-        {@const b = spotOf.get(e.b)}
-        {#if a && b}
-          {@const fill = e.rel === 'route' && e.a.startsWith('place:')
-            ? fillOf(game, numOf(e.a), numOf(e.b)) : 1}
-          <!-- ★ THE ONE ANIMATION THE GAME GETS. A route not yet made is
-               dotted; the one being made fills from your end to the far end
-               over real time; a made one is solid. The owner remembered this
-               from an earlier build and asked for it back by name. -->
-          <!-- ⚠️ `fill < 1`, NOT `fill === 0`. With the strict test, a route the
-               moment it began filling lost its dashes and drew SOLID for its
-               whole length, so the far end looked reached before any of it was
-               — the bright overlay was growing along a line that already said
-               "made". Screenshotted on Here at 12 of 12 seconds remaining. -->
-          <line x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-            class="{e.rel}" class:unmade={fill < 1} />
-          {#if fill > 0 && fill < 1}
-            <line class="filling"
-              x1={a.x} y1={a.y}
-              x2={a.x + (b.x - a.x) * fill} y2={a.y + (b.y - a.y) * fill} />
-          {/if}
-        {/if}
-      {/each}
-      {#each dots as d (d.n.id)}
-        <g class:you={d.you} class:open={d.open} class:shut={d.shut}
-          class:known={d.known} class:on={d.on} data-kind={d.n.kind}
-          role="button" tabindex="0" aria-label={d.n.name || 'somewhere unvisited'}
-          onclick={() => tap(d.n.id)}
-          onkeydown={(e) => { if (e.key === 'Enter') tap(d.n.id); }}>
-          <!-- A generous invisible disc under every dot: the drawn dot is small
-               and the tap target is not. -->
-          <circle class="hit" cx={d.at!.x} cy={d.at!.y} r="16" />
-          <circle class="dot" cx={d.at!.x} cy={d.at!.y}
-            r={d.you ? 7 : d.open || d.shut || (!d.place && d.known) ? 5.5 : 3.5} />
-          {#if d.n.name}<text x={d.at!.x} y={d.at!.y + 16}>{d.n.name}</text>{/if}
-        </g>
-      {/each}
-    </svg>
+    <Board {dots} {lines} box={laid.box} label={tab} onTap={tap} />
   </section>
 
   <!-- THE PANEL. Part of the page, below the graph, in flow. It is empty until
@@ -280,45 +250,8 @@
   nav button.on { background: #12222e; border-color: #2f5568; color: #eafff7;
     font-weight: 600; }
 
-  .map svg { display: block; width: 100%; height: auto; }
-  .map line { stroke: #4d6b80; stroke-width: 2; }
-  .map line.unmade { stroke: #22333f; stroke-width: 1; stroke-dasharray: 3 5; }
-  .map line.filling { stroke: #8ff0cf; stroke-width: 3; stroke-linecap: round; }
-  .map line.stands { stroke: #2f5568; stroke-width: 2; }
-  .map line.means { stroke: #2b4356; }
-  .map line.doing { stroke: #3f7d6b; stroke-width: 2; }
-  /* What you are doing is not a place, so it does not look like one: a hollow
-     ring rather than a filled dot. */
-  .map g[data-kind='doing'] .dot { fill: #070b10; stroke: #78e8c0; stroke-width: 2; }
-  .map g[data-kind='doing'] text { fill: #9fd8c6; }
-  .map g[data-kind='you'] .dot { fill: #8ff0cf; }
-  .map line.has { stroke: #2b4356; stroke-width: 1.5; }
-  /* A fact is a reading, not a place: square-ish and quiet, so Self does not
-     look like a map of four more towns. */
-  .map g[data-kind='fact'] .dot { fill: #16232f; stroke: #4d6b80; stroke-width: 2; }
-  .map g[data-kind='fact'] text { fill: #9fb4c4; }
-  /* No focus box. The browser draws its outline around the whole `<g>`, tap
-     target and label included, which on a four-dot tab is a white rectangle
-     covering a third of the board — and R2.2 says nothing is drawn over
-     anything. Selection is already shown by the ring on the dot itself. */
-  .map g { cursor: pointer; outline: none; }
-  .map g:focus-visible .dot { stroke: #eafff7; stroke-width: 2.5; }
-  .map .hit { fill: transparent; }
-  .map .dot { fill: #2b3a49; }
-  .map .known .dot { fill: #4d6b80; }
-  .map .open .dot { fill: #78e8c0; }
-  .map .shut .dot { fill: #f0b45f; }
-  .map .you .dot { fill: #8ff0cf; stroke: #8ff0cf; stroke-width: 6; stroke-opacity: .22; }
-  /* ⚠️ `g.on`, NOT `.on` — the kind rules above are `g[data-kind='…'] .dot`,
-     which outranks a three-class selector however late it appears, so the
-     selection ring was invisible on every fact and on the doing node. The one
-     thing the panel below cannot tell you is WHICH dot it is describing. */
-  .map g.on .dot { stroke: #eafff7; stroke-width: 2.5; stroke-opacity: 1; }
-  .map text { fill: #7f97a8; font-size: 11px; text-anchor: middle;
-    paint-order: stroke; stroke: #070b10; stroke-width: 3px; }
-  .map .you text { fill: #eafff7; font-weight: 700; }
-  .map .open text { fill: #bff3e0; }
-  .map .shut text { fill: #f3d6a8; }
+  /* The board draws itself; all that is left here is the space it sits in. */
+  .map { margin: 10px 0 4px; }
 
   .panel { margin-top: 6px; min-height: 132px; }
   .panel h2 { margin: 0 0 6px; font-size: 20px; }
