@@ -46,8 +46,17 @@ file.**
 >
 > **Saves are breakable.** Say so in the commit when a change resets them.
 
-> **★ THE OWNER PLAYED IT, 2026-08-01.** Everything below comes from that, in
-> their order. Quotes are theirs.
+> **★ THE OWNER PLAYED IT TWICE ON 2026-08-01.** Everything below comes from
+> those two sessions, in their order. Quotes are theirs. The second play-test
+> came after the canvas board, the header fix and the layout fix shipped.
+>
+> **The verdict on the board, unprompted:** *"I like the way it looks. I like it
+> much more… I can see the connection building. It is very nice. I like it a lot
+> a lot more than before. And when zooming in, there are no artifacts, no
+> nothing. It looks absolutely great."* and *"overall, this is absolutely
+> fantastic. I can see a game here."*
+>
+> **And the honest other half:** *"there is not much to do."*
 
 ## 1. The graph: bring back the canvas and make it move
 
@@ -100,6 +109,100 @@ Ways-made, places-found and distance-from-start are deleted.
 `docs/BRIEF.md` ask 10 wants them. Nothing drops one, so nothing is drawn for
 them. **Drops and the doors they open are a real item, unqueued** — it needs the
 owner's call on how a key is found.
+
+## ★ FROM THE SECOND PLAY-TEST, 2026-08-01
+
+### 5. Vocabulary: node and edge, not dot and connection
+
+> *"It says tap a dot. Prefer them to be called a node."*
+> *"'Tap a neighbouring dot to make a way to it' — I would prefer it to be
+> called an edge, to make a way to it."*
+
+Every player-facing string. `scripts/check-vocabulary.mjs` exists for exactly
+this class of rule.
+
+### 6. Why is there a Connect button at all?
+
+> *"What is the point of being able to click Connect here if I can just connect
+> the other node on the map?"*
+
+The arming step may be redundant. Tapping a neighbour could simply make the way.
+
+### 7. ★ The header must be sticky
+
+> *"I feel like the menu should be sticky. So I scroll back and the number of
+> paces goes to the top of the page, I cannot see it anymore. Need to fix that."*
+
+⚠️ Note the tension with R2.2 (nothing drawn over anything). A sticky header is
+a fixed element the board scrolls under. **R2.2 was about prose stacked over the
+board, not about a pinned readout** — but say so in the commit, and keep the
+probe's overlap check honest by scoping it.
+
+### 8. ★ The Journey should be DISCOVERED, not shown
+
+> *"Maybe I would like not to see all the nodes already kind of grey. So it is
+> the entire map. I would like to discover that, and I wanna see it from the
+> beginning."*
+
+**This REVERSES a standing decision.** `world.ts` says: *"Every place is drawn
+from the first frame, because a map with holes in it is not a map."* That is now
+void — the owner wants the map to grow. On record because it was load-bearing
+and shaped both the Journey and the "unnamed dot" promise.
+
+### 9. ★ Journey and Here overlap too much — split their jobs
+
+> *"I don't understand why we have both Journey and Here tabs now. They repeat
+> each other's functionality too much. So I want Journey to be a global map,
+> Here is a local map. On the Here tab we're gonna have enemy encounters and so
+> on, and resources to be mined and activities to do. I don't want to be able to
+> go back to the other location from that menu."*
+
+- **Journey** = the global map. Travel lives here.
+- **Here** = the room. Encounters, resources, activities. **No travel.**
+
+### 10. Repositioning must be OFF on the Journey
+
+> *"I noticed that I am able to reposition the graph nodes on the Journey tab. I
+> don't think it makes sense because this is kind of a map, right? So the
+> repositioning must be off on the Journey map. On Self and Thoughts it's like
+> whatever."*
+
+Here: undecided, they said "I'm not sure".
+
+### 11. Edge labels
+
+> *"On this Self menu it would make sense to have labels for edges or something
+> like that. Let's experiment with that."*
+> *(Thoughts)* *"Edges would be nice here because I don't understand the
+> connections between those."*
+
+The model already carries a `rel` on every edge and nothing draws it.
+
+### 12. Two labels that read wrong
+
+> *"'You're already making one' is a weird label."*
+> *"'Making a way. It carries on while this is shut.' This is also a weird
+> label."*
+
+### 13. "Somewhere you have not been" is still confusing
+
+> *"So now 'somewhere you have not been' again, when I click on the node that I
+> have already discovered — or, like, I discover first and then I go there? Is
+> it something like this? It is not very intuitive."*
+
+⚠️ **NOT the layout bug this time** — that is fixed. This is the WORDING and the
+model behind it: the player cannot tell what "discovered" means or in what order
+things happen. Likely dissolves into item 8 (discovery) if that is built first.
+
+### 14. ★ There is not much to do
+
+> *"Now we need to build some economy and some content, some stats for the
+> character, some inventory slots, some items, something else."*
+> *"I don't understand the currency or the economy that we have at the moment."*
+
+The biggest item and the least specified. **Not to be started without a plan the
+owner has seen.** Items/keys explicitly deferred: *"I don't wanna go as far as
+the key at the moment."*
 
 ## 5. Paces: the word and the reason
 
