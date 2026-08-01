@@ -149,12 +149,18 @@ describe('one resource, two verbs', () => {
     expect(apply(g, { type: 'go', to: far.id })).toBe(g);
   });
 
-  it('arriving hands you the prose — the only text the screen has', () => {
+  it('arriving records that you have been there', () => {
+    // ⚠️ THIS USED TO ASSERT `g.said === dest.body` — arriving stuffed the whole
+    // place body into a header line above the purse. The owner asked to be rid
+    // of that text three times in one play-test, so `said` is gone from the
+    // state entirely and the prose is shown where it was always also shown: the
+    // panel, when the place is selected. The shell selects the place you arrive
+    // at, which is a UI concern and is checked in the browser, not here.
     const to = PLACE.get(START)!.ways[0]!;
     const g = reach(initial(), to);
     expect(g.at).toBe(to);
     expect(g.seen).toContain(to);
-    expect(g.said).toBe(PLACE.get(to)!.body);
+    expect(PLACE.get(to)!.body.length).toBeGreaterThan(0);
   });
 
   it('never lets paces go negative', () => {

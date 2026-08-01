@@ -74,6 +74,27 @@ for (const t of tabs) {
   if (bad.length) misses.push(`${t}: ${bad.join(', ')}`);
 }
 
+// ★ NO PROSE ABOVE THE BOARD. The owner, three times in one play-test: *"the
+// text at the top of the screen is not good… there is a text at the top again
+// when I clicked again on the same button, and I'm not sure how to get rid of
+// that text… the text at the top is a problem for sure."*
+//
+// It was a header line that held the WHOLE place body on arrival — seven lines
+// of prose above the purse, pushing the board down the page, undismissable.
+// The header now carries numbers and a button and nothing else, so this is
+// measured two ways: by how tall it is, and by whether the board still starts
+// near the top of the page on a phone.
+const head = await page.evaluate(() => {
+  const h = document.querySelector('header').getBoundingClientRect();
+  const m = document.querySelector('.map').getBoundingClientRect();
+  const words = document.querySelector('header').textContent.trim().split(/\s+/).length;
+  return { tall: Math.round(h.height), boardTop: Math.round(m.top), words };
+});
+console.log('\nHEADER');
+console.log('  size    :', `${head.tall}px tall, ${head.words} words, board starts at y=${head.boardTop}`);
+if (head.tall > 110) misses.push(`the header is ${head.tall}px tall — prose is back above the board`);
+if (head.words > 14) misses.push(`the header holds ${head.words} words — that is prose, not a readout`);
+
 // ★ THE BOARD ITSELF — the three things the owner asked for by name, 2026-08-01.
 await page.locator('nav button', { hasText: 'Journey' }).click();
 await page.waitForTimeout(500);
@@ -325,6 +346,15 @@ if (await openDot.count()) {
   await page.waitForTimeout(500);
   const now = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim().slice(0, 40));
   console.log('  after   :', `"${now}"`);
+  // ★ ARRIVING PUTS THE PLACE'S PROSE IN THE PANEL, which is where the header
+  // line used to put it and where the player is already reading. If this is
+  // empty the prose was simply deleted rather than moved.
+  const arrived = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
+  const headNow = await page.$eval('header', (e) => e.textContent.replace(/\s+/g, ' ').trim());
+  console.log('  panel   :', `"${arrived.slice(0, 80)}"`);
+  if (arrived.startsWith('Tap a dot')) misses.push('arriving somewhere selected nothing — the prose went nowhere');
+  if (arrived.length < 60) misses.push('the panel has no prose for the place just reached');
+  if (headNow.length > 60) misses.push(`prose reappeared in the header on arrival: "${headNow.slice(0, 60)}"`);
   const found = await page.$$eval('.map .node.you .label', (t) => t.map((x) => x.textContent));
   console.log('  standing:', found.join(''));
 } else { misses.push('nothing ever became affordable'); }

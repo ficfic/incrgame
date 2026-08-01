@@ -40,6 +40,20 @@
     if (a.type !== 'tick') awayLine = '';
   };
 
+  // ★ ARRIVING SELECTS WHERE YOU ARRIVED, so the place's prose lands in the
+  // panel you are already reading instead of above the board.
+  //
+  // ⚠️ THIS REPLACES A HEADER LINE THE OWNER ASKED THREE TIMES TO BE RID OF,
+  // 2026-08-01: *"the text at the top of the screen is not good… there is a text
+  // at the top again when I clicked again on the same button, and I'm not sure
+  // how to get rid of that text… the text at the top is a problem for sure."*
+  //
+  // It was `said`, and on arrival it held the WHOLE place body — seven lines of
+  // prose above the purse, shoving the board down the page, with nothing to
+  // dismiss it and no way to ask for it back. The panel already shows exactly
+  // this text when you tap a place. So the header keeps numbers and a button;
+  // prose lives in one place, below, and tapping anything else clears it.
+
   const view = $derived(TABS.find((t) => t.id === tab)!.view(game));
   // The journey's shape never changes, so its layout is the constant solved at
   // load. Every other tab is a filter whose shape follows the run.
@@ -145,7 +159,7 @@
   }
   function go(to: number): void {
     act({ type: 'go', to });
-    picked = null;
+    picked = `place:${to}`;
     arming = false;
   }
 
@@ -157,7 +171,6 @@
 
 <main>
   <header>
-    <p class="said" class:away={awayLine}>{awayLine || game.said}</p>
     <div class="purse">
       <b>{game.paces}</b><span>{game.paces === 1 ? 'pace' : 'paces'}</span>
       <span class="rate">+1 every {SECS_PER_PACE}s, always</span>
@@ -215,6 +228,12 @@
       {#if !deeds.length && chosen.id.startsWith('place:') && numOf(chosen.id) === game.at}
         <p class="note">You are standing here.</p>
       {/if}
+    {:else if awayLine}
+      <!-- What you missed while the phone was in a pocket. It sits where the
+           panel already is, so it is not a second surface, and tapping any dot
+           replaces it. -->
+      <p class="away">{awayLine}</p>
+      <p class="note">Tap a dot.</p>
     {:else}
       <p class="note">Tap a dot.</p>
     {/if}
@@ -234,8 +253,7 @@
     padding: calc(10px + var(--safe-t)) 14px calc(28px + var(--safe-b)); }
 
   header { border-bottom: 1px solid #16232f; padding-bottom: 10px; }
-  .said { margin: 0 0 8px; font-size: 15px; color: #c8d8e4; }
-  .said.away { color: #ffd479; }
+  .panel .away { margin: 0 0 6px; color: #ffd479; font-size: 15px; }
   .purse { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
   .purse b { font-size: 22px; color: #8ff0cf; }
   .purse span { color: #8fa6b6; font-size: 14px; }

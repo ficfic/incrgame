@@ -46,7 +46,6 @@ export interface Game {
    *  two would need a screen to explain them. */
   forging: { key: string; left: number; secs: number } | null;
   /** The last thing that happened, in one line. */
-  said: string;
 }
 
 /** An edge's name, low id first so `a-b` and `b-a` are the same route. */
@@ -160,7 +159,6 @@ export function initial(): Game {
     part: 0,
     solid: [],
     forging: null,
-    said: 'Paces gather while you stand. Spend them to make a way.',
   };
 }
 
@@ -195,7 +193,6 @@ export function apply(g: Game, a: Action): Game {
             ...next,
             solid: [...next.solid, next.forging.key],
             forging: null,
-            said: `The way to ${PLACE.get(other!)?.name ?? 'there'} is made.`,
           };
         }
       }
@@ -209,7 +206,6 @@ export function apply(g: Game, a: Action): Game {
         ...g,
         paces: g.paces - costOf(g, a.to),
         forging: { key: edgeKey(g.at, a.to), left: forgeSecs(g), secs: forgeSecs(g) },
-        said: `Making the way toward ${dest.name}…`,
       };
     }
 
@@ -223,9 +219,6 @@ export function apply(g: Game, a: Action): Game {
         at: a.to,
         seen: first ? [...g.seen, a.to] : g.seen,
         // ★ WALKING A MADE ROUTE IS FREE. The paces went into making it.
-        // ★ ARRIVING IS WHAT THE PROSE IS FOR. It is the one thing you get for
-        // spending, and the only text on the screen.
-        said: first ? dest.body : `Back to ${dest.name}.`,
       };
     }
   }
