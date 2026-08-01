@@ -595,3 +595,5 @@ that a beat is reachable from where the player starts.
 
 - [ ] **Two hours away pays Craft 1 → 23 and 3,522 obols.** Seen in `play.png` after the offline check: 206 repeats of a 35s / +40 job. The 12h cap would therefore max a skill outright in one absence, which makes the cap the real progression curve rather than the XP table. `offline.ts` justified 12h as "already saturates one skill" — that is arithmetically true and it is also the problem. Either the cap comes down, or work XP stops being flat per repeat, or absence pays a fraction of live rate. This is the single biggest balance question now that the loop actually runs.
 - [ ] **The purse shows 3,522 obols against a first Tally level costing 200.** The rate sink is trivially affordable the moment it appears, so the "twenty levels of Ferryman's Tally" curve is skipped in one tap. Same root cause as above: income is far ahead of the prices designed against a slower assumption.
+
+- `store.ts:33` validates `solid` entries are strings but never that a key names a real route — `"0|300"` loads clean and is then permanently unwalkable. Found 2026-08-01. Fix: `PLACE.get(a)?.ways.includes(b)`.
