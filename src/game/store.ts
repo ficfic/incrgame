@@ -5,7 +5,12 @@ import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/sto
 import { initial, type Game } from './engine';
 import { PLACE } from './places';
 
-export const SAVE_VERSION = 2;   // routes must be forged before they are walked
+// ⚠️ 3 RESETS EVERY SAVE, and deliberately. `part` changed meaning from banked
+// SECONDS to banked fractional PACES when the rate stopped being a constant, so
+// a version-2 save would pay its remainder out against the wrong clock — and it
+// carries no `settled`, which is now the difference between an income and none.
+// `CLAUDE.md`: saves are breakable, say so plainly when one breaks.
+export const SAVE_VERSION = 3;   // settling, working, and a rate solved from the graph
 
 interface Blob { v: number; savedAt: number; game: Game }
 
@@ -31,6 +36,24 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     if (!Number.isFinite(g.paces) || g.paces < 0) return null;
     if (!Number.isFinite(g.part) || g.part < 0) return null;
     if (!Array.isArray(g.solid) || !g.solid.every((k) => typeof k === 'string')) return null;
+    // ⚠️ ABSENT IS FINE; PRESENT AND WRONG IS NOT. These four fields did not
+    // exist before this version, and the property this whole file rests on is
+    // that a save written before a feature still loads and takes the default.
+    // Rejecting a MISSING field would break that for every field added from now
+    // on — which is the opposite of the guarantee, and the first version of
+    // these lines did exactly that. Checked only when the save actually carries
+    // one.
+    //
+    // `settled` is checked against the CONTENT like `at` and `seen` are: a
+    // settled place that no longer exists is a source the flow solve can never
+    // find, so the player would be paying for an income that is silently absent.
+    if (g.settled !== undefined
+      && (!Array.isArray(g.settled) || !g.settled.every((id) => PLACE.has(id)))) return null;
+    if (g.wayfaring !== undefined
+      && (!Number.isFinite(g.wayfaring) || g.wayfaring < 0)) return null;
+    if (g.workPart !== undefined
+      && (!Number.isFinite(g.workPart) || g.workPart < 0)) return null;
+    if (g.busy !== undefined && g.busy !== 'rest' && g.busy !== 'work') return null;
     // A half-made route pointing at nothing would draw a line to nowhere and
     // never finish. Refused, not repaired.
     if (g.forging && !(typeof g.forging.key === 'string'

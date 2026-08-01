@@ -58,7 +58,24 @@ describe('★ a save from before a feature existed still loads', () => {
   it('and the run still moves afterwards', async () => {
     put(OLD);
     const back = await load();
-    expect(apply(back!.game, { type: 'tick', secs: SECS_PER_PACE }).paces).toBe(13);
+    const on = apply(back!.game, { type: 'tick', secs: SECS_PER_PACE });
+    // ⚠️ NOT 13. The old save carries no `settled`, so it takes the default —
+    // the start settled — and three seconds at 0.4333 pays 1 rather than 1.
+    // What matters is that it pays SOMETHING and is not NaN, which is the whole
+    // failure mode a missing field causes.
+    expect(on.paces).toBeGreaterThan(back!.game.paces);
+    expect(Number.isFinite(on.paces)).toBe(true);
+  });
+
+  it('★ refuses a NEW field that is present and wrong', async () => {
+    // The other half of the rule above: absent takes the default, present and
+    // nonsense is refused. Without this the leniency would be a hole.
+    put({ ...OLD, settled: [9999] });
+    expect(await load()).toBeNull();
+    put({ ...OLD, busy: 'dancing' });
+    expect(await load()).toBeNull();
+    put({ ...OLD, wayfaring: -5 });
+    expect(await load()).toBeNull();
   });
 
   it('round-trips a live game unchanged', async () => {

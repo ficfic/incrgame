@@ -34,7 +34,9 @@
     place: boolean; you: boolean; open: boolean; shut: boolean;
     known: boolean; on: boolean;
   }
-  export interface Line { a: string; b: string; rel: string; fill: number }
+  export interface Line { a: string; b: string; rel: string; fill: number;
+    /** How much of its limit this route is carrying, 0 to 1. See `flow.ts`. */
+    load: number }
 
   let { dots, lines, box, label, onTap, decor = [], drag = true }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
@@ -240,6 +242,15 @@
       const a = posOf.get(l.a), b = posOf.get(l.b);
       if (!a || !b) continue;
       const made = l.fill >= 1;
+      // ★ WHAT THE ROAD IS CARRYING, UNDER THE ROAD. Drawn first and wider, so
+      // the route's own line stays on top and legible — and so the probe can
+      // still count both. A saturated road is visibly fat: that is the cue to
+      // build the second one, and it is the only thing on this board that could
+      // not be drawn from a count of what you own.
+      if (made && l.load > 0) {
+        paint(ctx, { s: 'path', pts: [a, b], ink: 'flowing',
+          w: 3 + 6 * l.load, alpha: 0.55 }, sx, sy, 1);
+      }
       // ⚠️ DASHED UNTIL IT IS FINISHED, NOT UNTIL IT IS STARTED. With the strict
       // test a route lost its dashes the instant it began filling and drew solid
       // for its whole length, so the far end looked reached before any of it was.

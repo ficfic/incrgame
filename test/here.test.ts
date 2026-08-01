@@ -107,20 +107,33 @@ describe('★ Here is a FILTER over the one graph (R1.3)', () => {
 });
 
 describe('★ what you are doing, said out loud', () => {
-  it('uses the place\'s own words for resting where the content gave it any', () => {
+  // ⚠️ THE PLACE'S OWN WORDS ARE NOW THE JOB, NOT THE RESTING. This tab used to
+  // label standing still with the authored work label — "Listen to the water" —
+  // because standing still was the only thing the clock could do, so borrowing
+  // the flavour cost nothing. Working is a real verb now and it pays something
+  // else, so the two must read differently or the node is lying about which one
+  // is running.
+  it('says plainly that you are standing still, wherever you are standing', () => {
     const worded = PLACES.find((p) => p.work)!;
     const g = { ...initial(), at: worded.id, seen: [START, worded.id] };
-    expect(doingOf(g).name).toBe(worded.work!.label);
+    expect(doingOf(g).name).toBe('Standing still');
+    const bare = PLACES.find((p) => !p.work)!;
+    expect(doingOf({ ...g, at: bare.id }).name).toBe('Standing still');
   });
 
-  it('says plainly that you are standing still where it did not', () => {
-    const bare = PLACES.find((p) => !p.work)!;
-    const g = { ...initial(), at: bare.id, seen: [START, bare.id] };
-    expect(doingOf(g).name).toBe('Standing still');
+  it('★ names the job instead the moment you are doing it', () => {
+    const worded = PLACES.find((p) => p.work)!;
+    const g = apply({ ...initial(), at: worded.id, seen: [START, worded.id] },
+      { type: 'work' });
+    expect(doingOf(g).name).toBe(worded.work!.label);
+    expect(doingOf(g).body).toContain('No paces while you work');
   });
 
   it('always says the rate, because that is what standing still pays', () => {
-    expect(doingOf(initial()).body).toContain(`every ${SECS_PER_PACE} seconds`);
+    // ⚠️ THE RATE, NOT THE CONSTANT. It moves the moment you settle anything,
+    // so a node quoting `SECS_PER_PACE` would be quoting the floor forever.
+    expect(doingOf(initial()).body).toContain('0.43 a second');
+    expect(doingOf(initial()).body).not.toContain(`every ${SECS_PER_PACE} seconds`);
   });
 
   it('★ says how long until the next way you can afford', () => {

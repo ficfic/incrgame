@@ -247,7 +247,11 @@ if (await doing.count()) {
   await page.waitForTimeout(300);
   const said = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
   console.log('  doing   :', `"${label}" — ${said}`);
-  if (!/pace every \d+ seconds/.test(said)) misses.push('the doing node does not say the rate');
+  // ⚠️ `0.43 a second`, NOT `a pace every 3 seconds`. The rate is solved from
+  // the graph now and moves whenever you settle or lay a route, so a node that
+  // could still say the constant would be a node quoting the floor forever.
+  if (!/\d+\.\d\d a second/.test(said)) misses.push('the doing node does not say the rate');
+  if (/pace every \d+ seconds/.test(said)) misses.push('the doing node is quoting the old constant rate');
   if (!/\d+s\.|Enough in hand|Every way from here/.test(said)) {
     misses.push('the doing node does not say what is next');
   }
@@ -441,6 +445,98 @@ if (await openDot.count()) {
   const found = await page.$$eval('.map .node.you .label', (t) => t.map((x) => x.textContent));
   console.log('  standing:', found.join(''));
 } else { misses.push('nothing ever became affordable'); }
+
+// ★★ THE ITEM ITSELF: A CHOICE, A SKILL THAT COMES OUT OF IT, AND FLOW ON THE
+// BOARD. `docs/NEXT.md` item 0. Three things have to be visible, not asserted:
+//
+//   1. two things to do with the same clock, on screen at once
+//   2. the skill going up from doing one of them, and CHANGING A NUMBER
+//   3. the road drawn with what it is carrying
+//
+// ⚠️ AND THE PACES MUST STOP. A "choice" where both options pay is not one, and
+// it would be the easiest thing in the world to ship by forgetting one branch.
+console.log('\nTHE CHOICE');
+await page.locator('nav button', { hasText: 'Here' }).click();
+await page.waitForTimeout(400);
+await page.locator('.map .node.you').first().click({ timeout: 3000 }).catch(() => {});
+await page.waitForTimeout(300);
+const offered = await page.$$eval('.deed', (bs) =>
+  bs.map((b) => b.textContent.replace(/\s+/g, ' ').trim()));
+console.log('  standing:', await page.$$eval('.map .node.you .label', (t) => t.map((x) => x.textContent)).then((x) => x.join('')));
+console.log('  offers  :', offered.length ? offered.join('  |  ') : '(nothing)');
+const jobDeed = page.locator('.deed.job');
+const settleDeed = page.locator('.deed.make', { hasText: 'Settle' });
+if (!await settleDeed.count()) misses.push('the place you stand in offers no way to settle it');
+
+if (await jobDeed.count()) {
+  // What making a way costs right now, before any skill exists.
+  await page.locator('nav button', { hasText: 'Self' }).click();
+  await page.waitForTimeout(300);
+  const sheetBefore = await page.$$eval('.map .node .label', (t) => t.map((x) => x.textContent));
+  const wayBefore = sheetBefore.find((s) => /^A way takes/.test(s ?? ''));
+  const skillBefore = sheetBefore.find((s) => /^Wayfaring/.test(s ?? ''));
+  console.log('  before  :', `${skillBefore} · ${wayBefore}`);
+  if (!skillBefore) misses.push('Self does not show the skill at all');
+
+  await page.locator('nav button', { hasText: 'Here' }).click();
+  await page.waitForTimeout(300);
+  await page.locator('.map .node.you').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  await page.locator('.deed.job').first().click({ timeout: 3000 })
+    .catch((e) => misses.push(`could not start the job: ${e}`));
+  await page.waitForTimeout(500);
+  const headWorking = await page.$eval('.purse .rate', (e) => e.textContent.trim());
+  console.log('  header  :', `"${headWorking}"`);
+  if (!/working/.test(headWorking)) misses.push('the header does not say you are working');
+
+  // ⚠️ READ AFTER THE JOB HAS STARTED, NOT BEFORE. The first version of this
+  // took the purse several seconds and three tab-clicks earlier, while the game
+  // was still RESTING — so it counted a pace earned before work began and
+  // reported the game as paying for both. Measuring only the working window is
+  // both correct and tighter: if working paid, 52 seconds would add twenty-odd
+  // paces, not one.
+  const pacesBefore = Number(await page.$eval('.purse b', (e) => e.textContent));
+  // Long enough for at least one turn of the job to land (the authored ones
+  // run 25–50s), and long enough that paces would visibly have moved.
+  await page.waitForTimeout(52000);
+  const pacesAfter = Number(await page.$eval('.purse b', (e) => e.textContent));
+  console.log('  paces   :', `${pacesBefore} → ${pacesAfter} across 52s of working`);
+  if (pacesAfter > pacesBefore) {
+    misses.push(`paces went ${pacesBefore} → ${pacesAfter} WHILE WORKING — both options pay, so there is no choice`);
+  }
+  await page.locator('nav button', { hasText: 'Self' }).click();
+  await page.waitForTimeout(400);
+  const sheetAfter = await page.$$eval('.map .node .label', (t) => t.map((x) => x.textContent));
+  const wayAfter = sheetAfter.find((s) => /^A way takes/.test(s ?? ''));
+  const skillAfter = sheetAfter.find((s) => /^Wayfaring/.test(s ?? ''));
+  console.log('  after   :', `${skillAfter} · ${wayAfter}`);
+  if (skillAfter === skillBefore) misses.push(`the skill did not move: still "${skillAfter}" after a full turn of work`);
+  // ★ AND THE LEVEL MUST CHANGE A NUMBER. A skill that only names itself is a
+  // badge, which is what `docs/TABS.md` said five of them would be.
+  const secsOf = (s) => Number(/(\d+)s/.exec(s ?? '')?.[1] ?? NaN);
+  if (!(secsOf(wayAfter) < secsOf(wayBefore))) {
+    misses.push(`wayfaring changed nothing: a way took ${wayBefore} and still takes ${wayAfter}`);
+  }
+  await page.locator('nav button', { hasText: 'Here' }).click();
+  await page.waitForTimeout(300);
+  await page.locator('.map .node.you').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  await page.locator('.deed.job').first().click({ timeout: 3000 }).catch(() => {});
+} else {
+  misses.push('nowhere to work — the second thing to do never appeared on screen');
+}
+
+// ★ WHAT THE ROAD IS CARRYING, DRAWN. The gold underlay is the one mark on this
+// board that could not be drawn from a count of what you own: it is only there
+// when a settled place is actually sending something down that route to you.
+console.log('\nFLOW ON THE BOARD');
+await page.locator('nav button', { hasText: 'Journey' }).click();
+await page.waitForTimeout(600);
+const flowPx = await ink('flowing');
+console.log('  drawn   :', `${flowPx}px of flow ink on made routes`);
+if (!flowPx) {
+  misses.push('no route is drawn carrying anything — either nothing flows or the flow is not drawn');
+}
 
 await page.screenshot({ path: SHOT });
 console.log(`\nscreenshot → ${SHOT}`);

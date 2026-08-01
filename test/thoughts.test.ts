@@ -12,9 +12,9 @@
 // ---- PROVEN RED, 2026-07-31 ----------------------------------------------
 // (sabotage log in the commit message)
 import { describe, it, expect } from 'vitest';
-import { apply, initial, forgeSecs, unforgeable, costOf, edgeKey,
-  COST_GROWTH, type Game } from '../src/game/engine';
-import { PLACE, START } from '../src/game/places';
+import { apply, initial, forgeSecs, unforgeable, unsettleable, costOf, edgeKey,
+  COST_GROWTH, rate, type Game } from '../src/game/engine';
+import { PLACE, START, WORKED } from '../src/game/places';
 import { NOTIONS, NOTION, DANGLING } from '../src/game/notions';
 import { thoughts } from '../src/game/world';
 
@@ -22,6 +22,12 @@ const rest = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
 
 function reach(g: Game, to: number): Game {
   let out = g;
+  // ★ SETTLE FIRST — you may only build out of a place that produces. Without
+  // this the loop below spins against 'settle here first' forever, which is the
+  // gate doing its job rather than the test being unlucky.
+  for (let i = 0; i < 900 && !out.settled.includes(out.at); i++) {
+    out = unsettleable(out) ? rest(out, 30) : apply(out, { type: 'settle' });
+  }
   for (let i = 0; i < 900 && unforgeable(out, to); i++) out = rest(out, 30);
   out = apply(out, { type: 'forge', to });
   out = rest(out, forgeSecs(g) + 1);
@@ -156,9 +162,23 @@ describe('★ every notion says something the engine actually does', () => {
     expect(NOTION.get('frontier')!.body).toMatch(/costs more than the one before/);
   });
 
-  it('"Standing still" — there is nothing to start', () => {
-    // The engine has no work verb at all; paces arrive from a bare tick.
+  it('"Standing still" — there is nothing to start, and it costs the other thing', () => {
+    // ⚠️ THIS USED TO ASSERT "the engine has no work verb at all", which is no
+    // longer true — so the notion had to be rewritten and so did this. Both
+    // halves of the new sentence are checked: resting needs no action, and the
+    // clock spent working is a clock that pays no paces.
     expect(rest(initial(), 30).paces).toBeGreaterThan(0);
     expect(NOTION.get('rest')!.body).toMatch(/nothing here to start/);
+    const worked = apply({ ...initial(), at: WORKED[0]! }, { type: 'work' });
+    expect(rest(worked, 30).paces).toBe(worked.paces);
+    expect(rest(worked, 30).wayfaring).toBeGreaterThan(0);
+  });
+
+  it('"Settling" — a settled place pays only what can reach you', () => {
+    const to = PLACE.get(START)!.ways[0]!;
+    const cut = { ...initial(), settled: [START, to] };
+    const joined = { ...cut, solid: [edgeKey(START, to)] };
+    expect(rate(joined)).toBeGreaterThan(rate(cut));
+    expect(NOTION.get('settling')!.body).toMatch(/has to get to you/);
   });
 });

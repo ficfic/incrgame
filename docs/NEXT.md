@@ -118,14 +118,73 @@ owner's call on how a key is found.
 6s, and listed two shipped items as open — in the file whose whole job is to
 decide what gets worked on. Renumbered 2026-08-01.
 
-## ★★ 0. SETTLE, WORK, ONE SKILL — AND INCOME IS FLOW
+## ~~★★ 0. SETTLE, WORK, ONE SKILL — AND INCOME IS FLOW~~ ✅ 2026-08-01
+
+**Shipped.** `npm run guard` green (574 tests, 0 type errors, purity holds),
+`npm run play` exit 0, screenshot looked at. Saves reset — `part` changed
+meaning from banked seconds to banked fractional paces, and a v2 save carries no
+`settled`.
+
+**What the probe printed, on the real build:**
+
+```
+THE CHOICE
+  standing: The Weir
+  offers  : Sound the depth 30s a turn · +45 wayfaring · no paces while you do
+          | Settle The Weir 37 paces · makes 0.10 a second, as much of it as
+            the ways can carry to you
+  header  : "working — no paces"
+  paces   : 57 → 57 across 52s of working
+  before  : Wayfaring 1 · A way takes 13s
+  after   : Wayfaring 2 · A way takes 12s
+FLOW ON THE BOARD
+  drawn   : 281px of flow ink on made routes
+```
+
+### ★ What actually divides the flow model from a count model, and it is not what I assumed
+
+Connectivity never binds. You can only settle where you stand and only walk made
+routes, so **every settled place is always in your own connected component** —
+`reachedFrom` can never exclude one in real play. The whole difference is
+**capacity**: `EDGE_CAP` 0.250 against `YIELD` 0.100 means a road fills up once
+three settled places are behind it, and then a second road round the bottleneck
+is worth more than a fourth settlement. That is the guard in
+`test/game.test.ts` — five settled in a line delivers 0.350 where a count model
+says 0.500, and one loop-closer recovers the whole 0.150.
+
+**This is why the seven redundant loop-closers stop being dead weight.**
+
+### ★ And the second verb is thinner than `docs/PLAN.md` claimed
+
+There are **12** authored work blocks, not 34 — the earlier number counted skill
+CHECKS on choices as jobs. Three of them are wayfaring, so **three places in
+thirty-seven offer work**. Kept honest rather than papered over: XP goes to the
+skill the content names, and the other four skills' jobs stay off until the
+levers they turn exist. Where you stand decides whether you have a choice at
+all. **If that reads as too thin in play, the fix is writing jobs, not code.**
+
+### Two things caught by sabotaging, both worth recording
+
+- **My first sabotage of the paces-while-working check was itself vacuous.**
+  It added `Math.floor(a.secs × rate)` per tick — 0.2s × 0.43 floors to zero, so
+  it paid nothing and the check stayed green for the wrong reason. Rule 4 caught
+  a bad sabotage, which is the failure mode below the one it is aimed at.
+- **The check then failed on the clean build**, reporting 56 → 57 while working.
+  That was the probe, not the game: it read the purse three tab-clicks before
+  the job started and counted a pace earned while still resting. Now read after
+  the job begins, which is both correct and tighter.
+
+**Proven red:** rate as a count model (2 tests), the settle gate removed (1),
+wayfaring not cutting forge time (2), `load()` refusing a MISSING new field (3),
+`load()` accepting a present-and-wrong one (1), the flow underlay not drawn
+(probe), the doing node quoting the old constant (probe, 2 misses), and paces
+paid while working (probe).
+
+<details><summary>The item as it was written before the work started</summary>
 
 **The top item. Chosen by the owner, 2026-08-01.** It is `docs/PLAN.md` build
 order step 1 with one change forced by `docs/DIRECTIONS.md`: the income number
 is computed from the **adjacency**, not from a count.
-
-**Start a fresh session for this.** It is the biggest item in the queue and it
-must not be built on the back of a session that has already done something else.
 
 ### Why the flow part is not optional
 
@@ -175,6 +234,12 @@ choose between.
 
 Thresholds, drops, keys, encounters, prestige, the other four skills. They are
 `docs/PLAN.md` steps 2–5 and each is cheap once this exists.
+
+</details>
+
+**Next in `docs/PLAN.md`'s order: step 2, thresholds** — turn on the 13 authored
+doors now that a level exists to open them with. The small items below (5, 7,
+12, 13, 16, 19) do not block it.
 
 ## ★ FROM THE SECOND PLAY-TEST, 2026-08-01
 

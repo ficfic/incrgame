@@ -19,7 +19,7 @@
   import Board from './Board.svelte';
   import { TERRAIN_SHAPES } from '../game/terrain';
   import { INK, TOL } from '../game/ink';
-  import { apply, initial, waysFrom, unforgeable, SECS_PER_PACE,
+  import { apply, initial, waysFrom, unforgeable, rate, loadOf, working,
     type Game, type Action } from '../game/engine';
   import { load, save, wipe, elapsedSince } from '../game/store';
 
@@ -89,11 +89,14 @@
 
   /** Edges with the fill the board needs, so the board knows nothing about the
    *  game and the game knows nothing about drawing. */
-  const lines = $derived(view.edges.map((e) => ({
-    a: e.a, b: e.b, rel: e.rel,
-    fill: e.rel === 'route' && e.a.startsWith('place:')
-      ? fillOf(game, numOf(e.a), numOf(e.b)) : 1,
-  })));
+  const lines = $derived(view.edges.map((e) => {
+    const road = e.rel === 'route' && e.a.startsWith('place:');
+    return {
+      a: e.a, b: e.b, rel: e.rel,
+      fill: road ? fillOf(game, numOf(e.a), numOf(e.b)) : 1,
+      load: road ? loadOf(game, numOf(e.a), numOf(e.b)) : 0,
+    };
+  }));
 
   // ---- the clock, and the only one ----------------------------------------
   onMount(() => {
@@ -167,6 +170,15 @@
     arming = false;
     picked = picked === id ? null : id;
   }
+  /** One place that turns a deed into an action, so the markup carries no
+   *  knowledge of the engine and a new deed is a case rather than a ternary. */
+  function doDeed(d: { kind: string; to: number }): void {
+    if (d.kind === 'go') { go(d.to); return; }
+    if (d.kind === 'forge') { act({ type: 'forge', to: d.to }); return; }
+    if (d.kind === 'settle') { act({ type: 'settle' }); return; }
+    if (d.kind === 'work') { act({ type: 'work' }); return; }
+    if (d.kind === 'rest') act({ type: 'rest' });
+  }
   function go(to: number): void {
     act({ type: 'go', to });
     picked = `place:${to}`;
@@ -183,7 +195,11 @@
   <header>
     <div class="purse">
       <b>{game.paces}</b><span>{game.paces === 1 ? 'pace' : 'paces'}</span>
-      <span class="rate">+1 every {SECS_PER_PACE}s, always</span>
+      <!-- ★ THE RATE IS SOLVED FROM THE GRAPH and it moves, so the header has
+           to say what it is now rather than quote a constant. When you are
+           working it is zero, and that is the point of working. -->
+      <span class="rate">{working(game) ? 'working — no paces'
+        : `+${rate(game).toFixed(2)} a second`}</span>
       <button class="reset" onclick={async () => { await wipe(); game = initial(); picked = null; }}>
         Start over
       </button>
@@ -224,8 +240,9 @@
           It fills in by itself, from what you do.</p>
       {/if}
       {#each deeds as d (`${d.kind}${d.to}`)}
-        <button class="deed" class:make={d.kind === 'forge'} disabled={d.why !== null}
-          onclick={() => (d.kind === 'go' ? go(d.to) : act({ type: 'forge', to: d.to }))}>
+        <button class="deed" class:make={d.kind === 'forge' || d.kind === 'settle'}
+          class:job={d.kind === 'work' || d.kind === 'rest'}
+          disabled={d.why !== null} onclick={() => doDeed(d)}>
           {d.label}
           <em>{d.note}</em>
         </button>
@@ -243,7 +260,8 @@
           It carries on while this is shut.</p>
       {/if}
       {#if !deeds.length && chosen.id.startsWith('place:') && numOf(chosen.id) === game.at}
-        <p class="note">You are standing here.</p>
+        <p class="note">You are standing here, and it is settled. Nothing else
+          to do but leave.</p>
       {/if}
     {:else if awayLine}
       <!-- What you missed while the phone was in a pocket. It sits where the
@@ -300,6 +318,9 @@
     color: #8fb6c4; }
   .deed:disabled { background: #14161a; border-color: #3a3320; color: #b9a276; }
   .deed.make { background: #16362f; border-color: #3f7d6b; }
+  /* Working is the other thing the clock can do, so it does not look like the
+     thing that spends paces. */
+  .deed.job { background: #2a2010; border-color: #7d6330; color: #f3dcb0; }
   .deed.arm { background: #0f1a24; }
   .deed.arm.armed { background: #1d1a10; border-color: #6b5720; color: #ffd479; }
 </style>

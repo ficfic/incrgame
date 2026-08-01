@@ -10,9 +10,14 @@
 // systemic model which describes everything."
 import { PLACES, PLACE, nameOf } from './places';
 import { NOTIONS, NOTION, type Notion } from './notions';
+import { reachedFrom } from './flow';
 import type { Game } from './engine';
 import { waysFrom, costOf, unforgeable, forgeSecs, edgeKey, waitFor,
-  SECS_PER_PACE } from './engine';
+  rate, loadOf, settleCost, unsettleable, jobAt, working, levelOf, xpFor,
+  LEVEL_CAP } from './engine';
+
+/** Paces a second, said the same way everywhere it is said. */
+const perSec = (n: number): string => `${n.toFixed(2)} a second`;
 
 export type Kind = 'place' | 'item' | 'concept' | 'you' | 'doing' | 'fact';
 export type Rel = 'route' | 'carries' | 'means' | 'stands' | 'doing' | 'has';
@@ -79,7 +84,18 @@ function doing(g: Game): Node {
         + 'carries on while this is shut.',
     };
   }
-  const rate = `A pace every ${SECS_PER_PACE} seconds, watched or not.`;
+  // ★ WORKING IS THE OTHER THING THE CLOCK CAN DO, and while you are doing it
+  // the paces stop. Saying so on the node is not a warning, it is the decision.
+  const job = working(g);
+  if (job) {
+    const left = Math.ceil(job.secs - g.workPart);
+    return {
+      id: DOING, kind: 'doing', name: job.label,
+      body: `${left}s to the next ${job.xp} wayfaring, and it repeats while this `
+        + 'is shut. No paces while you work — that is what it costs.',
+    };
+  }
+  const earn = `${perSec(rate(g))}, watched or not.`;
   // What the rate is FOR, from here: the nearest way you can already buy, else
   // how long until the cheapest one you cannot.
   const ready = waysFrom(g)
@@ -91,8 +107,8 @@ function doing(g: Game): Node {
     : 'Every way from here is made.';
   return {
     id: DOING, kind: 'doing',
-    name: at.work?.label ?? 'Standing still',
-    body: `${rate} ${next}`,
+    name: 'Standing still',
+    body: `${earn} ${next}`,
   };
 }
 
@@ -163,6 +179,12 @@ export function self(g: Game): View {
   const at = PLACE.get(g.at)!;
   const next = waysFrom(g).filter((w) => !w.made).sort((a, b) => a.cost - b.cost)[0];
   const secs = forgeSecs(g);
+  const lv = levelOf(g.wayfaring);
+  // How many settled places can actually reach you — which is not how many you
+  // have settled. One cut off by an unmade way is a place you paid for and are
+  // not being paid by, and the sheet should not pretend otherwise.
+  const joined = reachedFrom(g.at, g.solid);
+  const settledNear = g.settled.filter((id) => joined.has(id)).length;
 
   const mine: Node[] = [
     // Kind `item` and rel `carries`, which the model already had and nothing
@@ -172,11 +194,26 @@ export function self(g: Game): View {
       body: 'In hand, and everything you own. The valley takes them for ways '
         + 'and for nothing else — a step down a way you have already made has '
         + 'never cost anybody anything.' },
+    // ★ THE RATE IS NOW A PROPERTY OF THE GRAPH, so the sheet says where it
+    // came from. `flow.ts` is the long version: settled places make paces,
+    // routes carry them, and only what reaches you counts.
     { id: 'stat:gather', kind: 'fact',
-      name: `A pace every ${SECS_PER_PACE}s`,
-      body: 'Your one certainty. It does not care whether you are watching, '
-        + 'whether the phone is in a pocket, or whether you have decided to '
-        + 'stop. Standing still is not idleness here; it is the work.' },
+      name: perSec(rate(g)),
+      body: settledNear === 0
+        ? 'The floor, and nothing on top of it. Nowhere you have settled can '
+          + 'get anything to you from where you are standing.'
+        : `A third of it is yours for breathing. The rest walks in from `
+          + `${settledNear} settled ${settledNear === 1 ? 'place' : 'places'} `
+          + 'along the ways you made — and only as fast as the narrowest way '
+          + 'between there and here will take it.' },
+    { id: 'stat:way', kind: 'fact',
+      name: `Wayfaring ${lv}`,
+      body: lv >= LEVEL_CAP
+        ? 'As far as the valley can teach you. A way goes up in a little under '
+          + 'half the time it took the first morning.'
+        : `${g.wayfaring} of ${xpFor(lv + 1)} toward ${lv + 1}. Sounding, `
+          + 'pacing and sighting are how it is learned, and every level takes '
+          + 'a twelfth off the time a way needs to go up.' },
     { id: 'stat:making', kind: 'fact',
       name: `A way takes ${secs}s`,
       body: next
@@ -200,6 +237,7 @@ export function self(g: Game): View {
       { a: 'you', b: placeId(g.at), rel: 'stands' },
       { a: 'you', b: 'carry:paces', rel: 'carries' },
       { a: 'you', b: 'stat:gather', rel: 'has' },
+      { a: 'you', b: 'stat:way', rel: 'has' },
       { a: 'you', b: 'stat:making', rel: 'has' },
     ],
   };
@@ -255,7 +293,7 @@ export const TABS: ReadonlyArray<{ id: TabId; label: string; view: (g: Game) => 
 /** What tapping a place can do, decided in one place so every tab agrees.
  *  R3.3: an action that cannot be taken shows its reason, it is never hidden. */
 export interface Deed {
-  kind: 'go' | 'forge';
+  kind: 'go' | 'forge' | 'settle' | 'work' | 'rest';
   label: string;
   note: string;
   to: number;
@@ -265,7 +303,33 @@ export interface Deed {
 export function deedsFor(g: Game, nodeId: string): Deed[] {
   if (!nodeId.startsWith('place:')) return [];
   const id = numOf(nodeId);
-  if (id === g.at) return [];
+
+  // ★ THE PLACE YOU ARE STANDING IN IS NOW THE ONE WITH THINGS TO DO IN IT.
+  // It used to return nothing at all — "You are standing here." — because
+  // standing was the whole of the game. Both decisions in this game are taken
+  // from here: what your paces buy, and what your clock pays into.
+  if (id === g.at) {
+    const out: Deed[] = [];
+    const job = jobAt(g);
+    if (job) {
+      out.push(g.busy === 'work'
+        ? { kind: 'rest', to: id, why: null,
+            label: 'Stand still instead',
+            note: `back to ${perSec(rate(g))} — and the job stops` }
+        : { kind: 'work', to: id, why: null,
+            label: job.label,
+            note: `${job.secs}s a turn · +${job.xp} wayfaring · no paces while you do` });
+    }
+    if (!g.settled.includes(id)) {
+      const why = unsettleable(g);
+      out.push({ kind: 'settle', to: id, why,
+        label: `Settle ${PLACE.get(id)!.name}`,
+        note: why ?? `${settleCost(g)} paces · makes 0.10 a second, as much of `
+          + 'it as the ways can carry to you' });
+    }
+    return out;
+  }
+
   const w = waysFrom(g).find((x) => x.to === id);
   if (!w) return [];
 

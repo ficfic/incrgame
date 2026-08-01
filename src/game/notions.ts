@@ -48,11 +48,29 @@ export const NOTIONS: readonly Notion[] = [
   {
     id: 'rest',
     name: 'Standing still',
-    body: 'There is nothing here to start and nothing to remember to restart. '
-      + 'Whoever waits is already working, which is either a mercy or the first '
-      + 'thing about this valley that should have worried you.',
-    near: ['pace'],
+    // ⚠️ REWRITTEN WHEN WORKING ARRIVED. This used to end "which is either a
+    // mercy or the first thing about this valley that should have worried you",
+    // and the note beside it read "Standing still is the ABSENCE of a work
+    // verb". There is a work verb now, so both were a sentence describing an
+    // engine that no longer exists — the one thing this file forbids.
+    body: 'There is nothing here to start, and nothing to remember to restart. '
+      + 'Whoever waits is already working. What that costs you stays hidden '
+      + 'until the first time you find something better to do with the same '
+      + 'clock, and after that it is the only thing it costs.',
+    near: ['pace', 'settling'],
     known: always,
+  },
+  {
+    id: 'settling',
+    name: 'Settling',
+    // Names `settleCost`, `YIELD` and the max-flow solve in `flow.ts` — that a
+    // settled place makes paces, and that only what can reach you arrives.
+    body: 'A place you have settled makes paces whether you are standing in it '
+      + 'or not. What it makes still has to get to you along the ways you have '
+      + 'made, and a way will only carry so much. A settlement you cannot reach '
+      + 'is a settlement paying somebody else.',
+    near: ['free', 'pace'],
+    known: (g) => g.settled.length >= 2,
   },
   {
     id: 'way',
@@ -75,10 +93,14 @@ export const NOTIONS: readonly Notion[] = [
   {
     id: 'free',
     name: 'Free ground',
+    // ⚠️ THE LAST CLAUSE USED TO READ "the only question the valley has ever
+    // put to you is which edge to open next". There are two questions now —
+    // which edge, and whether to buy the ground that pays for it — so the old
+    // sentence was a lie the moment settling shipped.
     body: 'A way you have made asks nothing of you again, ever. Which is why '
-      + 'turning back is not a loss, and why the only question the valley has '
-      + 'ever put to you is which edge to open next.',
-    near: ['making'],
+      + 'turning back is never a loss, and why what the valley asks you is not '
+      + 'where to go but what to spend the going on.',
+    near: ['making', 'settling'],
     known: (g) => g.solid.length >= 2,
   },
   {

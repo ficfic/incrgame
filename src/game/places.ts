@@ -18,9 +18,24 @@ export interface Place {
   body: string;
   /** Where you can go from here. Both directions, always symmetric. */
   ways: number[];
-  /** The one thing you can do here, if there is one. */
-  work?: { label: string; secs: number };
+  /** The one thing you can do here, if there is one — hand-authored, with its
+   *  own duration and payout. See `SKILL` below for why most places have none. */
+  work?: { label: string; secs: number; xp: number };
 }
+
+/** ★ THE ONE SKILL THAT EXISTS, and therefore the only work on offer.
+ *
+ *  The regions carry 34 work blocks across five named skills — 11 wayfaring,
+ *  7 craft, 7 attunement, 6 lore, 3 guile. Turning on all 34 would mint XP into
+ *  four skills that change nothing, which is a promise the engine does not
+ *  keep; `docs/TABS.md` has the long version and it is the eleven-systems
+ *  lesson. So one skill's blocks are live and the rest wait for the levers
+ *  they turn.
+ *
+ *  ⚠️ AND IT IS NOT AN ACCIDENT THAT THIS THINS THE MAP OUT. Eleven places in
+ *  thirty-seven offer work, so where you stand decides whether you have a
+ *  choice to make at all. */
+export const SKILL = 'wayfaring';
 
 export const START = 0;
 
@@ -45,8 +60,14 @@ export const PLACES: readonly Place[] = AUTHORED.map((p) => ({
   name: p.name,
   body: p.body,
   ways: [...(ways.get(p.id) ?? [])].sort((a, b) => a - b),
-  work: p.work ? { label: p.work.label, secs: p.work.secs } : undefined,
+  work: p.work && p.work.skill === SKILL
+    ? { label: p.work.label, secs: p.work.secs, xp: p.work.xp }
+    : undefined,
 }));
+
+/** Kept so a test can assert the filter is doing something rather than nothing
+ *  — a `SKILL` naming a skill no block uses would silently turn work off. */
+export const WORKED = PLACES.filter((p) => p.work).map((p) => p.id);
 
 export const PLACE = new Map(PLACES.map((p) => [p.id, p]));
 

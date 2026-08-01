@@ -24,6 +24,7 @@
 // as a `tick` carrying seconds, which is the one thing the old engine got right
 // and is why offline catch-up is four lines rather than a subsystem.
 import { PLACE, START, nameOf } from './places';
+import { solveFlow, EDGE_CAP } from './flow';
 
 export interface Game {
   version: number;
@@ -35,8 +36,30 @@ export interface Game {
    *  can take, and showing 4.7 of something you spend in ones is a readout
    *  arguing with itself. */
   paces: number;
-  /** Fractional progress toward the next pace, never shown. */
+  /** Fractional progress toward the next pace, never shown.
+   *
+   *  ⚠️ THIS USED TO BE SECONDS and is now FRACTIONAL PACES. It could be
+   *  seconds while the rate was the constant `SECS_PER_PACE`; it cannot be now
+   *  that the rate is solved from the graph and changes the moment you settle
+   *  or lay a route. Banking seconds against a rate that moves pays out at
+   *  whatever the rate happened to be when the remainder was spent. */
   part: number;
+  /** ★ PLACES THAT PRODUCE. A settled place is a source; where you stand is the
+   *  sink; a made route is a pipe with a limit. See `flow.ts` — this array is
+   *  half of the reason the economy reads the graph at all. */
+  settled: number[];
+  /** XP in the one skill that exists. ⚠️ ONE, deliberately: the content names
+   *  five and `docs/TABS.md` is right that five skills over one activity is
+   *  five names for the same number. The other four arrive with the work that
+   *  trains them. */
+  wayfaring: number;
+  /** Seconds banked toward the current place's job. */
+  workPart: number;
+  /** ★ THE CHOICE, AND THE WHOLE REASON A SKILL CAN EXIST HERE. One clock, two
+   *  things it can pay into: standing still pays paces, working pays XP, and
+   *  you cannot have both. Without this there is one verb, nothing to choose
+   *  between, and a skill is a badge. */
+  busy: 'rest' | 'work';
   /** ⚠️ ROUTES YOU HAVE PROVED. `docs/TABS.md` R4.4: a solid edge is a route you
    *  can travel, a dotted one is not yet. Every way in the authored valley
    *  starts dotted — the shape of the world is visible from the first frame,
@@ -68,10 +91,84 @@ export type Action =
   | { type: 'tick'; secs: number }
   | { type: 'go'; to: number }
   /** Start filling the route between where you are and `to`. */
-  | { type: 'forge'; to: number };
+  | { type: 'forge'; to: number }
+  /** Make where you stand produce. */
+  | { type: 'settle' }
+  /** Spend the clock on the place's job instead of on paces. */
+  | { type: 'work' }
+  | { type: 'rest' };
 
-/** Seconds of work per pace. */
+/** Seconds per pace with nothing settled reaching you — the floor, and the
+ *  rate this game shipped with before income was solved from the graph. */
 export const SECS_PER_PACE = 3;
+
+/** ★ WHAT YOU ACTUALLY EARN, IN PACES A SECOND. The floor, plus everything the
+ *  graph can deliver from your settled places to where you are standing.
+ *
+ *  ⚠️ NOT `base + per × settled.length`. That was the first draft and it is the
+ *  defect this whole item exists to fix: a count cannot tell a valley from a
+ *  shuffled valley. See `flow.ts`. */
+export function rate(g: Game): number {
+  return 1 / SECS_PER_PACE + solveFlow(g.at, g.settled, g.solid).total / 1000;
+}
+
+/** How much of its limit each made route is carrying, 0 to 1 — for drawing.
+ *  A road you can SEE is full is a road you can see needs a second one. */
+export function loadOf(g: Game, a: number, b: number): number {
+  const on = solveFlow(g.at, g.settled, g.solid).on.get(edgeKey(a, b));
+  return on === undefined ? 0 : Math.min(1, on / EDGE_CAP);
+}
+
+/** ⚠️ SETTLING IS THE SECOND SINK, and it competes with routes for the same
+ *  paces — one currency, two things to want, which is what makes either of them
+ *  a decision. Two currencies with one sink each is two lists. */
+export const SETTLE_BASE = 30;
+export const SETTLE_GROWTH = 1.22;
+export function settleCost(g: Game): number {
+  return Math.round(SETTLE_BASE * SETTLE_GROWTH ** g.settled.length);
+}
+
+/** Why you cannot settle where you stand, in English, or null if you can. */
+export function unsettleable(g: Game): string | null {
+  if (g.settled.includes(g.at)) return 'already settled';
+  const cost = settleCost(g);
+  if (cost > g.paces) return `${cost} paces — you have ${g.paces}`;
+  return null;
+}
+
+// ---- the one skill --------------------------------------------------------
+//
+// ⚠️ WHY A SKILL IS POSSIBLE NOW AND WAS NOT BEFORE. `docs/TABS.md` recorded the
+// block as structural, not scheduling: `costOf` and `forgeSecs` both keyed off
+// `solid.length`, so a skill trained by MAKING WAYS rose in lockstep with the
+// thing it was meant to offset and cancelled itself out. Wayfaring is trained by
+// WORKING, which is time NOT spent gathering paces — so it is bought with the
+// one thing the game is actually short of, and nothing about it cancels.
+
+/** XP for level 2. Level n needs `XP_STEP × (n−1)²`, so the ladder stretches. */
+export const XP_STEP = 40;
+export const LEVEL_CAP = 10;
+export function levelOf(xp: number): number {
+  return Math.min(LEVEL_CAP, 1 + Math.floor(Math.sqrt(Math.max(0, xp) / XP_STEP)));
+}
+/** XP at which a level starts. `levelOf(xpFor(n)) === n` for n ≤ the cap. */
+export function xpFor(level: number): number {
+  return XP_STEP * (level - 1) ** 2;
+}
+
+/** A repeatable timed job at a place, from the authored content. */
+export interface Job { label: string; secs: number; xp: number }
+
+/** The job here, whether or not you are doing it. Null at a place with none —
+ *  and most places have none, so WHERE YOU STAND decides whether the choice
+ *  between resting and working is even on offer. */
+export function jobAt(g: Game): Job | null {
+  return PLACE.get(g.at)?.work ?? null;
+}
+/** The job you are actually doing, or null because you are standing still. */
+export function working(g: Game): Job | null {
+  return g.busy === 'work' ? jobAt(g) : null;
+}
 
 /** ⚠️ THE WHOLE ECONOMY IS THIS LINE. Somewhere new costs more the more you
  *  have seen; somewhere you have been is free.
@@ -121,8 +218,13 @@ export function costOf(g: Game, to: number): number {
  *  route is a longer thing to watch, and stays short enough at the start that
  *  the first one is over before anybody wonders whether it is broken. */
 export const FORGE_BASE = 12;
+/** ★ AND THIS IS WHERE THE SKILL BITES. Wayfaring shortens the making, 8% a
+ *  level, so a level 10 wayfarer lays a road in a little under half the time.
+ *  One skill, one number, and the number is on the button before you press it. */
+export const WAY_CUT = 0.92;
 export function forgeSecs(g: Game): number {
-  return Math.round(FORGE_BASE * 1.12 ** g.solid.length);
+  const cut = WAY_CUT ** (levelOf(g.wayfaring) - 1);
+  return Math.max(4, Math.round(FORGE_BASE * 1.12 ** g.solid.length * cut));
 }
 
 /** Why you cannot go there, in English, or null if you can.
@@ -143,6 +245,12 @@ export function unforgeable(g: Game, to: number): string | null {
   const here = PLACE.get(g.at);
   if (!here?.ways.includes(to)) return 'nothing joins these';
   if (g.solid.includes(edgeKey(g.at, to))) return 'already made';
+  // ★ YOU MAY ONLY BUILD OUT OF A PLACE THAT PRODUCES. This is the rule that
+  // turns two lists into a game: pushing into the far valley means settling a
+  // chain of bases behind you, so income is not a side dish to progress, it is
+  // the gate on it. `engine.ts` has claimed "where you park decides what you
+  // can reach" since the first commit; until this line it was a comment.
+  if (!g.settled.includes(g.at)) return 'settle here first';
   if (g.forging) return 'you are already making one';
   const cost = costOf(g, to);
   if (cost > g.paces) return `${cost} paces — you have ${g.paces}`;
@@ -151,13 +259,20 @@ export function unforgeable(g: Game, to: number): string | null {
 
 export function initial(): Game {
   return {
-    version: 1,
+    version: 2,
     at: START,
     seen: [START],
     paces: 0,
     part: 0,
     solid: [],
     forging: null,
+    // ⚠️ WHERE YOU START IS ALREADY YOURS. Otherwise the first ninety seconds
+    // of the game are spent gathering thirty paces to unlock the ability to do
+    // anything at all, which teaches the loop by withholding it.
+    settled: [START],
+    wayfaring: 0,
+    workPart: 0,
+    busy: 'rest',
   };
 }
 
@@ -165,18 +280,30 @@ export function apply(g: Game, a: Action): Game {
   switch (a.type) {
     case 'tick': {
       if (a.secs <= 0) return g;
-      // ⚠️ THE REMAINDER CARRIES, AND IT CARRIES IN SECONDS. Dropping it would
-      // make a hundred small ticks pay less than one big one, and then an hour
-      // watched and an hour away would disagree — the bug that ate a run in the
-      // last version. Carrying SECONDS rather than fractions-of-a-pace defers
-      // the division to one place, so sixty seconds delivered in six hundred
-      // pieces and sixty delivered at once differ by float noise rather than by
-      // an accumulating error.
-      const total = g.part + a.secs;
-      const got = Math.floor(total / SECS_PER_PACE);
-      let next: Game = got > 0
-        ? { ...g, paces: g.paces + got, part: total - got * SECS_PER_PACE }
-        : { ...g, part: total };
+      // ⚠️ THE REMAINDER CARRIES, so a hundred small ticks pay what one big one
+      // does. An hour watched and an hour away disagreeing by an accumulating
+      // remainder is the bug that ate a run in the version before last.
+      //
+      // ★ AND THE CLOCK GOES TO EXACTLY ONE OF TWO PLACES. Working banks XP and
+      // pays no paces; standing still pays paces and banks no XP. That is the
+      // opportunity cost, and it is the whole reason there is a decision here.
+      const job = working(g);
+      let next: Game;
+      if (job) {
+        // The job repeats on its own. `docs/BRIEF.md`: timers bank work, they
+        // never punish absence — so an absence spent working comes back with
+        // levels instead of paces, which is a choice about what your absence is
+        // FOR rather than a reason to check in.
+        const t = g.workPart + a.secs;
+        const done = Math.floor(t / job.secs);
+        next = { ...g, workPart: t - done * job.secs, wayfaring: g.wayfaring + done * job.xp };
+      } else {
+        const total = g.part + a.secs * rate(g);
+        const got = Math.floor(total);
+        next = got > 0
+          ? { ...g, paces: g.paces + got, part: total - got }
+          : { ...g, part: total };
+      }
 
       // ⚠️ THE FILL IS BANKED LIKE EVERYTHING ELSE. An absence finishes the
       // route it was left making — the one animation in the game is not a
@@ -208,6 +335,20 @@ export function apply(g: Game, a: Action): Game {
       };
     }
 
+    case 'settle': {
+      if (unsettleable(g)) return g;
+      return { ...g, paces: g.paces - settleCost(g), settled: [...g.settled, g.at] };
+    }
+
+    case 'work': {
+      // Nothing to work at is not an error, it is most of the valley.
+      if (!jobAt(g)) return g;
+      return { ...g, busy: 'work' };
+    }
+
+    case 'rest':
+      return g.busy === 'rest' ? g : { ...g, busy: 'rest' };
+
     case 'go': {
       if (blocked(g, a.to)) return g;
       const dest = PLACE.get(a.to);
@@ -217,6 +358,12 @@ export function apply(g: Game, a: Action): Game {
         ...g,
         at: a.to,
         seen: first ? [...g.seen, a.to] : g.seen,
+        // ⚠️ THE JOB DOES NOT TRAVEL WITH YOU. Jobs have different lengths, so
+        // carrying a half-finished one to a different place would pay it out
+        // against the wrong clock — and silently leaving `busy` set would have
+        // you arrive somewhere with no work and quietly earn nothing at all.
+        busy: 'rest',
+        workPart: 0,
         // ★ WALKING A MADE ROUTE IS FREE. The paces went into making it.
       };
     }
@@ -248,5 +395,8 @@ export function waitFor(g: Game): { name: string; secs: number } | null {
     .filter((wy) => !wy.made && wy.cost > g.paces)
     .sort((a, b) => a.cost - b.cost)[0];
   if (!short) return null;
-  return { name: short.name, secs: Math.ceil((short.cost - g.paces) * SECS_PER_PACE) };
+  // ⚠️ AGAINST THE RATE YOU ACTUALLY HAVE. Dividing by the constant here would
+  // quote a wait that settling has already shortened, which is the one number
+  // an idle game owes the player being wrong in the direction that hurts most.
+  return { name: short.name, secs: Math.ceil((short.cost - g.paces) / rate(g)) };
 }

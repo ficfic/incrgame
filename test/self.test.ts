@@ -16,8 +16,8 @@
 // ---- PROVEN RED, 2026-08-01 ----------------------------------------------
 // (sabotage log in the commit message)
 import { describe, it, expect } from 'vitest';
-import { apply, initial, forgeSecs, unforgeable, costOf, waysFrom,
-  SECS_PER_PACE, type Game } from '../src/game/engine';
+import { apply, initial, forgeSecs, unforgeable, costOf, waysFrom, rate,
+  levelOf, xpFor, LEVEL_CAP, type Game } from '../src/game/engine';
 import { PLACE, PLACES } from '../src/game/places';
 import { self, placeId } from '../src/game/world';
 
@@ -77,10 +77,10 @@ describe('Self is you, and everything hangs off you', () => {
 
 describe('★ the inventory', () => {
   it('holds what is in your hand, in the same word the header uses', () => {
-    const g = rest(initial(), 7 * SECS_PER_PACE);
-    expect(g.paces).toBe(7);
-    expect(nodeOf(g, 'carry:paces').name).toBe('7 paces');
-    expect(nodeOf(rest(initial(), SECS_PER_PACE), 'carry:paces').name).toBe('1 pace');
+    // Set rather than earned: the rate is solved from the graph now, so "rest
+    // for 7 paces' worth of seconds" is no longer a fixed number of seconds.
+    expect(nodeOf({ ...initial(), paces: 7 }, 'carry:paces').name).toBe('7 paces');
+    expect(nodeOf({ ...initial(), paces: 1 }, 'carry:paces').name).toBe('1 pace');
   });
 
   it('★ holds nothing else, because nothing else can be held yet', () => {
@@ -95,9 +95,14 @@ describe('★ the inventory', () => {
 
 describe('★ the stats are yours, not the valley\'s', () => {
   it('reads the rate you actually gather at', () => {
-    expect(nodeOf(played(), 'stat:gather').name).toBe(`A pace every ${SECS_PER_PACE}s`);
-    // And it is the rate the engine really pays.
-    expect(rest(initial(), SECS_PER_PACE * 5).paces).toBe(5);
+    const g = played();
+    expect(nodeOf(g, 'stat:gather').name).toBe(`${rate(g).toFixed(2)} a second`);
+    // ★ AND IT IS THE RATE THE ENGINE REALLY PAYS. The sheet quoting a constant
+    // while the tick paid something else is exactly the class of defect this
+    // file exists for, and it is now possible in a way it was not: the rate
+    // moves whenever you settle or lay a route.
+    const secs = 100;
+    expect(rest(g, secs).paces - g.paces).toBe(Math.floor(g.part + rate(g) * secs));
   });
 
   it('reads what making a way costs you right now, in time and in paces', () => {
@@ -146,21 +151,33 @@ describe('★ the game statistics stay off the character sheet', () => {
     }
   });
 
-  it('has no skill, level or XP', () => {
-    const said = words(played()).toLowerCase();
-    for (const word of ['skill', 'level', ' xp', 'wayfaring']) {
-      expect(said, `Self names "${word.trim()}"`).not.toContain(word);
-    }
+  // ⚠️ "HAS NO SKILL, LEVEL OR XP" LIVED HERE AND IS DELETED, ON PURPOSE. It
+  // guarded a real constraint — `docs/TABS.md` recorded skills as structurally
+  // blocked, because `costOf` and `forgeSecs` both keyed off `solid.length` and
+  // a skill trained by making ways cancelled itself out. The block is gone: the
+  // skill is trained by WORKING, which is time not spent gathering paces, so
+  // nothing about it moves in lockstep with what it offsets. The test that
+  // replaces it is below, and it checks the thing the old one was protecting.
+
+  it('★ the skill is real: it names a level and it changes a number', () => {
+    const raw = played();
+    expect(nodeOf(raw, 'stat:way').name).toBe(`Wayfaring ${levelOf(raw.wayfaring)}`);
+    // A badge would pass the line above and fail this one.
+    const skilled = { ...raw, wayfaring: xpFor(LEVEL_CAP) };
+    expect(levelOf(skilled.wayfaring)).toBe(LEVEL_CAP);
+    expect(forgeSecs(skilled)).toBeLessThan(forgeSecs(raw));
+    expect(nodeOf(skilled, 'stat:making').name).toBe(`A way takes ${forgeSecs(skilled)}s`);
   });
 
-  it('★ shows WHY skills are still absent: price and fill move together', () => {
-    // If these ever stop moving in lockstep, a skill has somewhere to bite and
-    // this test should be deleted along with the note in `world.ts`.
+  it('★ and the thing that used to block it no longer holds', () => {
+    // The old note: price and fill move together, so a skill has nowhere to
+    // bite. Price still climbs with routes made; fill no longer only does.
     const cheap = { ...initial(), solid: [] };
     const dear = { ...initial(), solid: ['100|101', '101|102', '102|103'] };
     const to = PLACE.get(PLACES[0]!.id)!.ways[0]!;
     expect(costOf(dear, to)).toBeGreaterThan(costOf(cheap, to));
-    expect(forgeSecs(dear)).toBeGreaterThan(forgeSecs(cheap));
+    // Same routes made, different wayfarer: the lockstep is broken.
+    expect(forgeSecs({ ...dear, wayfaring: xpFor(LEVEL_CAP) })).toBeLessThan(forgeSecs(dear));
   });
 });
 

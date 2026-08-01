@@ -18,14 +18,25 @@ Measured against `src/slice/regions/*.ts`, 2026-08-01:
 |---|---|---|
 | places, hand-written prose | 37 | ✅ yes |
 | routes between them | 43 | ✅ yes |
-| **timed work blocks** (`label`, `secs`, `xp`, a skill) | **34** | ❌ `places.ts:48` strips them |
-| **skills they pay into** | **5** — wayfaring, lore, craft, guile, attunement | ❌ none exist |
+| **timed work blocks** (`label`, `secs`, `xp`, a skill) | **12** | 🟡 the 3 wayfaring ones are live |
+| **skills they pay into** | **5** — wayfaring, lore, craft, guile, attunement | 🟡 wayfaring exists |
 | **skill checks on a route**, each with a win and a lose line | **15** | ❌ ignored |
 | **items they drop** | **9**, each naming a door it opens | ❌ never minted |
 | **doors that demand a level or an item** | **13** | ❌ ignored |
 
-So the next four items are mostly **wiring**, not invention. That is why this is
-affordable and why the ordering below is what it is.
+⚠️ **The work-block count in the first draft of this page said 34 and was
+wrong.** It counted every `skill:` in the region files, and 22 of those are
+skill CHECKS on a choice, not jobs. There are 12 jobs: 4 craft, 3 lore, 3
+wayfaring, 2 attunement. Corrected 2026-08-01 by reading them out of
+`content.ts` rather than grepping. The 15/9/13 counts below were re-verified and
+are right.
+
+**This matters for step 3.** Twelve jobs across five skills cannot support "one
+skill trained all over the map" — so the second verb is thinner than this page
+first claimed, and its scarcity has to be a design choice rather than an
+accident. See `docs/NEXT.md` item 0.
+
+The rest is still mostly **wiring**, not invention.
 
 ---
 
@@ -38,7 +49,7 @@ off that.
 |---|---|---|---|
 | **0–5 min** | stand, forge an edge, walk it | *shipped* | 5 |
 | **5–30 min** | **settle** a place — it starts producing. **You may only forge from a settled place.** | income is an investment; "where you park" becomes true | 3 |
-| **30 min – 2 h** | **work** at a place: the 34 authored blocks. Work pays XP, not paces. | the second verb — the first real choice | 2, 3 |
+| **30 min – 2 h** | **work** at a place: the 12 authored blocks. Work pays XP, not paces. | the second verb — the first real choice | 2, 3 |
 | **1–5 h** | **thresholds**: the 13 authored doors open on a level you can see from here | doors you can see and cannot open | 4 |
 | **anywhere** | **encounters** on Here: a dot contests the place; you poke; one goes out | combat, graph-native | 7 |
 | **anywhere** | **drops**: the 15 checks mint the 9 items; an item opens its named door | inventory, keys | 10 |
@@ -76,11 +87,11 @@ it is a badge:
 
 | skill | trained by | what it does |
 |---|---|---|
-| **wayfaring** | 11 blocks | forging is faster |
-| **craft** | 7 blocks | settling is cheaper |
-| **attunement** | 7 blocks | the offline bank holds more |
-| **lore** | 6 blocks | **you learn a place's name before you reach it** |
-| **guile** | 3 blocks | the loot roll goes your way more often |
+| **wayfaring** | 3 blocks | forging is faster — ✅ shipped |
+| **craft** | 4 blocks | settling is cheaper |
+| **lore** | 3 blocks | **you learn a place's name before you reach it** |
+| **attunement** | 2 blocks | the offline bank holds more |
+| **guile** | 0 blocks | the loot roll goes your way more often — *needs jobs written* |
 
 ★ **Lore resolves item 13 rather than papering over it.** Today the panel
 withholds a place's name and the button underneath states it. Make the name a

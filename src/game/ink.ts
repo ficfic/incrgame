@@ -32,6 +32,12 @@ export const INK = {
   // standing on — which is always there. The check would have passed with
   // nothing filling at all. Found by `test/ink.test.ts` the day it was written.
   fill: '#b9ffe8',       // the way being made, filling
+  // ★ WHAT THE ROUTE IS CARRYING. Income is max-flow from your settled places
+  // to where you stand (`flow.ts`), and the width of this underlay is that
+  // flow — so a road running at its limit is a road you can SEE needs a second
+  // one beside it. The one readout in this game that could not exist without
+  // the adjacency, drawn in the one place the player is already looking.
+  flowing: '#e8a13c',
   stands: '#2f5568',
   means: '#2b4356',
   doing: '#3f7d6b',
@@ -70,6 +76,7 @@ export const TOL: Partial<Record<InkName, number>> = {
   ring: 18,
   dot: 6,
   open: 10,
+  flowing: 12,
 };
 export const COUNTED = Object.keys(TOL) as InkName[];
 
