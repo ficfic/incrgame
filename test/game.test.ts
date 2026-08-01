@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { apply, initial, costOf, blocked, unforgeable, waysFrom, waitFor, edgeKey,
+import { apply, initial, costOf, blocked, unforgeable, waitFor, edgeKey,
   forgeSecs, SECS_PER_PACE, COST_BASE, COST_GROWTH, type Game } from '../src/game/engine';
 import { PLACES, PLACE, START } from '../src/game/places';
 

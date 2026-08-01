@@ -45,7 +45,6 @@ export interface Game {
   /** The one route being forged, and how much of it is left. One at a time:
    *  two would need a screen to explain them. */
   forging: { key: string; left: number; secs: number } | null;
-  /** The last thing that happened, in one line. */
 }
 
 /** An edge's name, low id first so `a-b` and `b-a` are the same route. */
@@ -187,8 +186,6 @@ export function apply(g: Game, a: Action): Game {
         if (left > 0) {
           next = { ...next, forging: { ...next.forging, left } };
         } else {
-          const [x, y] = next.forging.key.split('|').map(Number);
-          const other = x === next.at ? y : x;
           next = {
             ...next,
             solid: [...next.solid, next.forging.key],
@@ -201,11 +198,13 @@ export function apply(g: Game, a: Action): Game {
 
     case 'forge': {
       if (unforgeable(g, a.to)) return g;
-      const dest = PLACE.get(a.to)!;
+      // One call, used twice: `left` starts full, `secs` remembers the whole,
+      // and the fill is the ratio between them.
+      const secs = forgeSecs(g);
       return {
         ...g,
         paces: g.paces - costOf(g, a.to),
-        forging: { key: edgeKey(g.at, a.to), left: forgeSecs(g), secs: forgeSecs(g) },
+        forging: { key: edgeKey(g.at, a.to), left: secs, secs },
       };
     }
 

@@ -352,3 +352,73 @@ that was explicitly kept when the others were dropped is not honoured by the
 build that ships.
 
 Found by `the-redditor` on 2026-08-01, verified against the files. Cheap to fix.
+
+---
+
+# ★ THE FOUR-AGENT REVIEW, 2026-08-01 — AND WHAT IT CONVERGED ON
+
+Run at the owner's request: `the-owner` (Roman, simulated), `chad-liquidity`
+(economy), `the-redditor` (genre), `the-graph` (consistency). **Every number
+below was re-verified against the code before being written down.**
+
+## They independently proposed the same thing
+
+| agent | proposal |
+|---|---|
+| the-redditor | *"make places produce. Each place has a yield; standing there sets your rate."* |
+| chad-liquidity | *"settle a place. One field `settled: number[]`, one action, one derived `rate(g)`."* |
+| the-owner (sim) | *"two doing-nodes side by side on Here… the second pays a second number."* |
+
+Three angles, one answer: **the second activity is settling a place, and it
+produces.** That is also the precondition a skill needs, so it unblocks item 17
+without building it.
+
+⚠️ **Where they disagree, and the call:** the owner-sim wanted the second
+activity to pay a *different* currency. `chad-liquidity` is right that it must be
+the SAME one — opportunity cost needs one currency with two sinks. Two currencies
+with one sink each is two lists, not a choice.
+
+## The measured case for it
+
+| finding | verified |
+|---|---|
+| income is flat forever | `SECS_PER_PACE = 3`, never changes |
+| cost is exponential | `6 × 1.2^n`, so time-per-purchase ×1.2 every purchase, forever |
+| all 43 edges | 76,160 paces = **63.5 h** of waiting |
+| **one 12h absence buys** | **33 of 43 routes — 34 of the 37 places** |
+| **the 7 redundant loop-closers** | **54,929 paces = 72% of the total price for 16% of the edges** |
+| price is non-local | `costOf` keys off GLOBAL `solid.length` — every frontier costs the same, so which one you open has zero economic content |
+
+`engine.ts` claims *"where you park decides what you can reach"* and *"an absence
+is a real gift and never the whole game."* **Both are false as shipped.** The
+comments describe a better game than the code.
+
+## The shape to build (NOT yet approved by the owner)
+
+```
+rate(g)      = 0.333 + 0.10 × settled.length     paces/s, hard ceiling 4.03 (37 places)
+hearthCost(m)= round(30 × 1.22 ^ m)              payback = cost / 0.10 seconds — printable on the node
+routeCost(e) = round(10 × TIER[region] × 1.18 ^ routesMadeInThatRegion)
+TIER         = { valley: 1, works: 3.5, under: 8, stones: 14 }
+forgeSecs(n) = min(90, 12 + 3n)                  kill the second exponent; it never changes a decision
+offlineBank  = min(hours × rate, 4 × cheapest unbought frontier)
+```
+
+**One extra rule makes it a game rather than two lists: you may only forge from a
+settled place.** Progress is then gated on income investment, "where you park"
+becomes true, and pushing into a far region means settling a chain of bases.
+
+Per-REGION pricing, not per-distance: the content is already partitioned that way
+(valley 0–5, works 100–109, under 200–210, stones 300–309), a cheap direction
+always exists, and the in-region exponent tops out at ~6× instead of ~400×.
+
+**Content already on disk and unused:** `src/slice/regions/*.ts` carries 13
+hand-authored `work` blocks with labels and durations. `places.ts:48` strips
+them.
+
+## The one they all flagged and nobody solved
+
+37 places × ~50 words is the entire reward surface, consumable in an evening.
+The current build "paces" it by charging 10.6 hours for the last edge, which is
+not pacing. **Target the map opening over ~5 hours, and let the hearth ladder and
+prestige carry the long tail.** Content volume, not curves.

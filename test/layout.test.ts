@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SPOTS, SPOT, VIEW, solve } from '../src/game/layout';
 import { PLACES, PLACE } from '../src/game/places';
-import { here, self, thoughts } from '../src/game/world';
+import { here, self } from '../src/game/world';
 import { initial } from '../src/game/engine';
 
 describe('the map layout', () => {
