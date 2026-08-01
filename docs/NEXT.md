@@ -46,18 +46,67 @@ file.**
 >
 > **Saves are breakable.** Say so in the commit when a change resets them.
 
-## 1. The owner plays it, and says
+> **★ THE OWNER PLAYED IT, 2026-08-01.** Everything below comes from that, in
+> their order. Quotes are theirs.
 
-**Not a build item, and it outranks the two below.** Six steps shipped without
-the owner touching any of them. `CLAUDE.md` rule 3 — build the smallest playable
-version, then LOOK at it, then decide — and the looking has been a screenshot in
-a headless browser every time.
+## 1. The graph: bring back the canvas and make it move
 
-Two things are wanted: is the loop fun for more than five minutes, and is the
-prose (37 places, 7 notions) prose the owner would defend. Prose is
-machine-drafted and **owner-edited**; none of it has been edited yet.
+> *"The graph, as far as I understand, it is now just statically rendered, and I
+> don't like that, to be honest. The connections seem slightly misaligned — like
+> it is aligned in principle, but a few pixels here and there are wrong. I feel
+> like we still need to use some existing library in order to render that. I
+> like nodes that jingle like in Obsidian, but maybe if we can stop them from
+> jingling it would be best. It looks bad. It is static. I can zoom in, but it
+> looks ugly."* — and again at the end: *"I wanna see a canvas there."*
 
-**Done when:** the owner has played it on the phone and said what is wrong.
+`d3-force` is **already a dependency and completely unused** — `layout.ts` is a
+hand-rolled relaxation. `CLAUDE.md`'s own stack says canvas 2D for the graph's
+lines, DOM + CSS for anything with text or a tap target, d3-force for layout.
+The current build follows none of that.
+
+**Done when:** the graph is drawn on a canvas, laid out by d3-force, settles
+instead of jiggling, can be dragged and zoomed without going blurry, and
+`npm run play` screenshots it.
+
+## 2. The text at the top
+
+> *"The text at the top of the screen is not good… there is a text at the top
+> again when I clicked again on the same button, and I'm not sure how to get rid
+> of that text. The text at the top is a problem for sure."*
+
+The `said` line in the header. It appears, it is not dismissable, and it is not
+clear what it belongs to. Said three separate times.
+
+## 3. Two bugs from the same session
+
+- **Here does not update on arrival.** *"I'm at the tally. And now the Here tab
+  didn't update."*
+- **"Somewhere you have not been" while standing there.** *"And here, again,
+  somewhere you have not been, even though I'm already there."*
+
+## 4. Self should not be a stat sheet
+
+> *"On the Self tab… zero of the three ways, one of thirty-seven places. I don't
+> wanna see these stats on the Self."*
+
+Shipped 2026-07-31 and rejected on sight. **What Self should hold instead is
+undecided and must not be invented** — ask.
+
+## 5. Paces: the word and the reason
+
+> *"I don't understand why I'm generating the paces while I'm standing still…
+> it is a bit strange that pace is the resource. I accumulate paces like a step.
+> Why am I accumulating steps?"*
+
+Two complaints, not one: the NAME is wrong for a thing you bank, and the game
+never says why standing still pays.
+
+## 6. Start over says nothing
+
+> *"I'm pressing start over button. Nothing really happens. Doesn't give a
+> feedback."*
+
+It wipes and resets, with no confirmation and no acknowledgement.
 
 ## 2. A second thing to do — and the first skill with it
 
