@@ -58,7 +58,7 @@ file.**
 >
 > **And the honest other half:** *"there is not much to do."*
 
-## 1. The graph: bring back the canvas and make it move
+## ~~1. The graph: bring back the canvas and make it move~~ ✅ 2026-08-01
 
 > *"The graph, as far as I understand, it is now just statically rendered, and I
 > don't like that, to be honest. The connections seem slightly misaligned — like
@@ -77,7 +77,7 @@ The current build follows none of that.
 instead of jiggling, can be dragged and zoomed without going blurry, and
 `npm run play` screenshots it.
 
-## 2. The text at the top
+## ~~2. The text at the top~~ ✅ 2026-08-01
 
 > *"The text at the top of the screen is not good… there is a text at the top
 > again when I clicked again on the same button, and I'm not sure how to get rid
@@ -109,6 +109,14 @@ Ways-made, places-found and distance-from-start are deleted.
 `docs/BRIEF.md` ask 10 wants them. Nothing drops one, so nothing is drawn for
 them. **Drops and the doors they open are a real item, unqueued** — it needs the
 owner's call on how a key is found.
+
+---
+
+# ★ THE OPEN QUEUE
+
+⚠️ **Numbered once, in one place.** This file had two 2s, two 3s, two 5s and two
+6s, and listed two shipped items as open — in the file whose whole job is to
+decide what gets worked on. Renumbered 2026-08-01.
 
 ## ★ FROM THE SECOND PLAY-TEST, 2026-08-01
 
@@ -194,7 +202,30 @@ The model already carries a `rel` on every edge and nothing draws it.
 model behind it: the player cannot tell what "discovered" means or in what order
 things happen. Likely dissolves into item 8 (discovery) if that is built first.
 
-### 14. ★ There is not much to do
+### 14. ★ There is not much to do — AND THE ARITHMETIC AGREES
+
+> *"Now we need to build some economy and some content, some stats for the
+> character, some inventory slots, some items, something else."*
+> *"I don't understand the currency or the economy that we have at the moment."*
+
+⚠️ **MEASURED, 2026-08-01, not guessed:**
+
+| | |
+|---|---|
+| income | **flat forever** — 1 pace / 3s, `SECS_PER_PACE` never changes |
+| price | `6 × 1.2^n` in edges made **anywhere** |
+| all 43 edges | **76,160 paces = 63.5 hours** of pure waiting |
+| the last edge alone | 12,699 paces = **10.6 hours** (offline cap is 12h) |
+| the last edge's build | 1,401 seconds ≈ 23 minutes |
+
+Flat income against exponential price is not an incremental curve, it is a
+queue, and time-to-next-purchase only ever gets worse.
+
+**And there is no decision in it.** `costOf` keys off `g.solid.length`, a
+GLOBAL count — so every unmade edge in the valley costs the same paces and the
+same seconds. "Which frontier do I open" is what `engine.ts` calls the whole
+game, and economically it is a coin flip; the order changes only which prose you
+read.
 
 > *"Now we need to build some economy and some content, some stats for the
 > character, some inventory slots, some items, something else."*
@@ -204,7 +235,7 @@ The biggest item and the least specified. **Not to be started without a plan the
 owner has seen.** Items/keys explicitly deferred: *"I don't wanna go as far as
 the key at the moment."*
 
-## 5. Paces: the word and the reason
+### 15. Paces: the word and the reason
 
 > *"I don't understand why I'm generating the paces while I'm standing still…
 > it is a bit strange that pace is the resource. I accumulate paces like a step.
@@ -213,14 +244,14 @@ the key at the moment."*
 Two complaints, not one: the NAME is wrong for a thing you bank, and the game
 never says why standing still pays.
 
-## 6. Start over says nothing
+### 16. Start over says nothing
 
 > *"I'm pressing start over button. Nothing really happens. Doesn't give a
 > feedback."*
 
 It wipes and resets, with no confirmation and no acknowledgement.
 
-## 2. A second thing to do — and the first skill with it
+### 17. A second thing to do — and the first skill with it
 
 The unblocker for `docs/BRIEF.md` ask 2. One verb means no choice, so no skill
 has anywhere to bite. Add a second activity — something you can do INSTEAD of
@@ -233,7 +264,7 @@ same item, gating something you can see from here (ask 4, thresholds).
 skill levels from one of them, and a threshold visibly shuts a door the level
 opens.
 
-## 3. Two dots, one fight
+### 18. Two dots, one fight
 
 `docs/COMBAT.md`, on the **Here** tab — that is where the owner said encounters
 land. An enemy dot beside yours; they poke each other on a timer; one goes out.
@@ -248,3 +279,16 @@ most likely to get fudged.
 **Done when:** `npm run play` screenshots a fight and its outcome, a lost fight
 leaves the game playable without a reload, and the shrinking dot is visible in
 the screenshot rather than asserted.
+
+### 19. ⚠️ EXPORT/IMPORT IS GONE, AND THAT IS A GUARDRAIL BREACH
+
+`CLAUDE.md` says plainly: saves are breakable, but **"export/import keeps working
+because that is how the owner moves a save between devices."**
+
+`exportSave` and `importSave` still exist in `src/shell/game.ts` — wired to the
+**retired** slice. The current game (`src/game/store.ts`, `src/ui/Game.svelte`)
+has neither, and the header offers only Start over. So the one save guarantee
+that was explicitly kept when the others were dropped is not honoured by the
+build that ships.
+
+Found by `the-redditor` on 2026-08-01, verified against the files. Cheap to fix.
