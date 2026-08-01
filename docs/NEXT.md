@@ -141,10 +141,17 @@ The arming step may be redundant. Tapping a neighbour could simply make the way.
 > *"I feel like the menu should be sticky. So I scroll back and the number of
 > paces goes to the top of the page, I cannot see it anymore. Need to fix that."*
 
-⚠️ Note the tension with R2.2 (nothing drawn over anything). A sticky header is
-a fixed element the board scrolls under. **R2.2 was about prose stacked over the
-board, not about a pinned readout** — but say so in the commit, and keep the
-probe's overlap check honest by scoping it.
+⚠️ **Not a conflict with R2.2** — that rule is about two surfaces competing for
+attention, and R2.3 (the tab bar is always reachable) actively wants pinning.
+
+★ **BUT THE PROBE GOES VACUOUS BY DEFAULT.** `scripts/play-tabs.mjs:56-61` tests
+only `position === 'fixed' || 'absolute'`. **`sticky` is in neither list, so the
+check passes without being touched** — the exact failure mode this repo keeps
+producing. The real defect a sticky header can cause is that the board scrolls
+under it and **dots beneath it become untappable**. So the check must become:
+(i) at scroll 0 the column is still strictly stacked; (ii) after scrolling to
+the bottom, no `.map .node` centre lies above `header.bottom`; (iii) the header
+stays opaque and ≤110px.
 
 ### 8. ★ The Journey should be DISCOVERED, not shown
 
@@ -154,8 +161,25 @@ probe's overlap check honest by scoping it.
 
 **This REVERSES a standing decision.** `world.ts` says: *"Every place is drawn
 from the first frame, because a map with holes in it is not a map."* That is now
-void — the owner wants the map to grow. On record because it was load-bearing
-and shaped both the Journey and the "unnamed dot" promise.
+void — the owner wants the map to grow.
+
+★ **THE BINDING CONSTRAINT, from `the-graph`:** `here()` draws every unreached
+neighbour. If the Journey draws only `seen`, Here is drawing nodes that are not
+in the world and R1.3 (a tab is a FILTER over one graph) breaks — the two tabs
+become two models. **So discovery must be `seen ∪ neighbours(seen)`**, not
+`seen`.
+
+And three things that will break quietly:
+- `Board.svelte:87-96` re-`fit()`s whenever the node set changes, so **every
+  discovery would reset the player's pan and zoom and wipe dragged nodes** —
+  silently, at exactly the wrong moment.
+- `JOURNEY.box` is the box of all 37 (`layout.ts:126-131`), so an early map
+  frames the whole empty valley: two dots in a corner.
+- **Keep the full 37-node solve and filter the VIEW.** Re-solving per discovered
+  subset voids `test/layout.test.ts:18-30` and makes dots jump on arrival.
+
+**Only the "drawn but grey" half of R5.3 is void.** "Reached but unnamed" still
+stands — see item 13.
 
 ### 9. ★ Journey and Here overlap too much — split their jobs
 
@@ -168,6 +192,12 @@ and shaped both the Journey and the "unnamed dot" promise.
 - **Journey** = the global map. Travel lives here.
 - **Here** = the room. Encounters, resources, activities. **No travel.**
 
+⚠️ **Here empties out until there is content.** Remove `go` and Here is your
+place, the `doing` node, and neighbour dots that do nothing. **Keep `forge` on
+Here** — making a way is an activity, not travel. `deedsFor` (`world.ts:265`) is
+tab-blind and `Game.svelte:65` calls it on every tab; the cheapest correct split
+is to pass the tab in and drop `kind: 'go'` on Here.
+
 ### 10. Repositioning must be OFF on the Journey
 
 > *"I noticed that I am able to reposition the graph nodes on the Journey tab. I
@@ -177,6 +207,16 @@ and shaped both the Journey and the "unnamed dot" promise.
 
 Here: undecided, they said "I'm not sure".
 
+⚠️ Do **not** null out `grabbed` (`Board.svelte:234`) — `onUp` uses it to detect
+a tap, so that would kill tapping on the Journey. Guard only the move branch.
+And the probe must assert **both** relative motion < 5px and absolute motion >
+20px, or a frozen board would pass — the mirror of the vacuity already caught
+once in that file.
+
+`docs/TABS.md` R5.1 is **already stale**: it forbids pan and zoom, both of which
+shipped deliberately. Rewrite to *"the layout is a constant; the camera is not;
+nodes do not move."*
+
 ### 11. Edge labels
 
 > *"On this Self menu it would make sense to have labels for edges or something
@@ -184,7 +224,13 @@ Here: undecided, they said "I'm not sure".
 > *(Thoughts)* *"Edges would be nice here because I don't understand the
 > connections between those."*
 
-The model already carries a `rel` on every edge and nothing draws it.
+The model already carries a `rel` on every edge and nothing draws it. Three
+traps, from `the-graph`: labels must be DOM with `pointer-events: none` or
+`nodeUnder`'s hit-testing breaks; `rel` ids (`carries`, `has`, `means`) are
+internal and need a rel→player-word map or item 5 is broken the day this lands;
+and **label ink must sit outside tolerance 6 of the dot colours** or `inked()`
+starts counting text as dots. Journey has 43 edges on a 390px phone — **Self and
+Thoughts only**, which is all that was asked for.
 
 ### 12. Two labels that read wrong
 
@@ -198,9 +244,23 @@ The model already carries a `rel` on every edge and nothing draws it.
 > have already discovered — or, like, I discover first and then I go there? Is
 > it something like this? It is not very intuitive."*
 
-⚠️ **NOT the layout bug this time** — that is fixed. This is the WORDING and the
-model behind it: the player cannot tell what "discovered" means or in what order
-things happen. Likely dissolves into item 8 (discovery) if that is built first.
+⚠️ **NOT the layout bug this time** — that is fixed. ★ **THE CAUSE IS NOW KNOWN
+AND IT IS A REAL DEFECT**, found by `the-graph` and verified:
+
+```
+   panel h2   →  "Somewhere you have not been"      ← name withheld
+   deed below →  "Make the way to The Weir"         ← name given away
+```
+
+`nameOf` (`places.ts:53`) returns the real name unconditionally; `waysFrom`
+(`engine.ts:229-241`) puts it in `Way.name`; `deedsFor` (`world.ts:276,283`)
+renders it. So the panel withholds the name in its title and states it in the
+button directly underneath. The player cannot tell what "discovered" means
+because the screen is telling them two different things at once.
+
+`test/here.test.ts:70-78` guards the VIEW and never the DEED — a one-sided
+guard, which is why this survived. **Discovery (8) does not license naming a
+place before you reach it; this is a bug today, not a feature to build on.**
 
 ### 14. ★ There is not much to do — AND THE ARITHMETIC AGREES
 
