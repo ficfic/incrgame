@@ -77,12 +77,15 @@ instead of jiggling, can be dragged and zoomed without going blurry, and
 The `said` line in the header. It appears, it is not dismissable, and it is not
 clear what it belongs to. Said three separate times.
 
-## 3. Two bugs from the same session
+## ~~3. Two bugs from the same session~~ ✅ 2026-08-01
 
-- **Here does not update on arrival.** *"I'm at the tally. And now the Here tab
-  didn't update."*
-- **"Somewhere you have not been" while standing there.** *"And here, again,
-  somewhere you have not been, even though I'm already there."*
+Both were **one layout bug**. `settle` seeded its ring from index and count
+alone, so every view with the same node count and the same star topology landed
+on identical coordinates — **The Cut and The Tally, the exact pair walked**,
+drew the same picture. "Here didn't update" was Here updating invisibly, and the
+dot tapped afterwards was a neighbour, so *"somewhere you have not been"* was
+telling the truth about the wrong dot. Places now start at their real position
+in the valley, and rings are jittered from the view's seed.
 
 ## 4. Self should not be a stat sheet
 

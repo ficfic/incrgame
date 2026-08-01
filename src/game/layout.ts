@@ -32,17 +32,16 @@ export interface Placed { id: string; x: number; y: number }
 export interface Box { x: number; y: number; w: number; h: number }
 export interface Solved { spots: Placed[]; box: Box }
 
-/** A seeded generator, handed to d3 via `randomSource`, so that d3's own
- *  `Math.random` is never reached.
+/** A seeded generator. It does two jobs, and it is LOAD-BEARING for both.
  *
- *  ⚠️ HONESTLY: THIS IS INSURANCE, NOT LOAD-BEARING, and that was established by
- *  removing it and watching the determinism test STAY GREEN. d3 only reaches for
- *  randomness to jiggle *coincident* nodes apart, and the seeded ring below
- *  never places two nodes on the same point — so today the path is unreachable.
- *  It stays because it costs four lines and the day some view does produce a
- *  coincidence is the day the layout differs on one device in ten. The check
- *  that has teeth is the second-load test, proven red by seeding the ring from
- *  `Math.random` instead. The constants are the standard 32-bit LCG. */
+ *  It is handed to d3 via `randomSource` so d3's own `Math.random` is never
+ *  reached — that part is insurance, since d3 only randomises to jiggle
+ *  coincident nodes apart. And it jitters the starting ring in `settle`, which
+ *  is what stops two views of the same size drawing the same picture.
+ *
+ *  ⚠️ THE SEED IS THE VIEW. Same tab, same picture every time you open it;
+ *  different tab, different picture. The constants are the standard 32-bit
+ *  LCG. */
 function seeded(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
@@ -58,20 +57,29 @@ const TICKS = Math.ceil(Math.log(0.001) / Math.log(1 - 0.0228));
 
 interface Node extends SimulationNodeDatum { id: string }
 
-/** Run a graph to rest. Same input, same answer, always. */
+/** Run a graph to rest. Same input, same answer, always.
+ *
+ *  ⚠️ `hint` IS WHY TWO ROOMS NO LONGER LOOK THE SAME. Read the note on
+ *  `solve` — a plain ring seeded from index and count gave every view with the
+ *  same node count a pixel-identical picture. */
 function settle(ids: string[], links: Array<{ source: string; target: string }>,
-  seed: number): Map<string, { x: number; y: number }> {
-  // Seeded initial ring rather than d3's phyllotaxis: a shape that already
-  // roughly resembles the answer means fewer ticks spent untangling, and an
-  // untangled start is most of why the picture comes out readable.
-  const nodes: Node[] = ids.map((id, i) => ({
-    id,
-    x: Math.cos((i / ids.length) * Math.PI * 2) * (30 + ids.length * 2.2),
-    y: Math.sin((i / ids.length) * Math.PI * 2) * (30 + ids.length * 2.2),
-  }));
+  seed: number, hint?: Map<string, { x: number; y: number }>): Map<string, { x: number; y: number }> {
+  const rnd = seeded(seed);
+  // A start that already resembles the answer means fewer ticks spent
+  // untangling, and an untangled start is most of why the picture comes out
+  // readable. Where the valley has a real opinion about where a place lies,
+  // use it; otherwise a ring, JITTERED FROM THE SEED so that two views of the
+  // same size do not begin — and therefore end — in the same arrangement.
+  const nodes: Node[] = ids.map((id, i) => {
+    const known = hint?.get(id);
+    if (known) return { id, x: known.x, y: known.y };
+    const a = (i / ids.length) * Math.PI * 2 + (rnd() - 0.5) * (Math.PI * 2 / ids.length);
+    const r = (30 + ids.length * 2.2) * (0.8 + rnd() * 0.45);
+    return { id, x: Math.cos(a) * r, y: Math.sin(a) * r };
+  });
 
   const sim = forceSimulation(nodes)
-    .randomSource(seeded(seed))
+    .randomSource(rnd)
     .force('link', forceLink<Node, { source: string; target: string }>(links)
       .id((d) => d.id).distance(78).strength(0.7))
     .force('charge', forceManyBody().strength(-320).distanceMax(420))
@@ -162,7 +170,16 @@ export function solve(view: View): Solved {
   let seed = 0x9e37;
   for (let i = 0; i < key.length; i++) seed = (Math.imul(seed, 31) + key.charCodeAt(i)) >>> 0;
 
-  const pos = settle(ids, links, seed);
+  // ★ PLACES START WHERE THEY ACTUALLY ARE IN THE VALLEY. Two rooms with the
+  // same number of ways now differ because the valley differs, which is both
+  // truthful and free: `SPOT` is already solved.
+  const hint = new Map<string, { x: number; y: number }>();
+  for (const id of ids) {
+    if (!id.startsWith('place:')) continue;
+    const at = SPOT.get(Number(id.slice('place:'.length)));
+    if (at) hint.set(id, { x: at.x, y: at.y });
+  }
+  const pos = settle(ids, links, seed, hint.size >= 2 ? hint : undefined);
   const spots = ids.map((id) => ({ id, ...pos.get(id)! }));
   const out = { spots, box: boxOf(spots) };
   cache.set(key, out);

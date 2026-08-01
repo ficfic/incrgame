@@ -93,3 +93,69 @@ describe('the map layout', () => {
     expect(near / nearN).toBeLessThan(far / farN);
   });
 });
+
+// ★ TWO ROOMS MUST NOT LOOK LIKE THE SAME ROOM.
+//
+// The owner, playing 2026-08-01: *"I'm at the Tally. And now the Here tab
+// didn't update."* It had updated — the labels were right and the engine was
+// right. THE PICTURE WAS IDENTICAL. `settle` seeded its ring from index and
+// count alone, so every view with the same node count and the same star
+// topology landed on the same coordinates to the decimal, and walking from The
+// Cut to The Tally (two ways each) redrew a board that had not visibly moved.
+//
+// Reported as "the tab didn't update", which is what a layout bug looks like
+// from the outside, and why this is a LAYOUT test and not a view test.
+describe('★ a room looks like itself', () => {
+  const shot = (id: number): string =>
+    solve(here({ ...initial(), at: id, seen: [id] }))
+      .spots.map((s) => `${s.x.toFixed(1)},${s.y.toFixed(1)}`).join(' ');
+
+  it('draws two places with the same number of ways differently', () => {
+    const byWays = new Map<number, number[]>();
+    for (const p of PLACES) {
+      if (!byWays.has(p.ways.length)) byWays.set(p.ways.length, []);
+      byWays.get(p.ways.length)!.push(p.id);
+    }
+    let pairs = 0;
+    for (const ids of byWays.values()) {
+      for (let i = 0; i < ids.length; i++) {
+        for (let j = i + 1; j < ids.length; j++) {
+          pairs++;
+          expect(shot(ids[i]!), `${PLACE.get(ids[i]!)!.name} vs ${PLACE.get(ids[j]!)!.name}`)
+            .not.toBe(shot(ids[j]!));
+        }
+      }
+    }
+    expect(pairs, 'no two places share a way-count — the test proves nothing')
+      .toBeGreaterThan(20);
+  });
+
+  it('★ names the pair the owner actually walked', () => {
+    // The Cut → The Tally. Both have two ways. Keep it by name so a future
+    // change that reintroduces the bug fails with the words from the report.
+    const cut = PLACES.find((p) => p.name === 'The Cut')!;
+    const tally = PLACES.find((p) => p.name === 'The Tally')!;
+    expect(cut.ways.length).toBe(tally.ways.length);
+    expect(shot(cut.id)).not.toBe(shot(tally.id));
+  });
+
+  it('★ and the same is true of Self, which has only ONE place in it', () => {
+    // Self is `you` + where you stand + four facts, so the place-hints path
+    // cannot help it — one hint is not a shape. The seeded JITTER is what keeps
+    // Self at The Cut from being the same drawing as Self at The Tally, and
+    // this is the test that makes that jitter load-bearing rather than decorative.
+    const shotSelf = (id: number): string =>
+      solve(self({ ...initial(), at: id, seen: [id] }))
+        .spots.map((s) => `${s.x.toFixed(1)},${s.y.toFixed(1)}`).join(' ');
+    const cut = PLACES.find((p) => p.name === 'The Cut')!;
+    const tally = PLACES.find((p) => p.name === 'The Tally')!;
+    expect(shotSelf(cut.id)).not.toBe(shotSelf(tally.id));
+    expect(shotSelf(cut.id)).toBe(shotSelf(cut.id));
+  });
+
+  it('but the same room twice is the same picture', () => {
+    // The other half: a view must not shuffle itself between visits.
+    const cut = PLACES.find((p) => p.name === 'The Cut')!;
+    expect(shot(cut.id)).toBe(shot(cut.id));
+  });
+});

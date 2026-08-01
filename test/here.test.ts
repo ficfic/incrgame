@@ -184,3 +184,42 @@ describe('★ what you are doing, said out loud', () => {
 // sabotage was applied to `src/game/world.ts`, `npx vitest run test/here.test.ts`
 // was run, the output copied from the terminal, and the source put back.
 // The output block lives in the commit message for this item.
+
+// ★ WHERE YOU STAND IS NEVER "SOMEWHERE YOU HAVE NOT BEEN".
+//
+// The owner, 2026-08-01: *"And here, again, somewhere you have not been, even
+// though I'm already there. But if I click on it, there are two ways."*
+//
+// ⚠️ THE CAUSE WAS THE LAYOUT, NOT THE VIEW — they had walked to a room that
+// was drawn identically to the one before it (see `test/layout.test.ts`), so
+// the dot they tapped was a neighbour, not the centre, and the panel was
+// telling the truth. That is fixed there. This is the guard that the OTHER
+// reading of the report is not also true, now and in future: the place you are
+// standing in must carry its name on every tab that draws it.
+describe('★ the place you are standing in always has its name', () => {
+  it('on Here and on the Journey, from anywhere in the valley', () => {
+    for (const p of PLACES) {
+      const g: Game = { ...initial(), at: p.id, seen: [p.id] };
+      const centre = here(g).nodes.find((n) => n.id === `place:${p.id}`);
+      expect(centre, `Here has no node for ${p.name}`).toBeDefined();
+      expect(centre!.name, `Here draws ${p.name} unnamed`).toBe(p.name);
+      const onMap = journey(g).nodes.find((n) => n.id === `place:${p.id}`);
+      expect(onMap!.name, `the Journey draws ${p.name} unnamed`).toBe(p.name);
+    }
+  });
+
+  it('and arriving anywhere records it as seen, so the name cannot lag', () => {
+    // The engine half of the same promise: `at` is always in `seen`.
+    let g = initial();
+    expect(g.seen).toContain(g.at);
+    for (let i = 0; i < 5; i++) {
+      const to = PLACE.get(g.at)!.ways.find((t) => !g.seen.includes(t));
+      if (to === undefined) break;
+      for (let n = 0; n < 900 && unforgeable(g, to); n++) g = apply(g, { type: 'tick', secs: 30 });
+      g = apply(g, { type: 'forge', to });
+      g = apply(g, { type: 'tick', secs: forgeSecs(g) + 1 });
+      g = apply(g, { type: 'go', to });
+      expect(g.seen, `arrived at ${PLACE.get(g.at)!.name} without recording it`).toContain(g.at);
+    }
+  });
+});
