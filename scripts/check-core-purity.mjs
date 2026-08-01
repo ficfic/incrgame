@@ -33,7 +33,26 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const DIR = 'src/core';
+// ⚠️ `src/game` IS THE LIVE ENGINE AND WAS NOT GUARDED AT ALL. This script has
+// been protecting `src/core` — the RETIRED slice — while the engine the game
+// actually runs on had nothing stopping it from reaching for the DOM or
+// importing the UI. Everything that makes the engine testable in a terminal
+// (543 headless tests, a deterministic layout, a reducer with no clock) rests
+// on a property nothing was checking.
+//
+// ★ ONE FILE IS EXEMPT, NARROWLY, AND THE EXEMPTION IS WRITTEN DOWN.
+// `src/game/store.ts` IS the save boundary: talking to `src/shell/storage` and
+// stamping `Date.now()` on a save are its entire job, and there is nowhere else
+// for either to live. It is exempt from those two rules and NOTHING else — it
+// still may not touch `window`, `document`, `fetch` or `Math.random`.
+//
+// Written as a list of reasons rather than a blanket skip, so the day someone
+// reaches for `window` in there it still goes red. A blanket exemption is how a
+// guard quietly stops guarding.
+const DIRS = ['src/core', 'src/game'];
+const EXEMPT = {
+  'src/game/store.ts': ['reads the clock', 'imports'],
+};
 
 /** Blank out comments and — when `strings` is true — string/template literals,
  *  preserving newlines so reported line numbers stay true. A tiny scanner
@@ -84,29 +103,35 @@ const FORBIDDEN_LAYER = /(?:^|\/)(ui|render|shell)\//;
 
 const failures = [];
 let scanned = 0;
-for (const f of readdirSync(DIR).filter((n) => n.endsWith('.ts'))) {
-  const src = readFileSync(join(DIR, f), 'utf8');
-  const code = stripNonCode(src, true).split('\n');
-  const paths = stripNonCode(src, false).split('\n');
-  scanned++;
-  const flag = (n, why, line) => failures.push(
-    `  ${DIR}/${f}:${n + 1} ${why}\n      ${line.trim().slice(0, 90)}`,
-  );
-  code.forEach((line, n) => {
-    for (const [re, why] of CODE_RULES) if (re.test(line)) flag(n, why, line);
-  });
-  paths.forEach((line, n) => {
-    for (const m of line.matchAll(SPECIFIER)) {
-      const spec = m[1];
-      if (FORBIDDEN_LAYER.test(spec)) flag(n, `imports \`${spec}\` — ui/render/shell are off limits`, line);
-    }
-  });
+for (const DIR of DIRS) {
+  for (const f of readdirSync(DIR).filter((n) => n.endsWith('.ts'))) {
+    const rel = `${DIR}/${f}`;
+    const src = readFileSync(join(DIR, f), 'utf8');
+    const code = stripNonCode(src, true).split('\n');
+    const paths = stripNonCode(src, false).split('\n');
+    scanned++;
+    const flag = (n, why, line) => failures.push(
+      `  ${rel}:${n + 1} ${why}\n      ${line.trim().slice(0, 90)}`,
+    );
+    const allowed = EXEMPT[rel] ?? [];
+    const ok = (why) => allowed.some((a) => why.startsWith(a));
+    code.forEach((line, n) => {
+      for (const [re, why] of CODE_RULES) if (re.test(line) && !ok(why)) flag(n, why, line);
+    });
+    paths.forEach((line, n) => {
+      for (const m of line.matchAll(SPECIFIER)) {
+        const spec = m[1];
+        const why = `imports \`${spec}\` — ui/render/shell are off limits`;
+        if (FORBIDDEN_LAYER.test(spec) && !ok(why)) flag(n, why, line);
+      }
+    });
+  }
 }
 
 if (failures.length) {
-  console.error(`\n✗ src/core is not pure — the engine must stay headless and deterministic:\n`);
+  console.error(`\n✗ the engine is not pure — it must stay headless and deterministic:\n`);
   console.error(failures.join('\n'));
-  console.error('\nSee ARCHITECTURE item 1. The shell looks facts up and passes them in.\n');
+  console.error('\nThe shell looks facts up and passes them in.\n');
   process.exit(1);
 }
-console.log(`✓ src/core is pure across ${scanned} files (comments and strings excluded)`);
+console.log(`✓ ${DIRS.join(' and ')} are pure across ${scanned} files (comments and strings excluded)`);

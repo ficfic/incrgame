@@ -560,3 +560,36 @@ surgery on the draw loop. `baked` shapes cache themselves into a bitmap.
 And one regression introduced and caught in the same hour: collapsing the look
 table lost the lit/unlit distinction, so every notion on Thoughts drew the same
 whether thought or not. The probe read **0px thought**.
+
+
+## ~~22. Make the engine safe to add state to~~ ✅ 2026-08-01
+
+> *"how can we make our code good enough for easily adding shit"*
+
+Two properties, not opinions:
+
+**A save from before a feature existed still loads.** `load()` merges over
+`initial()`, so a field added tomorrow arrives at its default instead of
+`undefined` — and `undefined` in the first sum that touches it turns a run to
+NaN in silence. Now exercised through `load()` in `test/store.test.ts`.
+
+**The engine cannot reach for the browser.** `scripts/check-core-purity.mjs` had
+been guarding `src/core` — the RETIRED slice — while `src/game`, the engine the
+game actually runs on, had nothing stopping it importing the UI or touching the
+DOM. Everything that makes it testable in a terminal rested on a property
+nothing checked. Now covered, with one narrow written-down exemption
+(`store.ts` may stamp a save and talk to storage; it still may not touch
+`document`).
+
+`npm run guard` runs typecheck, purity and 569 tests in one command.
+
+### What is still expensive, and the honest headline
+
+A place is four fixed fields. Every feature worth adding — a pit, an encounter,
+a drop, a resource — wants to hang off a place and there is nowhere to put it.
+**That abstraction should be built WITH the first such feature, not before it**;
+building it now with zero users is how this project got eleven systems.
+
+And the headline: **the code is no longer the bottleneck. The decisions are.**
+Every remaining item needs an answer from the owner about what the game IS, not
+a refactor.

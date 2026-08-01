@@ -272,3 +272,9 @@ describe('the player is never stuck', () => {
     expect(wait!.secs).toBe(COST_BASE * SECS_PER_PACE);
   });
 });
+
+// ⚠️ THE "OLD SAVE STILL LOADS" TESTS MOVED TO `test/store.test.ts`. The first
+// version of them lived here and asserted `{ ...initial(), ...old }` inline —
+// which is the PATTERN, not the CODE. Deleting the merge from `load()` left all
+// 562 tests green. A guard that restates the implementation instead of calling
+// it is not a guard.
