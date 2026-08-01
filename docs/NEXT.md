@@ -118,6 +118,64 @@ owner's call on how a key is found.
 6s, and listed two shipped items as open — in the file whose whole job is to
 decide what gets worked on. Renumbered 2026-08-01.
 
+## ★★ 0. SETTLE, WORK, ONE SKILL — AND INCOME IS FLOW
+
+**The top item. Chosen by the owner, 2026-08-01.** It is `docs/PLAN.md` build
+order step 1 with one change forced by `docs/DIRECTIONS.md`: the income number
+is computed from the **adjacency**, not from a count.
+
+**Start a fresh session for this.** It is the biggest item in the queue and it
+must not be built on the back of a session that has already done something else.
+
+### Why the flow part is not optional
+
+Verified, and it is the finding two independent reviews reached:
+
+> Shuffle which of the 37 places connects to which, keep the counts identical,
+> and **not one number in `engine.ts` changes.**
+
+`costOf` and `forgeSecs` key off `g.solid.length`. `PLAN.md`'s first draft of
+`rate()` keyed off `settled.length`, and its `routeCost` off a per-region count
+— one count replaced by four counts. Nothing in the economy reads the graph. So
+the north star is satisfied by the renderer and violated by the engine, and no
+amount of content fixes that.
+
+### The four pieces, and they interlock or none of them work
+
+1. **Settle a place.** `settled: number[]`, one action, a cost that climbs.
+2. **Income is max-flow** from the settled set to `g.at`, over `solid` edges
+   with a capacity each. Not a sum. A settled place behind a thin edge pays
+   almost nothing; a loop-closer pays because it routes around a bottleneck.
+3. **Work.** Turn on the 34 authored `work` blocks that `places.ts:48` strips.
+   Working pays XP; standing still pays paces. **One clock, two things it can
+   pay into** — that opportunity cost is the whole reason a skill can exist.
+4. **One skill**, from the five the content already names. Start with
+   **wayfaring** (11 blocks, the most authored) and let it cut forge seconds.
+
+⚠️ **Do not ship 1, 3 and 4 without 2.** That is the version that passes its own
+tests and leaves the graph decorative — the eleven-systems failure with a nicer
+map. And do not ship 2 alone: an income model with one verb has nothing to
+choose between.
+
+### Done when
+
+- `npm run play` **screenshots a choice between resting and working**, and the
+  screenshot is looked at, not asserted.
+- The skill levels from working, and the level visibly changes a number.
+- **A settled place's contribution changes when the topology changes** — the
+  probe proves it by making a route and reading the rate move by more than the
+  count model predicts. If a count model would give the same answer, the check
+  is vacuous and the item is not done.
+- Edge width shows flow on the board, so the bottleneck is visible rather than
+  spreadsheet pain.
+- **Rule 4: break each of the above on purpose and watch it go red.**
+- Saves reset. Say so in the commit.
+
+### Deliberately NOT in this item
+
+Thresholds, drops, keys, encounters, prestige, the other four skills. They are
+`docs/PLAN.md` steps 2–5 and each is cheap once this exists.
+
 ## ★ FROM THE SECOND PLAY-TEST, 2026-08-01
 
 ### 5. Vocabulary: node and edge, not dot and connection
