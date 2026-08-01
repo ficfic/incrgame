@@ -25,3 +25,7 @@ Thumbs.db
 
 # Ontology source cache (re-clonable; see scripts/build-ontology.mjs)
 .ontology-src/
+
+# The private-names list the commit hook reads. Untracked ON PURPOSE — a
+# tracked list would put the names it protects back into this public repo.
+.claude/private-names

@@ -84,6 +84,38 @@ if printf '%s' "$norm" | grep -Eq 'git +commit' ; then
         block "a possible SECRET matching /$p/ is staged. Never commit secrets to a public repo. Unstage it and move it to a GitHub Actions secret or an untracked, gitignored env file."
       fi
     done
+
+    # ★ NAMES THE OWNER DOES NOT WANT IN A PUBLIC REPO.
+    #
+    # The owner asked whether their play-test notes should live in a private
+    # repo. The answer was no — two repos cost more than the risk is worth —
+    # but only if the convention holds: THEIR QUOTES STAY, THEIR NAME NEVER
+    # APPEARS. Their words about their own game are the spec and belong in the
+    # open; who they are does not.
+    #
+    # ⚠️ THE LIST IS UNTRACKED, AND THAT IS THE WHOLE TRICK. A hook that
+    # hard-coded the name would put the name back in the public repo — the
+    # guard would be the leak. So the names live in `.claude/private-names`,
+    # which is gitignored, one per line. No file, no check, no harm; the
+    # convention is written down in `.claude/agents/the-owner.md` either way.
+    #
+    # ⚠️ ADDED LINES ONLY, AND THE FIRST VERSION WAS NOT. Scanning the whole
+    # staged diff blocked the very change that REMOVES a name, because a
+    # deletion line still contains the text it deletes. Caught within a minute:
+    # the change stripping the name from two files was refused by the guard
+    # written to strip it. What matters is what ENTERS the repo.
+    added="$(printf '%s' "$staged" | grep -E '^\+' || true)"
+    names="$CLAUDE_PROJECT_DIR/.claude/private-names"
+    [ -f "$names" ] || names=".claude/private-names"
+    if [ -f "$names" ]; then
+      while IFS= read -r n; do
+        # Skip blanks and comments.
+        case "$n" in ''|'#'*) continue ;; esac
+        if printf '%s' "$added" | grep -Fqi -- "$n"; then
+          block "a name from .claude/private-names is staged, and THIS REPO IS PUBLIC. The owner's quotes belong in the repo; their name does not. Write \"the owner\" instead."
+        fi
+      done < "$names"
+    fi
   fi
 fi
 

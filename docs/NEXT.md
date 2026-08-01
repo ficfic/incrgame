@@ -357,7 +357,7 @@ Found by `the-redditor` on 2026-08-01, verified against the files. Cheap to fix.
 
 # ★ THE FOUR-AGENT REVIEW, 2026-08-01 — AND WHAT IT CONVERGED ON
 
-Run at the owner's request: `the-owner` (Roman, simulated), `chad-liquidity`
+Run at the owner's request: `the-owner` (simulated), `chad-liquidity`
 (economy), `the-redditor` (genre), `the-graph` (consistency). **Every number
 below was re-verified against the code before being written down.**
 
