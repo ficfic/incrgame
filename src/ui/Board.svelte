@@ -26,6 +26,7 @@
   // dots a thumb cannot hit and Playwright cannot click. That shipped once and
   // it is why `layout.ts` ticks to completion and stops.
   import type { Box } from '../game/layout';
+  import { GROUND_INK, RIVER_INK, type Terrain } from '../game/terrain';
 
   export interface Dot {
     id: string; name: string; kind: string; wx: number; wy: number;
@@ -34,9 +35,15 @@
   }
   export interface Line { a: string; b: string; rel: string; fill: number }
 
-  let { dots, lines, box, label, onTap }: {
+  let { dots, lines, box, label, onTap, terrain = null, drag = true }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
     onTap: (id: string) => void;
+    /** Scenery, on the tabs that have any. Null everywhere else. */
+    terrain?: Terrain | null;
+    /** ⚠️ OFF ON THE JOURNEY. The owner: "I am able to reposition the graph
+     *  nodes on the Journey tab. I don't think it makes sense because this is
+     *  kind of a map, right?" Tapping still works — see `onUp`. */
+    drag?: boolean;
   } = $props();
 
   let host = $state<HTMLDivElement>();
@@ -105,6 +112,94 @@
     return () => ro.disconnect();
   });
 
+  // ---- the baked scenery --------------------------------------------------
+  //
+  // ★ THE WHOLE REASON THE MAP CAN BE BUSY AND STILL CHEAP. The scatter never
+  // changes, so it is drawn ONCE into an offscreen bitmap in WORLD coordinates
+  // and blitted with the camera transform. Redrawing ~500 marks at 60fps while
+  // a thumb pans would be ~30,000 path operations a second; one `drawImage` is
+  // effectively free, and the bitmap survives every pan and zoom untouched.
+  //
+  // ⚠️ NO `shadowBlur` ANYWHERE. It is the one genuinely expensive canvas call
+  // and it is the usual way a "just a bit of atmosphere" change starts dropping
+  // frames on a phone.
+  const BAKE = 2;   // bitmap pixels per world unit
+  let baked: HTMLCanvasElement | null = null;
+  let bakedFor = '';
+
+  function bake(t: Terrain): HTMLCanvasElement | null {
+    const key = `${t.box.x},${t.box.y},${t.box.w},${t.box.h},${t.marks.length}`;
+    if (baked && bakedFor === key) return baked;
+    if (typeof document === 'undefined') return null;
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(t.box.w * BAKE));
+    cv.height = Math.max(1, Math.round(t.box.h * BAKE));
+    const c = cv.getContext('2d');
+    if (!c) return null;
+    c.setTransform(BAKE, 0, 0, BAKE, -t.box.x * BAKE, -t.box.y * BAKE);
+    for (const m of t.marks) {
+      c.fillStyle = GROUND_INK[m.g];
+      c.strokeStyle = GROUND_INK[m.g];
+      c.lineWidth = 1.1;
+      if (m.g === 'wood') {
+        // A tree: a squat triangle. Three lines, no fill rule, no curve.
+        c.beginPath();
+        c.moveTo(m.x, m.y - m.r * 1.6);
+        c.lineTo(m.x + m.r, m.y + m.r * 0.8);
+        c.lineTo(m.x - m.r, m.y + m.r * 0.8);
+        c.closePath();
+        c.fill();
+      } else if (m.g === 'moor') {
+        // Open ground: a low tuft, two strokes.
+        c.beginPath();
+        c.moveTo(m.x - m.r, m.y);
+        c.quadraticCurveTo(m.x, m.y - m.r * 1.4, m.x + m.r, m.y);
+        c.stroke();
+      } else if (m.g === 'crag' || m.g === 'stone') {
+        // Broken rock: a chevron, angled by the mark's own seed.
+        c.save();
+        c.translate(m.x, m.y);
+        c.rotate(m.a);
+        c.beginPath();
+        c.moveTo(-m.r, m.r * 0.6);
+        c.lineTo(0, -m.r * 0.9);
+        c.lineTo(m.r, m.r * 0.6);
+        c.stroke();
+        c.restore();
+      } else {
+        // Under: hatching, because it is below the ground rather than on it.
+        c.beginPath();
+        c.moveTo(m.x - m.r, m.y - m.r);
+        c.lineTo(m.x + m.r, m.y + m.r);
+        c.stroke();
+      }
+    }
+    baked = cv;
+    bakedFor = key;
+    return cv;
+  }
+
+  /** A smooth line through every point, Catmull-Rom converted to beziers.
+   *  ⚠️ RIVERS ARE NOT STRAIGHT — the owner's words. Roads are, which is what
+   *  keeps the two readable apart at a glance. */
+  function meander(c: CanvasRenderingContext2D, pts: ReadonlyArray<{ x: number; y: number }>): void {
+    if (pts.length < 2) return;
+    c.beginPath();
+    c.moveTo(sx(pts[0]!.x), sy(pts[0]!.y));
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] ?? pts[i]!;
+      const p1 = pts[i]!;
+      const p2 = pts[i + 1]!;
+      const p3 = pts[i + 2] ?? p2;
+      c.bezierCurveTo(
+        sx(p1.x + (p2.x - p0.x) / 6), sy(p1.y + (p2.y - p0.y) / 6),
+        sx(p2.x - (p3.x - p1.x) / 6), sy(p2.y - (p3.y - p1.y) / 6),
+        sx(p2.x), sy(p2.y),
+      );
+    }
+    c.stroke();
+  }
+
   // ---- the drawing --------------------------------------------------------
   const EDGE: Record<string, { c: string; w: number }> = {
     route: { c: '#4d6b80', w: 2 },
@@ -146,6 +241,26 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
     ctx.lineCap = 'round';
+
+    if (terrain) {
+      const bmp = bake(terrain);
+      if (bmp) {
+        const t = terrain.box;
+        ctx.globalAlpha = 0.85;
+        ctx.drawImage(bmp, sx(t.x), sy(t.y), t.w * k, t.h * k);
+        ctx.globalAlpha = 1;
+      }
+      // The river, live and therefore crisp at any zoom. Two strokes: a wide
+      // soft bed under a brighter thread, which is most of what makes water
+      // read as water rather than as another road.
+      ctx.strokeStyle = RIVER_INK;
+      ctx.lineWidth = Math.max(2, 7 * k);
+      ctx.globalAlpha = 0.5;
+      meander(ctx, terrain.river);
+      ctx.globalAlpha = 1;
+      ctx.lineWidth = Math.max(1, 2.5 * k);
+      meander(ctx, terrain.river);
+    }
 
     for (const l of lines) {
       const a = posOf.get(l.a), b = posOf.get(l.b);
@@ -258,9 +373,12 @@
       pinch = now;
       return;
     }
-    if (grabbed) {
+    if (grabbed && drag) {
       // Drag a dot. The owner liked that Obsidian's nodes move when you touch
       // them; this is that, without anything moving when you do not.
+      // ⚠️ `grabbed` IS NOT CLEARED WHEN `drag` IS OFF. `onUp` reads it to tell
+      // a tap from a pan, so clearing it here would silently kill tapping on
+      // the Journey — the one tab the owner asked to make undraggable.
       const p = posOf.get(grabbed);
       if (p) {
         const next = new Map(moved);

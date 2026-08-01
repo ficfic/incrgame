@@ -198,7 +198,7 @@ Here** — making a way is an activity, not travel. `deedsFor` (`world.ts:265`) 
 tab-blind and `Game.svelte:65` calls it on every tab; the cheapest correct split
 is to pass the tab in and drop `kind: 'go'` on Here.
 
-### 10. Repositioning must be OFF on the Journey
+### ~~10. Repositioning must be OFF on the Journey~~ ✅ 2026-08-01
 
 > *"I noticed that I am able to reposition the graph nodes on the Journey tab. I
 > don't think it makes sense because this is kind of a map, right? So the
@@ -422,3 +422,37 @@ them.
 The current build "paces" it by charging 10.6 hours for the last edge, which is
 not pacing. **Target the map opening over ~5 hours, and let the hearth ladder and
 prestige carry the long tail.** Content volume, not curves.
+
+---
+
+## ~~20. A living map~~ ✅ 2026-08-01
+
+Owner: *"can you come up with some typical fantasy objects, like lakes, towns,
+villages, quarries, mines, forests, etc. and try to make our map alive
+(cheaply)"* — then, when I answered the wrong question: *"i meant cheap
+computationally."*
+
+Shipped: a **river** meandering through the places whose own prose is about
+water (The Cut, The Weir, the Headrace, the Wheelhouse, the Wheel Pit, the
+Tailrace, and down to the Sump Fork and the Ledger Pool — the water was in the
+content before it was on the map), and **ground** under every region: trees in
+the valley, cut stone in the works, hatching under, tufts on the moor.
+
+**The cheapness is the design, not an afterthought:**
+
+| layer | drawn | cost per frame |
+|---|---|---|
+| the scatter (~530 marks) | once, into an offscreen bitmap in world coordinates | one `drawImage` |
+| the river (8 control points) | live, so it stays crisp at any zoom | ~8 bezier segments |
+
+No `shadowBlur` anywhere — the one genuinely expensive canvas call.
+
+⚠️ **The palette is now a constrained resource.** The probe checks the board by
+counting pixels of a known colour, so a scenery ink within tolerance of a dot or
+edge ink would be silently counted as dots. `test/terrain.test.ts` holds every
+ground ink >26 away from every ink the probe counts — and it caught a real
+collision on its first run (`wood` was 25 from `unmade`).
+
+**Still to come, and this is the point of it:** the ground should BE the price —
+a road through woods costs more than one over open moor, a river needs a ford or
+a bridge. That is item 14's economy, delivered by something you can see.

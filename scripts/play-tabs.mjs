@@ -32,7 +32,10 @@ const inked = (hex, tol = 26) => page.evaluate(([hex, tol]) => {
   return n;
 }, [hex, tol]);
 const INK = { route: '#4d6b80', unmade: '#22333f', fill: '#8ff0cf', ring: '#eafff7',
-  dim: '#2b3a49', open: '#78e8c0' };
+  dim: '#2b3a49', open: '#78e8c0',
+  // Scenery. `test/terrain.test.ts` holds these more than 26 apart from every
+  // ink above, so counting one can never be counting the other.
+  river: '#24607f', wood: '#123f1c', moor: '#3d3520', under: '#523a60' };
 
 const tabs = await page.$$eval('nav button', (bs) => bs.map((x) => x.textContent.trim()));
 console.log('TABS:', tabs.join(' · '));
@@ -127,30 +130,51 @@ const at2 = await where();
 console.log('  still   :', at1 === at2 ? 'settled — nothing moved on its own' : '⚠️ the dots are still drifting');
 if (at1 !== at2) misses.push('the board is still simulating — dots move with no input');
 
-// 3. AND IT IS NOT FIXED: a dot can be dragged, which is the part of Obsidian
-//    the owner liked. Drag well past the 7px tap slop.
-// ⚠️ MEASURED AGAINST A SECOND DOT, and the first version was not. With
-// dragging disabled the gesture falls through to a PAN, which slides the whole
-// board and moves the dragged dot's bounding box by exactly as much — so
-// "did it move" was answered yes either way. Proven vacuous by sabotage. Only
-// motion RELATIVE to another dot distinguishes dragging one from moving all.
-const one = page.locator('.map .node').first();
-const two = page.locator('.map .node').nth(1);
-const b0 = await one.boundingBox();
-const o0 = await two.boundingBox();
-await page.mouse.move(b0.x + b0.width / 2, b0.y + b0.height / 2);
-await page.mouse.down();
-await page.mouse.move(b0.x + b0.width / 2 + 40, b0.y + b0.height / 2 + 26, { steps: 6 });
-await page.mouse.up();
-await page.waitForTimeout(200);
-const b1 = await one.boundingBox();
-const o1 = await two.boundingBox();
-const rel = Math.hypot((b1.x - b0.x) - (o1.x - o0.x), (b1.y - b0.y) - (o1.y - o0.y));
-console.log('  drag    :', `dot moved ${rel.toFixed(0)}px relative to its neighbour`);
-if (rel < 20) misses.push(`dragging a dot moved it ${rel.toFixed(0)}px relative to the others — it is fixed, or the board just panned`);
-// And dragging must NOT have counted as a tap.
-const afterDrag = await page.$eval('.panel', (e) => e.textContent.trim().slice(0, 20));
-if (!afterDrag.startsWith('Tap a dot')) misses.push('a drag selected the dot it started on');
+// 3. ★ THE JOURNEY DOES NOT DRAG. The owner: *"I am able to reposition the graph
+//    nodes on the Journey tab. I don't think it makes sense because this is
+//    kind of a map, right?"*
+//
+// ⚠️ TWO ASSERTIONS, NOT ONE. Relative motion alone would pass on a board that
+// was frozen solid — the mirror of the vacuity already caught in this file. So:
+// the dot must NOT move relative to its neighbour (dragging is off) AND the
+// board must still have moved (the gesture panned, rather than doing nothing).
+const dragTest = async (shouldDrag) => {
+  const one = page.locator('.map .node').first();
+  const two = page.locator('.map .node').nth(1);
+  const b0 = await one.boundingBox();
+  const o0 = await two.boundingBox();
+  await page.mouse.move(b0.x + b0.width / 2, b0.y + b0.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b0.x + b0.width / 2 + 44, b0.y + b0.height / 2 + 28, { steps: 6 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  const b1 = await one.boundingBox();
+  const o1 = await two.boundingBox();
+  return {
+    rel: Math.hypot((b1.x - b0.x) - (o1.x - o0.x), (b1.y - b0.y) - (o1.y - o0.y)),
+    abs: Math.hypot(b1.x - b0.x, b1.y - b0.y),
+  };
+};
+const jd = await dragTest(false);
+console.log('  no drag :', `dot moved ${jd.rel.toFixed(0)}px relative, ${jd.abs.toFixed(0)}px absolute`);
+if (jd.rel > 5) misses.push(`a Journey node was dragged ${jd.rel.toFixed(0)}px out of place — the map is not fixed`);
+if (jd.abs < 20) misses.push('the gesture did nothing at all on the Journey — the board is frozen, not panning');
+// And the tap must survive, which is what nulling `grabbed` would have broken.
+await page.locator('.map .node.you').first().click({ timeout: 3000 }).catch(() => {});
+await page.waitForTimeout(300);
+const stillTaps = await page.$eval('.panel', (e) => e.textContent.trim());
+console.log('  tap     :', `"${stillTaps.slice(0, 40)}"`);
+if (stillTaps.startsWith('Tap a dot')) misses.push('turning off dragging also killed tapping on the Journey');
+
+// ★ SCENERY. The owner asked for a map that is alive and for it to be cheap.
+// Cheap means the scatter is baked into a bitmap once and blitted — so what is
+// checked is that it is THERE, and that it is only where it belongs.
+const ground = {};
+for (const g of ['river', 'wood', 'moor', 'under']) ground[g] = await inked(INK[g], 12);
+console.log('  scenery :', Object.entries(ground).map(([g, n]) => `${g} ${n}px`).join(' · '));
+for (const [g, n] of Object.entries(ground)) {
+  if (!n) misses.push(`no ${g} is drawn on the Journey`);
+}
 
 // 4. ZOOM redraws rather than magnifying a finished picture.
 const spread = () => page.$$eval('.map .node', (ns) => {
@@ -191,6 +215,20 @@ if (await doing.count()) {
     misses.push('the doing node does not say what is next');
   }
 } else { misses.push('Here has no node for what you are doing'); }
+
+// ★ AND THE SCENERY IS THE WORLD'S, NOT EVERY TAB'S. Self is a character sheet;
+// ground under it would be claiming the valley is in you.
+await page.locator('nav button', { hasText: 'Self' }).click();
+await page.waitForTimeout(500);
+const strayRiver = await inked(INK.river, 12);
+const strayWood = await inked(INK.wood, 12);
+console.log('\nSELF  scenery:', `river ${strayRiver}px, wood ${strayWood}px (both must be 0)`);
+if (strayRiver || strayWood) misses.push('scenery is drawn on Self, which is not a place');
+// ★ AND DRAGGING IS STILL ON HERE — the owner said the map must be fixed, not
+// every tab. Same two-sided check, the other way round.
+const sd = await dragTest(true);
+console.log('  drag    :', `${sd.rel.toFixed(0)}px relative, ${sd.abs.toFixed(0)}px absolute`);
+if (sd.rel < 20) misses.push(`Self nodes will not drag (${sd.rel.toFixed(0)}px relative) — the fix went too wide`);
 
 // ★ SELF — what you carry and what you are. A CHARACTER SHEET, NOT A SCOREBOARD.
 //

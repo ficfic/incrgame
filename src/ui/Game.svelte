@@ -17,6 +17,7 @@
   import { TABS, deedsFor, numOf, fillOf, DOING, type TabId } from '../game/world';
   import { solve, JOURNEY } from '../game/layout';
   import Board from './Board.svelte';
+  import { TERRAIN } from '../game/terrain';
   import { apply, initial, waysFrom, unforgeable, SECS_PER_PACE,
     type Game, type Action } from '../game/engine';
   import { load, save, wipe, elapsedSince } from '../game/store';
@@ -190,7 +191,14 @@
   <!-- THE GRAPH. Canvas for the lines and the dots, DOM for every word and
        every tap target, laid out by d3-force and settled. See Board.svelte. -->
   <section class="map">
-    <Board {dots} {lines} box={laid.box} label={tab} onTap={tap} />
+    <!-- ⚠️ SCENERY AND DRAGGING ARE BOTH JOURNEY-ONLY DECISIONS, and they are
+         opposite ways round. The world has ground; a filter over it does not.
+         And the Journey is a MAP, so its nodes do not move — the owner asked
+         for exactly that. Everywhere else a dot is a diagram and nudging one
+         is harmless. -->
+    <Board {dots} {lines} box={laid.box} label={tab} onTap={tap}
+      terrain={tab === 'journey' ? TERRAIN : null}
+      drag={tab !== 'journey'} />
   </section>
 
   <!-- THE PANEL. Part of the page, below the graph, in flow. It is empty until
