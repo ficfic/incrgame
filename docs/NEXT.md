@@ -456,3 +456,73 @@ collision on its first run (`wood` was 25 from `unmade`).
 **Still to come, and this is the point of it:** the ground should BE the price —
 a road through woods costs more than one over open moor, a river needs a ford or
 a bridge. That is item 14's economy, delivered by something you can see.
+
+---
+
+# ★ ARCHITECTURE REVIEW, 2026-08-01 — measured, at the owner's request
+
+> *"review the app architecture in terms of scalability and performance, so that
+> we'll be able to snap a bunch of features on top quickly and cheaply."*
+
+## Performance: fine. Not the problem.
+
+Chromium at **4× CPU throttle** (roughly a slow phone), 390×844, during a
+sustained pan — the worst case, because it redraws every frame:
+
+| | mean | worst |
+|---|---|---|
+| as shipped | 20.4 ms | 37.1 ms |
+| canvas only (DOM nodes hidden) | 17.7 ms | 29.2 ms |
+| DOM only (canvas hidden) | 16.5 ms | 22.3 ms |
+
+The vsync floor is 16.7 ms, so **the real work is ~4 ms a frame at 4× throttle
+— about 1 ms on this machine**, split roughly evenly between canvas and DOM.
+Zero long tasks. Idle (the game ticking 5×/s, no input) sits at the floor.
+
+There is headroom, the terrain bake is doing its job, and **nothing here needs
+optimising.** What follows is about the COST OF THE NEXT FEATURE, not the frame.
+
+## What will make features expensive
+
+**1. The board draws from two fixed lists.** `Board.svelte` takes `dots` and
+`lines` and `draw()` walks exactly those. Anything else on the map — a bridge, a
+ford, a glyph beside a place, a region tint, an encounter pip — means editing
+`draw()`. → Take a **list of shapes** instead: `{kind, points, ink, width}`.
+Then a new drawable is an entry, not surgery.
+
+**2. A node's appearance is an if-chain in two languages.** Five `d.kind === …`
+branches in `dotStyle()` plus per-kind rules in CSS. Every new kind is an edit
+in both. → **One data table keyed by kind**, read by both.
+
+**3. A colour lives in three or four files.** `#4d6b80` is in `Board.svelte`,
+`play-tabs.mjs` and `terrain.test.ts`; `#8ff0cf` adds `Game.svelte`. Changing
+one is four edits, and **the probe can drift from the app without either
+noticing** — the probe would keep counting a colour the app no longer draws, and
+pass. → One palette module; the probe reads it off the running page; the test
+keeps holding the distances.
+
+**4. `Game.svelte` is doing five jobs** in 296 lines: the clock, saving,
+selection, the arming gesture, and mapping the view to dots and lines. Every
+feature lands here. → Lift the clock and the save loop into a runtime module and
+leave the component with markup and selection.
+
+**5. Every tab rebuilds from nothing five times a second.** `view` is `$derived`
+on the whole `game`, so a tick that only changed `paces` rebuilds all 37 nodes
+and 43 edges — **80 objects per tick** — and nine derived values downstream.
+Invisible at this size and it is not what costs the 4 ms. But it is O(world) per
+tick, and discovery plus encounters plus markers is exactly the direction that
+makes it matter. → Key the world views off what actually changed
+(`seen.length`, `solid.length`) rather than off `game`.
+
+**6. Nothing would catch a performance regression.** The harness above exists
+now; it should live in the probe with a budget, or the next heavy feature lands
+silently.
+
+## Recommendation
+
+**1, 2 and 3 are one small session and they compound** — they are the three
+things that turn "add a bridge" from an afternoon into ten minutes. 4 and 5 are
+worth doing before encounters, not before the next visual. 6 is fifteen minutes.
+
+None of this is urgent and none of it is a defect. It is the difference between
+snapping the next six features on and hand-fitting each one.
