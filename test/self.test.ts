@@ -1,23 +1,25 @@
-// THE SELF TAB — you, and every true thing about you.
+// THE SELF TAB — what you carry and what you are.
 //
-// `docs/TABS.md` build order 5. The entry says "skills and stats as a graph",
-// and skills are NOT here. That is a finding, not a postponement, and it is the
-// first thing this file asserts: `costOf` and `forgeSecs` both key off
-// `solid.length`, so a skill trained by making ways would rise in exact lockstep
-// with the thing it is meant to offset. A skill is a choice about where to spend
-// time; there is one verb, so there is nothing to choose between.
+// ⚠️ REWRITTEN ON THE OWNER'S CORRECTION, 2026-08-01: *"self is a stat sheet and
+// inventory, but not game statistics."*
 //
-// What IS here is four numbers, and the only way they can be wrong is by
-// disagreeing with the run — so that is what is checked, from a played state
-// rather than a fresh one.
+// The first version of this file asserted "0 of 43 ways" and "1 of 37 places",
+// and every one of those assertions passed. The numbers were true; they were
+// the WORLD'S numbers on the CHARACTER'S sheet, and the owner rejected them on
+// sight. A test suite cannot tell you that, which is the whole reason rule 3
+// says build the smallest thing and then look at it.
 //
-// ---- PROVEN RED, 2026-07-31 ----------------------------------------------
+// So what is checked here is that Self says only things that are true of YOU:
+// what is in your hand, how fast you gather, and what making a way costs you
+// right now — and that the progress counters do not come back.
+//
+// ---- PROVEN RED, 2026-08-01 ----------------------------------------------
 // (sabotage log in the commit message)
 import { describe, it, expect } from 'vitest';
 import { apply, initial, forgeSecs, unforgeable, costOf, waysFrom,
   SECS_PER_PACE, type Game } from '../src/game/engine';
-import { PLACE, PLACES, START } from '../src/game/places';
-import { self, placeId, ROUTES_IN_ALL } from '../src/game/world';
+import { PLACE, PLACES } from '../src/game/places';
+import { self, placeId } from '../src/game/world';
 
 const rest = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
 
@@ -42,16 +44,15 @@ function played(): Game {
 }
 
 const nodeOf = (g: Game, id: string) => self(g).nodes.find((n) => n.id === id)!;
+const words = (g: Game) => self(g).nodes.map((n) => `${n.name} ${n.body ?? ''}`).join(' ');
 
 describe('Self is you, and everything hangs off you', () => {
   it('joins every node to you and to nothing else', () => {
-    // A star, not a map. If Self ever grows edges between its facts it has
+    // A star, not a map. If Self ever grows edges between its parts it has
     // started modelling something, and nothing here is a model.
     const v = self(played());
     for (const e of v.edges) expect(e.a, `${e.a}-${e.b}`).toBe('you');
     expect(new Set(v.edges.map((e) => e.b)).size).toBe(v.edges.length);
-    expect(v.nodes.map((n) => n.id)).toContain('you');
-    // Every node bar you is joined to you exactly once.
     expect(v.edges.length).toBe(v.nodes.length - 1);
   });
 
@@ -61,96 +62,113 @@ describe('Self is you, and everything hangs off you', () => {
     expect(nodeOf(g, placeId(g.at)).name).toBe(PLACE.get(g.at)!.name);
     expect(self(g).edges).toContainEqual({ a: 'you', b: placeId(g.at), rel: 'stands' });
   });
+
+  it('uses the model\'s own words for carrying and having', () => {
+    // R1.2: `item`/`carries` already existed in the vocabulary and nothing had
+    // used them. An inventory that invents its own relation is a second model.
+    const v = self(played());
+    expect(v.nodes.find((n) => n.id === 'carry:paces')!.kind).toBe('item');
+    expect(v.edges).toContainEqual({ a: 'you', b: 'carry:paces', rel: 'carries' });
+    for (const id of ['stat:gather', 'stat:making']) {
+      expect(v.edges).toContainEqual({ a: 'you', b: id, rel: 'has' });
+    }
+  });
 });
 
-describe('★ four numbers, and every one of them true of the run', () => {
-  it('paces reads the purse, and reads it in the same word the header does', () => {
+describe('★ the inventory', () => {
+  it('holds what is in your hand, in the same word the header uses', () => {
     const g = rest(initial(), 7 * SECS_PER_PACE);
     expect(g.paces).toBe(7);
-    expect(nodeOf(g, 'fact:paces').name).toBe('7 paces');
-    expect(nodeOf(rest(initial(), SECS_PER_PACE), 'fact:paces').name).toBe('1 pace');
+    expect(nodeOf(g, 'carry:paces').name).toBe('7 paces');
+    expect(nodeOf(rest(initial(), SECS_PER_PACE), 'carry:paces').name).toBe('1 pace');
   });
 
-  it('ways made counts routes proved, against every route in the valley', () => {
-    const g = played();
-    expect(g.solid.length).toBeGreaterThan(0);
-    expect(nodeOf(g, 'fact:ways').name).toBe(`${g.solid.length} of ${ROUTES_IN_ALL} ways`);
-    // The denominator is the world's, counted once per pair.
-    const counted = PLACES.reduce((n, p) => n + p.ways.filter((t) => t > p.id).length, 0);
-    expect(ROUTES_IN_ALL).toBe(counted);
-    expect(ROUTES_IN_ALL).toBeGreaterThanOrEqual(PLACES.length - 1);
+  it('★ holds nothing else, because nothing else can be held yet', () => {
+    // `src/slice/content.ts` has nine authored keys and this engine drops none
+    // of them. Empty slots would promise a system that does not exist — the
+    // eleven-systems mistake in miniature. When drops arrive, so do they, and
+    // this test should be the thing that fails.
+    const carried = self(played()).nodes.filter((n) => n.kind === 'item');
+    expect(carried.map((n) => n.id)).toEqual(['carry:paces']);
+  });
+});
+
+describe('★ the stats are yours, not the valley\'s', () => {
+  it('reads the rate you actually gather at', () => {
+    expect(nodeOf(played(), 'stat:gather').name).toBe(`A pace every ${SECS_PER_PACE}s`);
+    // And it is the rate the engine really pays.
+    expect(rest(initial(), SECS_PER_PACE * 5).paces).toBe(5);
   });
 
-  it('quotes the price of the next way from where you actually stand', () => {
+  it('reads what making a way costs you right now, in time and in paces', () => {
     const g = played();
+    expect(nodeOf(g, 'stat:making').name).toBe(`A way takes ${forgeSecs(g)}s`);
     const next = waysFrom(g).filter((w) => !w.made).sort((a, b) => a.cost - b.cost)[0];
     if (next) {
-      expect(nodeOf(g, 'fact:ways').body).toContain(`costs ${next.cost}`);
+      expect(nodeOf(g, 'stat:making').body).toContain(`${next.cost} paces`);
       expect(next.cost).toBe(costOf(g, next.to));
     } else {
-      expect(nodeOf(g, 'fact:ways').body).toContain('already made');
+      expect(nodeOf(g, 'stat:making').body).toContain('already made');
     }
   });
 
-  it('places found counts where you have stood, against the whole valley', () => {
+  it('★ and that cost climbs as the run goes on', () => {
+    // The stat is only worth a node because it MOVES. A constant would be a
+    // label. This is also the reason a skill cannot offset it — see the note in
+    // `world.ts` and `docs/TABS.md`.
+    const early = nodeOf(initial(), 'stat:making').name;
+    const late = nodeOf({ ...initial(), solid: ['100|101', '101|102', '102|103'] }, 'stat:making').name;
+    expect(late).not.toBe(early);
+    expect(forgeSecs({ ...initial(), solid: ['100|101', '101|102', '102|103'] }))
+      .toBeGreaterThan(forgeSecs(initial()));
+  });
+});
+
+describe('★ the game statistics stay off the character sheet', () => {
+  it('never counts ways made, places found, or distance from the start', () => {
+    // ⚠️ THE POINT OF THE WHOLE REWRITE. Every one of these shipped on this tab
+    // and was rejected on sight: *"zero of the three ways, one of thirty-seven
+    // places. I don't wanna see these stats on the Self."*
+    const said = words(played());
+    for (const gone of [' of 43', ' of 37', 'ways out', 'places found',
+      'Still at the start', 'ways made']) {
+      expect(said, `Self is still saying "${gone}"`).not.toContain(gone);
+    }
+  });
+
+  it('says nothing that counts the world rather than you', () => {
+    // A looser net for the same class of thing: "N of M" is the shape a
+    // progress counter takes, whatever it is counting.
     const g = played();
-    expect(nodeOf(g, 'fact:places').name)
-      .toBe(`${g.seen.length} of ${PLACES.length} places`);
-    expect(g.seen.length).toBeGreaterThan(1);
+    for (const n of self(g).nodes) {
+      expect(`${n.name}`, `"${n.name}" reads as progress, not a stat`)
+        .not.toMatch(/\d+\s+of\s+\d+/);
+    }
   });
 
-  it('★ reach is the deepest place you have actually reached', () => {
-    // The number most easily faked by counting something else: this is graph
-    // distance from the start, not places seen and not routes made.
-    let g = initial();
-    expect(nodeOf(g, 'fact:reach').name).toBe('Still at the start');
-    expect(nodeOf(g, 'fact:reach').body).toContain(PLACES[0]!.name);
-
-    // One hop out is one way out, however many routes were made getting there.
-    const first = PLACE.get(START)!.ways[0]!;
-    g = reach(initial(), first);
-    expect(nodeOf(g, 'fact:reach').name).toBe('1 ways out');
-    expect(nodeOf(g, 'fact:reach').body).toContain(PLACE.get(first)!.name);
-
-    // Walking back does not shrink it — reach is the furthest you have BEEN.
-    g = apply(g, { type: 'go', to: START });
-    expect(g.at).toBe(START);
-    expect(nodeOf(g, 'fact:reach').name).toBe('1 ways out');
-
-    // ⚠️ THE ONE THAT MAKES THIS TEST WORTH ANYTHING. Place ids and distances
-    // agree for the first few hops, so ranking `seen` by ID passed everything
-    // above — proven by sabotage. Place 5 is three ways out and place 100 is
-    // two, so the deeper place has the SMALLER id and only a real distance can
-    // tell them apart.
-    const deep = { ...initial(), at: 100, seen: [START, 100, 5] };
-    expect(nodeOf(deep, 'fact:reach').name).toBe('3 ways out');
-    expect(nodeOf(deep, 'fact:reach').body).toContain(PLACE.get(5)!.name);
+  it('has no skill, level or XP', () => {
+    const said = words(played()).toLowerCase();
+    for (const word of ['skill', 'level', ' xp', 'wayfaring']) {
+      expect(said, `Self names "${word.trim()}"`).not.toContain(word);
+    }
   });
 
+  it('★ shows WHY skills are still absent: price and fill move together', () => {
+    // If these ever stop moving in lockstep, a skill has somewhere to bite and
+    // this test should be deleted along with the note in `world.ts`.
+    const cheap = { ...initial(), solid: [] };
+    const dear = { ...initial(), solid: ['100|101', '101|102', '102|103'] };
+    const to = PLACE.get(PLACES[0]!.id)!.ways[0]!;
+    expect(costOf(dear, to)).toBeGreaterThan(costOf(cheap, to));
+    expect(forgeSecs(dear)).toBeGreaterThan(forgeSecs(cheap));
+  });
+});
+
+describe('the sheet follows the run', () => {
   it('every number moves when the run moves', () => {
-    // The cheapest way for a stat sheet to be wrong is to be a constant.
+    // The cheapest way for a character sheet to be wrong is to be a constant.
     const a = self(initial()).nodes.map((n) => n.name).join('|');
     const b = self(played()).nodes.map((n) => n.name).join('|');
     expect(b).not.toBe(a);
-  });
-});
-
-describe('★ skills are absent on purpose, and the reason is checkable', () => {
-  it('has no skill, level or XP node', () => {
-    const names = self(played()).nodes.map((n) => `${n.id} ${n.name}`).join(' ').toLowerCase();
-    for (const word of ['skill', 'level', ' xp', 'wayfaring', 'lore']) {
-      expect(names, `Self names "${word.trim()}"`).not.toContain(word);
-    }
-  });
-
-  it('★ shows WHY: price and fill both key off the same number', () => {
-    // If these ever stop moving together, a skill has somewhere to bite and
-    // this test should be deleted along with the note in `world.ts`.
-    const cheap = { ...initial(), solid: [] };
-    // Routes elsewhere in the valley, so the one being priced is still unmade.
-    const dear = { ...initial(), solid: ['100|101', '101|102', '102|103'] };
-    const to = PLACE.get(START)!.ways[0]!;
-    expect(costOf(dear, to)).toBeGreaterThan(costOf(cheap, to));
-    expect(forgeSecs(dear)).toBeGreaterThan(forgeSecs(cheap));
   });
 });

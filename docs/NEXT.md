@@ -87,13 +87,19 @@ dot tapped afterwards was a neighbour, so *"somewhere you have not been"* was
 telling the truth about the wrong dot. Places now start at their real position
 in the valley, and rings are jittered from the view's seed.
 
-## 4. Self should not be a stat sheet
+## ~~4. Self should not be a stat sheet~~ ✅ 2026-08-01
 
-> *"On the Self tab… zero of the three ways, one of thirty-seven places. I don't
-> wanna see these stats on the Self."*
+Owner's correction: *"self is a stat sheet and inventory, but not game
+statistics."* So it IS a character sheet — the first version just put the
+world's numbers on it. Now: what you carry (paces, `kind: item`, `rel: carries`)
+and what you are (your gathering rate, what a way costs you in time and paces).
+Ways-made, places-found and distance-from-start are deleted.
 
-Shipped 2026-07-31 and rejected on sight. **What Self should hold instead is
-undecided and must not be invented** — ask.
+**Items are the open end.** `src/slice/content.ts` holds NINE hand-authored keys
+— "strip of lead", "quiet key", "iron gate pin" — each with a door it opens, and
+`docs/BRIEF.md` ask 10 wants them. Nothing drops one, so nothing is drawn for
+them. **Drops and the doors they open are a real item, unqueued** — it needs the
+owner's call on how a key is found.
 
 ## 5. Paces: the word and the reason
 

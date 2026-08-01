@@ -130,79 +130,77 @@ export function here(g: Game): View {
   };
 }
 
-/** Every route in the valley, counted once. The denominator on Self. */
-export const ROUTES_IN_ALL = PLACES.reduce(
-  (n, p) => n + p.ways.filter((to) => to > p.id).length, 0);
+// ⚠️ `ROUTES_IN_ALL` AND `DEPTH` LIVED HERE AND ARE GONE. They were the
+// denominators for "0 of 43 ways" and "N ways out from the start" — the world's
+// progress, put on the character sheet, and rejected on sight by the owner:
+// *"self is a stat sheet and inventory, but not game statistics."* Deleted
+// rather than left unused, so nothing tempts the next session to put them back.
 
-/** How many ways out from the start each place is. Solved once — the world's
- *  shape never changes. */
-const DEPTH = (() => {
-  const d = new Map<number, number>([[PLACES[0]!.id, 0]]);
-  const q = [PLACES[0]!.id];
-  while (q.length) {
-    const at = q.shift()!;
-    for (const to of PLACE.get(at)!.ways) {
-      if (d.has(to)) continue;
-      d.set(to, d.get(at)! + 1);
-      q.push(to);
-    }
-  }
-  return d;
-})();
-
-/** SELF — you, and every true thing about you, each as a node.
+/** SELF — what you carry and what you are. A character sheet, not a scoreboard.
  *
- *  ⚠️ NO SKILLS, AND THAT IS A FINDING RATHER THAN A DELAY. `docs/BRIEF.md`
- *  ask 2 wants RuneScape-shaped progression and it is still wanted. It cannot
- *  be built yet, for a reason the code makes plain: `costOf` and `forgeSecs`
- *  both key off `solid.length`, so a skill trained by making ways would rise in
- *  exact lockstep with the thing it is meant to offset and cancel itself out.
- *  A skill is a CHOICE about where to spend time, and there is one verb — so
- *  there is nothing to choose between. Skills come back when a second thing to
- *  do does, and not one session before.
+ *  ⚠️ REBUILT ON THE OWNER'S CORRECTION, 2026-08-01: *"self is a stat sheet and
+ *  inventory, but not game statistics."* The first version put "0 of 43 ways"
+ *  and "1 of 37 places" on it — those are the WORLD'S progress, not yours, and
+ *  they were rejected on sight. What belongs here is what is true of YOU:
+ *  what you are holding, and what you are currently capable of.
  *
- *  What is left is honest: four numbers that are all true today, drawn as nodes
- *  hanging off you rather than as a stat block, because the graph is the UI. */
+ *  So every number below is a property of the character:
+ *    · what you carry        — paces, and today that is the whole inventory
+ *    · how fast you gather   — the rate, which never lies and never stops
+ *    · what making costs you — time AND price, both of which grow as you go
+ *
+ *  ⚠️ AND STILL NO SKILLS. `costOf` and `forgeSecs` both key off `solid.length`,
+ *  so a skill trained by making ways cancels itself out, and a skill is a choice
+ *  about where to spend time of which there is exactly one. See `docs/TABS.md`.
+ *
+ *  ⚠️ THE INVENTORY HOLDS ONE THING BECAUSE ONE THING EXISTS. `src/slice/
+ *  content.ts` carries NINE hand-authored keys — "strip of lead", "quiet key",
+ *  "iron gate pin" — each with a door it opens, and `docs/BRIEF.md` ask 10 wants
+ *  them. Nothing in this engine drops one, so drawing empty slots for them would
+ *  promise a system that does not exist. That is the eleven-systems mistake in
+ *  miniature. They arrive when drops do. */
 export function self(g: Game): View {
   const at = PLACE.get(g.at)!;
-  const far = g.seen.reduce((best, id) =>
-    (DEPTH.get(id) ?? 0) > (DEPTH.get(best) ?? 0) ? id : best, g.seen[0]!);
-  const farOut = DEPTH.get(far) ?? 0;
   const next = waysFrom(g).filter((w) => !w.made).sort((a, b) => a.cost - b.cost)[0];
+  const secs = forgeSecs(g);
 
-  const facts: Node[] = [
-    { id: 'fact:paces', kind: 'fact',
+  const mine: Node[] = [
+    // Kind `item` and rel `carries`, which the model already had and nothing
+    // had yet used — R1.2's vocabulary, not a new one invented for this tab.
+    { id: 'carry:paces', kind: 'item',
       name: `${g.paces} ${g.paces === 1 ? 'pace' : 'paces'}`,
-      body: `In hand, and one more every ${SECS_PER_PACE} seconds wherever you `
-        + 'stand. Paces buy a route, never a step — walking a made way is free.' },
-    { id: 'fact:ways', kind: 'fact',
-      name: `${g.solid.length} of ${ROUTES_IN_ALL} ways`,
-      body: `Routes you have made, out of every route in the valley. `
-        + (next ? `The next from here costs ${next.cost}.`
-                : 'Every way from where you stand is already made.') },
-    { id: 'fact:places', kind: 'fact',
-      name: `${g.seen.length} of ${PLACES.length} places`,
-      body: 'Places you have stood in. The rest are on the Journey with no name '
-        + 'on them, which is the shape of the valley without the spoiling of it.' },
-    { id: 'fact:reach', kind: 'fact',
-      name: farOut === 0 ? 'Still at the start' : `${farOut} ways out`,
-      body: farOut === 0
-        ? `You have not left ${PLACES[0]!.name} yet.`
-        : `${nameOf(far)} is the furthest you have been from ${PLACES[0]!.name} `
-          + `— ${farOut} ways out. Nothing you have reached is deeper.` },
+      body: 'In hand, and everything you own. The valley takes them for ways '
+        + 'and for nothing else — a step down a way you have already made has '
+        + 'never cost anybody anything.' },
+    { id: 'stat:gather', kind: 'fact',
+      name: `A pace every ${SECS_PER_PACE}s`,
+      body: 'Your one certainty. It does not care whether you are watching, '
+        + 'whether the phone is in a pocket, or whether you have decided to '
+        + 'stop. Standing still is not idleness here; it is the work.' },
+    { id: 'stat:making', kind: 'fact',
+      name: `A way takes ${secs}s`,
+      body: next
+        ? `And ${next.cost} paces, for the cheapest way from where you stand. `
+          + 'Both climb with every way you have already laid, so the tenth is '
+          + 'slower and dearer than the first, wherever you lay it.'
+        : `Every way from here is already made. The next one elsewhere will `
+          + 'still take longer than the last — that price follows you, not the '
+          + 'ground.' },
   ];
 
   return {
     nodes: [
       { id: 'you', kind: 'you', name: 'You',
-        body: `Standing in ${at.name}. Everything here is true of you right now; `
-          + 'tap one to read it.' },
+        body: `Standing in ${at.name}. What you carry and what you are — the `
+          + 'valley keeps its own count of itself elsewhere.' },
       { id: placeId(g.at), kind: 'place', name: at.name, body: at.body },
-      ...facts,
+      ...mine,
     ],
     edges: [
       { a: 'you', b: placeId(g.at), rel: 'stands' },
-      ...facts.map((f) => ({ a: 'you', b: f.id, rel: 'has' as const })),
+      { a: 'you', b: 'carry:paces', rel: 'carries' },
+      { a: 'you', b: 'stat:gather', rel: 'has' },
+      { a: 'you', b: 'stat:making', rel: 'has' },
     ],
   };
 }

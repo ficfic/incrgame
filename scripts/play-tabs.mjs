@@ -192,42 +192,37 @@ if (await doing.count()) {
   }
 } else { misses.push('Here has no node for what you are doing'); }
 
-// ★ SELF — you, and four true numbers hanging off you. Build-order step 5. No
-// skills: `costOf` and `forgeSecs` both key off the same number, so a skill
-// trained by making ways would cancel itself out. The probe holds that line.
+// ★ SELF — what you carry and what you are. A CHARACTER SHEET, NOT A SCOREBOARD.
+//
+// The owner, after playing the first version: *"zero of the three ways, one of
+// thirty-seven places. I don't wanna see these stats on the Self."* and then
+// plainly: *"self is a stat sheet and inventory, but not game statistics."*
+// Every one of those rejected numbers was TRUE and every unit test passed. So
+// the probe reads what is actually on the tab and holds the line there.
 await page.locator('nav button', { hasText: 'Self' }).click();
 await page.waitForTimeout(400);
 console.log('\nSELF');
-const facts = await page.$$eval(".map .node[data-kind='fact'] .label", (t) => t.map((x) => x.textContent));
-console.log('  facts   :', facts.length ? facts.join(' · ') : '(none)');
-if (facts.length < 4) misses.push(`Self shows ${facts.length} facts`);
-for (const bad of ['skill', 'level', 'xp']) {
-  if (facts.join(' ').toLowerCase().includes(bad)) misses.push(`Self names "${bad}"`);
+const sheet = await page.$$eval('.map .node .label', (t) => t.map((x) => x.textContent));
+console.log('  sheet   :', sheet.length ? sheet.join(' · ') : '(none)');
+if (sheet.length < 4) misses.push(`Self shows only ${sheet.length} things`);
+// ★ NO PROGRESS COUNTERS. "N of M" is the shape one takes, whatever it counts.
+for (const line of sheet) {
+  if (/\d+\s+of\s+\d+/.test(line)) misses.push(`Self is counting the world again: "${line}"`);
 }
+for (const bad of ['skill', 'level', 'xp', 'ways out', 'places found']) {
+  if (sheet.join(' ').toLowerCase().includes(bad)) misses.push(`Self says "${bad}"`);
+}
+// The inventory, in the model's own vocabulary.
+const carried = await page.$$eval(".map .node[data-kind='item'] .label", (t) => t.map((x) => x.textContent));
+console.log('  carried :', carried.length ? carried.join(' · ') : '(nothing)');
+if (!carried.length) misses.push('Self has no inventory at all');
+if (!carried.some((c) => /paces?$/.test(c ?? ''))) misses.push('the inventory does not hold your paces');
 const factOne = page.locator(".map .node[data-kind='fact']").first();
-await factOne.click({ timeout: 3000 }).catch((e) => misses.push(`fact dot: ${e}`));
+await factOne.click({ timeout: 3000 }).catch((e) => misses.push(`stat dot: ${e}`));
 await page.waitForTimeout(300);
 const factSaid = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
 console.log('  reads   :', `"${factSaid.slice(0, 110)}"`);
-if (factSaid.startsWith('Tap a dot')) misses.push('tapping a fact read nothing');
-
-// ★ THE SELECTED DOT MUST LOOK SELECTED, on every kind of node. The panel below
-// cannot tell you WHICH dot it is describing; only the ring can.
-//
-// ⚠️ MEASURED IN PIXELS ON THE CANVAS, and it has to be. Two earlier versions of
-// this check were vacuous: the first compared a fact against the `you` node
-// (different kind, no stroke, so it "differed" while the ring was invisible),
-// and any DOM version now reads a transparent button. Painted or not painted is
-// the only honest question.
-const ringOn = await inked(INK.ring, 18);
-await factOne.click({ timeout: 3000 }).catch(() => {});   // deselect
-await page.waitForTimeout(300);
-const ringOff = await inked(INK.ring, 18);
-await factOne.click({ timeout: 3000 }).catch(() => {});   // and back
-await page.waitForTimeout(300);
-console.log('  ring    :', `${ringOn}px of selection ring drawn, ${ringOff}px with nothing selected`);
-if (ringOn <= 0) misses.push('the selected fact draws no ring at all');
-else if (ringOff >= ringOn) misses.push('the ring is drawn whether or not anything is selected');
+if (factSaid.startsWith('Tap a dot')) misses.push('tapping a stat read nothing');
 
 // ★ THOUGHTS — what you understand, and how it connects. Build-order step 6.
 // The item it answers said the tab needed something in it that is NOT a place.
