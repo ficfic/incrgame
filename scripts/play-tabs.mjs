@@ -579,7 +579,17 @@ async function settleHere() {
   return false;
 }
 
-/** Make the way to a neighbour, wait for the fill, and walk it. Returns the
+/** ⚠️ THESE MATCHERS ARE THE PROBE'S WEAKEST POINT AND HAVE NOW FAILED TWICE.
+ *  A deed's LABEL is player-facing text; the moment it is rewritten, every grep
+ *  in here silently stops matching. The vocabulary pass renamed "Make the way
+ *  to X" to "Build the edge to X" and "you need the gate iron" to "locked —
+ *  needs the gate iron", and this file went on looking for the old words: the
+ *  walk stopped two places short and the lock check reported a defect that was
+ *  not there. It failed LOUDLY, which is the only reason it was cheap — a
+ *  matcher that goes quietly vacuous (`startsWith('Tap a dot')`) is the
+ *  expensive version of the same mistake, and this pass fixed four of those.
+ *
+ *  Build the edge to a neighbour, wait for the fill, and walk it. Returns the
  *  last thing the panel said, so a failure reports WHY rather than just that. */
 let lastSaw = '(nothing)';
 async function openAndGo(id) {
@@ -587,7 +597,7 @@ async function openAndGo(id) {
     const d = await deedOn(id);
     lastSaw = d ? `${d.text}${d.off ? ' [disabled]' : ''}` : '(no deed)';
     if (d && /^Go/.test(d.text) && !d.off) { await page.locator('.deed').first().click(); return true; }
-    if (d && /^Make the way/.test(d.text) && !d.off) {
+    if (d && /^Build the edge/.test(d.text) && !d.off) {
       await page.locator('.deed').first().click({ timeout: 2000 }).catch(() => {});
     }
     await page.waitForTimeout(4000);
@@ -688,7 +698,7 @@ await reloadWith(atGate);
 const shut = await deedOn(DRUM);
 console.log('  without :', shut ? `"${shut.text}" ${shut.off ? '(shut)' : '(OPEN)'}` : '(no deed)');
 if (!shut || !shut.off) misses.push('the locked way is not shut when the key is not carried');
-else if (!/you need the/.test(shut.text)) {
+else if (!/locked — needs the/.test(shut.text)) {
   misses.push(`the lock does not name the key it wants: "${shut.text}"`);
 }
 const lockedPx = await ink('barred');
