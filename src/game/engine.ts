@@ -145,9 +145,17 @@ export function unsettleable(g: Game): string | null {
 // WORKING, which is time NOT spent gathering paces — so it is bought with the
 // one thing the game is actually short of, and nothing about it cancels.
 
-/** XP for level 2. Level n needs `XP_STEP × (n−1)²`, so the ladder stretches. */
-export const XP_STEP = 40;
-export const LEVEL_CAP = 10;
+/** XP for level 2. Level n needs `XP_STEP × (n−1)²`, so the ladder stretches.
+ *
+ *  ⚠️ THE CAP AND THE STEP ARE SET BY THE CONTENT, NOT BY TASTE. The authored
+ *  doors demand wayfaring 3, 5, 8 and 24. A cap of 10 would have left the
+ *  deepest one in the stones permanently shut, which is a door with no key —
+ *  worse than no door. So the cap clears the highest demand, and the step is
+ *  chosen so the ladder to it is about seventy minutes of working rather than
+ *  four hours: the code serves the content here, because the levels were
+ *  written before this curve was. */
+export const XP_STEP = 12;
+export const LEVEL_CAP = 25;
 export function levelOf(xp: number): number {
   return Math.min(LEVEL_CAP, 1 + Math.floor(Math.sqrt(Math.max(0, xp) / XP_STEP)));
 }
@@ -241,10 +249,26 @@ export function blocked(g: Game, to: number): string | null {
 }
 
 /** Why you cannot FORGE it. */
+/** The wayfaring level it takes to open the way on from here, or 0 if none.
+ *  `docs/BRIEF.md` ask 4: a level you have not reached is a door you cannot
+ *  open, and you can see it from here. */
+export function demandOn(g: Game, to: number): number {
+  return PLACE.get(g.at)?.gate?.[to] ?? 0;
+}
+
 export function unforgeable(g: Game, to: number): string | null {
   const here = PLACE.get(g.at);
   if (!here?.ways.includes(to)) return 'nothing joins these';
   if (g.solid.includes(edgeKey(g.at, to))) return 'already made';
+  // ★ THE DOOR, AND IT IS CHECKED BEFORE THE PRICE. Told it needs 24 paces you
+  // do not have, you wait; told it needs a level you do not have, you go and
+  // work. Reporting the cheaper obstacle first would send the player to do the
+  // wrong thing, and this game's oldest complaint is "I just randomly clicked
+  // around until I got to a stop".
+  const want = demandOn(g, to);
+  if (want > levelOf(g.wayfaring)) {
+    return `wayfaring ${want} — you are ${levelOf(g.wayfaring)}`;
+  }
   // ★ YOU MAY ONLY BUILD OUT OF A PLACE THAT PRODUCES. This is the rule that
   // turns two lists into a game: pushing into the far valley means settling a
   // chain of bases behind you, so income is not a side dish to progress, it is
@@ -372,19 +396,31 @@ export function apply(g: Game, a: Action): Game {
 
 /** Everything the screen needs about where you can go, already decided. */
 export interface Way { to: number; name: string; cost: number; why: string | null;
-  seen: boolean; made: boolean }
+  seen: boolean; made: boolean;
+  /** ★ THE LEVEL THIS DOOR WANTS, 0 if it is not one. Carried out to the board
+   *  so a door is a thing you can SEE from here rather than a sentence you find
+   *  by tapping — `docs/BRIEF.md` ask 4 asks for exactly that, and a dot that
+   *  looks identical to every other unmade way is not it. */
+  bar: number }
 
 export function waysFrom(g: Game): Way[] {
   const here = PLACE.get(g.at);
   if (!here) return [];
-  return here.ways.map((to) => ({
-    to,
-    name: nameOf(to),
-    cost: costOf(g, to),
-    why: blocked(g, to),
-    seen: g.seen.includes(to),
-    made: g.solid.includes(edgeKey(g.at, to)),
-  }));
+  return here.ways.map((to) => {
+    const made = g.solid.includes(edgeKey(g.at, to));
+    const want = demandOn(g, to);
+    return {
+      to,
+      name: nameOf(to),
+      cost: costOf(g, to),
+      why: blocked(g, to),
+      seen: g.seen.includes(to),
+      made,
+      // A door you have already opened is just a road. Only an unmade way that
+      // outranks you is drawn barred.
+      bar: !made && want > levelOf(g.wayfaring) ? want : 0,
+    };
+  });
 }
 
 /** Seconds until you could afford the cheapest thing you cannot afford yet.

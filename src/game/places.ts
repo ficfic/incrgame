@@ -21,6 +21,15 @@ export interface Place {
   /** The one thing you can do here, if there is one — hand-authored, with its
    *  own duration and payout. See `SKILL` below for why most places have none. */
   work?: { label: string; secs: number; xp: number };
+  /** ★ DOORS. Destination → the wayfaring level it takes to open the way there.
+   *
+   *  ⚠️ DIRECTIONAL, WHERE THE WAY ITSELF IS NOT. The authored content gates a
+   *  CHOICE — "Climb the haul road" from The Headrace — and `ways` are made
+   *  symmetric here because a one-way edge you cannot afford to leave is a
+   *  trap. A gate is not that trap: it stops you opening a road from the hard
+   *  side, and says nothing about walking home. So the gate stays on the
+   *  direction the author put it on. */
+  gate?: Record<number, number>;
 }
 
 /** ★ THE ONE SKILL THAT EXISTS, and therefore the only work on offer.
@@ -63,11 +72,36 @@ export const PLACES: readonly Place[] = AUTHORED.map((p) => ({
   work: p.work && p.work.skill === SKILL
     ? { label: p.work.label, secs: p.work.secs, xp: p.work.xp }
     : undefined,
+  gate: gateOf(p),
 }));
 
-/** Kept so a test can assert the filter is doing something rather than nothing
- *  — a `SKILL` naming a skill no block uses would silently turn work off. */
+/** ★ THE DOORS THAT ARE LIVE, AND THE ONES THAT ARE NOT.
+ *
+ *  Thirteen choices in the regions carry a `needs`. Four demand wayfaring
+ *  (levels 3, 5, 8 and 24) and those are the four this build can honour. The
+ *  rest demand a skill that does not exist yet — craft 10, lore 12, attunement
+ *  18 — or one of the nine authored items, and nothing drops an item.
+ *
+ *  ⚠️ A DOOR NOBODY CAN OPEN IS WORSE THAN NO DOOR. `docs/BRIEF.md` ask 4 wants
+ *  a level you have not reached to be a door you can SEE, which is only true if
+ *  reaching the level opens it. Turning on a craft gate today would draw a door
+ *  with no key anywhere in the game, so those stay shut off — not shut. */
+function gateOf(p: { choices: readonly { to: number; needs?: unknown }[] }):
+Record<number, number> | undefined {
+  const out: Record<number, number> = {};
+  for (const c of p.choices) {
+    const n = c.needs as { skill?: string; level?: number } | undefined;
+    if (n?.skill === SKILL && typeof n.level === 'number') out[c.to] = n.level;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** Kept so a test can assert the filters are doing something rather than
+ *  nothing — a `SKILL` naming a skill no block uses would silently turn both
+ *  work and every door off, and everything would still pass. */
 export const WORKED = PLACES.filter((p) => p.work).map((p) => p.id);
+export const GATED = PLACES.flatMap((p) =>
+  Object.entries(p.gate ?? {}).map(([to, lv]) => ({ from: p.id, to: Number(to), level: lv })));
 
 export const PLACE = new Map(PLACES.map((p) => [p.id, p]));
 

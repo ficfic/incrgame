@@ -526,6 +526,109 @@ if (await jobDeed.count()) {
   misses.push('nowhere to work — the second thing to do never appeared on screen');
 }
 
+// ★★ A DOOR YOU CANNOT OPEN YET, AND YOU CAN SEE IT FROM HERE.
+//
+// `docs/BRIEF.md` ask 4. Four of the thirteen authored doors are live (the rest
+// want a skill that does not exist or an item nothing drops), and the nearest
+// one above the level a minute of work buys is at The Cut Steps: the way on to
+// The March Stone wants wayfaring 8.
+//
+// ⚠️ WHAT THIS CHECKS AND WHAT IT DOES NOT. It proves the door is DRAWN as a
+// door and states its demand in words. It does NOT walk the level up to 8 and
+// watch it open — that is thirteen turns of work, six minutes of probe, for
+// something `test/game.test.ts` proves directly. Said out loud rather than
+// quietly skipped.
+console.log('\nA DOOR');
+const at = (id) => `.map .node[data-id="place:${id}"]`;
+
+/** ⚠️ SELECT, DO NOT TOGGLE. Tapping a dot that is already selected CLEARS the
+ *  selection — that is R3.4 and it is correct. It also means a probe that taps
+ *  blind can deselect the very thing it is about to read, and this cost a run:
+ *  arriving somewhere selects it, so the next tap emptied the panel, the settle
+ *  button was not there to be found, and the walk stopped two places short with
+ *  "settle here first". */
+async function pick(sel) {
+  const el = page.locator(sel).first();
+  if (await el.count() && !(await el.getAttribute('class') ?? '').split(/\s+/).includes('on')) {
+    await el.click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(250);
+  }
+}
+
+/** Tap a dot on Here and read back the first deed it offers. */
+async function deedOn(id) {
+  await pick(at(id));
+  await page.waitForTimeout(100);
+  return page.$eval('.deed', (e) => ({
+    text: e.textContent.replace(/\s+/g, ' ').trim(), off: e.disabled,
+  })).catch(() => null);
+}
+
+/** Settle where you stand, waiting for the paces if need be. */
+async function settleHere() {
+  for (let i = 0; i < 40; i++) {
+    await pick('.map .node.you');
+    const btn = page.locator('.deed.make', { hasText: 'Settle' });
+    if (await btn.count() && !await btn.first().isDisabled()) {
+      await btn.first().click({ timeout: 2000 });
+      return true;
+    }
+    if (!await btn.count()) return true;          // already settled
+    await page.waitForTimeout(4000);
+  }
+  return false;
+}
+
+/** Make the way to a neighbour, wait for the fill, and walk it. Returns the
+ *  last thing the panel said, so a failure reports WHY rather than just that. */
+let lastSaw = '(nothing)';
+async function openAndGo(id) {
+  for (let i = 0; i < 45; i++) {
+    const d = await deedOn(id);
+    lastSaw = d ? `${d.text}${d.off ? ' [disabled]' : ''}` : '(no deed)';
+    if (d && /^Go/.test(d.text) && !d.off) { await page.locator('.deed').first().click(); return true; }
+    if (d && /^Make the way/.test(d.text) && !d.off) {
+      await page.locator('.deed').first().click({ timeout: 2000 }).catch(() => {});
+    }
+    await page.waitForTimeout(4000);
+  }
+  return false;
+}
+
+await page.locator('nav button', { hasText: 'Here' }).click();
+await page.waitForTimeout(400);
+// Home to The Cut, then out through The Stack to The Cut Steps.
+if (!await openAndGo(0)) misses.push('could not get back to The Cut');
+await page.waitForTimeout(300);
+if (!await settleHere()) misses.push('could not settle The Cut');
+if (!await openAndGo(2)) misses.push(`could not open the way to The Stack — panel said: ${lastSaw}`);
+await page.waitForTimeout(300);
+if (!await settleHere()) misses.push('could not settle The Stack');
+if (!await openAndGo(300)) misses.push(`could not open the way to The Cut Steps — panel said: ${lastSaw}`);
+await page.waitForTimeout(400);
+const standing = await page.$$eval('.map .node.you .label', (t) => t.map((x) => x.textContent));
+console.log('  standing:', standing.join('') || '(nowhere)');
+
+if (standing.join('') === 'The Cut Steps') {
+  const door = await deedOn(301);
+  console.log('  door    :', door ? `"${door.text}" ${door.off ? '(shut)' : '(OPEN)'}` : '(no deed at all)');
+  if (!door) misses.push('the gated way offers no deed and no reason');
+  else {
+    if (!door.off) misses.push(`the door at wayfaring 8 is not shut: "${door.text}"`);
+    if (!/wayfaring \d+ — you are \d+/.test(door.text)) {
+      misses.push(`the door does not say what it wants: "${door.text}"`);
+    }
+  }
+  // ★ AND IT IS DRAWN AS A DOOR. A dot that reads identically to every other
+  // unmade way is a threshold you can only find by tapping, which is not
+  // "you can see it from here".
+  const barredPx = await ink('barred');
+  console.log('  drawn   :', `${barredPx}px of barred ink`);
+  if (!barredPx) misses.push('the door is not drawn any differently from an ordinary unmade way');
+} else {
+  misses.push(`never reached The Cut Steps — stopped at "${standing.join('')}", so no door was checked`);
+}
+
 // ★ WHAT THE ROAD IS CARRYING, DRAWN. The gold underlay is the one mark on this
 // board that could not be drawn from a count of what you own: it is only there
 // when a settled place is actually sending something down that route to you.

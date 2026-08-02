@@ -78,6 +78,7 @@
       you: isPlace && num === game.at,
       open: w !== undefined && w.why === null,
       shut: w !== undefined && w.why !== null,
+      barred: w !== undefined && w.bar > 0,
       // ⚠️ "KNOWN" IS HAVING A NAME, for anything that is not a place. This
       // read `!isPlace || …`, so every notion on Thoughts drew at full
       // brightness and full size whether you had thought it or not — the dim

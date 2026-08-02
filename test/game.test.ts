@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, costOf, blocked, unforgeable, waitFor, edgeKey,
-  forgeSecs, rate, unsettleable, SECS_PER_PACE, COST_BASE, COST_GROWTH,
+  forgeSecs, rate, unsettleable, levelOf, demandOn, xpFor, waysFrom, LEVEL_CAP,
+  SECS_PER_PACE, COST_BASE, COST_GROWTH,
   type Game } from '../src/game/engine';
 import { YIELD } from '../src/game/flow';
-import { PLACES, PLACE, START } from '../src/game/places';
+import { PLACES, PLACE, START, WORKED, GATED } from '../src/game/places';
 
 /** Standing still IS resting — there is no verb for it any more. */
 const work = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
@@ -270,19 +271,50 @@ describe('the player is never stuck', () => {
       return g1;
     };
 
+    /** Stand somewhere with a job and work until wayfaring is high enough.
+     *  ★ THE ONLY WAY PAST AN AUTHORED DOOR, and therefore the proof that the
+     *  two verbs interlock rather than sit beside each other: this walk cannot
+     *  finish by resting alone any more. */
+    const train = (want: number, g0: Game): Game => {
+      let g1 = g0;
+      const back = g1.at;
+      for (const site of WORKED) {
+        const there = hop(g1.at, site, g1);
+        if (there.at !== site) continue;
+        g1 = apply(there, { type: 'work' });
+        for (let i = 0; i < 400 && levelOf(g1.wayfaring) < want; i++) {
+          g1 = work(g1, 60);
+        }
+        g1 = apply(g1, { type: 'rest' });
+        if (levelOf(g1.wayfaring) >= want) break;
+      }
+      return hop(g1.at, back, g1);
+    };
+
     let g = initial();
     let guard = 0;
     while (g.seen.length < PLACES.length && guard++ < 3000) {
-      // The cheapest unseen place adjacent to anywhere we have been.
-      let best: { from: number; to: number; cost: number } | null = null;
+      // The cheapest unseen place adjacent to anywhere we have been — but an
+      // ungated one first, because a player does the thing that is open before
+      // the thing that needs a level.
+      let best: { from: number; to: number; cost: number; want: number } | null = null;
       for (const from of g.seen) {
         for (const to of PLACE.get(from)!.ways) {
           if (g.seen.includes(to)) continue;
+          const want = PLACE.get(from)!.gate?.[to] ?? 0;
           const cost = costOf(g, to);
-          if (!best || cost < best.cost) best = { from, to, cost };
+          const better = !best
+            || (want === 0 && best.want > 0)
+            || (((want > 0) === (best.want > 0)) && cost < best.cost);
+          if (better) best = { from, to, cost, want };
         }
       }
       if (!best) break;
+      // A door wants a level, and a level only comes from working.
+      if (best.want > levelOf(g.wayfaring)) {
+        g = train(best.want, g);
+        if (levelOf(g.wayfaring) < best.want) break;
+      }
 
       // Stand at the near end of the frontier route — made ground is free.
       g = hop(g.at, best.from, g);
@@ -345,6 +377,59 @@ describe('the player is never stuck', () => {
     // they settle.
     expect(wait!.secs).toBe(14);
     expect(wait!.secs).toBeLessThan(COST_BASE * SECS_PER_PACE);
+  });
+
+  it('★ every live door can actually be opened', () => {
+    // ⚠️ A DOOR WITH NO KEY IS WORSE THAN NO DOOR. `docs/BRIEF.md` ask 4 wants a
+    // level you have not reached to be a door you can see — which is only true
+    // if reaching the level opens it. The authored demands run to 24, so a cap
+    // of 10 would have left the deepest way in the stones permanently shut and
+    // nothing in this suite would have said so.
+    expect(GATED.length).toBeGreaterThan(0);
+    for (const d of GATED) {
+      expect(d.level, `a door at ${d.from}→${d.to} wants wayfaring ${d.level}`)
+        .toBeLessThanOrEqual(LEVEL_CAP);
+      expect(levelOf(xpFor(d.level))).toBe(d.level);
+    }
+    // And the doors demanding a skill nobody has, or an item nothing drops, are
+    // OFF rather than shut — 4 of the 13 authored gates are live.
+    expect(GATED.length).toBe(4);
+    expect(GATED.map((d) => d.level).sort((a, b) => a - b)).toEqual([3, 5, 8, 24]);
+  });
+
+  it('★ a door says the level, refuses below it, and opens at it', () => {
+    const door = GATED[0]!;
+    const poor = { ...initial(), at: door.from, paces: 9999, settled: [door.from] };
+    expect(demandOn(poor, door.to)).toBe(door.level);
+    expect(unforgeable(poor, door.to)).toBe(`wayfaring ${door.level} — you are 1`);
+    expect(apply(poor, { type: 'forge', to: door.to })).toBe(poor);
+    // ★ AND THE DOOR IS REPORTED BEFORE THE PRICE. Told it costs paces you do
+    // not have, you wait; told it wants a level, you go and work. Reporting the
+    // cheaper obstacle first sends the player to do the wrong thing.
+    const broke = { ...poor, paces: 0 };
+    expect(unforgeable(broke, door.to)).toMatch(/^wayfaring/);
+
+    const able = { ...poor, wayfaring: xpFor(door.level) };
+    expect(levelOf(able.wayfaring)).toBe(door.level);
+    expect(unforgeable(able, door.to)).toBeNull();
+  });
+
+  it('★ a barred way is marked for the board, and stops being marked once opened', () => {
+    // Ask 4 says you can SEE it from here. A door that reads identically to
+    // every other unmade way is a sentence you have to go tapping for.
+    const door = GATED[0]!;
+    const poor = { ...initial(), at: door.from, paces: 9999, settled: [door.from] };
+    const barred = waysFrom(poor).find((w) => w.to === door.to)!;
+    expect(barred.bar).toBe(door.level);
+    // Skilled enough: not a door any more.
+    const able = { ...poor, wayfaring: xpFor(door.level) };
+    expect(waysFrom(able).find((w) => w.to === door.to)!.bar).toBe(0);
+    // Already made: not a door either, whatever your level.
+    const made = { ...poor, solid: [edgeKey(door.from, door.to)] };
+    expect(waysFrom(made).find((w) => w.to === door.to)!.bar).toBe(0);
+    // And an ungated way is never marked.
+    const plain = waysFrom(initial()).find((w) => (PLACE.get(START)!.gate?.[w.to] ?? 0) === 0)!;
+    expect(plain.bar).toBe(0);
   });
 
   it('★ you may only build out of a place that produces', () => {

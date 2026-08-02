@@ -597,3 +597,5 @@ that a beat is reachable from where the player starts.
 - [ ] **The purse shows 3,522 obols against a first Tally level costing 200.** The rate sink is trivially affordable the moment it appears, so the "twenty levels of Ferryman's Tally" curve is skipped in one tap. Same root cause as above: income is far ahead of the prices designed against a slower assumption.
 
 - `store.ts:33` validates `solid` entries are strings but never that a key names a real route — `"0|300"` loads clean and is then permanently unwalkable. Found 2026-08-01. Fix: `PLACE.get(a)?.ways.includes(b)`.
+
+- [ ] **`costOf` still keys off a GLOBAL count of routes made**, so every frontier costs the same paces wherever you open it. Income reads the graph now; price does not. The queued answer is per-region tiers (`docs/PLAN.md`). Found while shipping thresholds, 2026-08-01.

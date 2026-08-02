@@ -38,6 +38,11 @@ export const INK = {
   // one beside it. The one readout in this game that could not exist without
   // the adjacency, drawn in the one place the player is already looking.
   flowing: '#e8a13c',
+  // ★ A DOOR THAT OUTRANKS YOU. `docs/BRIEF.md` ask 4 wants a level you have
+  // not reached to be a door you can SEE from here — and until this ink existed
+  // a gated way drew exactly like every other unmade one, so the threshold was
+  // a sentence you had to go tapping for.
+  barred: '#c0566f',
   stands: '#2f5568',
   means: '#2b4356',
   doing: '#3f7d6b',
@@ -77,6 +82,7 @@ export const TOL: Partial<Record<InkName, number>> = {
   dot: 6,
   open: 10,
   flowing: 12,
+  barred: 12,
 };
 export const COUNTED = Object.keys(TOL) as InkName[];
 

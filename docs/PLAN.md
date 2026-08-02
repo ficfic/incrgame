@@ -50,28 +50,36 @@ off that.
 | **0–5 min** | stand, forge an edge, walk it | *shipped* | 5 |
 | **5–30 min** | **settle** a place — it starts producing. **You may only forge from a settled place.** | income is an investment; "where you park" becomes true | 3 |
 | **30 min – 2 h** | **work** at a place: the 12 authored blocks. Work pays XP, not paces. | the second verb — the first real choice | 2, 3 |
-| **1–5 h** | **thresholds**: the 13 authored doors open on a level you can see from here | doors you can see and cannot open | 4 |
+| **1–5 h** | **thresholds**: the authored doors open on a level you can see from here — ✅ the 4 wayfaring ones | doors you can see and cannot open | 4 |
 | **anywhere** | **encounters** on Here: a dot contests the place; you poke; one goes out | combat, graph-native | 7 |
 | **anywhere** | **drops**: the 15 checks mint the 9 items; an item opens its named door | inventory, keys | 10 |
 | **the end** | the map closes → **the reveal**, then prestige | the twist | 8, 9 |
 
-### The economy, in five lines
+### The economy, as it actually shipped
+
+⚠️ **This block used to hold the PROPOSAL and was wrong in its first line.** It
+said `rate = 0.333 + 0.10 × settled.length`, which is the count model
+`docs/DIRECTIONS.md` exists to reject. Replaced with what the code does.
 
 ```
-rate(g)       = 0.333 + 0.10 × settled.length      per second, ceiling 4.03
-settleCost(m) = round(30 × 1.22 ^ m)               payback = cost / 0.10 s, printed on the node
-routeCost(e)  = round(10 × TIER[region] × 1.18 ^ routesMadeInThatRegion)
-TIER          = { valley: 1, works: 3.5, under: 8, stones: 14 }
-forgeSecs(n)  = min(90, 12 + 3n)
+rate(g)       = 1/3 + maxflow(settled → where you stand) / 1000   src/game/flow.ts
+YIELD         = 0.100 per settled place        a source
+EDGE_CAP      = 0.250 per made route           a pipe, and the whole point
+settleCost(m) = round(30 × 1.22 ^ m)
+costOf(e)     = round(6 × 1.2 ^ routes made)   ⚠️ still a global count — open
+forgeSecs(n)  = max(4, round(12 × 1.12 ^ routes made × 0.92 ^ (wayfaring − 1)))
+levelOf(xp)   = 1 + floor(√(xp / 12)), capped at 25
 ```
 
-Why: today income is flat forever against an exponential price, which is a queue
-rather than a curve — 63.5 hours of waiting, 10.6 of it for the last edge. And
-`costOf` keys off a GLOBAL count, so every frontier costs the same and which one
-you open has no economic content. Per-region pricing fixes both: a cheap
-direction always exists, and the in-region exponent tops out near 6× instead of
-400×. Converged on independently by `chad-liquidity`, `the-redditor` and
-`the-owner` (simulated) on 2026-08-01.
+**A road fills up.** Three settled places behind one route already exceed what it
+can carry, so a second road round the bottleneck is worth more than a fourth
+settlement — which is what turns the seven loop-closers (72% of the valley's
+price for 16% of its edges) from dead weight into the best purchase in the game.
+
+**Still open, and it is the same defect one level down:** `costOf` keys off a
+GLOBAL count of routes made, so every frontier still costs the same and which one
+you open has no *price* content. Income now reads the graph; price does not. The
+per-region tiers proposed by `chad-liquidity` are the queued answer.
 
 ### The choice, stated plainly
 
@@ -142,10 +150,13 @@ rent instead of being announced.
 Each one ships playable and screenshotted. Nothing starts until the one before
 is on the phone.
 
-1. **Settle + work + one skill.** The whole middle of this page in one item —
-   they interlock or none of them work (`docs/TABS.md`, and the eleven-systems
-   lesson). Resets saves.
-2. **Thresholds.** Turn on the 13 authored doors. Cheap once skills exist.
+1. ~~**Settle + work + one skill.**~~ ✅ 2026-08-01. Income is max-flow, not a
+   count — see `docs/DIRECTIONS.md` for why that was not optional.
+2. ~~**Thresholds.**~~ ✅ 2026-08-01, for the **4 of 13** doors that demand
+   wayfaring. The other 9 want craft, lore, attunement or one of the nine items,
+   and a door with no key anywhere in the game is worse than no door — so they
+   are off rather than shut. **The authored demands set the level curve**, not
+   the other way round: they run to 24, so the cap does too.
 3. **Drops and keys.** Turn on the 15 checks and the 9 items.
 4. **Encounters.** Starts with decision 1, not with code.
 5. **The reveal and prestige.** Last, and only once 1–4 are fun.

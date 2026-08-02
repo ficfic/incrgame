@@ -32,7 +32,7 @@
   export interface Dot {
     id: string; name: string; kind: string; wx: number; wy: number;
     place: boolean; you: boolean; open: boolean; shut: boolean;
-    known: boolean; on: boolean;
+    known: boolean; on: boolean; barred: boolean;
   }
   export interface Line { a: string; b: string; rel: string; fill: number;
     /** How much of its limit this route is carrying, 0 to 1. See `flow.ts`. */
@@ -213,12 +213,15 @@
     let fill: InkName = d.known && look.lit ? look.lit : look.fill;
     if (d.open) fill = 'open';
     if (d.shut) fill = 'shut';
+    // A door outranks a price: you can wait out a price, and you cannot wait
+    // out a level. So it must not look like the thing you can wait out.
+    if (d.barred) fill = 'barred';
     if (d.you) fill = 'you';
     let ring = look.ring;
     let rw = 2;
     if (d.on) { ring = 'ring'; rw = 2.5; }
     const p = posOf.get(d.id)!;
-    const r = d.you ? 7 : d.open || d.shut || (!d.place && d.known) ? 5.5 : look.r;
+    const r = d.you ? 7 : d.open || d.shut || d.barred || (!d.place && d.known) ? 5.5 : look.r;
     return { s: 'disc', x: p.x, y: p.y, r, ink: fill, ring, rw };
   }
 
@@ -390,7 +393,7 @@
       class:known={d.known} class:on={d.on} data-kind={d.kind} data-id={d.id}
       style="left:{sx(p.x)}px; top:{sy(p.y)}px"
       aria-label={d.name || 'somewhere unvisited'}
-      style:--label={INK[d.you ? 'ring' : d.open ? 'open' : d.known
+      style:--label={INK[d.you ? 'ring' : d.barred ? 'barred' : d.open ? 'open' : d.known
         ? (LOOK[d.kind]?.label ?? 'known') : 'dot']}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(d.id); } }}>
       {#if d.name}<span class="label">{d.name}</span>{/if}
