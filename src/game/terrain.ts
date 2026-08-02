@@ -16,8 +16,9 @@
 // Nothing here knows about the canvas, the camera or the game. It is geometry.
 import { STOPS } from './stops';
 import { SPOT, boxOf, type Box } from './layout';
-import { INK } from './ink';
+import { INK, type InkName } from './ink';
 import type { Shape, Pt } from './shapes';
+import { contours, regions, HEIGHT } from './relief';
 
 export type Ground = 'wood' | 'moor' | 'crag' | 'under' | 'stone';
 
@@ -167,7 +168,43 @@ export const TERRAIN: Terrain = (() => {
  *
  *  A bridge, a ford, a glyph beside a place or a tint over a region all come
  *  back here as more entries. That is the point of it. */
+/** Solved once, like everything else on this map. */
+export const REGIONS = regions();
+
+/** ★ THE CONTOUR LEVELS. Five, evenly through the range the field actually
+ *  reaches — computed rather than guessed, because the range depends on how the
+ *  grounds happen to be spread and hard-coded levels would put three lines off
+ *  the map the first time a chapter changed. */
+const LEVELS = (() => {
+  const at = STOPS.map((p) => HEIGHT[p.ground]);
+  const lo = Math.min(...at), hi = Math.max(...at);
+  // Inside the range, never ON an endpoint: a contour exactly at the lowest
+  // height traces the edge of every basin as a jitter of specks.
+  return [1, 2, 3, 4, 5].map((i) => lo + ((hi - lo) * i) / 6);
+})();
+
+const RING_INK: Record<string, InkName> = {
+  wood: 'edgewood', crag: 'edgecrag', moor: 'edgemoor', water: 'edgewater',
+  stone: 'edgecrag',
+};
+
 export const TERRAIN_SHAPES: Shape[] = [
+  // ★ THE RELIEF GOES DOWN FIRST, UNDER EVERYTHING. It is the ground; the
+  // scatter sits on it and the roads run over both.
+  {
+    s: 'baked', key: 'relief', box: TERRAIN.box, alpha: 0.9,
+    shapes: [
+      ...contours(TERRAIN.box, LEVELS).map((pts): Shape =>
+        ({ s: 'path', pts, ink: 'relief', w: 1, curve: true })),
+      // The region outlines, dashed, in the ground's own colour — so the line
+      // round the wood is the same green as the trees inside it and needs no
+      // key to read.
+      ...REGIONS.map((r): Shape => ({
+        s: 'path', pts: [...r.ring, r.ring[0]!], ink: RING_INK[r.ground] ?? 'moor',
+        w: 2, curve: true, dash: [11, 9], alpha: 0.9,
+      })),
+    ],
+  },
   {
     s: 'baked', key: 'ground', box: TERRAIN.box, alpha: 0.85,
     shapes: TERRAIN.marks.flatMap(markShapes),

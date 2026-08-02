@@ -54,6 +54,28 @@ export const INK = {
   carries: '#2b4356',
 
   // the ground
+  /** ★ THE CONTOUR LINES. Dim and warm, so they read as ground rather than as
+   *  one more road.
+   *
+   *  ⚠️ THE FIRST TRY WAS #463a24 AND IT MADE THE PROBE'S CHECK VACUOUS. It
+   *  cleared every COUNTED ink by 36 — the rule as written — but sat 9 from
+   *  `moor`, which is drawn all over the map as scatter. So "count the contour
+   *  pixels" was counting moor marks, and a sabotage that deleted the contours
+   *  outright still read 2032px and passed.
+   *
+   *  ★ THE RULE IS WIDER THAN IT SAID: a new ink must clear every ink the board
+   *  DRAWS, not merely every ink the probe counts, or the probe counts the wrong
+   *  thing. This one is 31 from its nearest neighbour of any kind (`moor`). */
+  relief: '#5c3320',
+  /** ★ THE LINE AROUND A REGION — *"an oval with a forest inside"*. A brighter
+   *  relative of each ground, because the ground colours themselves are nearly
+   *  black by design (they are scatter, meant to sit under everything) and a
+   *  dashed outline drawn in one was indistinguishable from a contour. All four
+   *  clear the nearest COUNTED ink by 38 or more. */
+  edgewood: '#2f6b3a',
+  edgecrag: '#7a7263',
+  edgemoor: '#6b5c34',
+  edgewater: '#2f7fa6',
   wood: '#123f1c',
   moor: '#3d3520',
   crag: '#5a5348',

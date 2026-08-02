@@ -188,9 +188,18 @@ const allStops = await page.$$eval('.map .node', (g) => g.length);
 const dottedPx = await ink('unmade');
 const builtPx = await ink('route');
 const groundPx = (await ink('moor')) + (await ink('crag'));
+// ★ THE RELIEF, COUNTED ON THE REAL PAGE. Contour lines and region outlines are
+// solved in `relief.ts` and checked as geometry in `test/relief.test.ts`, but
+// geometry that never reaches the canvas is a unit test passing over a blank
+// map — which this project has shipped. These are the pixels.
+const reliefPx = await ink('relief');
+const edgePx = (await ink('edgewood')) + (await ink('edgewater')) + (await ink('edgemoor'));
 console.log('  stops   :', allStops);
 console.log('  routes  :', `${dottedPx}px dotted, ${builtPx}px built`);
 console.log('  ground  :', `${groundPx}px of terrain under it`);
+console.log('  relief  :', `${reliefPx}px of contour, ${edgePx}px of region outline`);
+if (reliefPx < 300) misses.push(`only ${reliefPx}px of contour line — the isolines are not drawn`);
+if (edgePx < 200) misses.push(`only ${edgePx}px of region outline — the regions are not drawn`);
 if (allStops < 20) misses.push(`only ${allStops} stops on the chapter — the crossing is not all there`);
 if (dottedPx < 200) misses.push(`only ${dottedPx}px of dotted route — the ways across are not drawn`);
 if (!groundPx) misses.push('the chapter draws no ground — the terrain layer is not painting');
