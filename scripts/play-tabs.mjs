@@ -252,7 +252,7 @@ if (await doing.count()) {
   // could still say the constant would be a node quoting the floor forever.
   if (!/\d+\.\d\d a second/.test(said)) misses.push('the doing node does not say the rate');
   if (/pace every \d+ seconds/.test(said)) misses.push('the doing node is quoting the old constant rate');
-  if (!/\d+s\.|Enough in hand|Every way from here/.test(said)) {
+  if (!/\d+s\.|Enough in hand|Every edge from here/.test(said)) {
     misses.push('the doing node does not say what is next');
   }
 } else { misses.push('Here has no node for what you are doing'); }
@@ -625,7 +625,7 @@ if (standing.join('') === 'The Cut Steps') {
   if (!door) misses.push('the gated way offers no deed and no reason');
   else {
     if (!door.off) misses.push(`the door at wayfaring 8 is not shut: "${door.text}"`);
-    if (!/wayfaring \d+ — you are \d+/.test(door.text)) {
+    if (!/needs wayfaring \d+ — you have \d+/.test(door.text)) {
       misses.push(`the door does not say what it wants: "${door.text}"`);
     }
   }
