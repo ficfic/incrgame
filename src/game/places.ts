@@ -9,7 +9,7 @@
 // Everything else those files carry — skill demands, dice tests, item gates,
 // XP payouts — is deliberately IGNORED here. Eleven systems that each passed
 // their own tests and did not add up to a game is what we are undoing.
-import { PLACES as AUTHORED, PLACE as BY_ID } from '../slice/content';
+import { PLACES as AUTHORED, PLACE as BY_ID, ITEMS } from '../slice/content';
 
 export interface Place {
   id: number;
@@ -30,20 +30,32 @@ export interface Place {
    *  side, and says nothing about walking home. So the gate stays on the
    *  direction the author put it on. */
   gate?: Record<number, number>;
+  /** ★ CROSSING THIS WAY PAYS AN ITEM. Destination → what it pays, and the
+   *  level that decides which. Directional, like a gate, because the authored
+   *  test is an action taken in one direction. */
+  drop?: Record<number, { demand: number; good: string; poor: string | null }>;
+  /** ★ THIS WAY IS LOCKED. Destination → the item that opens it. */
+  key?: Record<number, string>;
 }
 
 /** ★ THE ONE SKILL THAT EXISTS, and therefore the only work on offer.
  *
- *  The regions carry 34 work blocks across five named skills — 11 wayfaring,
- *  7 craft, 7 attunement, 6 lore, 3 guile. Turning on all 34 would mint XP into
+ *  The regions carry **12** work blocks across five named skills — 4 craft,
+ *  3 lore, 3 wayfaring, 2 attunement. Turning them all on would mint XP into
  *  four skills that change nothing, which is a promise the engine does not
  *  keep; `docs/TABS.md` has the long version and it is the eleven-systems
  *  lesson. So one skill's blocks are live and the rest wait for the levers
  *  they turn.
  *
- *  ⚠️ AND IT IS NOT AN ACCIDENT THAT THIS THINS THE MAP OUT. Eleven places in
- *  thirty-seven offer work, so where you stand decides whether you have a
- *  choice to make at all. */
+ *  ⚠️ THREE PLACES IN THIRTY-SEVEN OFFER WORK, so where you stand decides
+ *  whether you have a choice to make at all. (An earlier note here said eleven,
+ *  from a count that included every skill CHECK on a choice as though it were a
+ *  job. It is three.)
+ *
+ *  ⚠️ AND THIS ONE NAME DECIDES FOUR THINGS: which jobs exist, which doors are
+ *  live, which crossings pay an item, and therefore which locked ways can be
+ *  opened at all. That is deliberate — everything downstream is derived, so a
+ *  second skill turns its own content on and cannot leave half of it stranded. */
 export const SKILL = 'wayfaring';
 
 export const START = 0;
@@ -64,6 +76,37 @@ for (const p of AUTHORED) {
   }
 }
 
+/** What a crossing pays, if the skill that judges it exists yet. */
+function dropOf(p: (typeof AUTHORED)[number]): Place['drop'] {
+  const out: NonNullable<Place['drop']> = {};
+  for (const c of p.choices) {
+    if (c.test?.skill === SKILL && c.test.loot) {
+      out[c.to] = { demand: c.test.demand, good: c.test.loot.good, poor: c.test.loot.poor ?? null };
+    }
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/** ★ EVERY ITEM THE GAME CAN ACTUALLY PUT IN YOUR HAND, derived rather than
+ *  listed. This is the whole reason the locked ways below cannot go wrong: a
+ *  door is live BECAUSE its key is droppable, so turning on another skill turns
+ *  on its doors by itself, and no edit can leave a lock in the world with the
+ *  key still switched off. `scripts/check-story.mjs` was written for exactly
+ *  this class of bug in the retired build — an unobtainable key — and this is
+ *  the same guarantee made structural instead of checked afterwards. */
+export const OBTAINABLE: ReadonlySet<string> = new Set(AUTHORED.flatMap((p) =>
+  Object.values(dropOf(p) ?? {}).flatMap((d) => (d.poor ? [d.good, d.poor] : [d.good]))));
+
+/** What locks a way, if the key can be got. */
+function keyOf(p: (typeof AUTHORED)[number]): Place['key'] {
+  const out: NonNullable<Place['key']> = {};
+  for (const c of p.choices) {
+    const n = c.needs as { item?: string } | undefined;
+    if (n?.item && OBTAINABLE.has(n.item)) out[c.to] = n.item;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export const PLACES: readonly Place[] = AUTHORED.map((p) => ({
   id: p.id,
   name: p.name,
@@ -73,7 +116,32 @@ export const PLACES: readonly Place[] = AUTHORED.map((p) => ({
     ? { label: p.work.label, secs: p.work.secs, xp: p.work.xp }
     : undefined,
   gate: gateOf(p),
+  drop: dropOf(p),
+  key: keyOf(p),
 }));
+
+/** ★ WHAT A THING IS, AND HOW YOU CAME BY IT. The regions name every item and
+ *  say what it opens; the test that pays it out carries the authored line for
+ *  succeeding and for not. Both are static, so an item's whole description is a
+ *  lookup rather than a lump of prose copied into the save. */
+export interface Thing { name: string; opens: string; how: string }
+export const THING: ReadonlyMap<string, Thing> = new Map(
+  Object.entries(ITEMS as Record<string, { name: string; opens: string }>)
+    .filter(([id]) => OBTAINABLE.has(id))
+    .map(([id, it]) => {
+      const line = AUTHORED.flatMap((p) => p.choices)
+        .filter((c) => c.test?.loot)
+        .map((c) => (c.test!.loot!.good === id ? c.test!.win
+          : c.test!.loot!.poor === id ? c.test!.lose : null))
+        .find((s) => s) ?? '';
+      return [id, { name: it.name, opens: it.opens, how: line }];
+    }));
+
+/** Kept so a test can assert these filters do something rather than nothing. */
+export const DROPS = PLACES.flatMap((p) =>
+  Object.entries(p.drop ?? {}).map(([to, d]) => ({ from: p.id, to: Number(to), ...d })));
+export const LOCKED = PLACES.flatMap((p) =>
+  Object.entries(p.key ?? {}).map(([to, item]) => ({ from: p.id, to: Number(to), item })));
 
 /** ★ THE DOORS THAT ARE LIVE, AND THE ONES THAT ARE NOT.
  *

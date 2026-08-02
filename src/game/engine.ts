@@ -23,7 +23,7 @@
 // Pure: `apply(state, action) => state`. No DOM, no clock, no RNG. Time arrives
 // as a `tick` carrying seconds, which is the one thing the old engine got right
 // and is why offline catch-up is four lines rather than a subsystem.
-import { PLACE, START, nameOf } from './places';
+import { PLACE, START, nameOf, THING } from './places';
 import { solveFlow, EDGE_CAP } from './flow';
 
 export interface Game {
@@ -55,6 +55,10 @@ export interface Game {
   wayfaring: number;
   /** Seconds banked toward the current place's job. */
   workPart: number;
+  /** ★ WHAT YOU CARRY. Keys, and things that are not keys yet. A SET in spirit:
+   *  an item is a thing you have or have not got, never a stack, so crossing
+   *  the same ground twice does not mint a second one. */
+  pack: string[];
   /** ★ THE CHOICE, AND THE WHOLE REASON A SKILL CAN EXIST HERE. One clock, two
    *  things it can pay into: standing still pays paces, working pays XP, and
    *  you cannot have both. Without this there is one verb, nothing to choose
@@ -256,6 +260,30 @@ export function demandOn(g: Game, to: number): number {
   return PLACE.get(g.at)?.gate?.[to] ?? 0;
 }
 
+/** The item it takes to open the way on from here, or null — and null also
+ *  when you are already carrying it, because a lock you have the key to is not
+ *  a lock any more. */
+export function lockOn(g: Game, to: number): string | null {
+  const want = PLACE.get(g.at)?.key?.[to];
+  return want && !g.pack.includes(want) ? want : null;
+}
+
+/** What crossing to `to` from here pays out, or null. `docs/BRIEF.md` forbids
+ *  RNG in this engine and there is none: the level you have when you cross
+ *  decides which of the two authored items you come away with.
+ *
+ *  ⚠️ EVALUATED ON EVERY CROSSING, WHICH IS WHAT KEEPS FAILURE A PLATEAU.
+ *  Crossing under-levelled gives you the poor one — and walking a made way is
+ *  free forever, so coming back at the level you needed gives you the good one.
+ *  Judged once and never again, an early crossing would lock the door its key
+ *  opens for the rest of the run, which is a loss screen with extra steps. */
+export function payout(g: Game, to: number): string | null {
+  const d = PLACE.get(g.at)?.drop?.[to];
+  if (!d) return null;
+  const got = levelOf(g.wayfaring) >= d.demand ? d.good : d.poor;
+  return got && !g.pack.includes(got) ? got : null;
+}
+
 export function unforgeable(g: Game, to: number): string | null {
   const here = PLACE.get(g.at);
   if (!here?.ways.includes(to)) return 'nothing joins these';
@@ -269,6 +297,11 @@ export function unforgeable(g: Game, to: number): string | null {
   if (want > levelOf(g.wayfaring)) {
     return `wayfaring ${want} — you are ${levelOf(g.wayfaring)}`;
   }
+  // ★ AND A LOCK, WHICH IS THE SAME RULE WITH A DIFFERENT KEY. A way that is
+  // live BECAUSE its key is droppable (`places.ts`), so this can never be a
+  // door with nothing behind it.
+  const lock = lockOn(g, to);
+  if (lock) return `you need the ${THING.get(lock)?.name ?? lock}`;
   // ★ YOU MAY ONLY BUILD OUT OF A PLACE THAT PRODUCES. This is the rule that
   // turns two lists into a game: pushing into the far valley means settling a
   // chain of bases behind you, so income is not a side dish to progress, it is
@@ -294,6 +327,7 @@ export function initial(): Game {
     // of the game are spent gathering thirty paces to unlock the ability to do
     // anything at all, which teaches the loop by withholding it.
     settled: [START],
+    pack: [],
     wayfaring: 0,
     workPart: 0,
     busy: 'rest',
@@ -378,10 +412,12 @@ export function apply(g: Game, a: Action): Game {
       const dest = PLACE.get(a.to);
       if (!dest) return g;
       const first = !g.seen.includes(a.to);
+      const got = payout(g, a.to);
       return {
         ...g,
         at: a.to,
         seen: first ? [...g.seen, a.to] : g.seen,
+        pack: got ? [...g.pack, got] : g.pack,
         // ⚠️ THE JOB DOES NOT TRAVEL WITH YOU. Jobs have different lengths, so
         // carrying a half-finished one to a different place would pay it out
         // against the wrong clock — and silently leaving `busy` set would have
@@ -401,7 +437,9 @@ export interface Way { to: number; name: string; cost: number; why: string | nul
    *  so a door is a thing you can SEE from here rather than a sentence you find
    *  by tapping — `docs/BRIEF.md` ask 4 asks for exactly that, and a dot that
    *  looks identical to every other unmade way is not it. */
-  bar: number }
+  bar: number;
+  /** The item this way wants and you have not got, or null. */
+  need: string | null }
 
 export function waysFrom(g: Game): Way[] {
   const here = PLACE.get(g.at);
@@ -419,6 +457,7 @@ export function waysFrom(g: Game): Way[] {
       // A door you have already opened is just a road. Only an unmade way that
       // outranks you is drawn barred.
       bar: !made && want > levelOf(g.wayfaring) ? want : 0,
+      need: made ? null : lockOn(g, to),
     };
   });
 }

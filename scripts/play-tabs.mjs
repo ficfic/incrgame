@@ -641,6 +641,85 @@ if (!flowPx) {
   misses.push('no route is drawn carrying anything — either nothing flows or the flow is not drawn');
 }
 
+// ★★ A LOCK, THE KEY THAT OPENS IT, AND THE ITEM IN YOUR HAND.
+//
+// ⚠️ HOW THIS ONE IS SET UP, AND WHY IT IS NOT A BACKDOOR. The only crossing
+// that pays a key is deep in the works and wants wayfaring 5 — walking there
+// through the real economy is about eight more minutes of probe. So the state
+// is written into IndexedDB and the page reloaded, which is the SAME path the
+// player's own device takes every time they come back: `load()` reads it,
+// validates it against the content, and refuses it if it is wrong. Nothing
+// test-only was added to the app.
+//
+// ⚠️ AND WHAT IT THEREFORE DOES NOT PROVE: that the key is REACHABLE by playing.
+// That is `test/game.test.ts` — the walk over all 37 places now trains for the
+// level, crosses for the key, and comes back to spend it. Said out loud rather
+// than quietly skipped.
+console.log('\nA LOCK AND ITS KEY');
+const GATE = 106, DRUM = 107, IRON = 'works-gate-iron';
+async function reloadWith(game) {
+  await page.evaluate((g) => new Promise((done, fail) => {
+    const req = indexedDB.open('semantic-drift', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('saves');
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction('saves', 'readwrite');
+      tx.objectStore('saves').put(JSON.stringify(
+        { v: 3, savedAt: Date.now(), game: g }), 'main');
+      tx.oncomplete = () => { db.close(); done(); };
+      tx.onerror = () => fail(tx.error);
+    };
+    req.onerror = () => fail(req.error);
+  }), game);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForSelector('.map canvas');
+  await page.waitForTimeout(700);
+  await page.locator('nav button', { hasText: 'Here' }).click();
+  await page.waitForTimeout(400);
+}
+const atGate = {
+  at: GATE, seen: [GATE, DRUM ], paces: 9999, part: 0, settled: [GATE],
+  solid: [], forging: null, wayfaring: 100000, workPart: 0, busy: 'rest', pack: [],
+};
+// `seen` must contain `at`, and nothing else about this state is unusual.
+atGate.seen = [GATE];
+
+await reloadWith(atGate);
+const shut = await deedOn(DRUM);
+console.log('  without :', shut ? `"${shut.text}" ${shut.off ? '(shut)' : '(OPEN)'}` : '(no deed)');
+if (!shut || !shut.off) misses.push('the locked way is not shut when the key is not carried');
+else if (!/you need the/.test(shut.text)) {
+  misses.push(`the lock does not name the key it wants: "${shut.text}"`);
+}
+const lockedPx = await ink('barred');
+console.log('  drawn   :', `${lockedPx}px of barred ink`);
+if (!lockedPx) misses.push('a locked way is not drawn any differently from an ordinary unmade one');
+
+await reloadWith({ ...atGate, pack: [IRON] });
+const open = await deedOn(DRUM);
+console.log('  carrying:', open ? `"${open.text}" ${open.off ? '(still shut)' : '(OPEN)'}` : '(no deed)');
+if (!open) misses.push('the way offers nothing even with the key');
+else if (open.off) misses.push(`the key does not open the lock: "${open.text}"`);
+
+// And the thing itself, on the character sheet, with the line the author wrote
+// for coming by it. `docs/BRIEF.md` ask 10, and Self has held only paces until
+// now with a note in `world.ts` promising items "when drops do".
+await page.locator('nav button', { hasText: 'Self' }).click();
+await page.waitForTimeout(500);
+const held = await page.$$eval(".map .node[data-kind='item'] .label", (t) => t.map((x) => x.textContent));
+console.log('  carried :', held.join(' · ') || '(nothing)');
+if (held.length < 2) misses.push(`Self is not drawing the item: carrying ${held.join(', ') || 'nothing'}`);
+const thing = page.locator(".map .node[data-kind='item']", { hasText: 'gate iron' });
+if (await thing.count()) {
+  await thing.first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  const said = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
+  console.log('  reads   :', `"${said.slice(0, 120)}"`);
+  if (!/opens the gate under the works/.test(said)) {
+    misses.push(`the item does not say what it opens: "${said.slice(0, 80)}"`);
+  }
+} else { misses.push('the gate iron is not on the character sheet by name'); }
+
 await page.screenshot({ path: SHOT });
 console.log(`\nscreenshot → ${SHOT}`);
 if (misses.length) { console.log('\n⚠️ PROBLEMS'); for (const m of misses) console.log('  ', m); }

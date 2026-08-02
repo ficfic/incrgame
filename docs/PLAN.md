@@ -20,9 +20,9 @@ Measured against `src/slice/regions/*.ts`, 2026-08-01:
 | routes between them | 43 | ✅ yes |
 | **timed work blocks** (`label`, `secs`, `xp`, a skill) | **12** | 🟡 the 3 wayfaring ones are live |
 | **skills they pay into** | **5** — wayfaring, lore, craft, guile, attunement | 🟡 wayfaring exists |
-| **skill checks on a route**, each with a win and a lose line | **15** | ❌ ignored |
-| **items they drop** | **9**, each naming a door it opens | ❌ never minted |
-| **doors that demand a level or an item** | **13** | ❌ ignored |
+| **skill checks on a route**, each with a win and a lose line | **15** (5 pay loot) | 🟡 the 1 wayfaring loot check is live |
+| **items they drop** | **9**, each naming a door it opens | 🟡 2 of them can be got |
+| **doors that demand a level or an item** | **13** | 🟡 4 level doors + 1 lock live |
 
 ⚠️ **The work-block count in the first draft of this page said 34 and was
 wrong.** It counted every `skill:` in the region files, and 22 of those are
@@ -52,7 +52,7 @@ off that.
 | **30 min – 2 h** | **work** at a place: the 12 authored blocks. Work pays XP, not paces. | the second verb — the first real choice | 2, 3 |
 | **1–5 h** | **thresholds**: the authored doors open on a level you can see from here — ✅ the 4 wayfaring ones | doors you can see and cannot open | 4 |
 | **anywhere** | **encounters** on Here: a dot contests the place; you poke; one goes out | combat, graph-native | 7 |
-| **anywhere** | **drops**: the 15 checks mint the 9 items; an item opens its named door | inventory, keys | 10 |
+| **anywhere** | **drops**: the checks mint the items; an item opens its named door — ✅ the 1 wayfaring one | inventory, keys | 10 |
 | **the end** | the map closes → **the reveal**, then prestige | the twist | 8, 9 |
 
 ### The economy, as it actually shipped
@@ -157,7 +157,11 @@ is on the phone.
    and a door with no key anywhere in the game is worse than no door — so they
    are off rather than shut. **The authored demands set the level curve**, not
    the other way round: they run to 24, so the cap does too.
-3. **Drops and keys.** Turn on the 15 checks and the 9 items.
+3. ~~**Drops and keys.**~~ ✅ 2026-08-01, for the **1 of 5** loot-bearing checks
+   that judges on wayfaring — the gate iron, and the one lock it opens. A live
+   lock is DERIVED from the set of droppable items, so a second skill turns its
+   own keys and doors on together and no edit can leave a lock in the world with
+   its key switched off.
 4. **Encounters.** Starts with decision 1, not with code.
 5. **The reveal and prestige.** Last, and only once 1–4 are fun.
 

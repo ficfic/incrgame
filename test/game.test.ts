@@ -4,7 +4,7 @@ import { apply, initial, costOf, blocked, unforgeable, waitFor, edgeKey,
   SECS_PER_PACE, COST_BASE, COST_GROWTH,
   type Game } from '../src/game/engine';
 import { YIELD } from '../src/game/flow';
-import { PLACES, PLACE, START, WORKED, GATED } from '../src/game/places';
+import { PLACES, PLACE, START, WORKED, GATED, DROPS, LOCKED, THING } from '../src/game/places';
 
 /** Standing still IS resting — there is no verb for it any more. */
 const work = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
@@ -291,22 +291,42 @@ describe('the player is never stuck', () => {
       return hop(g1.at, back, g1);
     };
 
+    /** Go and earn the key a locked way wants. ★ THE PROOF THAT A LOCK CANNOT
+     *  STRAND YOU: the item comes from crossing tested ground, crossing is free
+     *  once the road is made, and the crossing is judged EVERY time — so a key
+     *  missed by being under-levelled can always be gone back for. */
+    const fetch = (item: string, g0: Game): Game => {
+      const pays = DROPS.find((d) => d.good === item);
+      if (!pays) return g0;
+      let g1 = pays.demand > levelOf(g0.wayfaring) ? train(pays.demand, g0) : g0;
+      if (levelOf(g1.wayfaring) < pays.demand) return g1;
+      const back = g1.at;
+      g1 = hop(g1.at, pays.from, g1);
+      if (g1.at !== pays.from) return g1;
+      g1 = apply(g1, { type: 'go', to: pays.to });
+      return hop(g1.at, back, g1);
+    };
+
     let g = initial();
     let guard = 0;
     while (g.seen.length < PLACES.length && guard++ < 3000) {
-      // The cheapest unseen place adjacent to anywhere we have been — but an
-      // ungated one first, because a player does the thing that is open before
-      // the thing that needs a level.
-      let best: { from: number; to: number; cost: number; want: number } | null = null;
+      // The cheapest unseen place adjacent to anywhere we have been — but the
+      // OPEN ones first, then the ones wanting a level, then the ones wanting a
+      // key. A player does what is open before what is shut, and it also means
+      // the road to the key's own crossing exists by the time we need it.
+      let best: { from: number; to: number; cost: number; want: number;
+        lock: string | null; rank: number } | null = null;
       for (const from of g.seen) {
         for (const to of PLACE.get(from)!.ways) {
           if (g.seen.includes(to)) continue;
           const want = PLACE.get(from)!.gate?.[to] ?? 0;
+          const locked = PLACE.get(from)!.key?.[to] ?? null;
+          const lock = locked && !g.pack.includes(locked) ? locked : null;
+          const rank = lock ? 2 : want > levelOf(g.wayfaring) ? 1 : 0;
           const cost = costOf(g, to);
-          const better = !best
-            || (want === 0 && best.want > 0)
-            || (((want > 0) === (best.want > 0)) && cost < best.cost);
-          if (better) best = { from, to, cost, want };
+          const better = !best || rank < best.rank
+            || (rank === best.rank && cost < best.cost);
+          if (better) best = { from, to, cost, want, lock, rank };
         }
       }
       if (!best) break;
@@ -314,6 +334,11 @@ describe('the player is never stuck', () => {
       if (best.want > levelOf(g.wayfaring)) {
         g = train(best.want, g);
         if (levelOf(g.wayfaring) < best.want) break;
+      }
+      // A lock wants a key, and a key only comes from crossing tested ground.
+      if (best.lock) {
+        g = fetch(best.lock, g);
+        if (!g.pack.includes(best.lock)) break;
       }
 
       // Stand at the near end of the frontier route — made ground is free.
@@ -430,6 +455,62 @@ describe('the player is never stuck', () => {
     // And an ungated way is never marked.
     const plain = waysFrom(initial()).find((w) => (PLACE.get(START)!.gate?.[w.to] ?? 0) === 0)!;
     expect(plain.bar).toBe(0);
+  });
+
+  it('★★ no lock exists whose key cannot be got', () => {
+    // ⚠️ THE ONE THAT MAKES THE OTHERS SAFE. `places.ts` derives a live lock FROM
+    // the set of droppable items, so this cannot fail while that holds — which
+    // is the point: it is here to catch someone replacing the derivation with a
+    // list. `scripts/check-story.mjs` was written for this exact defect in the
+    // retired build (an unobtainable key) and it does not cover this engine.
+    expect(LOCKED.length).toBeGreaterThan(0);
+    for (const l of LOCKED) {
+      const source = DROPS.find((d) => d.good === l.item || d.poor === l.item);
+      expect(source, `nothing anywhere drops "${l.item}", which locks ${l.from}→${l.to}`)
+        .toBeDefined();
+      // And it must be the GOOD one — a key you can only get by failing is not
+      // a key, it is a coin flip you cannot retake.
+      expect(DROPS.some((d) => d.good === l.item), `"${l.item}" is only ever a consolation`)
+        .toBe(true);
+      expect(THING.get(l.item), `"${l.item}" has no name to show`).toBeDefined();
+    }
+  });
+
+  it('★ crossing pays the good item at the level, the poor one below it', () => {
+    const d = DROPS[0]!;
+    const base = { ...initial(), at: d.from, seen: [START, d.from],
+      solid: [edgeKey(d.from, d.to)] };
+    // Under-levelled: the consolation.
+    const poor = apply(base, { type: 'go', to: d.to });
+    expect(poor.at).toBe(d.to);
+    expect(poor.pack).toEqual([d.poor]);
+    // At the level: the key.
+    const good = apply({ ...base, wayfaring: xpFor(d.demand) }, { type: 'go', to: d.to });
+    expect(good.pack).toEqual([d.good]);
+    // ★ AND FAILURE IS A PLATEAU. The crossing is judged every time, so the run
+    // that took the consolation can go back for the key once it has the level.
+    // Judged once, an early crossing would shut the door its key opens for the
+    // rest of the run — a loss screen with extra steps.
+    const later = apply({ ...poor, at: d.from, wayfaring: xpFor(d.demand) },
+      { type: 'go', to: d.to });
+    expect(later.pack).toContain(d.good);
+    // Crossing again does not mint a second one.
+    const twice = apply({ ...later, at: d.from }, { type: 'go', to: d.to });
+    expect(twice.pack.filter((i) => i === d.good)).toHaveLength(1);
+  });
+
+  it('★ a lock says what it wants, and opens when you carry it', () => {
+    const l = LOCKED[0]!;
+    const rich = { ...initial(), at: l.from, paces: 9999, settled: [l.from],
+      wayfaring: xpFor(LEVEL_CAP) };
+    expect(unforgeable(rich, l.to)).toBe(`you need the ${THING.get(l.item)!.name}`);
+    expect(apply(rich, { type: 'forge', to: l.to })).toBe(rich);
+    // The board is told too, so it is a door you can see rather than find.
+    expect(waysFrom(rich).find((w) => w.to === l.to)!.need).toBe(l.item);
+
+    const keyed = { ...rich, pack: [l.item] };
+    expect(unforgeable(keyed, l.to)).toBeNull();
+    expect(waysFrom(keyed).find((w) => w.to === l.to)!.need).toBeNull();
   });
 
   it('★ you may only build out of a place that produces', () => {

@@ -8,7 +8,7 @@
 // That is the owner's ask, in their words: "in the underlying data model for
 // the game, I want the graph to have everything connected so that we have one
 // systemic model which describes everything."
-import { PLACES, PLACE, nameOf } from './places';
+import { PLACES, PLACE, nameOf, THING } from './places';
 import { NOTIONS, NOTION, type Notion } from './notions';
 import { reachedFrom } from './flow';
 import type { Game } from './engine';
@@ -169,12 +169,14 @@ export function here(g: Game): View {
  *  so a skill trained by making ways cancels itself out, and a skill is a choice
  *  about where to spend time of which there is exactly one. See `docs/TABS.md`.
  *
- *  ⚠️ THE INVENTORY HOLDS ONE THING BECAUSE ONE THING EXISTS. `src/slice/
- *  content.ts` carries NINE hand-authored keys — "strip of lead", "quiet key",
- *  "iron gate pin" — each with a door it opens, and `docs/BRIEF.md` ask 10 wants
- *  them. Nothing in this engine drops one, so drawing empty slots for them would
- *  promise a system that does not exist. That is the eleven-systems mistake in
- *  miniature. They arrive when drops do. */
+ *  ★ AND THE INVENTORY HOLDS THINGS NOW. The note here used to read "one thing,
+ *  because one thing exists — they arrive when drops do." They have: crossing
+ *  tested ground pays out one of the two items the author wrote for it, and
+ *  which one you get is decided by the level you crossed at.
+ *
+ *  ⚠️ NO EMPTY SLOTS, STILL. What you are carrying is drawn; what you are not is
+ *  not drawn at all. A row of blanks promises a system by its shape, which is
+ *  the eleven-systems mistake in miniature. */
 export function self(g: Game): View {
   const at = PLACE.get(g.at)!;
   const next = waysFrom(g).filter((w) => !w.made).sort((a, b) => a.cost - b.cost)[0];
@@ -206,6 +208,17 @@ export function self(g: Game): View {
           + `${settledNear} settled ${settledNear === 1 ? 'place' : 'places'} `
           + 'along the ways you made — and only as fast as the narrowest way '
           + 'between there and here will take it.' },
+    // What you are carrying, each its own node hanging off you by `carries` —
+    // the same vocabulary the purse already uses, so an item is not a special
+    // case of anything.
+    ...g.pack.map((id) => {
+      const t = THING.get(id);
+      return {
+        id: `carry:${id}`, kind: 'item' as const,
+        name: t?.name ?? id,
+        body: `${t?.how ?? ''} It opens ${t?.opens ?? 'nothing'}.`.trim(),
+      };
+    }),
     { id: 'stat:way', kind: 'fact',
       name: `Wayfaring ${lv}`,
       body: lv >= LEVEL_CAP
@@ -236,6 +249,7 @@ export function self(g: Game): View {
     edges: [
       { a: 'you', b: placeId(g.at), rel: 'stands' },
       { a: 'you', b: 'carry:paces', rel: 'carries' },
+      ...g.pack.map((id) => ({ a: 'you', b: `carry:${id}`, rel: 'carries' as const })),
       { a: 'you', b: 'stat:gather', rel: 'has' },
       { a: 'you', b: 'stat:way', rel: 'has' },
       { a: 'you', b: 'stat:making', rel: 'has' },

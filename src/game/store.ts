@@ -3,7 +3,7 @@
 // week idle, which is exactly the gap between sittings this game is built for.
 import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/storage';
 import { initial, type Game } from './engine';
-import { PLACE } from './places';
+import { PLACE, THING } from './places';
 
 // ⚠️ 3 RESETS EVERY SAVE, and deliberately. `part` changed meaning from banked
 // SECONDS to banked fractional PACES when the rate stopped being a constant, so
@@ -54,6 +54,11 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     if (g.workPart !== undefined
       && (!Number.isFinite(g.workPart) || g.workPart < 0)) return null;
     if (g.busy !== undefined && g.busy !== 'rest' && g.busy !== 'work') return null;
+    // Checked against the CONTENT: an item the game can no longer put in your
+    // hand is a key to a lock that may no longer exist, and it would sit in the
+    // inventory with no name to draw.
+    if (g.pack !== undefined
+      && (!Array.isArray(g.pack) || !g.pack.every((id) => THING.has(id)))) return null;
     // A half-made route pointing at nothing would draw a line to nowhere and
     // never finish. Refused, not repaired.
     if (g.forging && !(typeof g.forging.key === 'string'

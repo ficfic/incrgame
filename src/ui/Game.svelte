@@ -78,7 +78,10 @@
       you: isPlace && num === game.at,
       open: w !== undefined && w.why === null,
       shut: w !== undefined && w.why !== null,
-      barred: w !== undefined && w.bar > 0,
+      // A door is a door whether it wants a level or a key — the player sees
+      // "shut" and taps to learn which. Two inks for two kinds of shut would be
+      // a distinction the panel already makes in words.
+      barred: w !== undefined && (w.bar > 0 || w.need !== null),
       // ⚠️ "KNOWN" IS HAVING A NAME, for anything that is not a place. This
       // read `!isPlace || …`, so every notion on Thoughts drew at full
       // brightness and full size whether you had thought it or not — the dim

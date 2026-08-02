@@ -76,6 +76,8 @@ describe('★ a save from before a feature existed still loads', () => {
     expect(await load()).toBeNull();
     put({ ...OLD, wayfaring: -5 });
     expect(await load()).toBeNull();
+    put({ ...OLD, pack: ['a-thing-that-was-never-authored'] });
+    expect(await load()).toBeNull();
   });
 
   it('round-trips a live game unchanged', async () => {
