@@ -64,6 +64,9 @@ And it buys the thing no other premise could:
 > not match the sheet. Stations are drawn where nothing stands. A line is ruled
 > across a moor no cart crosses.
 
+⚠️ **Wrong because it was drawn far away from an old survey** — not wrong
+because something uncanny drew it. See §11. There is no twist in this game.
+
 # 4. THE CHIEF ENGINEER
 
 **Chief Engineer Rennick.** Never present. Arrives as sheets folded in eighths,
@@ -71,11 +74,14 @@ brought up by the post rider every eight or nine days: alignments, sections,
 gradients, a query in the margin, initials. You write back by leaving a chit at
 the tollhouse and waiting.
 
-**The one thing the player slowly notices:** the plan is right about ground
-nobody has walked. A sheet specifies a culvert at a stream the survey has not
-reached, with the span correct to a foot. Rennick has never been up here. The
-sheets are not predictions and not guesses. They are drawings of a thing already
-known.
+**And he is wrong a lot.** He has never been up here. He is working from a
+survey somebody else ran in better weather, and it shows: a culvert specified
+for a stream that moved, a gradient that is fine on paper and unwalkable in
+peat, a station drawn on ground that turned out to be bog. He is not sinister.
+He is a competent man three counties away with an old survey and a budget.
+
+⚠️ **No mystery. Nothing is hidden about him.** He is the reason the plan can be
+wrong, and that is his whole job in this game.
 
 # 5. THE FAMILIES
 
@@ -259,25 +265,37 @@ board a crew.
 Knowledge persists, infrastructure does not, which is how surveying actually
 works. It needs no reveal and no reset screen.
 
-# 11. WHAT THE PLAYER SLOWLY LEARNS
+# 11. ★ THERE IS NO TWIST
 
-Not a twist. Something true from the first minute that a player might notice at
-hour four.
+**Decided by the owner, 2026-08-02:** *"just your typical low fantasy with no
+twist."*
 
-Every sheet's title block says **sheet 4 of —**, the dash where a number should
-be, and the revision letter has never once been A. Completing a span does not
-shorten the work; it issues stakes. Tam Ferris's drove wall — the one his family
-did not build — sits dead on the alignment for two hundred paces, because **it
-is the last road, graded, metalled, and gone back to grass.**
+An earlier draft of this document had one — the plan turning out to be a reissue
+of an older survey, Rennick reissuing rather than designing, the drove wall being
+the last road gone back to grass. **It is cut.** So is the AI reveal it was
+quietly standing in for. `docs/attic/` has both.
 
-The Marches have been surveyed before. The road is not being built toward the
-pass; the pass is where the sheets stop, and the sheets stop because that is
-where the last crew stopped.
+⚠️ **This is a real constraint on everything written from here, not a note.**
+Every time a piece of prose in this project has been good, somebody has tried to
+make it *mean* something, and the meaning has always been the same shape: it was
+all secretly about a machine. That is finished.
 
-**Rennick is not designing this. Rennick is reissuing it.**
+**What carries the game instead — and this is enough:**
 
-⚠️ **Nothing states this, ever.** No reveal, no cutscene, no line of dialogue.
-It is in the title blocks and in one wall.
+- **The work.** It is hard, it is slow, and the ground fights you. That is the
+  whole of Prince Avalanche and most of Firewatch.
+- **The people.** Tam Ferris wants a gap in a wall. The Kessels have everything
+  they own in a hole and need you to reach them before winter. Sal Orme wants
+  the road to take a long time. **These want incompatible things and you cannot
+  satisfy all of them** — that is the drama, and it needs no reveal to work.
+- **The plan being wrong.** Not sinister: just drawn far away, from an old
+  survey, by a man with a budget. You are the one standing in the bog he ruled a
+  line across.
+
+**The frontier has history and no secret.** There was a road here before, in
+places — old walls, a drove, cut stone in the wrong spot. That is what an old
+country looks like. **Nobody is going to explain it, because there is nothing to
+explain.**
 
 # 12. TONE
 

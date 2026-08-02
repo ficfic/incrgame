@@ -92,16 +92,18 @@ anybody saying so.
 
 **Reskinned**
 > Three flat rocks, and under the top one an iron stake driven to the collar,
-> with a number cut into the head. The number is not the next one. Between here
-> and the fork are four more stakes the same, all set, all numbered, none of
-> them in the order you would walk them. Somebody laid this line out before
-> anyone came up to walk it.
+> with a number cut into the head. Between here and the fork are four more the
+> same, all set, all numbered. Somebody walked this line with a chain and a
+> hammer in weather better than this, and went home, and sent the numbers on.
 
 **What you lose:** *"Somebody counted. Somebody expected to forget."* — probably
 the best two sentences in the file, and they were written for the AI premise you
 just cut.
-**What you gain:** the last line does the same job for the new premise, and it
-is the premise's whole thesis in one sentence.
+**What you gain:** the stake is the plan, physically, in the second sentence.
+⚠️ **Rewritten once more after the owner cut the twist** — the first version
+ended *"somebody laid this line out before anyone came up to walk it"*, which is
+a hook. It now says what actually happened: a surveyor did his job in better
+weather and posted the numbers. Plain history, no mystery.
 
 ---
 
@@ -115,15 +117,17 @@ is the premise's whole thesis in one sentence.
 
 **Reskinned**
 > A dry room off the pit, and a plan chest in it the size of a chair. Forty
-> sheets, folded in eighths, filed by number. Sections and gradients for ground
-> you have not walked, drawn in a hand that is not Rennick's. The top sheet is a
-> fair copy of the one below it, and its title block has been left blank.
+> sheets, folded in eighths, filed by number: sections, gradients, a bridge in
+> three views. None of it is for this road. Somebody kept a works here in good
+> order for years, and then the order stopped and the sheets stayed dry.
 
 **What you lose:** the machine, which is a genuinely good image.
-**What you gain:** the sheets are the same sheets the post rider brings you.
-*A fair copy of the one below it* is the reissue, said once and never explained.
-*A hand that is not Rennick's* is the previous crew, said once and never
-explained.
+**What you gain:** the sheets are the same kind the post rider brings you, so
+the room says *this is a country that has been engineered before* without
+implying anything is watching.
+⚠️ **Also rewritten after the twist was cut.** The first version had the top
+sheet being a fair copy of the one below, in a hand that is not Rennick's —
+which is a mystery hook. Now: a works was kept here, then it stopped. Ordinary.
 
 ---
 
@@ -147,7 +151,7 @@ better than anything I will write to replace them:
 
 > *"Somebody counted. Somebody expected to forget."*
 
-They were written for a game about a machine that forgets. That game is cut. The
-lines can be kept — they still scan — but they will be pointing at nothing, and
-this project's own rule is that prose describing a system the code does not have
-is a lie the player eventually catches.
+They were written for a game about a machine that forgets. That game is cut, and
+so is the twist that replaced it. The lines still scan — but they promise a
+mystery this game has now decided not to have, which is a worse failure than
+losing a good sentence.
