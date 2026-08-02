@@ -255,6 +255,68 @@ Zoomed out, a gated link draws in locked ink — you see *where* the walls are
 without reading. Tap it and the panel says **"Grade 9 — you are 6"**. The skill
 bar carries a notch at 9 with the place's name under it.
 
+# 9b. ★ THE GROUND AND THE WEATHER
+
+> *"i think it'd be fun to also add topology to our map, like heights and
+> isolines of the same heights to signal hills and valleys"*
+> *"i want to also add weather (graphical) and these height isolines"*
+> — the owner, 2026-08-02
+
+⚠️ **Neither of these is decoration, and building them as decoration would be
+the mistake.** A road crew has exactly two antagonists and these are both of
+them. Under this premise they are **the price** and **the clock**.
+
+## Height — and therefore grade
+
+A height field over the map, drawn as **contour lines at a fixed interval**.
+Close-packed lines mean steep. That is the whole legend and it needs no key.
+
+★ **The grade between two stations IS the cost multiplier**, which the economy
+already has a slot for: a segment eats `length × grade` loads. So the contours
+are not a picture of the terrain, they are **a picture of the price**.
+
+That closes the oldest hole in this project. `docs/attic/DIRECTIONS.md` measured
+it: *shuffle which node connects to which, keep the counts identical, and no
+number in the engine changes.* With contours, **you can look at the map and see
+which link is dear** — the decision moves from a menu into your eye, which is
+what "the game is a graph" was always supposed to mean.
+
+| | |
+|---|---|
+| **drawn** | marching squares over the height field, once, into the offscreen bitmap in world coordinates — the same trick `terrain.ts` already uses for the scatter. One `drawImage` a frame |
+| **costs** | contours are static, so nothing per-frame. The height field is data, authored per station |
+| **⚠️ constraint** | every new ink must clear `test/ink.test.ts`'s distances from the counted ones, and **no `shadowBlur`** |
+
+## Weather — a window, never a tax
+
+**The hard rule, from `docs/BRIEF.md`: no mechanic may punish absence.** So
+weather must never be a penalty you come back to. It changes **what is worth
+doing now**, and nothing else.
+
+| weather | what it does |
+|---|---|
+| **Rain** | peat will not take a road. Laying is slow; hauling is unaffected — so it is the week to move supply forward and plant a depot |
+| **Frost** | ★ **the bog goes hard.** The boggy links are cheap and quick *while it lasts*. This is a real thing road crews do, and it is the best mechanic on this page: a door that opens by itself and shuts by itself |
+| **Fair** | the ordinary case. Lay road |
+
+So the second question in the game becomes **when**, beside **where**. Frost on
+the moor is an opportunity you either take or watch go past, and taking it means
+having supply already forward — which is a decision you made two days earlier.
+
+⚠️ **Deterministic, no RNG.** The engine promises none. Weather is a function of
+elapsed time — a season cycle off the tick count — so it is the same for a given
+save at a given moment, it can be *forecast on the sheet*, and an absence
+resolves it exactly the same whether you watched or not.
+
+★ **And it can be forecast, which is the point.** Rennick's sheets can carry the
+season's expected weather. The forecast being on the plan and the weather being
+real is one more ordinary way the paper and the ground disagree.
+
+**Graphically:** rain as short slanted strokes drifting across the board, frost
+as a lightening of the ground bake, low cloud as a soft mask over the far end of
+the map. Cheap, live, no `shadowBlur`, and measured against the frame budget the
+probe already enforces.
+
 # 10. WHAT REPLACES PRESTIGE
 
 **The survey.** You finish the plan. The kingdom issues a new plan over the same
