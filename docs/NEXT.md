@@ -72,7 +72,7 @@ road does not finish until it is resolved. This is where the 2d10 rolls live —
 stop on a ROAD is made of an event. Whether that settles open question 1 for
 stops on the MAP too is the owner's call.
 
-### C — terrain: isolines, and regions with a shape
+### ✅ C — DONE 2026-08-02 — terrain: isolines, and regions with a shape
 
 > *"could you implement terrain height isolines… also please do some lines like
 > an oval with a forest inside or maybe some steppe or bog, add some geometry to
@@ -90,7 +90,7 @@ three existing checks. No `shadowBlur`.
 ★ And height is not decoration: `GOING` prices a road by the ground it crosses,
 so **the contours are a picture of the price**.
 
-### D — roads that bend
+### ★ D — NEXT — roads that bend
 
 > *"it's just lots of straight roads for now… let's stop making our roads
 > straight, let them curve and bend around terrain and objects… maybe i want it
