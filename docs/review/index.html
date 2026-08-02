@@ -1,0 +1,764 @@
+<title>The Review Set — every idea, and whose it was</title>
+
+<canvas id="contours" aria-hidden="true"></canvas>
+
+<header class="sheet">
+  <div class="titleblock">
+    <div class="tb-main">
+      <p class="eyebrow">Drawing register · revised 2 Aug</p>
+      <h1>The Review Set</h1>
+      <p class="lede">Every idea on the table, marked with whose it was. Keep it,
+        scrap it, or write what should change. Nothing here is settled until you
+        say so.</p>
+    </div>
+    <dl class="tb-stats">
+      <div><dt>Items</dt><dd id="stat-total">0</dd></div>
+      <div><dt>Yours</dt><dd id="stat-yours">0</dd></div>
+      <div><dt>Drawn up</dt><dd id="stat-drawn">0</dd></div>
+      <div><dt>Decided</dt><dd id="stat-done">0</dd></div>
+    </dl>
+  </div>
+</header>
+
+<nav class="filters" aria-label="Filter items">
+  <button class="chip on" data-filter="all">Everything</button>
+  <button class="chip" data-filter="undecided">Undecided</button>
+  <button class="chip" data-filter="owner">Your words</button>
+  <button class="chip" data-filter="drawn">Drawn up for you</button>
+  <button class="chip" data-filter="live">Live in the build</button>
+  <button class="chip" data-filter="kept">Kept</button>
+  <button class="chip" data-filter="scrapped">Scrapped</button>
+</nav>
+
+<main id="list"></main>
+
+<div class="tray" role="region" aria-label="Your verdicts">
+  <p class="tray-count"><strong id="tray-n">0</strong> of <span id="tray-t">0</span> decided</p>
+  <button id="copy" class="btn-copy">Copy verdicts</button>
+  <button id="reset" class="btn-reset" title="Clear every verdict">Clear</button>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<style>
+  :root {
+    --paper:     #e6e8e3;
+    --card:      #eff1ed;
+    --ink:       #19212a;
+    --soft:      #58636e;
+    --rule:      #bcc3bd;
+    --rule-soft: #d3d8d2;
+    --keep:      #2e6b52;
+    --scrap:     #a5372b;
+    --note:      #86682c;
+    --shadow:    rgba(25, 33, 42, .07);
+
+    --display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:     #10151a;
+      --card:      #171e25;
+      --ink:       #dde4ea;
+      --soft:      #8c99a4;
+      --rule:      #2b353e;
+      --rule-soft: #212a32;
+      --keep:      #63b391;
+      --scrap:     #dd7867;
+      --note:      #cba763;
+      --shadow:    rgba(0, 0, 0, .35);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:     #10151a;
+    --card:      #171e25;
+    --ink:       #dde4ea;
+    --soft:      #8c99a4;
+    --rule:      #2b353e;
+    --rule-soft: #212a32;
+    --keep:      #63b391;
+    --scrap:     #dd7867;
+    --note:      #cba763;
+    --shadow:    rgba(0, 0, 0, .35);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --paper:     #e6e8e3;
+    --card:      #eff1ed;
+    --ink:       #19212a;
+    --soft:      #58636e;
+    --rule:      #bcc3bd;
+    --rule-soft: #d3d8d2;
+    --keep:      #2e6b52;
+    --scrap:     #a5372b;
+    --note:      #86682c;
+    --shadow:    rgba(25, 33, 42, .07);
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--display);
+    font-size: 16px;
+    line-height: 1.55;
+    padding: 0 16px calc(96px + env(safe-area-inset-bottom, 0px));
+    -webkit-text-size-adjust: 100%;
+  }
+
+  #contours {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    opacity: .5;
+    pointer-events: none;
+  }
+
+  .sheet { max-width: 760px; margin: 0 auto; padding-top: 28px; }
+
+  /* The title block of an engineer's drawing: ruled box, data in the corner. */
+  .titleblock {
+    border: 1px solid var(--rule);
+    background: var(--card);
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  @media (min-width: 620px) { .titleblock { grid-template-columns: 1fr auto; } }
+
+  .tb-main { padding: 22px 22px 20px; display: flex; flex-direction: column; gap: 10px; }
+
+  .eyebrow {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--soft);
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(28px, 7vw, 40px);
+    line-height: 1.05;
+    letter-spacing: -.02em;
+    font-weight: 650;
+    text-wrap: balance;
+  }
+  .lede { margin: 0; max-width: 52ch; color: var(--soft); font-size: 15.5px; }
+
+  .tb-stats {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule);
+  }
+  @media (min-width: 620px) {
+    .tb-stats {
+      grid-template-columns: repeat(2, minmax(84px, 1fr));
+      border-top: 0;
+      border-left: 1px solid var(--rule);
+    }
+  }
+  .tb-stats > div {
+    padding: 10px 14px;
+    border-right: 1px solid var(--rule-soft);
+    border-bottom: 1px solid var(--rule-soft);
+  }
+  .tb-stats > div:last-child { border-right: 0; }
+  .tb-stats dt {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    color: var(--soft);
+  }
+  .tb-stats dd {
+    margin: 2px 0 0;
+    font-family: var(--mono);
+    font-size: 19px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .filters {
+    max-width: 760px;
+    margin: 18px auto 0;
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    font: inherit;
+    font-size: 13px;
+    padding: 7px 12px;
+    min-height: 38px;
+    border: 1px solid var(--rule);
+    background: transparent;
+    color: var(--soft);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .chip.on { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .chip:focus-visible { outline: 2px solid var(--note); outline-offset: 2px; }
+
+  main { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 26px; }
+
+  h2.group {
+    margin: 30px 0 -12px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--soft);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  h2.group::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  /* Every item is a drawing sheet: content above, title strip below. */
+  article {
+    border: 1px solid var(--rule);
+    background: var(--card);
+    box-shadow: 0 1px 0 var(--shadow);
+  }
+  article[data-verdict="keep"]  { border-left: 3px solid var(--keep); }
+  article[data-verdict="scrap"] { border-left: 3px solid var(--scrap); }
+  article[data-verdict="note"]  { border-left: 3px solid var(--note); }
+  article[data-verdict="scrap"] .body { opacity: .55; }
+
+  .body { padding: 18px 18px 14px; display: flex; flex-direction: column; gap: 9px; }
+  .body h3 {
+    margin: 0;
+    font-size: 18.5px;
+    line-height: 1.25;
+    letter-spacing: -.01em;
+    font-weight: 620;
+    text-wrap: balance;
+  }
+  .body p { margin: 0; color: var(--soft); font-size: 15px; max-width: 62ch; }
+  .body q {
+    display: block;
+    font-style: italic;
+    color: var(--ink);
+    border-left: 2px solid var(--rule);
+    padding-left: 12px;
+    quotes: "“" "”";
+    max-width: 62ch;
+  }
+
+  .strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 9px 18px;
+    border-top: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--soft);
+  }
+  .tag { border: 1px solid var(--rule); padding: 3px 7px; }
+  .tag.yours { border-color: var(--ink); color: var(--ink); }
+  .tag.live  { border-color: var(--keep); color: var(--keep); }
+  .tag.cut   { border-color: var(--scrap); color: var(--scrap); }
+  .ref { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+  .acts { display: flex; gap: 0; border-top: 1px solid var(--rule); }
+  .acts button {
+    flex: 1;
+    font: inherit;
+    font-size: 14px;
+    min-height: 48px;
+    background: transparent;
+    border: 0;
+    border-right: 1px solid var(--rule);
+    color: var(--soft);
+    cursor: pointer;
+  }
+  .acts button:last-child { border-right: 0; }
+  .acts button:focus-visible { outline: 2px solid var(--note); outline-offset: -3px; }
+  .acts button[aria-pressed="true"] { font-weight: 650; }
+  .acts .a-keep[aria-pressed="true"]  { background: var(--keep);  color: var(--card); }
+  .acts .a-scrap[aria-pressed="true"] { background: var(--scrap); color: var(--card); }
+  .acts .a-note[aria-pressed="true"]  { background: var(--note);  color: var(--card); }
+
+  .notebox { display: none; padding: 0 18px 16px; }
+  .notebox.open { display: block; }
+  .notebox textarea {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 84px;
+    font: inherit;
+    font-size: 15px;
+    padding: 11px 12px;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    resize: vertical;
+  }
+  .notebox textarea:focus-visible { outline: 2px solid var(--note); outline-offset: 1px; }
+
+  .tray {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--card);
+    border-top: 1px solid var(--rule);
+    z-index: 5;
+  }
+  .tray-count { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--soft);
+    font-variant-numeric: tabular-nums; }
+  .tray-count strong { color: var(--ink); font-size: 15px; }
+  .btn-copy, .btn-reset {
+    font: inherit; font-size: 14px; min-height: 44px; padding: 0 16px;
+    border-radius: 2px; cursor: pointer;
+  }
+  .btn-copy { margin-left: auto; background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
+  .btn-reset { background: transparent; color: var(--soft); border: 1px solid var(--rule); }
+  .btn-copy:focus-visible, .btn-reset:focus-visible { outline: 2px solid var(--note); outline-offset: 2px; }
+
+  .toast {
+    position: fixed;
+    left: 50%; bottom: 78px;
+    transform: translateX(-50%) translateY(8px);
+    background: var(--ink); color: var(--paper);
+    font-size: 14px; padding: 10px 16px; border-radius: 2px;
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+    z-index: 6; max-width: calc(100% - 32px);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+  .hidden { display: none !important; }
+</style>
+
+<script>
+(() => {
+  // ---- the register -------------------------------------------------------
+  // origin: 'owner'  = the owner said it, quoted
+  //         'drawn'  = generated for them (by me or a review agent)
+  // state:  'live'   = in the shipped build right now
+  //         'cut'    = already dropped, listed so it stays dropped
+  const ITEMS = [
+    // ---------- premise ----------
+    { g: 'The premise', o: 'owner', t: 'The game is a graph',
+      q: 'the thing I want to retain is the fun which graphs give to me',
+      d: 'Non-negotiable, said in every conversation about this project.' },
+    { g: 'The premise', o: 'owner', t: 'Who we are and why we are there',
+      q: 'we need to define who we are and why we are there',
+      d: 'Said before any more code. This whole register exists because of it.' },
+    { g: 'The premise', o: 'owner', t: 'The chief engineer’s plan is the nodes',
+      q: 'we have a plan from the chief engineer which is these nodes and we go at it',
+      d: 'The single most productive line you have written for this project. Everything below hangs off it.' },
+    { g: 'The premise', o: 'owner', t: 'Firewatch — you just have a task',
+      q: 'maybe it’s firewatch kind of shit, we just have a task and we go at it',
+      d: 'Developed as a full premise and set aside: it needs a radio voice that is good every week, forever.' },
+    { g: 'The premise', o: 'owner', t: 'An outcast sent for an unknown crime',
+      q: 'maybe we’re an outcast sent because of the unknown crime to the frontier',
+      d: 'Developed and rejected — an unknown crime must eventually explain itself at length. Convict survives as texture, never as the reason.' },
+    { g: 'The premise', o: 'drawn', t: 'Third hand on a four-man crew',
+      d: 'You are the one who does the walking. Nobody told the crew why the road is being built, because a crew paid by the span does not need to know.' },
+    { g: 'The premise', o: 'drawn', t: 'The plan is an object, and it can be wrong',
+      d: 'Stations drawn where nothing stands. A line ruled across a moor no cart crosses. This is what makes it a game rather than a chore.' },
+    { g: 'The premise', o: 'owner', t: 'Low fantasy, no twist', s: 'live',
+      q: 'just your typical low fantasy with no twist',
+      d: 'Cut the AI reveal, then cut the replacement twist that grew in its place the same day.' },
+
+    // ---------- world ----------
+    { g: 'The world', o: 'drawn', t: 'The Marches',
+      d: 'High scrub east of the last tollhouse. Granite under a foot of peat, weather that comes sideways, nobody in it but people who chose it.' },
+    { g: 'The world', o: 'drawn', t: 'Why the Crown wants a road',
+      d: 'Stated reason: wool — the drove roads flood and a made road can carry a toll. Real reason: a road is how a kingdom takes ownership of ground it has never governed.' },
+    { g: 'The world', o: 'drawn', t: 'Chief Engineer Rennick',
+      d: 'Never present. Sheets folded in eighths, up by post rider every eight or nine days. Wrong a lot, for ordinary reasons: he has never been up here and he has a budget.' },
+    { g: 'The world', o: 'owner', t: 'Small 2–3 person family settlements',
+      q: 'and there are small 2-3 people family settlements around',
+      d: 'Not villages. Not vendors.' },
+    { g: 'The world', o: 'drawn', t: 'Tam Ferris and his granddaughter Nell',
+      d: 'Four hundred sheep and a drove wall his family did not build. The road crosses his drove at an angle no sheep will take. He wants a gap left, in stone. He has said this three times.' },
+    { g: 'The world', o: 'drawn', t: 'The Kessels — three people and a hole',
+      d: 'Opened a quarry on the promise of the road. They will work the face themselves for nothing to have you reach them before winter. The only ones glad you came, and frightening about it.' },
+    { g: 'The world', o: 'drawn', t: 'Sal Orme and her boy Pit',
+      d: 'A stove under a sailcloth roof at the second stake. She wants the road finished slowly and the crews to keep coming. Pit is eleven and knows the whole alignment by heart.' },
+    { g: 'The world', o: 'drawn', t: 'Wen and Beatty Hask, charcoal burners',
+      d: 'Burning since before the survey. They think you are honest and temporary, in that order.' },
+    { g: 'The world', o: 'drawn', t: 'Four kinds of node',
+      d: 'Stake — a numbered survey point. Works — a length of road being made. Holding — a family’s ground. Query — a place Rennick ringed in the margin.' },
+    { g: 'The world', o: 'owner', t: 'Make the map alive, cheaply', s: 'live',
+      q: 'come up with some typical fantasy objects, like lakes, towns, villages, quarries, mines, forests',
+      d: 'Shipped: a river that meanders through the places whose prose is about water, and ground under every region. Baked once into a bitmap.' },
+
+    // ---------- the loop ----------
+    { g: 'The loop', o: 'drawn', t: '★ Build the plan, or build the spur',
+      d: 'The plan is scored. The spur is not, costs more, and connects people who will then feed your crew and shorten your haul. The first time story and economy touch the same object.' },
+    { g: 'The loop', o: 'owner', t: 'There is not much to do',
+      q: 'there is not much to do',
+      d: 'Your verdict after the second play-test. Everything built since has been an answer to this line.' },
+    { g: 'The loop', o: 'owner', t: 'Timers and thresholds',
+      d: 'From the brief: actions take real time; a level you have not reached is a door you cannot open, and you can see it from here.' },
+    { g: 'The loop', o: 'owner', t: 'Battles — your dot pokes their dot',
+      q: 'I want to have battles with enemies, where our dot pokes against their dot and one of the dots dies out',
+      d: 'Built and shipped. Now in tension with the road crew — see the next item.' },
+    { g: 'The loop', o: 'drawn', t: 'Obstacles instead of enemies',
+      d: 'A washout, a rockfall, a landowner who says no. Something holds the line and clearing it costs time and loads. You chose this over keeping the duel.' },
+    { g: 'The loop', o: 'owner', t: 'Choose-your-own-adventure, branching',
+      d: 'From the brief. Currently unbuilt — the spur decision above is the first mechanism that would carry it.' },
+
+    // ---------- economy ----------
+    { g: 'The economy', o: 'owner', t: 'Redo the entire economy',
+      q: 'i think we need to re-do entire economy again...',
+      d: 'Said when asked only what to rename the resource. The rename was the wrong question.' },
+    { g: 'The economy', o: 'owner', t: '“Pace” is a stupid resource',
+      q: 'pace is absolutely stupid resource, why are we still using it? i asked to remove it multiple times',
+      d: 'You were right and had asked three times. It was also literally a rate word: “12 paces +0.33 a second”.' },
+    { g: 'The economy', o: 'drawn', t: 'Provisions and hands',
+      d: 'Flour, salt pork, fodder, nails — what the wagons carry. And people in the gang. Both are things a road crew has; nothing invented.' },
+    { g: 'The economy', o: 'drawn', t: '★ Haulage: distance subtracts',
+      d: 'The further the face is from supply, the more of each wagon the haulers eat on the way. Every source has a hard reach radius, so you must build supply behind you. Depots are the lever.' },
+    { g: 'The economy', o: 'drawn', t: 'Income as max-flow through the roads', s: 'live',
+      d: 'Shipped. A road fills up; three settled places behind one road saturate it, so a loop-closer beats a fourth settlement. You chose to layer this on top of haulage rather than pick one.' },
+    { g: 'The economy', o: 'drawn', t: 'No upgrade shop, no tap-to-earn, no exponentials',
+      d: 'If it is not a place, it is not a lever. Your only input is where. Numbers stay in the hundreds because a wagon holds what a wagon holds.' },
+    { g: 'The economy', o: 'drawn', t: 'The whole map in about five hours',
+      d: 'Against 63 hours under the old pricing, where the last edge alone cost 10.6 hours of waiting.' },
+
+    // ---------- skills ----------
+    { g: 'Skills', o: 'owner', t: 'RuneScape-shaped progression',
+      d: 'From the brief: skills that level independently, XP, thresholds that gate content.' },
+    { g: 'Skills', o: 'drawn', t: 'Four skills, four different units',
+      d: 'Chainage changes what a road costs. Clearing changes how fast it fills. Grade changes what a road carries. Groundwork changes what a family makes. No two are one number with two names.' },
+    { g: 'Skills', o: 'drawn', t: 'No skill changes a number in the activity that trains it',
+      d: 'The structural rule that kept skills out of this game for weeks — the old one cancelled itself out.' },
+    { g: 'Skills', o: 'drawn', t: 'Every fourth level is a notch, not a slope',
+      d: 'Honest about the tenth level: a 31% cheaper road is a number nobody feels. So levels 4, 8, 12, 16, 20 are authored beats — a door, a family, a note from Rennick.' },
+    { g: 'Skills', o: 'drawn', t: 'Prestige becomes the survey',
+      d: 'Finish the plan, the kingdom issues a new one over the same ground. Roads reset; what you learned about the terrain does not. Needs no reveal.' },
+
+    // ---------- the map ----------
+    { g: 'The map', o: 'owner', t: 'Height, and isolines of the same height',
+      q: 'i think it’d be fun to also add topology to our map, like heights and isolines',
+      d: 'Written up as the PRICE, not decoration: grade is the cost multiplier, so close-packed contours are a picture of what a link costs.' },
+    { g: 'The map', o: 'owner', t: 'Weather, graphical',
+      q: 'i want to also add weather (graphical) and these height isolines',
+      d: 'Written up as a window, never a tax. Rain: peat will not take a road, so move supply. Frost: the bog goes hard and boggy links are cheap while it lasts.' },
+    { g: 'The map', o: 'owner', t: 'A canvas that settles and does not jingle', s: 'live',
+      q: 'I like nodes that jingle like in Obsidian, but maybe if we can stop them from jingling it would be best',
+      d: 'Shipped, and you liked it: “I can see the connection building. It looks absolutely great.”' },
+    { g: 'The map', o: 'owner', t: 'Discover the map, do not show it all grey',
+      q: 'I would like not to see all the nodes already kind of grey… I would like to discover that',
+      d: 'Still unbuilt. Reverses a standing decision that a map with holes is not a map.' },
+    { g: 'The map', o: 'owner', t: 'Journey is global, Here is local, no travel on Here',
+      q: 'I want Journey to be a global map, Here is a local map… I don’t want to be able to go back to the other location from that menu',
+      d: 'Still unbuilt.' },
+    { g: 'The map', o: 'owner', t: 'Edge labels on Self and Thoughts',
+      q: 'Edges would be nice here because I don’t understand the connections between those',
+      d: 'Still unbuilt.' },
+    { g: 'The map', o: 'owner', t: 'The fill grows from the wrong end',
+      q: 'the dotted graph edge is being filled into the solid from a wrong side if you came around',
+      d: 'Filed with the cause found: the board fills from the lower station number, never from the end you are standing on.' },
+
+    // ---------- words and screen ----------
+    { g: 'Words and screen', o: 'owner', t: 'Node and edge, not dot and connection', s: 'live',
+      q: 'It says tap a dot. Prefer them to be called a node.',
+      d: 'Shipped, and now a build gate — the check fails the build if any player-facing string says dot or pace.' },
+    { g: 'Words and screen', o: 'owner', t: 'Review the stupid text',
+      q: 'please do a review on stupid text inside the game, i’m so tired of it',
+      d: 'Done. The verdict: every string was written as an epigram when it should have been a label, and half were code comments that escaped onto the screen.' },
+    { g: 'Words and screen', o: 'drawn', t: 'The resource has no name at all', s: 'live',
+      d: 'After you rejected two, it ships as a bare number: “200  +0.33 a second”. Deliberately provisional — the name comes out of the economy, not before it.' },
+    { g: 'Words and screen', o: 'owner', t: 'The header must be sticky',
+      q: 'I scroll back and the number of paces goes to the top of the page, I cannot see it anymore',
+      d: 'Still unbuilt.' },
+    { g: 'Words and screen', o: 'owner', t: 'Start over says nothing',
+      q: 'I’m pressing start over button. Nothing really happens. Doesn’t give a feedback',
+      d: 'Still unbuilt.' },
+    { g: 'Words and screen', o: 'drawn', t: 'The 37 places, mostly kept',
+      d: 'They are already civil engineering — a weir, a haul road, a blockyard of numbered blocks. Most need nothing or one word. About six need real work, and they are the counting ones.' },
+    { g: 'Words and screen', o: 'drawn', t: 'Losing two good sentences',
+      q: 'Somebody counted. Somebody expected to forget.',
+      d: 'The best two lines in the file. Written for a game about a machine that forgets — a game now cut. They still scan, but they promise a mystery this game has decided not to have.' },
+
+    // ---------- already cut ----------
+    { g: 'Already cut', o: 'owner', t: 'The AI reveal', s: 'cut',
+      q: 'screw AI idea, we can do cool graphs without AI premise',
+      d: 'Brief asks 8 and 9 marked void in place, not deleted. Fifteen documents moved to the attic.' },
+    { g: 'Already cut', o: 'drawn', t: 'The plan is a reissue of an older survey', s: 'cut',
+      d: 'My replacement twist, cut by you the same day it was written. Sheets numbered “4 of —”, the drove wall being the last road gone back to grass. Same shape, different hat.' },
+    { g: 'Already cut', o: 'drawn', t: 'The semantic-web / ontology game', s: 'cut',
+      d: 'Eleven systems that each passed their own tests and added up to nothing. In the attic with its glossary and its accuracy guardrail.' },
+  ];
+
+  const KEY = 'incrgame-review-v1';
+  let verdicts = {};
+  try { verdicts = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { verdicts = {}; }
+
+  const save = () => {
+    try { localStorage.setItem(KEY, JSON.stringify(verdicts)); } catch (e) { /* private mode */ }
+  };
+
+  const list = document.getElementById('list');
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  let n = 0;
+  const groups = [];
+  for (const it of ITEMS) {
+    if (!groups.length || groups[groups.length - 1].name !== it.g) groups.push({ name: it.g, items: [] });
+    groups[groups.length - 1].items.push(Object.assign({ i: n++ }, it));
+  }
+
+  for (const grp of groups) {
+    const h = document.createElement('h2');
+    h.className = 'group';
+    h.textContent = grp.name;
+    list.appendChild(h);
+
+    for (const it of grp.items) {
+      const v = verdicts[it.i] || {};
+      const art = document.createElement('article');
+      art.dataset.origin = it.o;
+      art.dataset.state = it.s || '';
+      art.dataset.index = it.i;
+      if (v.verdict) art.dataset.verdict = v.verdict;
+
+      art.innerHTML =
+        '<div class="body">' +
+          '<h3>' + esc(it.t) + '</h3>' +
+          (it.q ? '<q>' + esc(it.q) + '</q>' : '') +
+          '<p>' + esc(it.d) + '</p>' +
+        '</div>' +
+        '<div class="strip">' +
+          '<span class="tag ' + (it.o === 'owner' ? 'yours' : '') + '">' +
+            (it.o === 'owner' ? 'Your words' : 'Drawn up') + '</span>' +
+          (it.s === 'live' ? '<span class="tag live">In the build</span>' : '') +
+          (it.s === 'cut' ? '<span class="tag cut">Cut</span>' : '') +
+          '<span class="ref">' + String(it.i + 1).padStart(2, '0') + ' / ' + ITEMS.length + '</span>' +
+        '</div>' +
+        '<div class="acts">' +
+          '<button class="a-keep"  aria-pressed="' + (v.verdict === 'keep') + '">Keep</button>' +
+          '<button class="a-scrap" aria-pressed="' + (v.verdict === 'scrap') + '">Scrap</button>' +
+          '<button class="a-note"  aria-pressed="' + (v.verdict === 'note') + '">Change…</button>' +
+        '</div>' +
+        '<div class="notebox' + (v.verdict === 'note' ? ' open' : '') + '">' +
+          '<textarea placeholder="What should change?" aria-label="What should change about ' +
+            esc(it.t) + '">' + esc(v.note || '') + '</textarea>' +
+        '</div>';
+
+      const [keep, scrap, note] = art.querySelectorAll('.acts button');
+      const box = art.querySelector('.notebox');
+      const ta = art.querySelector('textarea');
+
+      const set = (which) => {
+        const cur = verdicts[it.i] || {};
+        if (cur.verdict === which) {
+          delete verdicts[it.i];
+          delete art.dataset.verdict;
+        } else {
+          verdicts[it.i] = { verdict: which, note: ta.value };
+          art.dataset.verdict = which;
+        }
+        const now = (verdicts[it.i] || {}).verdict;
+        keep.setAttribute('aria-pressed', now === 'keep');
+        scrap.setAttribute('aria-pressed', now === 'scrap');
+        note.setAttribute('aria-pressed', now === 'note');
+        box.classList.toggle('open', now === 'note');
+        if (now === 'note') ta.focus();
+        save(); tally(); applyFilter();
+      };
+
+      keep.addEventListener('click', () => set('keep'));
+      scrap.addEventListener('click', () => set('scrap'));
+      note.addEventListener('click', () => set('note'));
+      ta.addEventListener('input', () => {
+        if (!verdicts[it.i]) verdicts[it.i] = { verdict: 'note' };
+        verdicts[it.i].note = ta.value;
+        save();
+      });
+
+      list.appendChild(art);
+    }
+  }
+
+  // ---- tallies and filtering ---------------------------------------------
+  const $ = (id) => document.getElementById(id);
+  function tally() {
+    const decided = Object.keys(verdicts).length;
+    $('stat-total').textContent = ITEMS.length;
+    $('stat-yours').textContent = ITEMS.filter((x) => x.o === 'owner').length;
+    $('stat-drawn').textContent = ITEMS.filter((x) => x.o === 'drawn').length;
+    $('stat-done').textContent = decided;
+    $('tray-n').textContent = decided;
+    $('tray-t').textContent = ITEMS.length;
+  }
+
+  let filter = 'all';
+  function applyFilter() {
+    for (const art of list.querySelectorAll('article')) {
+      const i = art.dataset.index;
+      const v = (verdicts[i] || {}).verdict;
+      let show = true;
+      if (filter === 'undecided') show = !v;
+      else if (filter === 'owner') show = art.dataset.origin === 'owner';
+      else if (filter === 'drawn') show = art.dataset.origin === 'drawn';
+      else if (filter === 'live') show = art.dataset.state === 'live';
+      else if (filter === 'kept') show = v === 'keep';
+      else if (filter === 'scrapped') show = v === 'scrap';
+      art.classList.toggle('hidden', !show);
+    }
+    for (const h of list.querySelectorAll('h2.group')) {
+      let sib = h.nextElementSibling, any = false;
+      while (sib && sib.tagName === 'ARTICLE') {
+        if (!sib.classList.contains('hidden')) { any = true; break; }
+        sib = sib.nextElementSibling;
+      }
+      h.classList.toggle('hidden', !any);
+    }
+  }
+
+  for (const chip of document.querySelectorAll('.chip')) {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === chip));
+      filter = chip.dataset.filter;
+      applyFilter();
+    });
+  }
+
+  // ---- copying out --------------------------------------------------------
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  $('copy').addEventListener('click', async () => {
+    const kept = [], scrapped = [], changed = [];
+    ITEMS.forEach((it, i) => {
+      const v = verdicts[i];
+      if (!v) return;
+      if (v.verdict === 'keep') kept.push(it.t);
+      if (v.verdict === 'scrap') scrapped.push(it.t);
+      if (v.verdict === 'note') changed.push(it.t + ' — ' + (v.note || '(no note)'));
+    });
+    if (!kept.length && !scrapped.length && !changed.length) { toast('Nothing decided yet.'); return; }
+    let out = 'REVIEW SET — my verdicts\n';
+    if (kept.length)     out += '\nKEEP\n'   + kept.map((s) => '- ' + s).join('\n') + '\n';
+    if (scrapped.length) out += '\nSCRAP\n'  + scrapped.map((s) => '- ' + s).join('\n') + '\n';
+    if (changed.length)  out += '\nCHANGE\n' + changed.map((s) => '- ' + s).join('\n') + '\n';
+    const undecided = ITEMS.length - Object.keys(verdicts).length;
+    if (undecided) out += '\n(' + undecided + ' left undecided)\n';
+
+    try {
+      await navigator.clipboard.writeText(out);
+      toast('Copied — paste it back to me.');
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = out;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast('Copied — paste it back to me.'); }
+      catch (e2) { toast('Could not copy — select the text manually.'); }
+      ta.remove();
+    }
+  });
+
+  $('reset').addEventListener('click', () => {
+    verdicts = {}; save();
+    for (const art of list.querySelectorAll('article')) {
+      delete art.dataset.verdict;
+      art.querySelectorAll('.acts button').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+      art.querySelector('.notebox').classList.remove('open');
+      art.querySelector('textarea').value = '';
+    }
+    tally(); applyFilter(); toast('Cleared.');
+  });
+
+  tally(); applyFilter();
+
+  // ---- the ground behind the page ----------------------------------------
+  // Contour lines over a smooth value-noise field, drawn once by marching
+  // squares — the same picture the game's own map is getting, and the reason
+  // this page looks like a survey drawing rather than a form.
+  const cv = document.getElementById('contours');
+  function drawContours() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = cv.clientWidth, h = cv.clientHeight;
+    if (!w || !h) return;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    const c = cv.getContext('2d');
+    if (!c) return;
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, w, h);
+
+    const ink = getComputedStyle(document.documentElement).getPropertyValue('--rule').trim() || '#bbb';
+    c.strokeStyle = ink;
+    c.lineWidth = 1;
+
+    // A fixed, seeded field — no randomness, so it is the same drawing every
+    // time the page opens.
+    const peaks = [
+      [0.16, 0.20, 0.40], [0.78, 0.12, 0.32], [0.55, 0.52, 0.46],
+      [0.12, 0.74, 0.34], [0.88, 0.68, 0.38], [0.36, 0.92, 0.30],
+    ];
+    const S = 14;                       // sample step, CSS px
+    const cols = Math.ceil(w / S) + 1, rows = Math.ceil(h / S) + 1;
+    const f = new Float32Array(cols * rows);
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        const x = (i * S) / w, y = (j * S) / h;
+        let v = 0;
+        for (const [px, py, amp] of peaks) {
+          const dx = x - px, dy = (y - py) * 1.35;
+          v += amp * Math.exp(-(dx * dx + dy * dy) * 9);
+        }
+        f[j * cols + i] = v;
+      }
+    }
+
+    const lerp = (a, b, t) => a + (b - a) * t;
+    for (let level = 0.04; level < 0.62; level += 0.055) {
+      c.beginPath();
+      for (let j = 0; j < rows - 1; j++) {
+        for (let i = 0; i < cols - 1; i++) {
+          const a = f[j * cols + i], b = f[j * cols + i + 1];
+          const d = f[(j + 1) * cols + i + 1], e = f[(j + 1) * cols + i];
+          const x0 = i * S, y0 = j * S, x1 = x0 + S, y1 = y0 + S;
+          const pts = [];
+          if ((a < level) !== (b < level)) pts.push([lerp(x0, x1, (level - a) / (b - a)), y0]);
+          if ((b < level) !== (d < level)) pts.push([x1, lerp(y0, y1, (level - b) / (d - b))]);
+          if ((e < level) !== (d < level)) pts.push([lerp(x0, x1, (level - e) / (d - e)), y1]);
+          if ((a < level) !== (e < level)) pts.push([x0, lerp(y0, y1, (level - a) / (e - a))]);
+          if (pts.length >= 2) { c.moveTo(pts[0][0], pts[0][1]); c.lineTo(pts[1][0], pts[1][1]); }
+        }
+      }
+      c.stroke();
+    }
+  }
+  drawContours();
+  let t = 0;
+  window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(drawContours, 160); });
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    (mq.addEventListener ? mq.addEventListener.bind(mq, 'change') : mq.addListener.bind(mq))(drawContours);
+  }
+  new MutationObserver(drawContours).observe(document.documentElement, {
+    attributes: true, attributeFilter: ['data-theme'],
+  });
+})();
+</script>
