@@ -332,7 +332,16 @@ Worked reskin of **The Stack**, so the trade is visible:
 
 You lose *"somebody expected to forget."* You gain the plan already being here.
 
-## B. What replaces combat?
+## ~~B. What replaces combat?~~ ✅ DECIDED 2026-08-02: **obstacles with a cost**
+
+Something holds the line — a washout, a rockfall, a landowner who says no.
+Clearing it costs time and loads and trains Clearing. The duel that is currently
+built (`holder`, `might`, `bite`, radius-is-health) is **retired**: a road crew
+stabbing things is the old game leaking into the new one. `BRIEF.md` ask 7 is
+therefore reinterpreted, not deleted — a thing stands in your way and you remove
+it, but it is work rather than a fight.
+
+<details><summary>the options as they were put</summary>
 
 `BRIEF.md` ask 7 is yours: *"battles with enemies, where our dot pokes against
 their dot and one of the dots dies out."* The road crew has no enemy, and it is
@@ -346,7 +355,20 @@ the premise's weakest point.
 - **A rival crew.** The only enemy the fiction supports, and it is also the
   slow realisation — so spending it early as trash mobs may be expensive.
 
-## C. Which economy — haulage or throughput?
+</details>
+
+## ~~C. Which economy?~~ ✅ DECIDED 2026-08-02: **both, haulage first**
+
+Haulage is built first and must be fun on its own: supply has to reach the face,
+distance subtracts, every source has a reach radius, depots are the lever. Then
+throughput layers on top — a road also has a capacity, and a saturated one needs
+a second beside it. They compose, and nothing built for the first is thrown away
+by the second.
+
+⚠️ **Haulage first means the shipped max-flow becomes a shortest-path** for a
+while. `flow.ts` keeps its shape; the solve changes.
+
+<details><summary>the options as they were put</summary>
 
 Two models arrived and they are not the same game.
 
@@ -356,3 +378,7 @@ Two models arrived and they are not the same game.
   saturated road needs a second one beside it.
 
 They can be combined, but the first thing built should be one of them.
+
+</details>
+
+## ~~A. The 37 places~~ → **the owner asked to see it first.** `docs/RESKIN.md`
