@@ -40,9 +40,18 @@
     /** How much of its limit this route is carrying, 0 to 1. See `flow.ts`. */
     load: number }
 
-  let { dots, lines, box, label, onTap, decor = [], drag = true }: {
+  let { dots, lines, box, label, onTap, decor = [], drag = true, inset = 0 }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
     onTap: (id: string) => void;
+    /** ★ HOW MANY PIXELS OF THE BOARD'S BOTTOM ARE COVERED by the panel that
+     *  now sits over it. The canvas still PAINTS the full height — terrain
+     *  behind a translucent panel is the whole point of overlaying it — but the
+     *  graph is framed into what you can actually see and touch.
+     *
+     *  ⚠️ WITHOUT THIS, MAKING THE BOARD TALLER MAKES IT WORSE: `fit()` centres
+     *  the graph in the element, so the middle of the map would sit behind the
+     *  panel and the stops there could not be tapped at all. */
+    inset?: number;
     /** ★ ANYTHING ON THE MAP THAT IS NOT THE GRAPH — scenery, and later
      *  bridges, fords, glyphs, region tints. A list, so adding one is data.
      *  The graph itself stays separate because its nodes need DOM twins to be
@@ -77,15 +86,19 @@
   const sx = (x: number): number => x * k + tx;
   const sy = (y: number): number => y * k + ty;
 
-  /** Frame the whole graph in the element, once per shape. */
+  /** Frame the whole graph in the VISIBLE part of the element, once per shape.
+   *  Visible means everything the panel is not covering — see `inset`. */
   function fit(): void {
     if (!cssW || !cssH || !box.w || !box.h) return;
+    // Never frame into nothing: a panel taller than the board would otherwise
+    // divide by a negative and put the map somewhere off-screen.
+    const usable = Math.max(120, cssH - inset);
     // Capped, or a two-dot tab fills the page with two enormous dots and a
     // label in 40px type — which is exactly what the previous renderer did
     // before it grew a minimum box to work around it.
-    k = Math.min(Math.min(cssW / box.w, cssH / box.h), 1.9);
+    k = Math.min(Math.min(cssW / box.w, usable / box.h), 1.9);
     tx = cssW / 2 - (box.x + box.w / 2) * k;
-    ty = cssH / 2 - (box.y + box.h / 2) * k;
+    ty = usable / 2 - (box.y + box.h / 2) * k;
   }
 
   // ⚠️ THIS EFFECT MUST BE IDEMPOTENT, AND THE FIRST VERSION WAS NOT — it called
@@ -411,7 +424,14 @@
   /* Sized from its own width, never from the viewport: `100dvh` against a
      `window.innerHeight` measurement is the iOS URL-bar bug that broke the
      first two renderers. */
-  .board { position: relative; width: 100%; aspect-ratio: 1 / 0.92;
+  /* ⚠️ HEIGHT COMES FROM THE COLUMN, NOT FROM AN ASPECT RATIO. This was
+     `aspect-ratio: 1 / 0.92`, so the board's height followed its WIDTH and a
+     tall phone simply got empty space under it — on a 390x844 screen the board
+     took 655px and the rest of the page did nothing. The owner: *"the canvas on
+     mobile can take more space vertically."* `Game.svelte` gives it the leftover
+     height of a full-height flex column; if this is ever dropped into an
+     unsized parent it will collapse, which is why `min-height` is here. */
+  .board { position: relative; width: 100%; height: 100%; min-height: 240px;
     touch-action: none; overscroll-behavior: contain; overflow: hidden;
     border-radius: 12px; background: #080d13; }
   canvas { position: absolute; inset: 0; display: block; }

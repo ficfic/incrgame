@@ -1,17 +1,24 @@
 <script lang="ts">
-  // FOUR TABS, EACH A GRAPH, AND NOTHING IS EVER DRAWN OVER ANYTHING ELSE.
+  // FOUR TABS, EACH A GRAPH. THE BOARD TAKES THE SCREEN; ONE PANEL IS DOCKED TO
+  // THE BOTTOM OF IT, AND NOTHING IS EVER DRAWN OVER THAT.
   //
-  // ⚠️ THAT LAST CLAUSE IS THE WHOLE SPEC. The owner, after playing: "as soon as
-  // I opened the game, some text pop-up opened on top of the pop-up which
-  // happens when you click on a graph node — this is why it was very confusing,
-  // I had to close the text pop-up and then the graph actions would have
-  // opened." Every previous screen put prose over the board, a card over the
-  // dots, a sheet over the card. `docs/TABS.md` R2.2 forbids it outright and
-  // that rule outranks any layout convenience here.
+  // ⚠️ THE ORIGINAL RULE WAS STRICTER AND IT WAS WRITTEN IN BLOOD. The owner,
+  // after playing: "as soon as I opened the game, some text pop-up opened on top
+  // of the pop-up which happens when you click on a graph node — this is why it
+  // was very confusing, I had to close the text pop-up and then the graph
+  // actions would have opened." Every previous screen put prose over the board,
+  // a card over the dots, a sheet over the card. So NOTHING was allowed to
+  // overlay anything, and the panel sat in normal flow below the board.
   //
-  // So: one tab at a time, in normal flow, top to bottom. The graph, then the
-  // panel for whatever is selected. No modal, no sheet, no absolute positioning
-  // over the canvas, nothing to dismiss.
+  // ★ THE OWNER RELAXED IT, 2026-08-02: *"the canvas on mobile can take more
+  // space vertically while the text could be at the very bottom overlaying it in
+  // case needed but like always snipped to bottom of the screen."*
+  //
+  // What the original rule was actually protecting against was a STACK of
+  // things to dismiss, and that part is untouched. There is exactly ONE overlay,
+  // it is always in the same place, it is never in front of anything but the
+  // map, and there is still nothing to close — tapping elsewhere replaces what
+  // it says. `scripts/play-tabs.mjs` enforces all three.
   import { onMount } from 'svelte';
   import { STOP } from '../game/stops';
   import { TABS, deedsFor, numOf, DOING, type TabId } from '../game/world';
@@ -61,6 +68,29 @@
   // load. Every other tab is a filter whose shape follows the run.
   const laid = $derived(tab === 'chapter' ? JOURNEY : solve(view));
   const spotOf = $derived(new Map(laid.spots.map((s) => [s.id, s])));
+
+  // ---- how much of the board the dock is sitting on -------------------------
+  //
+  // ★ MEASURED AT REST, NOT CONTINUOUSLY, AND THAT IS THE WHOLE TRICK. The
+  // panel is short when nothing is selected and tall when something is; if the
+  // board re-framed itself to match, the map would jump under your thumb every
+  // single tap. The owner asked for the opposite of that once already —
+  // *"maybe if we can stop them from jingling it would be best"*.
+  //
+  // So the map is framed above the panel AT REST. Selecting something grows the
+  // dock over the map, which is exactly what "overlaying it in case needed"
+  // means, and deselecting settles back to the same picture it started from.
+  let panelEl = $state<HTMLElement>();
+  let inset = $state(0);
+  $effect(() => {
+    if (!panelEl) return;
+    const el = panelEl;
+    const ro = new ResizeObserver(() => {
+      if (picked === null) inset = el.offsetHeight;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
 
   const reach = $derived(new Map(roadsOut(game).map((r) => [r.to, r])));
   const chosen = $derived(picked === null ? null : view.nodes.find((n) => n.id === picked) ?? null);
@@ -222,12 +252,12 @@
          is harmless. -->
     <Board {dots} {lines} box={laid.box} label={tab} onTap={tap}
       decor={tab === 'chapter' ? TERRAIN_SHAPES : []}
-      drag={tab !== 'chapter'} />
+      drag={tab !== 'chapter'} {inset} />
   </section>
 
   <!-- THE PANEL. Part of the page, below the graph, in flow. It is empty until
        you tap something, and it says so rather than appearing from nowhere. -->
-  <section class="panel">
+  <section class="panel" bind:this={panelEl}>
     {#if chosen}
       <h2>{chosen.name || 'A stop you have not stood at'}</h2>
       {#if chosen.body}<p>{chosen.body}</p>{/if}
@@ -273,11 +303,29 @@
   :global(body) { margin: 0; background: #070b10; color: #dfe9f0;
     font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
 
-  /* A column of blocks in normal flow. No fixed positioning, no viewport units,
-     nothing measured against the window — so there is no alignment to get
-     wrong, and nothing can end up on top of anything else. */
-  main { max-width: 560px; margin: 0 auto;
-    padding: calc(10px + var(--safe-t)) 14px calc(28px + var(--safe-b)); }
+  /* ⚠️ THIS REVERSES A RULE THAT HELD FOR MONTHS, AND IT IS THE OWNER'S CALL.
+     It used to read: "A column of blocks in normal flow. No fixed positioning,
+     no viewport units, nothing measured against the window — so there is no
+     alignment to get wrong, and nothing can end up on top of anything else."
+     That was written against sheets that appeared over the game with no way to
+     dismiss them, and it is why the panel sat in flow.
+
+     The owner, 2026-08-02: *"the canvas on mobile can take more space
+     vertically while the text could be at the very bottom overlaying it in case
+     needed but like always snipped to bottom of the screen."*
+
+     So the column is now exactly one screen tall and the board takes whatever
+     header and tabs do not. THE OLD RULE SURVIVES IN A NARROWER FORM, and
+     `scripts/play-tabs.mjs` enforces it: the panel may overlay the BOARD,
+     pinned to the bottom; nothing may overlay the PANEL; and the header and
+     tabs are still in flow above a board that never slides under them.
+
+     `dvh`, not `vh`: on iOS the URL bar shows and hides, and `vh` is the tall
+     one always — a `100vh` column is taller than the screen the whole time the
+     bar is showing, which puts the "pinned to the bottom" panel below the fold. */
+  main { max-width: 560px; margin: 0 auto; height: 100dvh; box-sizing: border-box;
+    display: flex; flex-direction: column;
+    padding: calc(10px + var(--safe-t)) 14px 0; }
 
   header { border-bottom: 1px solid #16232f; padding-bottom: 10px; }
   .panel .away { margin: 0 0 6px; color: #ffd479; font-size: 15px; }
@@ -295,10 +343,25 @@
   nav button.on { background: #12222e; border-color: #2f5568; color: #eafff7;
     font-weight: 600; }
 
-  /* The board draws itself; all that is left here is the space it sits in. */
-  .map { margin: 10px 0 4px; }
+  /* The board draws itself; all that is left here is the space it sits in —
+     which is now ALL of it. `min-height: 0` because a flex child will not
+     shrink below its content without it, and the canvas counts as content. */
+  .map { flex: 1; min-height: 0; margin: 10px 0 0; }
 
-  .panel { margin-top: 6px; min-height: 132px; }
+  /* ★ PINNED TO THE BOTTOM OF THE SCREEN, OVER THE BOARD. Translucent rather
+     than solid so the map keeps going underneath it — the board paints its full
+     height and only the FRAMING stops short (see `inset` in Board.svelte), so
+     what is behind the panel is real map rather than a gap.
+
+     ⚠️ `max-height` AND `overflow-y`: a long body plus two deeds must scroll
+     inside the dock instead of growing up the screen until it is the whole
+     phone. That is the failure mode that made the old sheet unbearable. */
+  .panel { position: fixed; left: 0; right: 0; bottom: 0; z-index: 2;
+    max-width: 560px; margin: 0 auto; box-sizing: border-box;
+    padding: 10px 14px calc(10px + var(--safe-b));
+    max-height: 62dvh; overflow-y: auto;
+    background: rgba(8, 13, 19, .93); border-top: 1px solid #1b2c3a;
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   .panel h2 { margin: 0 0 6px; font-size: 20px; }
   .panel p { margin: 0; color: #c8d8e4; font-size: 16px; }
   .note { color: #6f8798 !important; font-style: italic; }

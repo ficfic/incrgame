@@ -30,7 +30,83 @@ must be the rightmost stop. The screenshot now reads start-left, finish-right,
 five ways between, with the river running along the water route `GOING` charges
 3.1 for.
 
-### ★ THE FIRST ITEM OF THE NEXT SESSION — answer open question 1
+## ★★★ THE MAP, 2026-08-02 — the owner's direction, in their words
+
+> *"i feel like i want to spend a lot of attention on how our map looks, its
+> been great so far"*
+
+Four asks arrived together. They are **three items plus a mechanic**, listed here
+so none is lost, in the order the owner gave them. **A, C and D are how the map
+LOOKS. B is a game mechanic** and does not belong in a map session.
+
+### A — the screen is mostly not map
+
+> *"the canvas on mobile can take more space vertically while the text could be
+> at the very bottom overlaying it in case needed but like always snipped to
+> bottom of the screen"*
+
+The board gets ~655px of an 844px viewport and the panel takes the rest, mostly
+as empty space — see any screenshot in the repo: below the deed button there is
+a third of a phone doing nothing. The board should take the height; the panel
+should be **pinned to the bottom of the screen and overlay the board**, appearing
+when there is something to say.
+
+⚠️ **This reverses an old decision on purpose.** The panel is in flow, not
+absolute, because the owner objected to sheets appearing over things — and
+`scripts/play-tabs.mjs` MEASURES that with a `position: fixed|absolute` check
+scoped outside `.map`. That check must be rewritten to the new rule, not deleted:
+the panel may overlay the board, pinned to the bottom, and nothing may overlay
+the panel.
+
+### B — hidden stops on a road, which block it ⟨a mechanic, not a look⟩
+
+> *"the graph edges might have 2 to 3 stops while building it for the cyoa
+> events. they should not be visible but block progress until resolved"*
+
+A road under construction has 2–3 stops along it that are **not drawn**. Building
+reaches one, stops, and puts a choose-your-own-adventure event in the way; the
+road does not finish until it is resolved. This is where the 2d10 rolls live —
+`docs/KINGS_ROADS.md`: *"rolls are for choose your own adventure stuff"*.
+
+★ It is also the answer to *"what is a stop made of"* arriving from the side: a
+stop on a ROAD is made of an event. Whether that settles open question 1 for
+stops on the MAP too is the owner's call.
+
+### C — terrain: isolines, and regions with a shape
+
+> *"could you implement terrain height isolines… also please do some lines like
+> an oval with a forest inside or maybe some steppe or bog, add some geometry to
+> highlight the game world"*
+
+A height field, marching-squares contours at fixed intervals, and **closed
+outlines around regions** — this oval is forest, that one is bog, that one steppe.
+Baked once into the offscreen bitmap in world coordinates, blitted with one
+`drawImage`, so it costs nothing per frame. `terrain.ts` already works this way.
+
+⚠️ Every new ink must clear `test/ink.test.ts`'s distance from the counted ones,
+and the probe counts pixels — a new colour near a counted one silently corrupts
+three existing checks. No `shadowBlur`.
+
+★ And height is not decoration: `GOING` prices a road by the ground it crosses,
+so **the contours are a picture of the price**.
+
+### D — roads that bend
+
+> *"it's just lots of straight roads for now… let's stop making our roads
+> straight, let them curve and bend around terrain and objects… maybe i want it
+> to look a bit like a labyrinth"*
+
+`Board.svelte` already has `trace()`, which draws Catmull-Rom through points and
+is used for the river — *"rivers are not straight"*. Roads take the same path,
+with control points derived from the terrain between the two stops.
+
+⚠️ **The fill animation runs along the road.** It currently interpolates
+`a + (b−a)×fill`, which is a straight line by construction; a bent road needs the
+fill to follow the curve or the growing road will visibly leave its own bed.
+
+---
+
+### THEN — answer open question 1
 
 **What is a stop made of?** It is the first of the five open questions in
 `docs/KINGS_ROADS.md` and it is the owner's to answer, not an agent's. Every

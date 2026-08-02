@@ -136,10 +136,19 @@ export const TERRAIN: Terrain = (() => {
   // ★ THE RIVER RUNS THROUGH THE WATER STOPS, which is the same swap: it used
   // to be a hand-listed route through places whose prose mentioned water, and
   // it is now simply where the water ground is.
-  const river = STOPS.filter((p) => p.ground === 'water')
-    .map((p) => SPOT.get(p.id)!)
-    .sort((a, b) => a.x - b.x)
-    .map((s) => ({ x: s.x, y: s.y }));
+  //
+  // ⚠️ DOWNSTREAM IS THE LONG AXIS, NOT ALWAYS `x`. This sorted by `x` outright,
+  // which was correct only while the chapter was landscape. Turning the chapter
+  // portrait left the water stops running down the board and the sort skipping
+  // between them left and right, so the river drew as a hairpin doubling back on
+  // itself — a visible regression from a change nowhere near this file.
+  const wet = STOPS.filter((p) => p.ground === 'water').map((p) => SPOT.get(p.id)!);
+  const span = (f: (s: { x: number; y: number }) => number): number =>
+    Math.max(...wet.map(f)) - Math.min(...wet.map(f));
+  const down = span((s) => s.y) > span((s) => s.x)
+    ? (a: { y: number }, b: { y: number }) => a.y - b.y
+    : (a: { x: number }, b: { x: number }) => a.x - b.x;
+  const river = wet.sort(down).map((s) => ({ x: s.x, y: s.y }));
   // The box has to cover the scenery too, or the bitmap is cropped and the
   // outermost marks vanish at the edges.
   const pts = [

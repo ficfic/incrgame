@@ -68,23 +68,47 @@ async function pick(sel) {
 //
 // ★ NOTHING OVERLAPS ANYTHING. Every block in the column must be strictly below
 // the one before it — that is what "no pop-up over a pop-up" means, measured.
+// ⚠️ THIS CHECK WAS REWRITTEN, NOT DELETED, WHEN THE OWNER RELAXED THE RULE.
+// It used to fail on ANY `position: fixed|absolute` outside `.map`, which is
+// what kept sheets off the board for months. The panel is now deliberately
+// docked over the board, so that exact assertion had to go — and deleting a
+// guard because the feature it guards changed is how the thing it prevented
+// comes back. The narrower rule it protects now:
+//
+//   1. header, nav and the board are still a column. None overlaps another.
+//   2. The panel is the ONLY overlay, and it is pinned to the BOTTOM.
+//   3. Nothing overlays the panel.
 const stacked = async () => page.evaluate(() => {
-  const parts = ['header', 'nav', '.map', '.panel']
+  const bad = [];
+  const parts = ['header', 'nav', '.map']
     .map((s) => ({ s, r: document.querySelector(s)?.getBoundingClientRect() }))
     .filter((x) => x.r);
-  const bad = [];
   for (let i = 1; i < parts.length; i++) {
     if (parts[i].r.top < parts[i - 1].r.bottom - 0.5) {
       bad.push(`${parts[i].s} starts above ${parts[i - 1].s} ends`);
     }
   }
-  // ⚠️ SCOPED OUTSIDE `.map` ON PURPOSE: the canvas and the stop buttons are
+  const panel = document.querySelector('.panel');
+  const pr = panel?.getBoundingClientRect();
+  if (!pr) { bad.push('there is no panel at all'); return bad; }
+  // ★ SNIPPED TO THE BOTTOM OF THE SCREEN — the owner's words, measured.
+  if (Math.abs(pr.bottom - window.innerHeight) > 1.5) {
+    bad.push(`the panel's bottom is at ${Math.round(pr.bottom)} of ${window.innerHeight}`);
+  }
+  // ⚠️ SCOPED OUTSIDE `.map` AND `.panel`: the canvas and the stop buttons are
   // absolute WITHIN the board, which is the board drawing itself, not a sheet
   // over the page.
   for (const el of document.querySelectorAll('main *')) {
-    if (el.closest('.map')) continue;
+    if (el.closest('.map') || el.closest('.panel')) continue;
     const p = getComputedStyle(el).position;
     if (p === 'fixed' || p === 'absolute') bad.push(`${el.tagName}.${el.className} is ${p}`);
+  }
+  // ★ AND NOTHING IS IN FRONT OF THE PANEL. Measured by asking the document
+  // what is actually on top at the panel's own centre — a z-index comparison
+  // would only check what this file already believes about the CSS.
+  const onTop = document.elementFromPoint(pr.left + pr.width / 2, pr.top + 4);
+  if (onTop && !onTop.closest('.panel')) {
+    bad.push(`${onTop.tagName}.${onTop.className} is drawn over the panel`);
   }
   return bad;
 });
@@ -113,6 +137,39 @@ for (const t of tabs) {
 const headH = await page.$eval('header', (e) => Math.round(e.getBoundingClientRect().height));
 console.log('\nHEADER  ', `${headH}px tall`);
 if (headH > 96) misses.push(`the header is ${headH}px — prose has got in above the board again`);
+
+// ★★ THE BOARD TAKES THE SCREEN. The owner: *"the canvas on mobile can take
+// more space vertically."* It used to be sized by `aspect-ratio`, so its height
+// followed its WIDTH and a tall phone got 655px of board and 190px of nothing.
+//
+// ⚠️ MEASURED AS A SHARE OF THE VIEWPORT, not in pixels, or the check passes on
+// a desktop window and says nothing about the phone it was written for.
+const room = await page.evaluate(() => {
+  const m = document.querySelector('.map').getBoundingClientRect();
+  const p = document.querySelector('.panel').getBoundingClientRect();
+  return { h: window.innerHeight, map: Math.round(m.height), bottom: Math.round(m.bottom),
+    panel: Math.round(p.height), idle: Math.round(p.top) };
+});
+console.log('SCREEN  ', `${room.h}px — board ${room.map}px (${Math.round(room.map / room.h * 100)}%),`
+  + ` dock ${room.panel}px at rest`);
+// ⚠️ THIS SHARE CHECK DID NOT GO RED UNDER THE SABOTAGE, and saying so is the
+// point of writing it down. Putting `aspect-ratio` back gave a board of 79% —
+// through this threshold without a murmur. It is a floor against a header or a
+// tab row growing until the map is a strip, NOT the guard for board sizing.
+// The bottom-gap check below is that guard, and it is the one that fired.
+if (room.map / room.h < 0.6) {
+  misses.push(`the board is only ${Math.round(room.map / room.h * 100)}% of the screen`);
+}
+// ★ AND THE DEAD SPACE IS GONE. The board must reach the bottom of the screen,
+// because the panel is over it rather than under it. PROVEN RED at 45px by
+// restoring `aspect-ratio: 1 / 0.92`, which is exactly the regression it is for.
+if (room.h - room.bottom > 8) {
+  misses.push(`${room.h - room.bottom}px of nothing below the board — it is not taking the height`);
+}
+// The dock at rest is a hint bar, not a third of the phone.
+if (room.panel > room.h * 0.25) {
+  misses.push(`the dock is ${room.panel}px with nothing selected — it should be a bar`);
+}
 
 // ------------------------------------------------------------- the chapter --
 //

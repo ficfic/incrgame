@@ -60,8 +60,21 @@ export const FINISH = 1;
 // randomness, no seed, no table to keep in sync.
 
 const ROUTES = 5;
-const W = 900, H = 620;
-const LEFT = 70, RIGHT = W - 70, MID = H / 2;
+
+/** ★ THE CHAPTER IS PORTRAIT, BECAUSE THE GAME IS PLAYED ON A PHONE.
+ *
+ *  ⚠️ IT WAS 900x620 — LANDSCAPE — AND THAT WASTED THE SCREEN TWICE OVER. The
+ *  board is fitted by whichever of width or height runs out first, and on a
+ *  390px-wide phone a landscape map is always width-bound: making the board
+ *  taller (the owner's ask, 2026-08-02) added empty margin above and below the
+ *  map without making the map one pixel bigger. The first screenshot after the
+ *  board grew to 85% of the screen looked IDENTICAL to the one before it.
+ *
+ *  So the crossing runs TOP TO BOTTOM and the routes bow left and right. Same
+ *  design — a start, a finish, five ways between — turned ninety degrees to
+ *  match the shape of the thing it is drawn on. */
+const W = 620, H = 980;
+const TOP = 70, BOT = H - 70, MID = W / 2;
 
 /** How many stops sit between the two ends, per route. The outer routes are
  *  longer because they bow further out. */
@@ -79,8 +92,8 @@ const TERRAIN: Ground[][] = [
 ];
 
 const list: Stop[] = [
-  { id: START, name: 'Start', ground: 'stone', x: LEFT, y: MID, near: [] },
-  { id: FINISH, name: 'Finish', ground: 'stone', x: RIGHT, y: MID, near: [] },
+  { id: START, name: 'Start', ground: 'stone', x: MID, y: TOP, near: [] },
+  { id: FINISH, name: 'Finish', ground: 'stone', x: MID, y: BOT, near: [] },
 ];
 
 /** id of the nth stop on route r. Ids start at 2, after the two ends. */
@@ -100,8 +113,10 @@ for (let r = 0; r < ROUTES; r++) {
       id: idAt(r, n),
       name: `Stop ${idAt(r, n)}`,
       ground: TERRAIN[r]![n] ?? 'moor',
-      x: Math.round(LEFT + (RIGHT - LEFT) * t),
-      y: Math.round(MID + bow * lift + (n % 2 ? 11 : -11)),
+      // ⚠️ THE AXES ARE SWAPPED FROM WHAT THIS USED TO BE: `t` runs DOWN the
+      // board and the bow pushes SIDEWAYS. See the note on W and H.
+      x: Math.round(MID + bow * lift + (n % 2 ? 11 : -11)),
+      y: Math.round(TOP + (BOT - TOP) * t),
       near: [],
     });
   }

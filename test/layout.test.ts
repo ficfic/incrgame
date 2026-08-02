@@ -46,17 +46,35 @@ describe('the map layout', () => {
     }
   });
 
-  it('★ and the crossing reads left to right', () => {
+  it('★ and the crossing reads top to bottom', () => {
     // A chapter is a crossing: you start at one end and you are trying to reach
     // the other. If the finish is not the far side of the picture, the shape of
     // the thing is not on screen — which is how the force-solved board drew the
     // Finish in the middle and nobody could see what the goal was.
+    //
+    // ⚠️ THIS SAID "LEFT TO RIGHT" UNTIL THE CHAPTER TURNED PORTRAIT. The axis
+    // is not the property; being able to SEE the crossing is. What the axis has
+    // to match is the screen — see the note on W and H in `stops.ts`.
     const start = SPOT.get(0)!, finish = SPOT.get(1)!;
-    expect(start.x, 'the start is not the leftmost stop')
-      .toBe(Math.min(...SPOTS.map((s) => s.x)));
-    expect(finish.x, 'the finish is not the rightmost stop')
-      .toBe(Math.max(...SPOTS.map((s) => s.x)));
-    expect(finish.x - start.x).toBeGreaterThan(400);
+    expect(start.y, 'the start is not the topmost stop')
+      .toBe(Math.min(...SPOTS.map((s) => s.y)));
+    expect(finish.y, 'the finish is not the bottommost stop')
+      .toBe(Math.max(...SPOTS.map((s) => s.y)));
+    expect(finish.y - start.y).toBeGreaterThan(400);
+  });
+
+  it('★ and the chapter is shaped like the screen it is drawn on', () => {
+    // ⚠️ THE CHECK THAT WOULD HAVE SAVED A ROUND TRIP. The board grew from 655px
+    // to 715px of an 844px phone and the map came out exactly the same size,
+    // because a 900x620 landscape map on a 390px-wide screen is fitted by its
+    // WIDTH and the extra height became margin. Nothing measured that.
+    //
+    // A phone is about 0.55 wide-over-tall. The map does not have to match, but
+    // it must not be the wrong way round, or vertical space cannot become map.
+    const w = Math.max(...SPOTS.map((s) => s.x)) - Math.min(...SPOTS.map((s) => s.x));
+    const h = Math.max(...SPOTS.map((s) => s.y)) - Math.min(...SPOTS.map((s) => s.y));
+    expect(w / h, `the chapter is ${Math.round(w)}x${Math.round(h)} — landscape on a portrait screen`)
+      .toBeLessThan(1);
   });
 
   it('fits every place inside the viewBox', () => {
