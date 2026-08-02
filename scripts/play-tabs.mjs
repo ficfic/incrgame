@@ -339,6 +339,74 @@ if (!live || live.off) {
   }
 }
 
+// ------------------------------------------------------- widening a road ----
+//
+// ★★ THE SECOND VERB, AND THE REASON THE PIPE ECONOMY EXISTS. The owner:
+// *"maybe we are not laying roads, but laying like a mana ways like pipes… this
+// way it's less boring and gives us more options."* Before this there was one
+// thing to do with a road. The check is that the option is REACHABLE by tapping
+// and that taking it visibly changes the rate — a widening that only happens in
+// the state is the same one verb with extra arithmetic.
+console.log('\nWIDENING');
+const rateNow = () => page.$eval('.purse .rate', (e) => Number(e.textContent.match(/[\d.]+/)[0]));
+const rate0 = await rateNow();
+// Standing at the far end, the road you came along is the one to widen.
+await pick('.map .node.you');
+await page.waitForTimeout(200);
+const backTo = (await page.$$eval('.map .node[data-id^="stop:"]', (ns) =>
+  ns.filter((n) => !n.classList.contains('you')).map((n) => n.dataset.id)))[0];
+let wide = backTo ? await deedOn(backTo) : null;
+// The walk deed comes first on a laid road; the widen deed is the other one.
+const deedTexts = await page.$$eval('.deed', (bs) =>
+  bs.map((x) => ({ t: x.textContent.replace(/\s+/g, ' ').trim(), off: x.disabled })));
+console.log('  offers  :', deedTexts.map((d) => `"${d.t}"${d.off ? ' [shut]' : ''}`).join('  |  ') || '(nothing)');
+console.log('  rate    :', `${rate0} a second on gauge 1`);
+const widen = deedTexts.find((d) => /^Widen the road/.test(d.t));
+if (!widen) {
+  misses.push('a road you have laid offers no way to widen it — the second verb is unreachable');
+} else {
+  if (!/\(1 of \d\)/.test(widen.t)) misses.push(`the widen deed does not say how wide it is: "${widen.t}"`);
+  // ⚠️ THE "CARRIES" LINE IS ONLY ON THE DEED YOU CAN TAKE. A shut deed shows
+  // its REASON in that slot instead — which is right (R3.3) and is why the
+  // first version of this check reported a defect that was not there, reading
+  // "26 mana — you have 4" and complaining it was not a bore.
+  let openText = '';
+  // Wait it out and take it.
+  let took = false;
+  for (let i = 0; i < 40; i++) {
+    const btn = page.locator('.deed', { hasText: 'Widen the road' }).first();
+    if (await btn.count() && !await btn.isDisabled()) {
+      openText = (await btn.textContent()).replace(/\s+/g, ' ').trim();
+      await btn.click({ timeout: 3000 });
+      took = true;
+      break;
+    }
+    await page.waitForTimeout(3000);
+    await pick('.map .node.you');
+    if (backTo) await deedOn(backTo);
+  }
+  if (!took) misses.push('never able to afford widening the first road');
+  else {
+    console.log('  open    :', `"${openText}"`);
+    if (!/carries [\d.]+ a second/.test(openText)) {
+      misses.push(`the widen deed does not say what it would carry: "${openText}"`);
+    }
+    for (let i = 0; i < 25 && (await rateNow()) <= rate0; i++) await page.waitForTimeout(2000);
+    const rate1 = await rateNow();
+    console.log('  widened :', `${rate0} → ${rate1} a second`);
+    // ★ THE POINT. A wider pipe delivers more, and the header says so.
+    if (!(rate1 > rate0)) {
+      misses.push(`widening the road changed nothing: still ${rate1} a second`);
+    }
+    const busyPx = await ink('flowing');
+    console.log('  load    :', `${busyPx}px of underlay showing what it carries`);
+    if (!busyPx) {
+      misses.push('nothing on the board shows what a road is carrying — the pipes are invisible');
+    }
+    await page.screenshot({ path: SHOT.replace(/\.png$/, '-widened.png') });
+  }
+}
+
 // ------------------------------------------- you cannot build from the middle -
 //
 // ★★ THE RULE THE WHOLE OPENING EXISTS TO SET UP, and the one thing playing
@@ -357,8 +425,8 @@ await page.evaluate(() => new Promise((done, fail) => {
     const db = req.result;
     const tx = db.transaction('saves', 'readwrite');
     tx.objectStore('saves').put(JSON.stringify({
-      v: 4, savedAt: Date.now(),
-      game: { version: 3, at: 6, seen: [0, 6], built: [], mana: 9999, part: 0, building: null },
+      v: 5, savedAt: Date.now(),
+      game: { version: 5, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null },
     }), 'main');
     tx.oncomplete = () => { db.close(); done(); };
     tx.onerror = () => fail(tx.error);

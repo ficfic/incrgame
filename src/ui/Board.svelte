@@ -37,8 +37,11 @@
     r?: number;
   }
   export interface Line { a: string; b: string; rel: string; fill: number;
-    /** How much of its limit this route is carrying, 0 to 1. See `flow.ts`. */
-    load: number }
+    /** How much of its limit this road is carrying, 0 to 1. See `flow.ts`. */
+    load: number;
+    /** ★ HOW WIDE THE ROAD IS, 0 if it is not laid. A road is a pipe now, and
+     *  the whole model is a spreadsheet unless the board draws the bore. */
+    gauge?: number }
 
   let { dots, lines, box, label, onTap, decor = [], drag = true, inset = 0 }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
@@ -276,8 +279,12 @@
       // ⚠️ DASHED UNTIL IT IS FINISHED, NOT UNTIL IT IS STARTED. With the strict
       // test a route lost its dashes the instant it began filling and drew solid
       // for its whole length, so the far end looked reached before any of it was.
+      // ★ WIDTH IS GAUGE. A road you have widened twice is visibly twice the
+      // road, which is the only way "widening a bottleneck is worth more than
+      // laying a slack road" is a decision you can make by LOOKING.
       paint(ctx, made
-        ? { s: 'path', pts: [a, b], ink: (l.rel as InkName) in INK ? l.rel as InkName : 'route', w: 2 }
+        ? { s: 'path', pts: [a, b], ink: (l.rel as InkName) in INK ? l.rel as InkName : 'route',
+            w: 1.6 + 1.5 * Math.max(1, l.gauge ?? 1) }
         : { s: 'path', pts: [a, b], ink: 'unmade', w: 1, dash: [3, 5] }, sx, sy, 1);
       // ★ THE ONE ANIMATION THE GAME GETS: the way being made fills from your
       // end to the far end over real time. Asked for back by name.

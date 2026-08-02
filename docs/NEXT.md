@@ -104,6 +104,16 @@ with control points derived from the terrain between the two stops.
 `a + (b−a)×fill`, which is a straight line by construction; a bent road needs the
 fill to follow the curve or the growing road will visibly leave its own bed.
 
+## ✅ DONE 2026-08-02 — a road is a pipe
+
+The owner chose "full pipes: capacity and pressure" over my recommendation. A
+road has a gauge; income is max flow from the start to where you stand; `BORE`
+runs opposite to `GOING` so cheap ground is narrow ground. Widening is the
+second verb. The board draws gauge as width and load as an underlay — without
+that this is the max-flow economy that was scrapped, wearing a better name.
+
+**Saves reset**: SAVE_VERSION 5, `built: string[]` became `gauge: Record<string, number>`.
+
 ## ★★★ THE MAP, ROUND TWO — 2026-08-02, later the same day
 
 Five more, in the owner's words. **E and F are corrections to shipped behaviour**

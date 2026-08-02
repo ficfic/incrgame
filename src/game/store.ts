@@ -5,7 +5,7 @@ import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/sto
 import { initial, type Game } from './engine';
 import { STOP } from './stops';
 
-export const SAVE_VERSION = 4;   // King's Roads: stops, roads and mana
+export const SAVE_VERSION = 5;   // King's Roads: roads are pipes with a gauge
 
 interface Blob { v: number; savedAt: number; game: Game }
 
@@ -37,10 +37,17 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     if (!Number.isFinite(g.part) || g.part < 0) return null;
     // Checked against the CONTENT: a road key naming stops that are not joined
     // would be a line the board draws to nowhere and the engine never walks.
-    if (!Array.isArray(g.built) || !g.built.every((k) => {
+    // ⚠️ A GAUGE MAP NOW, NOT A LIST. Still checked against the CONTENT: a key
+    // naming stops that are not joined would be a pipe the board draws to
+    // nowhere and the engine never walks, and a gauge that is not a positive
+    // whole number would put a fraction into the flow solver.
+    if (!g.gauge || typeof g.gauge !== 'object' || Array.isArray(g.gauge)) return null;
+    for (const [k, n] of Object.entries(g.gauge)) {
       const [a, c] = String(k).split('|').map(Number);
-      return a !== undefined && c !== undefined && (STOP.get(a)?.near.includes(c) ?? false);
-    })) return null;
+      if (a === undefined || c === undefined) return null;
+      if (!(STOP.get(a)?.near.includes(c) ?? false)) return null;
+      if (!Number.isInteger(n) || (n as number) < 1) return null;
+    }
     if (g.building && !(typeof g.building.key === 'string'
       && Number.isFinite(g.building.left) && Number.isFinite(g.building.secs)
       && g.building.secs > 0)) return null;

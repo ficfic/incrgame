@@ -27,7 +27,7 @@
   import { TERRAIN_SHAPES } from '../game/terrain';
   import { INK, TOL } from '../game/ink';
   import { apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
-    type Game, type Action } from '../game/engine';
+    loadOf, roadKey, type Game, type Action } from '../game/engine';
   import { load, save, wipe, elapsedSince } from '../game/store';
 
   let game = $state<Game>(initial());
@@ -121,12 +121,19 @@
 
   /** Edges with the fill the board needs, so the board knows nothing about the
    *  game and the game knows nothing about drawing. */
+  /** ★ HOW HARD EACH ROAD IS WORKING. Solved once per frame from the network,
+   *  not per line — max flow is a whole-graph answer and asking it edge by edge
+   *  would be both wrong and 35 times the work. */
+  const busy = $derived(loadOf(game));
+
   const lines = $derived(view.edges.map((e) => {
     const road = e.rel === 'road' && e.a.startsWith('stop:') && e.b.startsWith('stop:');
+    const key = road ? roadKey(numOf(e.a), numOf(e.b)) : '';
     return {
       a: e.a, b: e.b, rel: e.rel,
       fill: road ? fillOf(game, numOf(e.a), numOf(e.b)) : 1,
-      load: 0,
+      gauge: road ? (game.gauge[key] ?? 0) : 0,
+      load: road ? (busy.get(key) ?? 0) : 0,
     };
   }));
 

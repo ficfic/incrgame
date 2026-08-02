@@ -36,6 +36,34 @@ export const GOING: Record<Ground, number> = {
   water: 3.1,    // needs a ford or a bridge
 };
 
+/** ★ THE BORE: how much mana a road over this ground can CARRY, per gauge.
+ *
+ *  ⚠️ THIS IS THE TRADE-OFF, AND IT DELIBERATELY FIGHTS `GOING`. Cheap ground is
+ *  NARROW ground: a way laid over open moor costs almost nothing and then leaks
+ *  and silts and carries very little forever. Hard standing is dear to cut and
+ *  "takes a road well" — which is a line that was already in the flavour text
+ *  before there was a number behind it.
+ *
+ *  Without this the pipes would be theatre: moor would be the cheapest AND the
+ *  best, every route would be the same route, and the choice the chapter is
+ *  built around would be cosmetic. The owner asked for pipes because they give
+ *  "more options"; the options are here or they are nowhere. */
+export const BORE: Record<Ground, number> = {
+  moor: 0.55,    // cheap to lay, and it never carries much
+  wood: 0.90,
+  water: 0.85,   // dear, and a ford is a ford
+  crag: 1.25,    // cut into rock, and it holds
+  stone: 1.45,   // hard standing — takes a road well
+};
+
+/** What one gauge of road over this pair of grounds can carry, in mana a
+ *  second. The narrower end governs: a pipe is as wide as its tightest point. */
+export function boreOf(a: number, b: number): number {
+  const A = STOP.get(a), B = STOP.get(b);
+  if (!A || !B) return 0;
+  return Math.min(BORE[A.ground], BORE[B.ground]);
+}
+
 export interface Stop {
   id: number;
   /** ⚠️ A NUMBER, NOT A NAME. See the header. */

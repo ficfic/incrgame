@@ -11,9 +11,10 @@
 // ---- PROVEN RED, 2026-08-02 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
 import { apply, initial, unbuildable, blocked, crossed, reached, roadKey,
-  roadsOut, manaRate, buildSecs, waitFor, MANA_BASE, MANA_PER_ROAD,
-  type Game } from '../src/game/engine';
-import { STOPS, STOP, START, FINISH, roadCost, ROUTE_COUNT, GOING } from '../src/game/stops';
+  roadsOut, manaRate, buildSecs, waitFor, MANA_BASE, MAX_GAUGE, SPRING,
+  priceOf, loadOf, type Game } from '../src/game/engine';
+import { STOPS, STOP, START, FINISH, roadCost, ROUTE_COUNT, GOING, BORE,
+  boreOf } from '../src/game/stops';
 
 const tick = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
 
@@ -95,29 +96,122 @@ describe('★ mana only reaches along road you have built', () => {
   it('grows one stop at a time as road goes in', () => {
     const to = STOP.get(START)!.near[0]!;
     const g = lay(initial(), to);
-    expect(g.built).toContain(roadKey(START, to));
+    expect(g.gauge[roadKey(START, to)]).toBe(1);
     expect(reached(g).has(to)).toBe(true);
     expect(g.at).toBe(to);
     // And now building onward from there is allowed.
-    expect(unbuildable({ ...g, mana: 9999 }, g.built.length ? STOP.get(to)!.near.find((n) => n !== START)! : START))
+    expect(unbuildable({ ...g, mana: 9999 }, STOP.get(to)!.near.find((n) => n !== START)!))
       .toBeNull();
   });
 });
 
-describe('★ mana gets easier as the chapter goes on', () => {
-  it('flows faster for every road that carries it', () => {
+describe('★★ a road is a pipe', () => {
+  it('starts at the trickle, standing on the king\'s road with nothing laid', () => {
     expect(manaRate(initial())).toBeCloseTo(MANA_BASE, 10);
-    const three = { ...initial(), built: ['0|2', '2|3', '3|4'] };
-    expect(manaRate(three)).toBeCloseTo(MANA_BASE + 3 * MANA_PER_ROAD, 10);
-    expect(manaRate(three)).toBeGreaterThan(manaRate(initial()));
   });
 
-  it('so the wait for the next road shrinks even as prices stay put', () => {
-    // The owner's curve: "scarce until you've finished the location and once
-    // you're finished it's abundant but like you don't need it anymore."
-    const early = waitFor(initial())!;
-    const late = waitFor({ ...initial(), built: ['0|2', '2|3', '3|4', '4|5', '5|6'] })!;
-    expect(late.secs).toBeLessThan(early.secs);
+  it('★ delivers what the road can CARRY once you are standing on the far end', () => {
+    // The whole change: income is no longer a count of what you own, it is what
+    // this network gets to where you are.
+    const to = STOP.get(START)!.near[0]!;
+    const g = lay(initial(), to);
+    expect(g.at).toBe(to);
+    expect(manaRate(g)).toBeCloseTo(boreOf(START, to), 6);
+  });
+
+  it('★★ is governed by its NARROWEST link, not by how many links there are', () => {
+    // ⚠️ THE FIRST VERSION OF THIS TEST WAS VACUOUS AND A SABOTAGE PROVED IT. It
+    // took the first neighbour and the first one beyond that, and on this map
+    // both links came out at the same bore — so `min` and `max` agreed and
+    // replacing the bottleneck with the WIDEST link left the test green.
+    //
+    // So the chain is SEARCHED FOR rather than assumed, and it throws if the
+    // map has no chain whose links differ, because on such a map this property
+    // cannot be tested at all and a pass would mean nothing.
+    // Walk outward from the start until a path turns up whose links are not all
+    // the same width. Two hops is not enough on this map — the head of every
+    // route is uniform ground — so the search goes as deep as it needs to.
+    let found: { path: number[]; lo: number; hi: number } | null = null;
+    const queue: number[][] = [[START]];
+    for (let h = 0; h < queue.length && !found && h < 4000; h++) {
+      const path = queue[h]!;
+      if (path.length > 5) continue;
+      for (const n of STOP.get(path[path.length - 1]!)!.near) {
+        if (path.includes(n)) continue;
+        const next = [...path, n];
+        const bores = next.slice(1).map((_, i) => boreOf(next[i]!, next[i + 1]!));
+        const lo = Math.min(...bores), hi = Math.max(...bores);
+        if (hi - lo > 0.01) { found = { path: next, lo, hi }; break; }
+        queue.push(next);
+      }
+    }
+    if (!found) throw new Error('no chain on this map has links of different bores — nothing to prove');
+    const path = found.path;
+    const gauge: Record<string, number> = {};
+    for (let i = 0; i + 1 < path.length; i++) gauge[roadKey(path[i]!, path[i + 1]!)] = 1;
+    const chain = { ...initial(), at: path[path.length - 1]!, seen: [...path], gauge };
+    expect(manaRate(chain),
+      `chain ${path.join('→')} runs ${found.lo} at its tightest and ${found.hi} at its widest`)
+      .toBeCloseTo(found.lo, 6);
+    expect(manaRate(chain), 'the WIDER link is governing').not.toBeCloseTo(found.hi, 6);
+  });
+
+  it('★ and widening the tight one is what raises it', () => {
+    const a = STOP.get(START)!.near[0]!;
+    const one = { ...initial(), at: a, seen: [START, a], gauge: { [roadKey(START, a)]: 1 } };
+    const two = { ...one, gauge: { [roadKey(START, a)]: 2 } };
+    expect(manaRate(two)).toBeGreaterThan(manaRate(one));
+    expect(manaRate(two)).toBeCloseTo(2 * boreOf(START, a), 6);
+  });
+
+  it('★ cheap ground is NARROW ground, or the choice is theatre', () => {
+    // `GOING` prices a road and `BORE` says what it carries, and they must run
+    // opposite — otherwise moor is both the cheapest and the best and every
+    // route across the chapter is the same route.
+    expect(GOING.moor).toBeLessThan(GOING.stone);
+    expect(BORE.moor).toBeLessThan(BORE.stone);
+    expect(GOING.water).toBeGreaterThan(GOING.crag);
+  });
+
+  it('★ two ways to the same place ADD, which is why there is a second option', () => {
+    // Max flow, not widest path. If these did not add, laying a parallel route
+    // would be worth nothing and the network would be a line.
+    const near = STOP.get(START)!.near;
+    const mid = near.find((n) => STOP.get(n)!.near.some((x) => near.includes(x) && x !== n));
+    if (mid === undefined) return;                    // no diamond here; nothing to prove
+    const other = STOP.get(mid)!.near.find((x) => near.includes(x) && x !== mid)!;
+    const one = { ...initial(), at: mid, seen: [START, mid],
+      gauge: { [roadKey(START, mid)]: 1 } };
+    const both = { ...one, gauge: { [roadKey(START, mid)]: 1,
+      [roadKey(START, other)]: 1, [roadKey(other, mid)]: 1 } };
+    expect(manaRate(both)).toBeGreaterThan(manaRate(one));
+  });
+
+  it('never delivers more than the kingdom can push', () => {
+    const a = STOP.get(START)!.near[0]!;
+    const fat = { ...initial(), at: a, seen: [START, a],
+      gauge: { [roadKey(START, a)]: 99 } };
+    expect(manaRate(fat)).toBeLessThanOrEqual(SPRING);
+  });
+
+  it('★ shows which road is the tight one, or the model is invisible', () => {
+    // The argument I lost, kept as a check: a pipe economy the board cannot
+    // draw is the spreadsheet that got scrapped wearing a better name. `loadOf`
+    // is what the board draws, so it must say something.
+    const a = STOP.get(START)!.near[0]!;
+    const g = { ...initial(), at: a, seen: [START, a], gauge: { [roadKey(START, a)]: 1 } };
+    expect(loadOf(g).get(roadKey(START, a)), 'the only road carrying anything reads slack')
+      .toBeCloseTo(1, 3);
+  });
+
+  it('widening costs more each time, and stops', () => {
+    const a = STOP.get(START)!.near[0]!;
+    const at1 = { ...initial(), at: START, gauge: { [roadKey(START, a)]: 1 } };
+    const at2 = { ...at1, gauge: { [roadKey(START, a)]: 2 } };
+    expect(priceOf(at2, a)).toBeGreaterThan(priceOf(at1, a));
+    const full = { ...at1, at: START, mana: 9999,
+      gauge: { [roadKey(START, a)]: MAX_GAUGE } };
+    expect(unbuildable(full, a)).toBe('as wide as it goes');
   });
 
   it('carries the remainder, so small ticks pay what one big tick pays', () => {
@@ -165,22 +259,23 @@ describe('★ the crossing', () => {
       if (!next) break;
       g = lay(g, next.to);
     }
-    expect(crossed(g), `not crossed after ${g.built.length} roads`).toBe(true);
+    expect(crossed(g), `not crossed after ${Object.keys(g.gauge).length} roads`).toBe(true);
     // ⚠️ AND IT IS A PATH, NOT THE WHOLE MAP. If crossing needed most of the
     // chapter, "done is done" would be a lie and the other routes would be
     // chores rather than choices.
     const roads = STOPS.reduce((n, s) => n + s.near.length, 0) / 2;
-    expect(g.built.length).toBeLessThan(roads / 2);
+    expect(Object.keys(g.gauge).length).toBeLessThan(roads / 2);
   });
 
   it('is crossed the moment the mana reaches the finish, and not before', () => {
     const g = initial();
     expect(crossed(g)).toBe(false);
-    expect(crossed({ ...g, built: [roadKey(START, STOP.get(START)!.near[0]!)] })).toBe(false);
+    expect(crossed({ ...g, gauge: { [roadKey(START, STOP.get(START)!.near[0]!)]: 1 } })).toBe(false);
     // A contrived straight line from start to finish is the whole of it.
     const route = STOP.get(START)!.near.find((n) => STOP.get(n)!.near.includes(FINISH));
     if (route !== undefined) {
-      expect(crossed({ ...g, built: [roadKey(START, route), roadKey(route, FINISH)] })).toBe(true);
+      expect(crossed({ ...g,
+        gauge: { [roadKey(START, route)]: 1, [roadKey(route, FINISH)]: 1 } })).toBe(true);
     }
   });
 });

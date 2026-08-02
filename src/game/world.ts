@@ -13,7 +13,7 @@
 import { STOPS, STOP, START, FINISH, nameOf, GOING } from './stops';
 import type { Game } from './engine';
 import { roadsOut, roadCost, buildSecs, manaRate, waitFor, reached, crossed,
-  roadKey, unbuildable } from './engine';
+  roadKey, unbuildable, MAX_GAUGE } from './engine';
 
 /** Mana a second, said the same way everywhere it is said. */
 const perSec = (n: number): string => `${n.toFixed(2)} a second`;
@@ -92,20 +92,21 @@ function doing(g: Game): Node {
     const [x, y] = g.building.key.split('|').map(Number);
     const far = x === g.at ? y! : x!;
     return {
-      id: DOING, kind: 'doing', name: 'Laying road',
+      id: DOING, kind: 'doing',
+      name: g.building.to > 1 ? 'Widening the road' : 'Laying road',
       body: `Toward ${nameOf(far)}. ${Math.ceil(g.building.left)}s left. It keeps `
         + 'going while the game is closed.',
     };
   }
   const wait = waitFor(g);
-  const ready = roadsOut(g).filter((r) => !r.built && r.cannot === null)
+  const ready = roadsOut(g).filter((r) => r.cannot === null)
     .sort((a, b) => a.cost - b.cost)[0];
-  const next = ready ? `Enough for the road to ${ready.name}.`
-    : wait ? `Enough for the road to ${wait.name} in ${wait.secs}s.`
-    : 'Every road from here is built.';
+  const next = ready ? `Enough for the work to ${ready.name}.`
+    : wait ? `Enough for the work to ${wait.name} in ${wait.secs}s.`
+    : 'Nothing left to do from here.';
   return {
     id: DOING, kind: 'doing', name: 'Waiting on the mana',
-    body: `${perSec(manaRate(g))}, and faster for every road that carries it. ${next}`,
+    body: `${perSec(manaRate(g))} reaching you. ${next}`,
   };
 }
 
@@ -136,7 +137,8 @@ export function here(g: Game): View {
  *  numbers: the owner rejected those on sight once already. */
 export function self(g: Game): View {
   const at = STOP.get(g.at)!;
-  const next = roadsOut(g).filter((r) => !r.built).sort((a, b) => a.cost - b.cost)[0];
+  const next = roadsOut(g).filter((r) => r.gauge < MAX_GAUGE)
+    .sort((a, b) => a.cost - b.cost)[0];
   return {
     nodes: [
       { id: 'you', kind: 'you', name: 'You',
@@ -146,15 +148,16 @@ export function self(g: Game): View {
         body: 'Roads are the only thing that takes it. Walking a road you have '
           + 'already built is free.' },
       { id: 'stat:flow', kind: 'fact', name: perSec(manaRate(g)),
-        body: `${g.built.length} built ${g.built.length === 1 ? 'road carries' : 'roads carry'} `
-          + 'it out from the king\'s domain. Every road you lay brings more, so the '
-          + 'end of a chapter is always easier than the middle.' },
+        body: 'What the network actually delivers to where you stand. A road is a '
+          + 'pipe, and the narrowest one between here and the start governs the lot, so widening '
+          + 'a tight road is worth more than laying a slack one.' },
       { id: 'stat:next', kind: 'fact',
-        name: next ? `Next road: ${next.cost}` : 'Nothing left here',
+        name: next ? `Next work: ${next.cost}` : 'Nothing left here',
         body: next
-          ? `${buildSecs(g, next.to)}s to lay. What a road costs is how far it `
-            + 'runs times how bad the ground is — nothing else.'
-          : 'Every road out of this stop is built. The next one is elsewhere.' },
+          ? `${buildSecs(g, next.to)}s. Price is how far it runs times how bad the `
+            + 'ground is; what it CARRIES runs the other way — cheap ground is '
+            + 'narrow ground, and hard standing takes a road well.'
+          : 'Every road out of this stop is as wide as it goes.' },
     ],
     edges: [
       { a: 'you', b: stopId(g.at), rel: 'stands' },
@@ -222,18 +225,19 @@ export function deedsFor(g: Game, nodeId: string): Deed[] {
   const r = roadsOut(g).find((x) => x.to === id);
   if (!r) return [];
 
-  if (r.built) {
-    return [{
-      kind: 'go', to: id, why: r.why,
-      label: r.seen ? `Back to ${r.name}` : `Go to ${r.name}`,
-      note: 'the road is built — free',
-    }];
-  }
+  const walk: Deed[] = r.built ? [{
+    kind: 'go', to: id, why: r.why,
+    label: r.seen ? `Back to ${r.name}` : `Go to ${r.name}`,
+    note: 'the road is built — free',
+  }] : [];
   const why = unbuildable(g, id);
-  return [{
+  return [...walk, {
     kind: 'build', to: id, why,
-    label: `Lay the road to ${r.name}`,
-    note: why ?? `${r.cost} mana · ${buildSecs(g, id)}s`,
+    label: r.gauge > 0
+      ? `Widen the road to ${r.name} (${r.gauge} of ${MAX_GAUGE})`
+      : `Lay the road to ${r.name}`,
+    note: why ?? `${r.cost} mana · ${buildSecs(g, id)}s · carries `
+      + `${((r.gauge + 1) * r.bore).toFixed(2)} a second`,
   }];
 }
 
