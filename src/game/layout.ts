@@ -24,8 +24,8 @@
 //   which is what makes a screenshot of a bug reproducible.
 import { forceSimulation, forceLink, forceManyBody, forceCollide, forceX, forceY,
   type SimulationNodeDatum } from 'd3-force';
-import { PLACES, PLACE, START } from './places';
-import { placeId, type View } from './world';
+import { STOPS, STOP as BY_ID, START } from './stops';
+import { stopId, type View } from './world';
 
 export interface Spot { id: number; x: number; y: number }
 export interface Placed { id: string; x: number; y: number }
@@ -113,31 +113,30 @@ export function boxOf(spots: Placed[], pad = 40): Box {
 // constant for the rest of the session.
 
 const journeyPos = settle(
-  PLACES.map((p) => placeId(p.id)),
-  PLACES.flatMap((p) => p.ways.filter((to) => to > p.id)
-    .map((to) => ({ source: placeId(p.id), target: placeId(to) }))),
+  STOPS.map((p) => stopId(p.id)),
+  STOPS.flatMap((p) => p.near.filter((to) => to > p.id)
+    .map((to) => ({ source: stopId(p.id), target: stopId(to) }))),
   0x5eed,
 );
 
-export const SPOTS: readonly Spot[] = PLACES.map((p) => ({
-  id: p.id, ...journeyPos.get(placeId(p.id))!,
+export const SPOTS: readonly Spot[] = STOPS.map((p) => ({
+  id: p.id, ...journeyPos.get(stopId(p.id))!,
 }));
 export const SPOT = new Map(SPOTS.map((s) => [s.id, s]));
-export const VIEW: Box = boxOf(SPOTS.map((s) => ({ id: placeId(s.id), x: s.x, y: s.y })));
+export const VIEW: Box = boxOf(SPOTS.map((s) => ({ id: stopId(s.id), x: s.x, y: s.y })));
 
 export const JOURNEY: Solved = {
-  spots: SPOTS.map((s) => ({ id: placeId(s.id), x: s.x, y: s.y })),
+  spots: SPOTS.map((s) => ({ id: stopId(s.id), x: s.x, y: s.y })),
   box: VIEW,
 };
 
-/** Distance from the start, kept here because the seed used to need it and the
- *  Self tab still does. */
+/** Roads-from-the-start, in hops. Kept because the seed uses it. */
 export const DEPTH = (() => {
   const d = new Map<number, number>([[START, 0]]);
   const q = [START];
   while (q.length) {
     const at = q.shift()!;
-    for (const to of PLACE.get(at)!.ways) {
+    for (const to of BY_ID.get(at)!.near) {
       if (d.has(to)) continue;
       d.set(to, d.get(at)! + 1);
       q.push(to);
@@ -175,8 +174,8 @@ export function solve(view: View): Solved {
   // truthful and free: `SPOT` is already solved.
   const hint = new Map<string, { x: number; y: number }>();
   for (const id of ids) {
-    if (!id.startsWith('place:')) continue;
-    const at = SPOT.get(Number(id.slice('place:'.length)));
+    if (!id.startsWith('stop:')) continue;
+    const at = SPOT.get(Number(id.slice('stop:'.length)));
     if (at) hint.set(id, { x: at.x, y: at.y });
   }
   const pos = settle(ids, links, seed, hint.size >= 2 ? hint : undefined);

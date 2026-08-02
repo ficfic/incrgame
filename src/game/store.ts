@@ -3,14 +3,9 @@
 // week idle, which is exactly the gap between sittings this game is built for.
 import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/storage';
 import { initial, type Game } from './engine';
-import { PLACE, THING } from './places';
+import { STOP } from './stops';
 
-// ⚠️ 3 RESETS EVERY SAVE, and deliberately. `part` changed meaning from banked
-// SECONDS to banked fractional PACES when the rate stopped being a constant, so
-// a version-2 save would pay its remainder out against the wrong clock — and it
-// carries no `settled`, which is now the difference between an income and none.
-// `CLAUDE.md`: saves are breakable, say so plainly when one breaks.
-export const SAVE_VERSION = 3;   // settling, working, and a rate solved from the graph
+export const SAVE_VERSION = 4;   // King's Roads: stops, roads and mana
 
 interface Blob { v: number; savedAt: number; game: Game }
 
@@ -21,8 +16,13 @@ export async function save(g: Game): Promise<void> {
 
 /** ⚠️ A SAVE WE CANNOT HONOUR IS REFUSED, NOT REPAIRED. A half-loaded run is
  *  worse than a fresh one because it looks like a save. Checked against the
- *  CONTENT, not just the types: a position naming a place that no longer exists
- *  would type-check and then strand the player. */
+ *  CONTENT, not just the types.
+ *
+ *  ⚠️ AND ABSENT IS FINE; PRESENT AND WRONG IS NOT. `load()` merges over
+ *  `initial()`, so a field added tomorrow arrives at its default instead of
+ *  `undefined` — and `undefined` in the first sum that touches it turns a run
+ *  to NaN in silence. Rejecting a MISSING field would break that for every
+ *  field added from here on. */
 export async function load(): Promise<{ game: Game; savedAt: number } | null> {
   const raw = await loadBlob().catch(() => null);
   if (!raw) return null;
@@ -30,54 +30,27 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     const b = JSON.parse(raw) as Blob;
     if (b?.v !== SAVE_VERSION || typeof b.savedAt !== 'number') return null;
     const g = b.game;
-    if (!g || !PLACE.has(g.at)) return null;
-    if (!Array.isArray(g.seen) || !g.seen.every((id) => PLACE.has(id))) return null;
+    if (!g || !STOP.has(g.at)) return null;
+    if (!Array.isArray(g.seen) || !g.seen.every((id) => STOP.has(id))) return null;
     if (!g.seen.includes(g.at)) return null;
-    if (!Number.isFinite(g.paces) || g.paces < 0) return null;
+    if (!Number.isFinite(g.mana) || g.mana < 0) return null;
     if (!Number.isFinite(g.part) || g.part < 0) return null;
-    if (!Array.isArray(g.solid) || !g.solid.every((k) => typeof k === 'string')) return null;
-    // ⚠️ ABSENT IS FINE; PRESENT AND WRONG IS NOT. These four fields did not
-    // exist before this version, and the property this whole file rests on is
-    // that a save written before a feature still loads and takes the default.
-    // Rejecting a MISSING field would break that for every field added from now
-    // on — which is the opposite of the guarantee, and the first version of
-    // these lines did exactly that. Checked only when the save actually carries
-    // one.
-    //
-    // `settled` is checked against the CONTENT like `at` and `seen` are: a
-    // settled place that no longer exists is a source the flow solve can never
-    // find, so the player would be paying for an income that is silently absent.
-    if (g.settled !== undefined
-      && (!Array.isArray(g.settled) || !g.settled.every((id) => PLACE.has(id)))) return null;
-    if (g.wayfaring !== undefined
-      && (!Number.isFinite(g.wayfaring) || g.wayfaring < 0)) return null;
-    if (g.workPart !== undefined
-      && (!Number.isFinite(g.workPart) || g.workPart < 0)) return null;
-    if (g.busy !== undefined && g.busy !== 'rest' && g.busy !== 'work') return null;
-    // Checked against the CONTENT: an item the game can no longer put in your
-    // hand is a key to a lock that may no longer exist, and it would sit in the
-    // inventory with no name to draw.
-    if (g.pack !== undefined
-      && (!Array.isArray(g.pack) || !g.pack.every((id) => THING.has(id)))) return null;
-    if (g.cleared !== undefined
-      && (!Array.isArray(g.cleared) || !g.cleared.every((id) => PLACE.has(id)))) return null;
-    // A fight is not carried across a sitting: it is two numbers that only mean
-    // anything beside a holder you are standing in front of, and reviving one
-    // from a save would need the place to still be held, still be where you are
-    // standing, and still be worth the sizes written down. Dropped instead,
-    // which costs the player a fight they can simply start again.
-    if (g.fight !== undefined && g.fight !== null) g.fight = null;
-    // A half-made route pointing at nothing would draw a line to nowhere and
-    // never finish. Refused, not repaired.
-    if (g.forging && !(typeof g.forging.key === 'string'
-      && Number.isFinite(g.forging.left) && Number.isFinite(g.forging.secs)
-      && g.forging.secs > 0)) return null;
+    // Checked against the CONTENT: a road key naming stops that are not joined
+    // would be a line the board draws to nowhere and the engine never walks.
+    if (!Array.isArray(g.built) || !g.built.every((k) => {
+      const [a, c] = String(k).split('|').map(Number);
+      return a !== undefined && c !== undefined && (STOP.get(a)?.near.includes(c) ?? false);
+    })) return null;
+    if (g.building && !(typeof g.building.key === 'string'
+      && Number.isFinite(g.building.left) && Number.isFinite(g.building.secs)
+      && g.building.secs > 0)) return null;
     void requestPersistence();
     return { game: { ...initial(), ...g }, savedAt: b.savedAt };
   } catch {
     return null;
   }
 }
+
 
 export const elapsedSince = (savedAt: number): number =>
   Math.max(0, (Date.now() - savedAt) / 1000);

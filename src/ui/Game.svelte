@@ -13,19 +13,19 @@
   // panel for whatever is selected. No modal, no sheet, no absolute positioning
   // over the canvas, nothing to dismiss.
   import { onMount } from 'svelte';
-  import { PLACE, PLACES } from '../game/places';
-  import { TABS, deedsFor, numOf, fillOf, DOING, type TabId } from '../game/world';
+  import { STOP } from '../game/stops';
+  import { TABS, deedsFor, numOf, DOING, type TabId } from '../game/world';
   import { solve, JOURNEY } from '../game/layout';
   import Board from './Board.svelte';
   import { TERRAIN_SHAPES } from '../game/terrain';
   import { INK, TOL } from '../game/ink';
-  import { apply, initial, waysFrom, unforgeable, rate, loadOf, working,
+  import { apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
     type Game, type Action } from '../game/engine';
   import { load, save, wipe, elapsedSince } from '../game/store';
 
   let game = $state<Game>(initial());
   let ready = $state(false);
-  let tab = $state<TabId>('journey');
+  let tab = $state<TabId>('chapter');
   /** What the player last tapped, per tab. Selection is a STATE OF THE TAB, not
    *  a window over it (R3.1) — which is why there is nothing to close. */
   let picked = $state<string | null>(null);
@@ -59,16 +59,16 @@
   const view = $derived(TABS.find((t) => t.id === tab)!.view(game));
   // The journey's shape never changes, so its layout is the constant solved at
   // load. Every other tab is a filter whose shape follows the run.
-  const laid = $derived(tab === 'journey' ? JOURNEY : solve(view));
+  const laid = $derived(tab === 'chapter' ? JOURNEY : solve(view));
   const spotOf = $derived(new Map(laid.spots.map((s) => [s.id, s])));
 
-  const reach = $derived(new Map(waysFrom(game).map((w) => [w.to, w])));
+  const reach = $derived(new Map(roadsOut(game).map((r) => [r.to, r])));
   const chosen = $derived(picked === null ? null : view.nodes.find((n) => n.id === picked) ?? null);
   const deeds = $derived(picked === null ? [] : deedsFor(game, picked));
 
   const dots = $derived(view.nodes.map((n) => {
     const at = spotOf.get(n.id);
-    const isPlace = n.id.startsWith('place:');
+    const isPlace = n.id.startsWith('stop:');
     const num = isPlace ? numOf(n.id) : -1;
     const w = isPlace ? reach.get(num) : undefined;
     return {
@@ -76,12 +76,10 @@
       wx: at?.x ?? 0, wy: at?.y ?? 0, at,
       place: isPlace,
       you: isPlace && num === game.at,
-      open: w !== undefined && w.why === null,
-      shut: w !== undefined && w.why !== null,
-      // A door is a door whether it wants a level or a key — the player sees
-      // "shut" and taps to learn which. Two inks for two kinds of shut would be
-      // a distinction the panel already makes in words.
-      barred: w !== undefined && (w.bar > 0 || w.need !== null),
+      // OPEN is a road you can lay right now; SHUT is one you cannot yet.
+      open: w !== undefined && !w.built && w.cannot === null,
+      shut: w !== undefined && !w.built && w.cannot !== null,
+      barred: false,
       // ⚠️ "KNOWN" IS HAVING A NAME, for anything that is not a place. This
       // read `!isPlace || …`, so every notion on Thoughts drew at full
       // brightness and full size whether you had thought it or not — the dim
@@ -94,11 +92,11 @@
   /** Edges with the fill the board needs, so the board knows nothing about the
    *  game and the game knows nothing about drawing. */
   const lines = $derived(view.edges.map((e) => {
-    const road = e.rel === 'route' && e.a.startsWith('place:');
+    const road = e.rel === 'road' && e.a.startsWith('stop:') && e.b.startsWith('stop:');
     return {
       a: e.a, b: e.b, rel: e.rel,
       fill: road ? fillOf(game, numOf(e.a), numOf(e.b)) : 1,
-      load: road ? loadOf(game, numOf(e.a), numOf(e.b)) : 0,
+      load: 0,
     };
   }));
 
@@ -109,11 +107,11 @@
       if (back) {
         const secs = Math.min(elapsedSince(back.savedAt), 12 * 3600);
         game = secs > 1 ? apply(back.game, { type: 'tick', secs }) : back.game;
-        const got = game.paces - back.game.paces;
+        const got = game.mana - back.game.mana;
         if (got > 0) {
           const h = secs / 3600;
           awayLine = `Away ${h >= 1 ? `${h.toFixed(1)} hours` : `${Math.round(secs / 60)} minutes`}`
-            + ` — ${got} gathered.`;
+            + ` — ${got} mana gathered.`;
         }
       }
       ready = true;
@@ -165,8 +163,8 @@
   function tap(id: string): void {
     if (arming && picked !== null && id !== picked) {
       // The second tap of a connection. Only places can be joined.
-      if (id.startsWith('place:') && picked.startsWith('place:')) {
-        act({ type: 'forge', to: numOf(id) });
+      if (id.startsWith('stop:') && picked.startsWith('stop:')) {
+        act({ type: 'build', to: numOf(id) });
       }
       arming = false;
       return;
@@ -178,33 +176,29 @@
    *  knowledge of the engine and a new deed is a case rather than a ternary. */
   function doDeed(d: { kind: string; to: number }): void {
     if (d.kind === 'go') { go(d.to); return; }
-    if (d.kind === 'forge') { act({ type: 'forge', to: d.to }); return; }
-    if (d.kind === 'settle') { act({ type: 'settle' }); return; }
-    if (d.kind === 'work') { act({ type: 'work' }); return; }
-    if (d.kind === 'poke') { act({ type: 'poke' }); return; }
-    if (d.kind === 'rest') act({ type: 'rest' });
+    if (d.kind === 'build') act({ type: 'build', to: d.to });
   }
   function go(to: number): void {
     act({ type: 'go', to });
-    picked = `place:${to}`;
+    picked = `stop:${to}`;
     arming = false;
   }
 
   /** Where you stand, so Connect can offer itself from the selected node. */
-  const canArm = $derived(picked !== null && picked === `place:${game.at}`
-    && game.forging === null
-    && PLACE.get(game.at)!.ways.some((to) => unforgeable(game, to) === null));
+  const canArm = $derived(picked !== null && picked === `stop:${game.at}`
+    && game.building === null
+    && STOP.get(game.at)!.near.some((to) => unbuildable(game, to) === null));
 </script>
 
 <main>
   <header>
     <div class="purse">
-      <b>{game.paces}</b>
+      <b>{game.mana}</b><span>mana</span>
       <!-- ★ THE RATE IS SOLVED FROM THE GRAPH and it moves, so the header has
            to say what it is now rather than quote a constant. When you are
            working it is zero, and that is the point of working. -->
-      <span class="rate">{working(game) ? 'working — banking nothing'
-        : `+${rate(game).toFixed(2)} a second`}</span>
+      <span class="rate">+{manaRate(game).toFixed(2)} a second</span>
+      {#if crossed(game)}<span class="crossed">crossed</span>{/if}
       <button class="reset" onclick={async () => { await wipe(); game = initial(); picked = null; }}>
         Start over
       </button>
@@ -227,27 +221,20 @@
          for exactly that. Everywhere else a dot is a diagram and nudging one
          is harmless. -->
     <Board {dots} {lines} box={laid.box} label={tab} onTap={tap}
-      decor={tab === 'journey' ? TERRAIN_SHAPES : []}
-      drag={tab !== 'journey'} />
+      decor={tab === 'chapter' ? TERRAIN_SHAPES : []}
+      drag={tab !== 'chapter'} />
   </section>
 
   <!-- THE PANEL. Part of the page, below the graph, in flow. It is empty until
        you tap something, and it says so rather than appearing from nowhere. -->
   <section class="panel">
     {#if chosen}
-      <h2>{chosen.name
-        || (chosen.kind === 'concept' ? 'Not thought yet' : 'Somewhere you have not been')}</h2>
+      <h2>{chosen.name || 'A stop you have not stood at'}</h2>
       {#if chosen.body}<p>{chosen.body}</p>{/if}
       <!-- An unnamed dot is a promise, not a bug — the same one the Journey
            makes about a place you have not reached. Say which promise it is. -->
-      {#if !chosen.name && chosen.kind === 'concept'}
-        <p class="note">Something the valley has not had occasion to teach you.
-          It fills in by itself, from what you do.</p>
-      {/if}
-      {#each deeds as d (`${d.kind}${d.to}`)}
-        <button class="deed" class:make={d.kind === 'forge' || d.kind === 'settle'}
-          class:job={d.kind === 'work' || d.kind === 'rest'}
-          class:foe={d.kind === 'poke'}
+            {#each deeds as d (`${d.kind}${d.to}`)}
+        <button class="deed" class:make={d.kind === 'build'}
           disabled={d.why !== null} onclick={() => doDeed(d)}>
           {d.label}
           <em>{d.note}</em>
@@ -255,28 +242,27 @@
       {/each}
       {#if canArm}
         <button class="deed arm" class:armed={arming} onclick={() => (arming = !arming)}>
-          {arming ? 'Now tap the far node' : 'Build an edge…'}
-          <em>{arming ? 'or tap here again to stop' : 'tap a neighbouring node'}</em>
+          {arming ? 'Now tap the far stop' : 'Lay a road…'}
+          <em>{arming ? 'or tap here again to cancel' : 'tap a stop beside this one'}</em>
         </button>
       {/if}
       <!-- The Here tab carries the countdown on a dot of its own, so saying it
            again underneath would be the same number twice on one screen. -->
-      {#if game.forging && chosen.id !== DOING}
-        <p class="note">Building an edge — {Math.ceil(game.forging.left)}s left.
+      {#if game.building && chosen.id !== DOING}
+        <p class="note">Laying road — {Math.ceil(game.building.left)}s left.
           It keeps going while the game is closed.</p>
       {/if}
-      {#if !deeds.length && chosen.id.startsWith('place:') && numOf(chosen.id) === game.at}
-        <p class="note">Settled, and nothing left to do here. Tap a neighbour
-          to build toward it.</p>
+      {#if !deeds.length && chosen.id.startsWith('stop:') && numOf(chosen.id) === game.at}
+        <p class="note">You are here. Tap a stop beside it to lay road toward it.</p>
       {/if}
     {:else if awayLine}
       <!-- What you missed while the phone was in a pocket. It sits where the
            panel already is, so it is not a second surface, and tapping any dot
            replaces it. -->
       <p class="away">{awayLine}</p>
-      <p class="note">Tap a node.</p>
+      <p class="note">Tap a stop.</p>
     {:else}
-      <p class="note">Tap a node.</p>
+      <p class="note">Tap a stop.</p>
     {/if}
   </section>
 </main>
@@ -325,9 +311,8 @@
   .deed.make { background: #16362f; border-color: #3f7d6b; }
   /* Working is the other thing the clock can do, so it does not look like the
      thing that spends paces. */
-  .deed.job { background: #2a2010; border-color: #7d6330; color: #f3dcb0; }
-  /* Fighting is neither spending nor learning, so it looks like neither. */
-  .deed.foe { background: #2c1414; border-color: #8a3b30; color: #f2c4bc; }
+
+  .purse .crossed { color: #8ff0cf; font-weight: 600; }
   /* ⚠️ LAST, SO IT WINS. This rule sat ABOVE `.deed.make` at the same
      specificity, so every disabled forge and every disabled settle drew in the
      live green and only the cursor said otherwise. The oldest complaint this

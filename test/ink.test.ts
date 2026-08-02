@@ -15,6 +15,7 @@
 import { describe, it, expect } from 'vitest';
 import { INK, COUNTED, APART, TOL, LOOK, type InkName } from '../src/game/ink';
 import { GROUND_INK, RIVER_INK } from '../src/game/terrain';
+import { KINDS } from '../src/game/world';
 
 const rgb = (h: string): number[] => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
 const apart = (a: string, b: string): number => {
@@ -91,14 +92,16 @@ describe('the palette is the only definition', () => {
 });
 
 describe('★ every kind of node has a look, and every look names a real ink', () => {
-  // The kinds in `world.ts`. Held by hand rather than imported, so that adding
-  // a kind and forgetting to style it fails HERE with the kind's name in the
-  // message, rather than drawing a silently-wrong dot on someone's phone.
-  const KINDS = ['place', 'item', 'concept', 'you', 'doing', 'fact', 'foe'];
+  // ⚠️ IMPORTED, NOT RESTATED. This list used to be held by hand here, on the
+  // reasoning that adding a kind and forgetting to style it would fail HERE
+  // with the kind's name in the message. What actually happened: every kind in
+  // `world.ts` was renamed for King's Roads, and this test went on checking
+  // that `place`, `item`, `concept` and `foe` had ink — all four of them gone,
+  // and the two new ones unstyled. A hand-held copy cannot catch a rename.
 
   it('covers every kind', () => {
     for (const k of KINDS) {
-      expect(LOOK[k], `no look for kind "${k}" — its dots would fall back to a place`)
+      expect(LOOK[k], `no look for kind "${k}" — it would fall back to a stop`)
         .toBeDefined();
     }
     expect(Object.keys(LOOK).sort()).toEqual([...KINDS].sort());
@@ -115,19 +118,24 @@ describe('★ every kind of node has a look, and every look names a real ink', (
 });
 
 describe('★ a kind that can be discovered must LOOK discovered', () => {
-  it('gives places and concepts a lit fill that differs from the unlit one', () => {
+  it('gives a stop a lit fill that differs from the unlit one', () => {
     // ⚠️ THE REGRESSION THIS EXISTS FOR. Collapsing the look table to one fill
     // per kind lost this: every notion on Thoughts drew identically whether you
     // had thought it or not, which is the entire way that tab shows progress.
     // The browser probe read "0px thought" and caught it; this is the cheaper
     // guard that catches it next time.
-    for (const k of ['place', 'concept']) {
-      const look = LOOK[k]!;
-      expect(look.lit, `kind "${k}" can be discovered but has no lit fill`).toBeDefined();
-      expect(INK[look.lit!], `${k}.lit names "${look.lit}"`).toBeDefined();
+    //
+    // A stop is now the only kind you discover — you have reached it or you
+    // have not. Named as a design claim rather than copied from a list, and the
+    // second half below holds for every kind, so a new discoverable one cannot
+    // quietly get a lit fill that looks the same.
+    expect(LOOK.stop?.lit, 'a stop is discovered but has no lit fill').toBeDefined();
+    for (const [k, look] of Object.entries(LOOK)) {
+      if (look.lit === undefined) continue;
+      expect(INK[look.lit], `${k}.lit names "${look.lit}"`).toBeDefined();
       expect(look.lit).not.toBe(look.fill);
-      expect(apart(INK[look.lit!], INK[look.fill]),
-        `${k} lit and unlit are only ${apart(INK[look.lit!], INK[look.fill])} apart`)
+      expect(apart(INK[look.lit], INK[look.fill]),
+        `${k} lit and unlit are only ${apart(INK[look.lit], INK[look.fill])} apart`)
         .toBeGreaterThan(TOL.dot!);
     }
   });

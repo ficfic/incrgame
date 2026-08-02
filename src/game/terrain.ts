@@ -1,4 +1,4 @@
-// WHAT THE GROUND IS BETWEEN THE PLACES. Scenery, and later the price list.
+// WHAT THE GROUND IS BETWEEN THE STOPS. Scenery, and later the price list.
 //
 // ⚠️ THE OWNER ASKED FOR A MAP THAT IS ALIVE, AND FOR IT TO BE CHEAP TO DRAW.
 // Those two pull against each other, so the split is deliberate and it is the
@@ -14,7 +14,7 @@
 //   which is the thing the owner singled out as looking good.
 //
 // Nothing here knows about the canvas, the camera or the game. It is geometry.
-import { PLACES, PLACE } from './places';
+import { STOPS } from './stops';
 import { SPOT, boxOf, type Box } from './layout';
 import { INK } from './ink';
 import type { Shape, Pt } from './shapes';
@@ -31,27 +31,25 @@ export const GROUND_INK: Record<Ground, string> = {
 };
 export const RIVER_INK = INK.river;
 
-/** Which region a place belongs to, from its id. The content is already
- *  partitioned this way — valley 0–5, works 100–109, under 200–210,
- *  stones 300–309 — so nothing needs authoring twice. */
-export const regionOf = (id: number): string =>
-  id < 100 ? 'valley' : id < 200 ? 'works' : id < 300 ? 'under' : 'stones';
-
+/** ★ THE SCENERY IS THE STOP'S OWN GROUND, and that is new. It used to be
+ *  guessed from a place's id, because the ground was decoration. It is not any
+ *  more: `stops.ts` gives every stop a ground, the ground prices the road out
+ *  of it, and this draws the same fact. **What you see and what you pay are one
+ *  number now**, which is the whole reason the map is worth looking at. */
 const GROUND: Record<string, Ground> = {
-  valley: 'wood',    // a river valley, and the prose is full of trees and reeds
-  works: 'stone',    // the Blockyard, the Haul Road, cut stone everywhere
-  under: 'under',    // the galleries. Below, not beside.
-  stones: 'moor',    // open ground, cairns, a beacon you can see from far off
+  wood: 'wood', moor: 'moor', crag: 'crag', stone: 'stone',
+  // Water is drawn as the river below rather than as scatter.
+  water: 'moor',
 };
 
-/** ★ THE RIVER, TAKEN FROM THE PLACES THAT WERE ALREADY WRITTEN.
+/** ★ THE RIVER, TAKEN FROM THE STOPS THAT WERE ALREADY WRITTEN.
  *
  *  Not invented: The Cut is "a river that gave up", there is a Weir holding it,
  *  a Headrace feeding a Wheelhouse and a Wheel Pit, a Tailrace carrying it away,
  *  and it drains underground to the Sump Fork and the Ledger Pool. The Far Bank
  *  is named for being on the other side of it. The water was in the content
  *  before it was on the map. */
-export const RIVER_PLACES = [0, 1, 100, 101, 102, 103, 201, 206];
+export const RIVER_STOPS = [0, 1, 100, 101, 102, 103, 201, 206];
 
 export interface Mark { x: number; y: number; g: Ground; r: number; a: number }
 
@@ -72,10 +70,10 @@ export const CLEAR = 30;
 function scatter(): Mark[] {
   const rnd = seeded(0x7e44a1);
   const out: Mark[] = [];
-  const spots = PLACES.map((p) => SPOT.get(p.id)!);
-  for (const p of PLACES) {
+  const spots = STOPS.map((p) => SPOT.get(p.id)!);
+  for (const p of STOPS) {
     const at = SPOT.get(p.id)!;
-    const g = GROUND[regionOf(p.id)]!;
+    const g = GROUND[p.ground]!;
     // Sixteen tries per place, most of which land. Marks cluster around the
     // places rather than filling the whole box, which is what makes the empty
     // parts of the map read as empty rather than as unfinished.
@@ -135,14 +133,17 @@ function markShapes(m: Mark): Shape[] {
 /** ⚠️ SOLVED ONCE AT MODULE LOAD, like the layout it is drawn over. */
 export const TERRAIN: Terrain = (() => {
   const marks = scatter();
-  const river = RIVER_PLACES.filter((id) => PLACE.has(id)).map((id) => {
-    const s = SPOT.get(id)!;
-    return { x: s.x, y: s.y };
-  });
+  // ★ THE RIVER RUNS THROUGH THE WATER STOPS, which is the same swap: it used
+  // to be a hand-listed route through places whose prose mentioned water, and
+  // it is now simply where the water ground is.
+  const river = STOPS.filter((p) => p.ground === 'water')
+    .map((p) => SPOT.get(p.id)!)
+    .sort((a, b) => a.x - b.x)
+    .map((s) => ({ x: s.x, y: s.y }));
   // The box has to cover the scenery too, or the bitmap is cropped and the
   // outermost marks vanish at the edges.
   const pts = [
-    ...PLACES.map((p) => ({ id: `p${p.id}`, x: SPOT.get(p.id)!.x, y: SPOT.get(p.id)!.y })),
+    ...STOPS.map((p) => ({ id: `p${p.id}`, x: SPOT.get(p.id)!.x, y: SPOT.get(p.id)!.y })),
     ...marks.map((m, i) => ({ id: `m${i}`, x: m.x, y: m.y })),
   ];
   return { box: boxOf(pts, 24), marks, river };

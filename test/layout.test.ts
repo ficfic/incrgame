@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SPOTS, SPOT, VIEW, solve } from '../src/game/layout';
-import { PLACES, PLACE } from '../src/game/places';
+import { STOPS as PLACES, STOP as PLACE } from '../src/game/stops';
 import { here, self } from '../src/game/world';
 import { initial } from '../src/game/engine';
 
@@ -86,7 +86,7 @@ describe('the map layout', () => {
     for (const p of PLACES) {
       for (const q of PLACES) {
         if (p.id === q.id) continue;
-        if (p.ways.includes(q.id)) { near += dist(p.id, q.id); nearN++; }
+        if (p.near.includes(q.id)) { near += dist(p.id, q.id); nearN++; }
         else { far += dist(p.id, q.id); farN++; }
       }
     }
@@ -105,6 +105,17 @@ describe('the map layout', () => {
 //
 // Reported as "the tab didn't update", which is what a layout bug looks like
 // from the outside, and why this is a LAYOUT test and not a view test.
+/** Two stops with the SAME number of roads out — the shape that used to draw
+ *  the identical picture. Throws rather than returning nothing, because a
+ *  helper that quietly finds no pair turns three tests vacuous at once. */
+function twinsByWays(): [typeof PLACES[number], typeof PLACES[number]] {
+  for (const a of PLACES) {
+    const b = PLACES.find((p) => p.id !== a.id && p.near.length === a.near.length);
+    if (b) return [a, b];
+  }
+  throw new Error('no two stops share a road count — these tests prove nothing');
+}
+
 describe('★ a room looks like itself', () => {
   const shot = (id: number): string =>
     solve(here({ ...initial(), at: id, seen: [id] }))
@@ -113,8 +124,8 @@ describe('★ a room looks like itself', () => {
   it('draws two places with the same number of ways differently', () => {
     const byWays = new Map<number, number[]>();
     for (const p of PLACES) {
-      if (!byWays.has(p.ways.length)) byWays.set(p.ways.length, []);
-      byWays.get(p.ways.length)!.push(p.id);
+      if (!byWays.has(p.near.length)) byWays.set(p.near.length, []);
+      byWays.get(p.near.length)!.push(p.id);
     }
     let pairs = 0;
     for (const ids of byWays.values()) {
@@ -130,13 +141,15 @@ describe('★ a room looks like itself', () => {
       .toBeGreaterThan(20);
   });
 
-  it('★ names the pair the owner actually walked', () => {
-    // The Cut → The Tally. Both have two ways. Keep it by name so a future
-    // change that reintroduces the bug fails with the words from the report.
-    const cut = PLACES.find((p) => p.name === 'The Cut')!;
-    const tally = PLACES.find((p) => p.name === 'The Tally')!;
-    expect(cut.ways.length).toBe(tally.ways.length);
-    expect(shot(cut.id)).not.toBe(shot(tally.id));
+  it('★ draws the pair the owner actually walked differently', () => {
+    // The owner walked The Cut → The Tally, two roads each, and reported "the
+    // tab didn't update". Those two stops were scrapped with the rest of the
+    // old lore, so the pair is now taken from the data instead of by name —
+    // the bug was never about those two stops, it was about ANY two with the
+    // same shape.
+    const [a, b] = twinsByWays();
+    expect(a.near.length).toBe(b.near.length);
+    expect(shot(a.id), `${a.name} vs ${b.name}`).not.toBe(shot(b.id));
   });
 
   it('★ and the same is true of Self, which has only ONE place in it', () => {
@@ -147,15 +160,14 @@ describe('★ a room looks like itself', () => {
     const shotSelf = (id: number): string =>
       solve(self({ ...initial(), at: id, seen: [id] }))
         .spots.map((s) => `${s.x.toFixed(1)},${s.y.toFixed(1)}`).join(' ');
-    const cut = PLACES.find((p) => p.name === 'The Cut')!;
-    const tally = PLACES.find((p) => p.name === 'The Tally')!;
-    expect(shotSelf(cut.id)).not.toBe(shotSelf(tally.id));
-    expect(shotSelf(cut.id)).toBe(shotSelf(cut.id));
+    const [a, b] = twinsByWays();
+    expect(shotSelf(a.id), `${a.name} vs ${b.name}`).not.toBe(shotSelf(b.id));
+    expect(shotSelf(a.id)).toBe(shotSelf(a.id));
   });
 
   it('but the same room twice is the same picture', () => {
     // The other half: a view must not shuffle itself between visits.
-    const cut = PLACES.find((p) => p.name === 'The Cut')!;
-    expect(shot(cut.id)).toBe(shot(cut.id));
+    const [a] = twinsByWays();
+    expect(shot(a.id)).toBe(shot(a.id));
   });
 });

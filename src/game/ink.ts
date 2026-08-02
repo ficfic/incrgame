@@ -124,14 +124,13 @@ export interface Look {
 }
 
 /** Keyed by `Kind` from `world.ts`. Kept as a plain record rather than typed
- *  against `Kind` to avoid a cycle — `test/ink.test.ts` checks every kind is
- *  present, which is the same guarantee with none of the import knot. */
+ *  against `Kind` to avoid a cycle — `test/ink.test.ts` imports the runtime
+ *  `KINDS` and checks every one is present, which is the same guarantee with
+ *  none of the import knot. */
 export const LOOK: Record<string, Look> = {
-  place: { fill: 'dot', lit: 'known', label: 'known', r: 3.5 },
+  stop: { fill: 'dot', lit: 'known', label: 'known', r: 3.5 },
   you: { fill: 'you', label: 'ring', r: 5.5 },
   doing: { fill: 'back', ring: 'open', label: 'doing', r: 5.5 },
   fact: { fill: 'back', ring: 'known', label: 'known', r: 5.5 },
-  item: { fill: 'back', ring: 'open', label: 'open', r: 5.5 },
-  concept: { fill: 'dot', lit: 'known', label: 'known', r: 5.5 },
-  foe: { fill: 'foe', ring: 'barred', label: 'barred', r: 8 },
+  carry: { fill: 'back', ring: 'open', label: 'open', r: 5.5 },
 };

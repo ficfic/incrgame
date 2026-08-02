@@ -1,127 +1,104 @@
-# Handover — 2026-08-01
+# Handover — 2026-08-02
 
-**Read `docs/NEXT.md` first. It decides what you work on. This file is only
-where things stand.**
+**Read `docs/KINGS_ROADS.md`. It is the design and it is the owner's.**
+Then `CLAUDE.md` for how we work. Everything else in `docs/` is either a check
+on this or history.
 
 ---
 
-## What the game is, in four sentences
+## Where the project actually is
 
-You stand somewhere in a valley of 37 hand-written places. Paces accrue at one
-every three seconds, always, awake or not. You spend them to MAKE a road between
-two places — it takes real time and fills visually — and once made, walking it is
-free forever. Four tabs, each a graph: **Journey** (the world), **Here** (the
-room you are in), **Self** (what you carry and what you are), **Thoughts** (seven
-notions that unlock from what you do).
+The game is **King's Roads**. It was re-founded from nothing on 2026-08-02 after
+the owner reviewed every idea on the table item by item.
 
-## Where it is
+**Nineteen of twenty generated ideas were scrapped**, including an entire
+invented world — a road crew, a chief engineer, four families, a haulage
+economy, four skills. The one survivor was a lint check.
 
-Deployed. `claude/rpg-graph-story-redesign` develops;
-`claude/incremental-game-github-pages-w7pvk6` deploys and is fast-forwarded onto
-it.
+⚠️ **Take that seriously rather than personally.** The pattern across this whole
+project is that the owner's own lines survive and elaboration on them does not.
+The most useful thing this session did was stop generating and start
+transcribing. `KINGS_ROADS.md` marks its few inferences ⟨inferred⟩ so they can
+be struck without disturbing the rest — keep that convention.
 
-- **569 tests, 0 type errors, `npm run play` exit 0.**
-- `npm run guard` = typecheck + engine purity + tests, one command.
-- `npm run play` drives a real browser and screenshots. **Rule 2 means running it
-  AND looking at the picture.**
+## What the game is, in five lines
 
-## What shipped on 2026-08-01
+1. A caravan over the pass is lost to weather and bandits. You run through the
+   night and end up nowhere. You were the road crew, so you have the tools, and
+   building the road is simply the job.
+2. **A chapter is a crossing** — a start, a finish, and five or six dotted
+   routes between them. **You build one, end to end. Done is done.**
+3. **Mana flows out along built road.** It is why you cannot build from the
+   middle, and why the opening walks you back to where the king's road ends.
+4. Mana is **scarce until a region is finished and abundant once it is** — the
+   resource itself says when to leave.
+5. Words: **stops and roads.** Never node, edge or dot.
 
-The tab build order finished, then the owner play-tested twice and most of the
-day was their feedback.
+## What is live on the phone right now
+
+`https://ficfic.github.io/incrgame/` — deploy branch
+`claude/incremental-game-github-pages-w7pvk6`.
+
+⚠️ **It is the OLD game.** Settling, working, a skill, doors, keys, fights. All
+of it was scrapped in review after it deployed. Do not treat what is live as the
+target; it is what is being replaced.
+
+## The state of the tree
+
+- **`npm run guard` is RED on purpose.** `scripts/check-words.mjs` enforces
+  stops and roads; 33 player-facing strings still say node and edge, all inside
+  the scrapped loop. **They go when the loop goes.** Do not fix them one by one,
+  and do not weaken the check — that is how "dot" survived three requests.
+- Everything is committed and pushed to `claude/whats-next-rst6c8`.
+
+## What stands, and is worth keeping
 
 | | |
 |---|---|
-| Self | a character sheet — what you carry, your rate, what a road costs you |
-| Thoughts | seven notions, each naming a rule the engine really enforces |
-| The board | **d3-force on a canvas** — settled, draggable, zoomable, crisp |
-| The header | stops carrying prose; arriving selects the place instead |
-| Two "bugs" | one layout bug — two rooms drew the identical picture |
-| The map | a meandering river and ground under every region |
-| The plumbing | one palette, one look table, one paint function, a frame budget |
-| The engine | purity guard, and old saves proven to survive new fields |
+| the board | canvas, d3-force, pan, zoom, drag, the fill animation the owner liked |
+| the terrain bake | scenery and river into one offscreen bitmap, one `drawImage` a frame |
+| the four tabs | the owner's ask; nothing overlays anything (`docs/TABS.md` R2.2) |
+| the layout solver | deterministic, tested |
+| `ink.ts` | one palette; the probe reads it off the running page so it cannot drift |
+| the save layer | IndexedDB; refuses a save it cannot honour rather than half-loading |
+| `scripts/play-tabs.mjs` | plays the real UI in a real browser. **This is the check that matters** |
+| `scripts/check-words.mjs` | the vocabulary gate |
 
-## ★ The five things a new session most needs to know
+## What is scrapped
 
-**1. The owner's word is the spec, and it is quoted in `docs/NEXT.md`.** Not
-paraphrased. When they say *"self is a stat sheet and inventory, but not game
-statistics"*, that sentence is the requirement.
+Settling · working · the skill · the doors · the keys · the fights · max-flow
+income · the nameless resource · **and the 37 hand-written places**, which were
+machine-written by earlier sessions and cut once the attribution was corrected.
 
-**2. Every test of the first Self tab passed, and the tab was wrong.** Ten green
-assertions counting the right numbers on the wrong sheet. No test catches that.
-This is why rule 3 says build the smallest thing and then LOOK at it.
+`src/slice/` still holds that prose. It is not content any more.
 
-**3. Guards go vacuous constantly here — assume yours is until you break it.**
-Caught in one day: a drag check that could not tell dragging from panning; a
-"selected dot" check comparing against the wrong kind of dot; a fill check
-counting the dot you stand on, which is always there; a lit-notion check counting
-the wrong ink and only working because two colours were the same hex; a
-save-merge test that asserted the pattern instead of calling the function. **None
-of them failed. They passed while checking nothing.**
+## Five things this session learned the hard way
 
-**4. Sabotage the MECHANISM, not the line a reviewer names.** A reviewer warned
-that clearing `grabbed` would kill tapping. Clearing it where they said proved
-nothing — a tap never moves. Clearing it at pointerdown broke tapping instantly.
+1. **The probe greps player-facing text**, so renaming a label silently
+   invalidates it. Four checks broke that way in one afternoon and one had gone
+   quietly vacuous. After any wording change, re-read every matcher in
+   `play-tabs.mjs` against what the game now says.
+2. **A guard can pass for the wrong reason.** `check-words.mjs` first read only
+   string literals — and `<p>Tap a dot.</p>` is a text node, so the single worst
+   offender sailed through and the sabotage left it green. It reads markup now.
+3. **A sabotage can itself be vacuous.** One "proof" added `Math.floor(0.2 ×
+   0.43)` per tick, which is zero, so it proved nothing. Check the sabotage
+   really does the bad thing before trusting the red.
+4. **Nothing was live for five sessions.** Work was pushed to a working branch
+   and never fast-forwarded onto the deploy branch, so the owner played an old
+   build and reasonably asked why nothing had changed. **Deploying is part of
+   shipping.**
+5. **`.deed:disabled` sat above `.deed.make` at equal specificity**, so every
+   shut button drew as live. Found by looking at a screenshot, not by a test.
 
-**5. Restore from a copy, never `git checkout`, while work is uncommitted.** A
-sabotage round wiped an unfinished refactor that had to be redone.
+## The next item
 
-## The shape of the code
+At the top of `docs/NEXT.md`: **delete the scrapped loop**, so the word gate goes
+green because the strings are gone rather than rewritten. Then the King's Roads
+zero — stops, roads, travel, and mana that only reaches along what is built.
 
-```
-src/game/     the engine. PURE — no DOM, no clock, no randomness.
-              engine.ts   apply(state, action) => state
-              places.ts   37 authored places, read down to four fields
-              layout.ts   d3-force, ticked to completion once, then frozen
-              terrain.ts  the river and the ground, as Shapes
-              world.ts    one graph; a tab is a FILTER over it, never a model
-              notions.ts  the seven things Thoughts holds
-              ink.ts      EVERY colour, once, with the tolerance it may be counted at
-              shapes.ts   geometry the board can draw, described without a canvas
-              store.ts    the save boundary — the ONE file allowed a clock
-src/ui/       Board.svelte  canvas for lines and dots, DOM for words and taps
-              Game.svelte   tabs, selection, the clock, the save loop
-scripts/      play-tabs.mjs  the browser probe. Reads the palette OFF THE PAGE.
-src/slice/    RETIRED. Kept for its authored prose and nine unused keys.
-```
+## The five open questions
 
-**The board takes the graph plus a list of `Shape`s.** A bridge, a ford, a glyph
-beside a place, a tint over a region is an entry in that list. `baked` shapes
-cache themselves into a bitmap — that is how ~530 scenery marks cost one
-`drawImage` a frame.
-
-## Performance, measured
-
-At 4× CPU throttle during a pan (the worst case): **~4 ms of real work a frame**
-over a 16.7 ms vsync floor, split evenly between canvas and DOM. Zero long tasks.
-There is headroom. The probe now holds a budget so a heavy feature cannot land
-quietly.
-
-## What is NOT decided, and must not be invented
-
-- **The economy.** Measured and broken: income is flat forever while price grows
-  1.2ⁿ, all 43 roads cost 63.5 hours of waiting, one 12-hour absence buys 33 of
-  them, and `costOf` keys off a GLOBAL count so no direction is ever cheaper.
-  Four agents converged on the same fix; the owner has not chosen it.
-- **The words.** The owner found "paces", "ways" and "settle" impenetrable and
-  asked for plain low-fantasy language. Landed so far: **stone** is the resource,
-  **roads** are what you build, and **water does the work** — a river carries
-  gravel and piles it where you clear a channel. Nobody is paid, because there is
-  nobody in the valley to pay.
-- **Skills.** Structurally blocked: `costOf` and `forgeSecs` both key off
-  `solid.length`, so a skill trained by making roads cancels itself out, and a
-  skill is a choice about where to spend time of which there is exactly one.
-  **Whoever adds a second activity adds the first skill in the same item.**
-- **Items.** Nine hand-authored keys exist in `src/slice/content.ts`, each with a
-  door it opens. Nothing drops one. The owner deferred this explicitly.
-
-## Housekeeping
-
-- **The repo is public.** No secrets; the owner's email is not committed; commits
-  are authored as `Claude <noreply@anthropic.com>`. `.claude/agents/the-owner.md`
-  names the owner by first name and quotes their play-tests — their words about
-  their own project, but worth knowing it is there.
-- `.claude/agents/the-owner.md` simulates the owner and MUST open every reply by
-  saying so. It is not a substitute for asking them.
-- `docs/NEXT.md` was renumbered on 2026-08-01 — it had two 2s, two 3s, two 5s and
-  two 6s, and listed shipped work as open.
+At the foot of `docs/KINGS_ROADS.md`. **They are the owner's to answer.** Do not
+invent a stop's contents, the stat list, or the resource list; inventing those is
+precisely what got scrapped.

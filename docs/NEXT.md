@@ -12,29 +12,37 @@ resource, and the 37 machine-written places. What stands is the board, the
 terrain bake, the four tabs, the layout solver, the palette, the save layer, the
 probe, and the word gate.
 
-## ⚠️ `npm run guard` IS RED ON PURPOSE, AND HERE IS WHY
+## ✅ DONE 2026-08-02 — the scrapped loop is deleted and the crossing plays
 
-`scripts/check-words.mjs` now enforces the owner's newest vocabulary — **stops
-and roads** — and reports **33 player-facing strings** still saying node and
-edge. Every one of them is in the loop that was just scrapped.
+`flow.ts`, `foes.ts`, `places.ts` and `notions.ts` are gone, with the six test
+files that covered them. `stops.ts` and a rewritten `engine.ts` replace them:
+mana, roads, a crossing. The word gate is green because the strings went with
+the code. `npm run play` builds a road end to end in a browser and the refusal
+"no mana reaches here" reaches the screen with 9999 mana in hand.
 
-**Do not fix them one by one.** They go when the loop goes. The gate is red
-because the build genuinely does not match the design yet, and turning it green
-by editing doomed strings would be work spent on code that is about to be
-deleted. Turning it green by weakening the check is how "dot" survived three
-requests to remove it.
+### ★ THE FIRST ITEM OF THE NEXT SESSION — the map is not the map
 
-### The first item of the next session
+**`layout.ts` throws the chapter's geography away, and the screenshot shows it.**
+`stops.ts` authors five routes bowing between a start on the left and a finish
+on the right; `settle()` ignores those coordinates entirely and re-solves the
+whole thing with d3-force from a seed. On screen the Finish sits in the MIDDLE
+of the board and the five ways across do not read as five ways across.
 
-**Delete the scrapped loop**, in one commit, and let the gate go green because
-the strings are gone rather than because they were rewritten:
+⚠️ **And the terrain is worse than cosmetic.** `terrain.ts` bakes scenery from
+each stop's authored `x`/`y`, but the stops are drawn at force coordinates — so
+the ground a stop is painted on is not the ground that prices the road out of
+it. That is precisely the "the map is decoration" failure this whole redesign
+exists to end, and no test catches it because every test asks the solver where
+things are.
 
-`settled` · `busy` · `cleared` · `fight` · `pack` · `wayfaring` · `workPart`
-· `flow.ts` · `foes.ts` · the gates, drops and locks in `places.ts` · every
-deed but travel · and the tests and probe sections that cover them.
+The fix is to use the authored positions for the chapter. It is not a one-liner:
+`test/layout.test.ts` asserts no two stops come within 24 units and that the
+solver is deterministic, and the authored bows may violate the first. Expect to
+adjust the layout in `stops.ts` until it passes rather than loosening the check.
 
-Then the board draws stops and roads and nothing else, which is the honest
-starting point for `docs/KINGS_ROADS.md`.
+**Done when:** the Chapter screenshot reads left-to-right as a start, a finish
+and five distinct ways between, and a stop drawn on wood is a stop `GOING` prices
+as wood.
 
 ### The five open questions, which are NOT for an agent to answer
 

@@ -207,7 +207,7 @@
    *  you stand, what you can afford and what is selected all say more than what
    *  sort of thing it is. */
   function discOf(d: Dot): Extract<Shape, { s: 'disc' }> {
-    const look = LOOK[d.kind] ?? LOOK.place!;
+    const look = LOOK[d.kind] ?? LOOK.stop!;
     // ★ KNOWN OUTRANKS KIND, WHERE THE KIND HAS A `lit`. Places you have
     // reached and notions you have thought draw brighter than ones you have
     // not — on Thoughts that IS the progress. Kinds with no `lit` (a fact, the
