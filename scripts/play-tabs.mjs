@@ -720,6 +720,102 @@ if (await thing.count()) {
   }
 } else { misses.push('the gate iron is not on the character sheet by name'); }
 
+// ★★ TWO DOTS, ONE FIGHT, AND THE LOSER SHRINKS WHERE YOU CAN SEE IT.
+//
+// `docs/BRIEF.md` ask 7 in the owner's words: *"battles with enemies, where our
+// dot pokes against their dot and one of the dots dies out."* The done-when for
+// this item said the shrinking dot must be VISIBLE in the screenshot rather
+// than asserted, so that is measured in pixels of the holder's own ink — a
+// fight that only happens in the state is the mechanic reduced to a sentence.
+//
+// Same save-and-reload setup as the lock above, and the same caveat: it proves
+// the fight PLAYS and DRAWS. That it can be reached and won by playing is the
+// walk test, which now trains, fights and clears all three region seams.
+console.log('\nA FIGHT');
+const FOE_AT = 100;
+const atFoe = {
+  at: FOE_AT, seen: [FOE_AT], paces: 200, part: 0, settled: [], solid: [],
+  forging: null, wayfaring: 0, workPart: 0, busy: 'rest', pack: [], cleared: [],
+};
+await reloadWith(atFoe);
+// The panel is empty until something is selected — R3.1, and the reason the
+// deeds looked absent the first time this ran.
+await pick('.map .node.you');
+const foePx0 = await ink('foe');
+const offer = await page.$$eval('.deed', (bs) =>
+  bs.map((b) => ({ t: b.textContent.replace(/\s+/g, ' ').trim(), off: b.disabled })));
+console.log('  offers  :', offer.map((o) => `"${o.t}"${o.off ? ' [shut]' : ''}`).join('  |  ') || '(nothing)');
+console.log('  drawn   :', `${foePx0}px of it`);
+if (!foePx0) misses.push('nothing is drawn for the thing holding the place');
+const poke = page.locator('.deed.foe');
+if (!await poke.count()) misses.push('there is no way to fight the thing holding the place');
+// ★ AND IT MUST REFUSE THE THING YOU CAME FOR. Settling is the stake.
+const stake = offer.find((o) => /^Settle/.test(o.t));
+if (!stake) misses.push('the held place offers no Settle at all — the stake is invisible');
+else if (!stake.off) misses.push(`a held place can still be settled: "${stake.t}"`);
+else if (!/is standing here/.test(stake.t)) {
+  misses.push(`Settle does not say what is stopping it: "${stake.t}"`);
+}
+
+// ★ AND A SHUT BUTTON MUST LOOK SHUT.
+//
+// ⚠️ THE FIRST VERSION OF THIS CHECK WAS VACUOUS AND A SABOTAGE PROVED IT. It
+// compared any live deed with any shut one — which here is a live Poke against
+// a shut Settle, two different classes that differ in colour anyway. It stayed
+// green with the bug put back. The only honest comparison is the SAME button in
+// its two states, so the shut colour is taken here and the live one after the
+// fight is won, and they are compared at the end.
+const shutBg = await page.evaluate(() => {
+  const b = [...document.querySelectorAll('.deed')].find((x) => x.disabled);
+  return b ? getComputedStyle(b).backgroundColor : null;
+});
+console.log('  shut bg :', shutBg ?? '(no shut deed)');
+
+if (await poke.count()) {
+  await poke.first().click({ timeout: 3000 });
+  await page.waitForTimeout(4500);          // two exchanges at POKE = 2s
+  const foePxMid = await ink('foe');
+  const doingSaid = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim())
+    .catch(() => '');
+  console.log('  mid     :', `${foePx0}px → ${foePxMid}px, panel: "${doingSaid.slice(0, 70)}"`);
+  // ⚠️ SHRINKING, MEASURED. Radius is health, so fewer pixels of its ink IS the
+  // health bar — and a fight where the dot does not visibly change is the whole
+  // mechanic asserted rather than shown.
+  if (!(foePxMid < foePx0)) {
+    misses.push(`the holder is not visibly shrinking: ${foePx0}px then ${foePxMid}px`);
+  }
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-fight.png') });
+  // Let it finish. Level 1 beats this one with a point to spare.
+  for (let i = 0; i < 30 && await ink('foe'); i++) await page.waitForTimeout(2000);
+  const foePxEnd = await ink('foe');
+  console.log('  after   :', `${foePxEnd}px of it left`);
+  if (foePxEnd) misses.push('the fight never finished — it is still standing there');
+  // ⚠️ , NOT a bare click — the dot is still selected from before the
+  // fight, and tapping a selected dot CLEARS it. Cost this check one run.
+  await pick('.map .node.you');
+  await page.waitForTimeout(300);
+  const now = await page.$$eval('.deed', (bs) =>
+    bs.map((b) => ({ t: b.textContent.replace(/\s+/g, ' ').trim(), off: b.disabled })));
+  const settleNow = now.find((o) => /^Settle/.test(o.t));
+  console.log('  then    :', settleNow ? `"${settleNow.t}"${settleNow.off ? ' [shut]' : ' (open)'}` : '(no Settle)');
+  // The same Settle button, now live. If it draws the same as it did shut, the
+  // disabled rule is being outranked and only the cursor says a dead button is
+  // dead — which is this game's oldest complaint, "I just randomly clicked
+  // around until I got to a stop".
+  const liveBg = await page.evaluate(() => {
+    const b = [...document.querySelectorAll('.deed')].find((x) => !x.disabled
+      && /^Settle/.test(x.textContent.trim()));
+    return b ? getComputedStyle(b).backgroundColor : null;
+  });
+  console.log('  live bg :', liveBg ?? '(none)');
+  if (shutBg && liveBg && shutBg === liveBg) {
+    misses.push(`the same Settle draws ${shutBg} shut and ${liveBg} live — nothing says it was dead`);
+  }
+  if (!settleNow || settleNow.off) {
+    misses.push('the place is still not settleable with the holder out — winning bought nothing');
+  }
+}
+
 await page.screenshot({ path: SHOT });
 console.log(`\nscreenshot → ${SHOT}`);
 if (misses.length) { console.log('\n⚠️ PROBLEMS'); for (const m of misses) console.log('  ', m); }

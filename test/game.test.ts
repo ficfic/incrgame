@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, costOf, blocked, unforgeable, waitFor, edgeKey,
   forgeSecs, rate, unsettleable, levelOf, demandOn, xpFor, waysFrom, LEVEL_CAP,
+  holder, winnable, might, bite, oneBack,
   SECS_PER_PACE, COST_BASE, COST_GROWTH,
   type Game } from '../src/game/engine';
 import { YIELD } from '../src/game/flow';
+import { FOES, POKE } from '../src/game/foes';
 import { PLACES, PLACE, START, WORKED, GATED, DROPS, LOCKED, THING } from '../src/game/places';
 
 /** Standing still IS resting — there is no verb for it any more. */
@@ -344,10 +346,27 @@ describe('the player is never stuck', () => {
       // Stand at the near end of the frontier route — made ground is free.
       g = hop(g.at, best.from, g);
       if (g.at !== best.from) break;
-      // ★ AND SETTLE IT FIRST, because you may only build out of a place that
-      // produces. This is the step the gate added, and the reason the test is
-      // worth running at all: the gate could have made the far end of the
-      // valley unreachable and nothing else would have said so.
+      // ★ AND PUT OUT WHATEVER IS STANDING HERE, because until it is out this
+      // place cannot be settled and therefore cannot be built out of. Three
+      // regions hang off three fights, so this is the third interlock: rest
+      // buys the road, work buys the door, and the fight buys the ground.
+      if (holder(g)) {
+        let bouts = 0;
+        while (holder(g) && bouts++ < 40) {
+          if (!winnable(g)) {
+            const before = levelOf(g.wayfaring);
+            g = train(before + 1, g);
+            if (levelOf(g.wayfaring) <= before) break;   // cannot get stronger
+            continue;
+          }
+          const stood = g.at;
+          g = apply(g, { type: 'poke' });
+          for (let i = 0; i < 200 && g.fight; i++) g = work(g, POKE);
+          // A lost fight puts you one back; walk in again and try when abler.
+          if (g.at !== stood) g = apply(g, { type: 'go', to: stood });
+        }
+        if (holder(g)) break;
+      }
       let waits = 0;
       while (!g.settled.includes(g.at) && waits++ < 900) {
         g = unsettleable(g) ? work(g, 60) : apply(g, { type: 'settle' });
@@ -511,6 +530,92 @@ describe('the player is never stuck', () => {
     const keyed = { ...rich, pack: [l.item] };
     expect(unforgeable(keyed, l.to)).toBeNull();
     expect(waysFrom(keyed).find((w) => w.to === l.to)!.need).toBeNull();
+  });
+
+  it('★ what holds a place refuses the two things you came for', () => {
+    const f = FOES[0]!;
+    const g = { ...initial(), at: f.at, seen: [START, f.at], paces: 9999 };
+    expect(holder(g)!.name).toBe(f.name);
+    // Settling is the stake, and the reason a fight is worth having.
+    expect(unsettleable(g)).toBe(`${f.name} is standing here`);
+    expect(apply(g, { type: 'settle' }).settled).not.toContain(f.at);
+    // Once it is out, the place is ordinary again.
+    const won = { ...g, cleared: [f.at] };
+    expect(holder(won)).toBeNull();
+    expect(unsettleable(won)).toBeNull();
+  });
+
+  it('★★ a fight is arithmetic you can do before you start it', () => {
+    // ⚠️ NO DICE. `docs/COMBAT.md` wanted them; this engine promises no RNG and
+    // a telegraphed fight is a decision where a gambled one is a slot machine.
+    // So `winnable` must agree with what actually happens, every time — that
+    // agreement is the whole contract and it is what this checks.
+    const f = FOES[0]!;
+    for (const lv of [1, 2, 3, 5, 8]) {
+      const g = { ...initial(), at: f.at, seen: [START, f.at],
+        solid: [], wayfaring: xpFor(lv) };
+      const said = winnable(g);
+      let run = apply(g, { type: 'poke' });
+      expect(run.fight).not.toBeNull();
+      for (let i = 0; i < 500 && run.fight; i++) run = work(run, POKE);
+      expect(run.fight, `level ${lv}: the fight never ended`).toBeNull();
+      const beat = run.cleared.includes(f.at);
+      expect(beat, `level ${lv}: winnable said ${said}, the fight said ${beat}`).toBe(said);
+    }
+  });
+
+  it('★ losing puts you one node back and takes nothing else', () => {
+    const f = FOES[2]!;          // the biggest, so level 1 certainly loses
+    const home = PLACE.get(f.at)!.ways[0]!;
+    const g = { ...initial(), at: f.at, seen: [START, home, f.at], paces: 500,
+      pack: [], wayfaring: 0, solid: [edgeKey(f.at, home)] };
+    expect(winnable(g)).toBe(false);
+    expect(oneBack(g)).toBe(home);
+    let run = apply(g, { type: 'poke' });
+    for (let i = 0; i < 500 && run.fight; i++) run = work(run, POKE);
+    // ★ FAILURE IS A PLATEAU, NEVER A LOSS SCREEN. This is the constraint most
+    // likely to get quietly fudged, so it is asserted field by field.
+    expect(run.at).toBe(home);
+    expect(run.paces).toBe(g.paces);
+    expect(run.wayfaring).toBe(g.wayfaring);
+    expect(run.seen).toEqual(g.seen);
+    expect(run.solid).toEqual(g.solid);
+    expect(run.cleared).toEqual([]);
+    expect(run.fight).toBeNull();
+    // And it is whole again, so the same fight can be had once you are abler.
+    expect(holder({ ...run, at: f.at })!.size).toBe(f.size);
+  });
+
+  it('★ nowhere to be put back to means you stay where you are', () => {
+    // A loss that bounced you into a place with no made way out would be the
+    // loss screen this game does not have.
+    const f = FOES[0]!;
+    const g = { ...initial(), at: f.at, seen: [f.at], solid: [] };
+    expect(oneBack(g)).toBe(f.at);
+    let run = apply(g, { type: 'poke' });
+    for (let i = 0; i < 500 && run.fight; i++) run = work(run, POKE);
+    expect(run.at).toBe(f.at);
+  });
+
+  it('★ fighting is the third thing the clock can do, and it pays neither of the others', () => {
+    const f = FOES[2]!;
+    const g = { ...initial(), at: f.at, seen: [START, f.at], paces: 10 };
+    const run = work(apply(g, { type: 'poke' }), POKE * 3);
+    expect(run.fight).not.toBeNull();
+    expect(run.paces).toBe(10);
+    expect(run.wayfaring).toBe(0);
+    // Walking off ends it; so does choosing to stand still.
+    expect(apply(run, { type: 'rest' }).fight).toBeNull();
+  });
+
+  it('★ every holder can eventually be beaten', () => {
+    // A fight nobody can win is a region nobody can enter — the same defect as
+    // a door with no key, and it would be invisible without this.
+    for (const f of FOES) {
+      const best = { ...initial(), at: f.at, seen: [START, f.at],
+        wayfaring: xpFor(LEVEL_CAP) };
+      expect(winnable(best), `${f.name} (${f.size}) cannot be beaten at all`).toBe(true);
+    }
   });
 
   it('★ you may only build out of a place that produces', () => {

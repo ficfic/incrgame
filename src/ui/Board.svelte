@@ -33,6 +33,8 @@
     id: string; name: string; kind: string; wx: number; wy: number;
     place: boolean; you: boolean; open: boolean; shut: boolean;
     known: boolean; on: boolean; barred: boolean;
+    /** A radius the node insists on — health, for anything that has any. */
+    r?: number;
   }
   export interface Line { a: string; b: string; rel: string; fill: number;
     /** How much of its limit this route is carrying, 0 to 1. See `flow.ts`. */
@@ -221,7 +223,11 @@
     let rw = 2;
     if (d.on) { ring = 'ring'; rw = 2.5; }
     const p = posOf.get(d.id)!;
-    const r = d.you ? 7 : d.open || d.shut || d.barred || (!d.place && d.known) ? 5.5 : look.r;
+    // ★ A NODE'S OWN RADIUS OUTRANKS EVERY STATE RULE. It is only ever set by
+    // something whose size MEANS something, and a fight where the dot does not
+    // visibly shrink is the whole mechanic reduced to a number in a sentence.
+    const r = d.r ?? (d.you ? 7
+      : d.open || d.shut || d.barred || (!d.place && d.known) ? 5.5 : look.r);
     return { s: 'disc', x: p.x, y: p.y, r, ink: fill, ring, rw };
   }
 

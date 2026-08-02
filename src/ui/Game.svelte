@@ -72,7 +72,7 @@
     const num = isPlace ? numOf(n.id) : -1;
     const w = isPlace ? reach.get(num) : undefined;
     return {
-      id: n.id, name: n.name, kind: n.kind,
+      id: n.id, name: n.name, kind: n.kind, r: n.r,
       wx: at?.x ?? 0, wy: at?.y ?? 0, at,
       place: isPlace,
       you: isPlace && num === game.at,
@@ -181,6 +181,7 @@
     if (d.kind === 'forge') { act({ type: 'forge', to: d.to }); return; }
     if (d.kind === 'settle') { act({ type: 'settle' }); return; }
     if (d.kind === 'work') { act({ type: 'work' }); return; }
+    if (d.kind === 'poke') { act({ type: 'poke' }); return; }
     if (d.kind === 'rest') act({ type: 'rest' });
   }
   function go(to: number): void {
@@ -246,6 +247,7 @@
       {#each deeds as d (`${d.kind}${d.to}`)}
         <button class="deed" class:make={d.kind === 'forge' || d.kind === 'settle'}
           class:job={d.kind === 'work' || d.kind === 'rest'}
+          class:foe={d.kind === 'poke'}
           disabled={d.why !== null} onclick={() => doDeed(d)}>
           {d.label}
           <em>{d.note}</em>
@@ -320,11 +322,19 @@
     font-size: 17px; }
   .deed em { display: block; margin-top: 2px; font-style: normal; font-size: 14px;
     color: #8fb6c4; }
-  .deed:disabled { background: #14161a; border-color: #3a3320; color: #b9a276; }
   .deed.make { background: #16362f; border-color: #3f7d6b; }
   /* Working is the other thing the clock can do, so it does not look like the
      thing that spends paces. */
   .deed.job { background: #2a2010; border-color: #7d6330; color: #f3dcb0; }
+  /* Fighting is neither spending nor learning, so it looks like neither. */
+  .deed.foe { background: #2c1414; border-color: #8a3b30; color: #f2c4bc; }
+  /* ⚠️ LAST, SO IT WINS. This rule sat ABOVE `.deed.make` at the same
+     specificity, so every disabled forge and every disabled settle drew in the
+     live green and only the cursor said otherwise. The oldest complaint this
+     game has is "I just randomly clicked around until I got to a stop"; a
+     button that looks alive and is not is exactly that, and it took a
+     screenshot of a shut Settle to see it. */
+  .deed:disabled { background: #14161a; border-color: #3a3320; color: #b9a276; }
   .deed.arm { background: #0f1a24; }
   .deed.arm.armed { background: #1d1a10; border-color: #6b5720; color: #ffd479; }
 </style>

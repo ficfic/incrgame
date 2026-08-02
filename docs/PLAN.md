@@ -51,7 +51,7 @@ off that.
 | **5–30 min** | **settle** a place — it starts producing. **You may only forge from a settled place.** | income is an investment; "where you park" becomes true | 3 |
 | **30 min – 2 h** | **work** at a place: the 12 authored blocks. Work pays XP, not paces. | the second verb — the first real choice | 2, 3 |
 | **1–5 h** | **thresholds**: the authored doors open on a level you can see from here — ✅ the 4 wayfaring ones | doors you can see and cannot open | 4 |
-| **anywhere** | **encounters** on Here: a dot contests the place; you poke; one goes out | combat, graph-native | 7 |
+| **anywhere** | **encounters** on Here: a dot HOLDS the place; you poke; one goes out — ✅ 3 of them, on the region seams | combat, graph-native | 7 |
 | **anywhere** | **drops**: the checks mint the items; an item opens its named door — ✅ the 1 wayfaring one | inventory, keys | 10 |
 | **the end** | the map closes → **the reveal**, then prestige | the twist | 8, 9 |
 
@@ -132,10 +132,11 @@ rent instead of being announced.
 
 ---
 
-## ★ The three decisions that are the owner's, not mine
+## ★ The decisions that are the owner's, not mine
 
-1. **What an encounter is.** Random on arrival, or authored per place? Does it
-   block the place until won? `docs/TABS.md` says do not invent this.
+1. ~~**What an encounter is.**~~ ✅ **Decided 2026-08-01: it holds a place.**
+   Settling is already the thing the player wants most, so refusing it is a
+   stake the economy explains without a word of tutorial.
 2. **What the long tail is.** More regions (content volume) or repeatable runs
    (prestige depth)? Seven of the 43 edges are loop-closers costing 72% of the
    current total — the map is an evening's reading either way, so this decides
@@ -162,7 +163,12 @@ is on the phone.
    lock is DERIVED from the set of droppable items, so a second skill turns its
    own keys and doors on together and no edit can leave a lock in the world with
    its key switched off.
-4. **Encounters.** Starts with decision 1, not with code.
+4. ~~**Encounters.**~~ ✅ 2026-08-01. The owner's call: **it holds a place** —
+   you may walk in, but you may not settle it or work its job until the thing
+   standing there is out. Three of them, at the mouth of each region beyond the
+   valley, so the valley is yours for the learning and every region after it is
+   answered for once. No dice: you strike first, both strike every 2s, and
+   `winnable()` tells you the outcome before you commit.
 5. **The reveal and prestige.** Last, and only once 1–4 are fun.
 
 The queue in `docs/NEXT.md` still holds the small stuff — vocabulary, the sticky

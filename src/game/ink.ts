@@ -43,6 +43,10 @@ export const INK = {
   // a gated way drew exactly like every other unmade one, so the threshold was
   // a sentence you had to go tapping for.
   barred: '#c0566f',
+  // ★ WHAT IS STANDING IN A PLACE. Its dot's RADIUS is its health, so this ink
+  // is counted by the probe to prove the thing shrinks — a fight asserted in a
+  // test and invisible on screen is not the one the owner asked for.
+  foe: '#b4483a',
   stands: '#2f5568',
   means: '#2b4356',
   doing: '#3f7d6b',
@@ -83,6 +87,7 @@ export const TOL: Partial<Record<InkName, number>> = {
   open: 10,
   flowing: 12,
   barred: 12,
+  foe: 10,
 };
 export const COUNTED = Object.keys(TOL) as InkName[];
 
@@ -128,4 +133,5 @@ export const LOOK: Record<string, Look> = {
   fact: { fill: 'back', ring: 'known', label: 'known', r: 5.5 },
   item: { fill: 'back', ring: 'open', label: 'open', r: 5.5 },
   concept: { fill: 'dot', lit: 'known', label: 'known', r: 5.5 },
+  foe: { fill: 'foe', ring: 'barred', label: 'barred', r: 8 },
 };

@@ -25,6 +25,7 @@
 // and is why offline catch-up is four lines rather than a subsystem.
 import { PLACE, START, nameOf, THING } from './places';
 import { solveFlow, EDGE_CAP } from './flow';
+import { FOE, POKE } from './foes';
 
 export interface Game {
   version: number;
@@ -59,11 +60,20 @@ export interface Game {
    *  an item is a thing you have or have not got, never a stack, so crossing
    *  the same ground twice does not mint a second one. */
   pack: string[];
-  /** ★ THE CHOICE, AND THE WHOLE REASON A SKILL CAN EXIST HERE. One clock, two
-   *  things it can pay into: standing still pays paces, working pays XP, and
-   *  you cannot have both. Without this there is one verb, nothing to choose
-   *  between, and a skill is a badge. */
-  busy: 'rest' | 'work';
+  /** ★ THE CHOICE, AND THE WHOLE REASON A SKILL CAN EXIST HERE. One clock, and
+   *  now three things it can pay into: standing still pays paces, working pays
+   *  XP, fighting pays the place itself. You cannot have two of them. Without
+   *  this there is one verb, nothing to choose between, and a skill is a badge. */
+  busy: 'rest' | 'work' | 'fight';
+  /** Places whose holder is out, for good. */
+  cleared: number[];
+  /** The fight in progress: what is left of them, what is left of you.
+   *
+   *  ⚠️ BOTH SIDES REFILL WHEN IT ENDS, win or lose. Carrying damage over would
+   *  turn every fight into a grind you always eventually win, which is the same
+   *  as having no fight; refilling makes it a threshold you can read off before
+   *  you start, and makes losing cost exactly the time you spent. */
+  fight: { foe: number; you: number; part: number } | null;
   /** ⚠️ ROUTES YOU HAVE PROVED. `docs/TABS.md` R4.4: a solid edge is a route you
    *  can travel, a dotted one is not yet. Every way in the authored valley
    *  starts dotted — the shape of the world is visible from the first frame,
@@ -100,7 +110,9 @@ export type Action =
   | { type: 'settle' }
   /** Spend the clock on the place's job instead of on paces. */
   | { type: 'work' }
-  | { type: 'rest' };
+  | { type: 'rest' }
+  /** Put what is standing here out. */
+  | { type: 'poke' };
 
 /** Seconds per pace with nothing settled reaching you — the floor, and the
  *  rate this game shipped with before income was solved from the graph. */
@@ -135,6 +147,10 @@ export function settleCost(g: Game): number {
 /** Why you cannot settle where you stand, in English, or null if you can. */
 export function unsettleable(g: Game): string | null {
   if (g.settled.includes(g.at)) return 'already settled';
+  // ★ THE STAKE. Settling is the thing the player wants most, so refusing it is
+  // the whole reason a fight is worth having — no tutorial required.
+  const f = holder(g);
+  if (f) return `${f.name} is standing here`;
   const cost = settleCost(g);
   if (cost > g.paces) return `${cost} paces — you have ${g.paces}`;
   return null;
@@ -168,6 +184,50 @@ export function xpFor(level: number): number {
   return XP_STEP * (level - 1) ** 2;
 }
 
+// ---- what holds a place ---------------------------------------------------
+
+/** What is standing in a place, or null if it is yours to use. */
+export function holder(g: Game, at = g.at): { name: string; size: number; body: string } | null {
+  const f = FOE.get(at);
+  return f && !g.cleared.includes(at) ? f : null;
+}
+
+/** ★ RADIUS IS HEALTH, so these two numbers are also the picture. Both climb
+ *  with wayfaring, which is the skill you already had a reason to train — a
+ *  second stat for fighting alone would be a number with one use. */
+export function might(g: Game): number { return 10 + 2 * (levelOf(g.wayfaring) - 1); }
+export function bite(g: Game): number { return 1 + Math.floor(levelOf(g.wayfaring) / 3); }
+
+/** Whether the fight in front of you is one you win, worked out BEFORE you
+ *  start it. You strike first; they strike back only if they are still up.
+ *  No dice anywhere — `docs/BRIEF.md` has no randomness in this engine and a
+ *  telegraphed fight is a decision where a gambled one is a slot machine. */
+export function winnable(g: Game): boolean {
+  const f = holder(g);
+  if (!f) return false;
+  return Math.ceil(f.size / bite(g)) <= might(g);
+}
+
+/** Why you cannot put it out, or null. */
+export function unpokeable(g: Game): string | null {
+  if (!holder(g)) return 'nothing is standing here';
+  if (g.fight) return 'already at it';
+  return null;
+}
+
+/** ⚠️ WHERE LOSING PUTS YOU, and it must be somewhere you can stand. One node
+ *  back along a road you have made — the lowest-numbered such neighbour, so it
+ *  is the same answer every time and no clock or die decides it. If there is
+ *  nowhere, you stay: being bounced into a place you cannot leave would be the
+ *  loss screen this game does not have. */
+export function oneBack(g: Game): number {
+  const near = PLACE.get(g.at)?.ways ?? [];
+  const home = near
+    .filter((n) => g.seen.includes(n) && g.solid.includes(edgeKey(g.at, n)))
+    .sort((a, b) => a - b)[0];
+  return home ?? g.at;
+}
+
 /** A repeatable timed job at a place, from the authored content. */
 export interface Job { label: string; secs: number; xp: number }
 
@@ -175,7 +235,7 @@ export interface Job { label: string; secs: number; xp: number }
  *  and most places have none, so WHERE YOU STAND decides whether the choice
  *  between resting and working is even on offer. */
 export function jobAt(g: Game): Job | null {
-  return PLACE.get(g.at)?.work ?? null;
+  return holder(g) ? null : PLACE.get(g.at)?.work ?? null;
 }
 /** The job you are actually doing, or null because you are standing still. */
 export function working(g: Game): Job | null {
@@ -327,6 +387,8 @@ export function initial(): Game {
     // of the game are spent gathering thirty paces to unlock the ability to do
     // anything at all, which teaches the loop by withholding it.
     settled: [START],
+    cleared: [],
+    fight: null,
     pack: [],
     wayfaring: 0,
     workPart: 0,
@@ -347,7 +409,32 @@ export function apply(g: Game, a: Action): Game {
       // opportunity cost, and it is the whole reason there is a decision here.
       const job = working(g);
       let next: Game;
-      if (job) {
+      if (g.fight) {
+        // ★ THE ONE ANIMATION COMBAT GETS: two dots, each shrinking, on a
+        // timer. It banks like everything else, so an absence finishes the
+        // fight it was left in rather than asking you to sit and watch.
+        let { foe, you, part } = g.fight;
+        part += a.secs;
+        let out: Game | null = null;
+        while (part >= POKE && !out) {
+          part -= POKE;
+          foe -= bite(g);
+          if (foe <= 0) {
+            // It is out, and it stays out.
+            out = { ...g, cleared: [...g.cleared, g.at], fight: null, busy: 'rest' };
+            break;
+          }
+          you -= 1;
+          if (you <= 0) {
+            // ⚠️ FAILURE IS A PLATEAU. One node back, and you keep every pace,
+            // every level and everything in the pack. The only thing a lost
+            // fight costs is the time it took.
+            out = { ...g, at: oneBack(g), fight: null, busy: 'rest' };
+            break;
+          }
+        }
+        next = out ?? { ...g, fight: { foe, you, part } };
+      } else if (job) {
         // The job repeats on its own. `docs/BRIEF.md`: timers bank work, they
         // never punish absence — so an absence spent working comes back with
         // levels instead of paces, which is a choice about what your absence is
@@ -401,11 +488,17 @@ export function apply(g: Game, a: Action): Game {
     case 'work': {
       // Nothing to work at is not an error, it is most of the valley.
       if (!jobAt(g)) return g;
-      return { ...g, busy: 'work' };
+      return { ...g, busy: 'work', fight: null };
+    }
+
+    case 'poke': {
+      if (unpokeable(g)) return g;
+      return { ...g, busy: 'fight',
+        fight: { foe: holder(g)!.size, you: might(g), part: 0 } };
     }
 
     case 'rest':
-      return g.busy === 'rest' ? g : { ...g, busy: 'rest' };
+      return g.busy === 'rest' && !g.fight ? g : { ...g, busy: 'rest', fight: null };
 
     case 'go': {
       if (blocked(g, a.to)) return g;
@@ -424,6 +517,8 @@ export function apply(g: Game, a: Action): Game {
         // you arrive somewhere with no work and quietly earn nothing at all.
         busy: 'rest',
         workPart: 0,
+        // Walking away ends it, and it is whole again when you come back.
+        fight: null,
         // ★ WALKING A MADE ROUTE IS FREE. The paces went into making it.
       };
     }

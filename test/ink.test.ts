@@ -94,7 +94,7 @@ describe('★ every kind of node has a look, and every look names a real ink', (
   // The kinds in `world.ts`. Held by hand rather than imported, so that adding
   // a kind and forgetting to style it fails HERE with the kind's name in the
   // message, rather than drawing a silently-wrong dot on someone's phone.
-  const KINDS = ['place', 'item', 'concept', 'you', 'doing', 'fact'];
+  const KINDS = ['place', 'item', 'concept', 'you', 'doing', 'fact', 'foe'];
 
   it('covers every kind', () => {
     for (const k of KINDS) {

@@ -78,6 +78,17 @@ describe('★ a save from before a feature existed still loads', () => {
     expect(await load()).toBeNull();
     put({ ...OLD, pack: ['a-thing-that-was-never-authored'] });
     expect(await load()).toBeNull();
+    put({ ...OLD, cleared: [9999] });
+    expect(await load()).toBeNull();
+  });
+
+  it('★ a fight does not survive being put down', async () => {
+    // Two numbers that only mean anything in front of the holder they belong
+    // to. Reviving one would need the place to still be held and still be where
+    // you are standing; dropping it costs a fight you can start again.
+    put({ ...OLD, fight: { foe: 5, you: 5, part: 0 } });
+    const back = await load();
+    expect(back!.game.fight).toBeNull();
   });
 
   it('round-trips a live game unchanged', async () => {

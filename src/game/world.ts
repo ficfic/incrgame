@@ -14,13 +14,14 @@ import { reachedFrom } from './flow';
 import type { Game } from './engine';
 import { waysFrom, costOf, unforgeable, forgeSecs, edgeKey, waitFor,
   rate, loadOf, settleCost, unsettleable, jobAt, working, levelOf, xpFor,
-  LEVEL_CAP } from './engine';
+  holder, might, bite, winnable, LEVEL_CAP } from './engine';
+import { POKE } from './foes';
 
 /** Paces a second, said the same way everywhere it is said. */
 const perSec = (n: number): string => `${n.toFixed(2)} a second`;
 
-export type Kind = 'place' | 'item' | 'concept' | 'you' | 'doing' | 'fact';
-export type Rel = 'route' | 'carries' | 'means' | 'stands' | 'doing' | 'has';
+export type Kind = 'place' | 'item' | 'concept' | 'you' | 'doing' | 'fact' | 'foe';
+export type Rel = 'route' | 'carries' | 'means' | 'stands' | 'doing' | 'has' | 'holds';
 
 export interface Node {
   id: string;
@@ -29,6 +30,10 @@ export interface Node {
   name: string;
   /** Prose, if it has any. */
   body?: string;
+  /** ★ RADIUS, WHERE THE THING HAS ONE THAT MEANS SOMETHING. A fight is two
+   *  dots shrinking, so health has to BE the picture rather than a number
+   *  printed beside it — `docs/COMBAT.md`, and the owner's own words. */
+  r?: number;
 }
 
 export interface Edge { a: string; b: string; rel: Rel }
@@ -84,6 +89,14 @@ function doing(g: Game): Node {
         + 'carries on while this is shut.',
     };
   }
+  if (g.fight) {
+    const f = holder(g);
+    return {
+      id: DOING, kind: 'doing', name: `Poking ${f?.name ?? 'it'}`,
+      body: `${Math.ceil(g.fight.you)} of you left. No paces and no learning `
+        + 'while this is going on, and walking away ends it.',
+    };
+  }
   // ★ WORKING IS THE OTHER THING THE CLOCK CAN DO, and while you are doing it
   // the paces stop. Saying so on the node is not a warning, it is the decision.
   const job = working(g);
@@ -123,12 +136,37 @@ function doing(g: Game): Node {
  *  same nodes and edges the Journey draws, cut to one hop. The only addition is
  *  the `doing` node, which is a node like any other and hangs off this place by
  *  a `doing` edge. */
+/** ★ THE FIGHT, AS TWO DOTS. Both are nodes on the one graph like everything
+ *  else — a fight is not a screen, it is a shape the Here tab takes. */
+export const FOE_ID = 'foe';
+function fighters(g: Game): { nodes: Node[]; edges: Edge[] } {
+  const f = holder(g);
+  if (!f) return { nodes: [], edges: [] };
+  const hurt = g.fight;
+  return {
+    nodes: [{
+      id: FOE_ID, kind: 'foe', name: f.name,
+      // Radius is what is left of it, floored so the last sliver is still a
+      // thing you can hit with a thumb.
+      r: Math.max(3, 3 + (hurt ? hurt.foe : f.size) * 0.45),
+      body: hurt
+        ? `${Math.ceil(hurt.foe)} of it left, and ${Math.ceil(hurt.you)} of you. `
+          + `You take ${bite(g)} off it every ${POKE} seconds; it takes 1 off you.`
+        : `${f.body} While it stands here you may neither settle this place nor `
+          + `work it. ${winnable(g) ? 'You would win.' : 'You would not win — not yet.'}`,
+    }],
+    edges: [{ a: placeId(g.at), b: FOE_ID, rel: 'holds' }],
+  };
+}
+
 export function here(g: Game): View {
   const at = PLACE.get(g.at)!;
+  const fight = fighters(g);
   return {
     nodes: [
       { id: placeId(g.at), kind: 'place', name: at.name, body: at.body },
       doing(g),
+      ...fight.nodes,
       ...at.ways.map((id) => {
         const p = PLACE.get(id)!;
         return {
@@ -141,6 +179,7 @@ export function here(g: Game): View {
     ],
     edges: [
       { a: placeId(g.at), b: DOING, rel: 'doing' as const },
+      ...fight.edges,
       ...at.ways.map((to) => ({ a: placeId(g.at), b: placeId(to), rel: 'route' as const })),
     ],
   };
@@ -307,7 +346,7 @@ export const TABS: ReadonlyArray<{ id: TabId; label: string; view: (g: Game) => 
 /** What tapping a place can do, decided in one place so every tab agrees.
  *  R3.3: an action that cannot be taken shows its reason, it is never hidden. */
 export interface Deed {
-  kind: 'go' | 'forge' | 'settle' | 'work' | 'rest';
+  kind: 'go' | 'forge' | 'settle' | 'work' | 'rest' | 'poke';
   label: string;
   note: string;
   to: number;
@@ -324,6 +363,18 @@ export function deedsFor(g: Game, nodeId: string): Deed[] {
   // from here: what your paces buy, and what your clock pays into.
   if (id === g.at) {
     const out: Deed[] = [];
+    // ★ WHAT IS STANDING HERE COMES FIRST, because until it is out nothing else
+    // on this list can be done at all.
+    const f = holder(g);
+    if (f) {
+      out.push(g.fight
+        ? { kind: 'rest', to: id, why: null, label: 'Back off',
+            note: `${Math.ceil(g.fight.foe)} of it left, ${Math.ceil(g.fight.you)} of you` }
+        : { kind: 'poke', to: id, why: null, label: `Poke ${f.name}`,
+            note: winnable(g)
+              ? `${f.size} of it, ${might(g)} of you, ${bite(g)} a poke — you win this`
+              : `${f.size} of it, ${might(g)} of you, ${bite(g)} a poke — you lose this` });
+    }
     const job = jobAt(g);
     if (job) {
       out.push(g.busy === 'work'

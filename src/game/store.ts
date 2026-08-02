@@ -59,6 +59,14 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     // inventory with no name to draw.
     if (g.pack !== undefined
       && (!Array.isArray(g.pack) || !g.pack.every((id) => THING.has(id)))) return null;
+    if (g.cleared !== undefined
+      && (!Array.isArray(g.cleared) || !g.cleared.every((id) => PLACE.has(id)))) return null;
+    // A fight is not carried across a sitting: it is two numbers that only mean
+    // anything beside a holder you are standing in front of, and reviving one
+    // from a save would need the place to still be held, still be where you are
+    // standing, and still be worth the sizes written down. Dropped instead,
+    // which costs the player a fight they can simply start again.
+    if (g.fight !== undefined && g.fight !== null) g.fight = null;
     // A half-made route pointing at nothing would draw a line to nowhere and
     // never finish. Refused, not repaired.
     if (g.forging && !(typeof g.forging.key === 'string'
