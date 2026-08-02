@@ -1,5 +1,47 @@
 # NEXT — the queue
 
+## ★★★ EVERYTHING BELOW THIS LINE IS SUPERSEDED, 2026-08-02
+
+The game is **King's Roads**. `docs/KINGS_ROADS.md` is the design and it is the
+owner's, transcribed. `docs/FRONTIER.md`, `docs/PLAN.md` and `docs/DIRECTIONS.md`
+are in `docs/attic/`.
+
+**The game loop was reviewed item by item and scrapped**: settling, working, the
+skill, the doors, the keys, the fights, the max-flow income, the nameless
+resource, and the 37 machine-written places. What stands is the board, the
+terrain bake, the four tabs, the layout solver, the palette, the save layer, the
+probe, and the word gate.
+
+## ⚠️ `npm run guard` IS RED ON PURPOSE, AND HERE IS WHY
+
+`scripts/check-words.mjs` now enforces the owner's newest vocabulary — **stops
+and roads** — and reports **33 player-facing strings** still saying node and
+edge. Every one of them is in the loop that was just scrapped.
+
+**Do not fix them one by one.** They go when the loop goes. The gate is red
+because the build genuinely does not match the design yet, and turning it green
+by editing doomed strings would be work spent on code that is about to be
+deleted. Turning it green by weakening the check is how "dot" survived three
+requests to remove it.
+
+### The first item of the next session
+
+**Delete the scrapped loop**, in one commit, and let the gate go green because
+the strings are gone rather than because they were rewritten:
+
+`settled` · `busy` · `cleared` · `fight` · `pack` · `wayfaring` · `workPart`
+· `flow.ts` · `foes.ts` · the gates, drops and locks in `places.ts` · every
+deed but travel · and the tests and probe sections that cover them.
+
+Then the board draws stops and roads and nothing else, which is the honest
+starting point for `docs/KINGS_ROADS.md`.
+
+### The five open questions, which are NOT for an agent to answer
+
+They are listed at the foot of `docs/KINGS_ROADS.md`. Ask the owner.
+
+---
+
 **This file is the only thing that decides what gets worked on.**
 
 Three items, in order. Work the top one; when it ships, delete it and promote

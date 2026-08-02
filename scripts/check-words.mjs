@@ -33,17 +33,28 @@ const SURFACES = [
   'src/ui/Game.svelte',     // header, panel, buttons
 ];
 
-/** banned word → what to say instead. */
+/** banned word → what to say instead.
+ *
+ *  ⚠️ THIS LIST HAS TURNED OVER TWICE IN ONE DAY, which is the reason the file
+ *  exists rather than a reason to doubt it. dot → node → stop, and
+ *  connection → edge → road. The owner, 2026-08-02:
+ *
+ *    "we are going to call the roads and stops, no edges and nodes anymore"
+ *
+ *  So the words this check banned YESTERDAY are banned again today, and the
+ *  words it enforced yesterday are now the thing being banned. Anything that
+ *  once reached the player has to stay on the list — the whole failure mode is
+ *  an old word surviving in a string nobody re-read. */
 const INSTEAD = {
-  dot: 'node',
-  dots: 'nodes',
-  pace: 'stone',
-  paces: 'stone',
+  dot: 'stop', dots: 'stops',
+  node: 'stop', nodes: 'stops',
+  edge: 'road', edges: 'roads',
+  pace: 'a real resource', paces: 'a real resource',
 };
 
-/** ⚠️ "way" IS NOT BANNED OUTRIGHT and that is deliberate: `Wayfaring` is the
- *  skill's name and it earns the word. What is banned is `way`/`ways` standing
- *  on its own as the name of the thing between two places — that is an edge. */
+/** ⚠️ "way" IS NOT BANNED OUTRIGHT: it is ordinary English and the game will
+ *  want it. What is banned is `way`/`ways` standing in for the thing between two
+ *  stops — that is a ROAD. */
 const LOOSE_WAY =
   /\b(?:a|the|every|each|this|that|no|two)\s+ways?\b(?=\s*(?:to|from|is|are|was|out|here|you|,|\.|$))/i;
 
@@ -121,7 +132,7 @@ for (const file of SURFACES) {
       }
     }
     if (LOOSE_WAY.test(said)) {
-      bad.push(`${file}:${line}  says "way" for the thing between two places — that is an edge\n      ${text.trim().slice(0, 90)}`);
+      bad.push(`${file}:${line}  says "way" for the thing between two stops — that is a road\n      ${text.trim().slice(0, 90)}`);
     }
   }
 }
