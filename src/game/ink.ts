@@ -11,77 +11,71 @@
 // in `Game.svelte`), and `test/ink.test.ts` holds the distances between them.
 // One definition, one check, no drift.
 
-/** The board's palette. Names are what the thing IS, not what it looks like. */
+/** The board's palette. Names are what the thing IS, not what it looks like.
+ *
+ * ★★ A HIKING MAP ON PAPER, 2026-08-02. The owner: *"maybe we should move from
+ * dark theme design to full blown hiking all trails maps.me look… can you try
+ * it."* So: warm paper, brown contours, green woodland, blue water, and a trail
+ * network you could read in sunlight.
+ *
+ * ⚠️ WHAT THE OLD DARK PALETTE WAS FOR, so a future session knows what was given
+ * up. It was built to make a glowing graph legible on a phone at night, and
+ * every ink was a light on black. Nothing about the GAME wanted that — it was
+ * the look the first prototype happened to have. What the dark theme genuinely
+ * bought was contrast for free: on black, anything bright reads. On paper it has
+ * to be earned, which is why several of these are darker and more saturated than
+ * they look like they should be.
+ */
 export const INK = {
-  // the page
-  back: '#080d13',
+  // the paper
+  back: '#f2ece0',
 
-  // dots, by state — the state a place is in outranks the kind it is
-  dot: '#2b3a49',        // drawn, but not reached
-  known: '#6d8ba0',      // reached, or named
-  open: '#78e8c0',       // a way you can afford from here
-  shut: '#f0b45f',       // a way you cannot
-  you: '#8ff0cf',        // where you are standing
-  ring: '#eafff7',       // the selection ring, which outranks everything
+  // dots, by state — the state a stop is in outranks the kind it is
+  dot: '#a1907a',        // drawn, but not reached
+  known: '#3f3a33',      // reached, or named
+  open: '#1f7a3f',       // a road you can lay from here
+  shut: '#c8781a',       // one you cannot yet
+  you: '#d63b26',        // where you are standing — the red pin every map has
+  ring: '#12203a',       // the selection ring, which outranks everything
 
-  // edges, by relation
-  route: '#4d6b80',
-  unmade: '#22333f',
-  // ⚠️ NOT THE SAME AS `you`, AND IT USED TO BE. Both were #8ff0cf, so the
-  // probe's "is the road filling?" check was also counting the dot you are
-  // standing on — which is always there. The check would have passed with
-  // nothing filling at all. Found by `test/ink.test.ts` the day it was written.
-  fill: '#b9ffe8',       // the way being made, filling
-  // ★ WHAT THE ROUTE IS CARRYING. Income is max-flow from your settled places
-  // to where you stand (`flow.ts`), and the width of this underlay is that
-  // flow — so a road running at its limit is a road you can SEE needs a second
-  // one beside it. The one readout in this game that could not exist without
-  // the adjacency, drawn in the one place the player is already looking.
+  // roads, by state
+  /** A built road: the solid brown of a made-up track on an OS sheet. */
+  route: '#7a4a22',
+  /** A route that is only dotted on the plan — a right of way, not a road. */
+  unmade: '#8d8a80',
+  // ⚠️ NOT THE SAME AS `you`, AND IT USED TO BE. Both were #8ff0cf in the dark
+  // palette, so the probe's "is the road filling?" check was also counting the
+  // dot you are standing on — which is always there. The check would have passed
+  // with nothing filling at all. Found by `test/ink.test.ts` the day it was
+  // written, and the constraint survives the repaint.
+  fill: '#e2622e',       // the road being made, filling
   flowing: '#e8a13c',
-  // ★ A DOOR THAT OUTRANKS YOU. `docs/BRIEF.md` ask 4 wants a level you have
-  // not reached to be a door you can SEE from here — and until this ink existed
-  // a gated way drew exactly like every other unmade one, so the threshold was
-  // a sentence you had to go tapping for.
-  barred: '#c0566f',
-  // ★ WHAT IS STANDING IN A PLACE. Its dot's RADIUS is its health, so this ink
-  // is counted by the probe to prove the thing shrinks — a fight asserted in a
-  // test and invisible on screen is not the one the owner asked for.
-  foe: '#b4483a',
-  stands: '#2f5568',
-  means: '#2b4356',
-  doing: '#3f7d6b',
-  has: '#2b4356',
-  carries: '#2b4356',
+  barred: '#b03050',
+  foe: '#8f2f22',
+
+  // what joins things on the tabs that are not the map
+  stands: '#5b7f96',
+  means: '#6d7f8e',
+  doing: '#2e7d63',
+  has: '#6d7f8e',
+  carries: '#6d7f8e',
 
   // the ground
-  /** ★ THE CONTOUR LINES. Dim and warm, so they read as ground rather than as
-   *  one more road.
-   *
-   *  ⚠️ THE FIRST TRY WAS #463a24 AND IT MADE THE PROBE'S CHECK VACUOUS. It
-   *  cleared every COUNTED ink by 36 — the rule as written — but sat 9 from
-   *  `moor`, which is drawn all over the map as scatter. So "count the contour
-   *  pixels" was counting moor marks, and a sabotage that deleted the contours
-   *  outright still read 2032px and passed.
-   *
-   *  ★ THE RULE IS WIDER THAN IT SAID: a new ink must clear every ink the board
-   *  DRAWS, not merely every ink the probe counts, or the probe counts the wrong
-   *  thing. This one is 31 from its nearest neighbour of any kind (`moor`). */
-  relief: '#5c3320',
-  /** ★ THE LINE AROUND A REGION — *"an oval with a forest inside"*. A brighter
-   *  relative of each ground, because the ground colours themselves are nearly
-   *  black by design (they are scatter, meant to sit under everything) and a
-   *  dashed outline drawn in one was indistinguishable from a contour. All four
-   *  clear the nearest COUNTED ink by 38 or more. */
-  edgewood: '#2f6b3a',
-  edgecrag: '#7a7263',
-  edgemoor: '#6b5c34',
-  edgewater: '#2f7fa6',
-  wood: '#123f1c',
-  moor: '#3d3520',
-  crag: '#5a5348',
-  under: '#523a60',
-  stone: '#6a6259',
-  river: '#24607f',
+  /** ★ THE CONTOUR LINES, in the brown every topographic map prints them in. */
+  relief: '#c08a52',
+  wood: '#5f9c52',
+  moor: '#cbbf88',
+  crag: '#8c8272',
+  under: '#8a6fa8',
+  stone: '#b6ad9b',
+  river: '#4f9fc4',
+  /** ★ THE LINE AROUND A REGION — *"an oval with a forest inside"*. A stronger
+   *  relative of each ground, so the outline reads as a boundary rather than as
+   *  one more contour. */
+  edgewood: '#2f7a34',
+  edgecrag: '#7a6f5c',
+  edgemoor: '#a8964a',
+  edgewater: '#1f7fae',
 } as const;
 
 export type InkName = keyof typeof INK;
@@ -110,6 +104,21 @@ export const TOL: Partial<Record<InkName, number>> = {
   flowing: 12,
   barred: 12,
   foe: 10,
+  // ⚠️ THE SCENERY IS COUNTED TOO, AND IT WAS NOT LISTED HERE. The probe counts
+  // contour, region outline and ground pixels with a DEFAULT net of 12 — so
+  // those inks were subject to the same confusion as the listed ones and had
+  // none of the protection. That is exactly how the first contour colour came
+  // to sit 9 from `moor` and make its own check vacuous. Listed, so the test
+  // holds them apart.
+  relief: 12,
+  edgewood: 12,
+  edgecrag: 12,
+  edgemoor: 12,
+  edgewater: 12,
+  moor: 12,
+  crag: 12,
+  wood: 12,
+  river: 12,
 };
 export const COUNTED = Object.keys(TOL) as InkName[];
 

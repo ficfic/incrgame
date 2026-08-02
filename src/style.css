@@ -1,12 +1,16 @@
+/* ★ LIGHT, 2026-08-02. `color-scheme` is not decoration on iOS: it tells the
+   browser which way round to draw form controls, scrollbars and the overscroll
+   gutter, and leaving it `dark` under a paper theme gives you a black rubber-band
+   edge when the page bounces. */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 html,
 body {
   margin: 0;
   padding: 0;
-  background: #0b0e14;
-  color: #eaf6f2;
+  background: #e8e0d0;
+  color: #33302a;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;

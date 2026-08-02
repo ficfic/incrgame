@@ -300,7 +300,7 @@
 <style>
   :global(html) { --safe-t: env(safe-area-inset-top, 0px);
     --safe-b: env(safe-area-inset-bottom, 0px); }
-  :global(body) { margin: 0; background: #070b10; color: #dfe9f0;
+  :global(body) { margin: 0; background: #e8e0d0; color: #33302a;
     font: 16px/1.5 ui-sans-serif, system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
 
   /* ⚠️ THIS REVERSES A RULE THAT HELD FOR MONTHS, AND IT IS THE OWNER'S CALL.
@@ -327,20 +327,20 @@
     display: flex; flex-direction: column;
     padding: calc(10px + var(--safe-t)) 14px 0; }
 
-  header { border-bottom: 1px solid #16232f; padding-bottom: 10px; }
-  .panel .away { margin: 0 0 6px; color: #ffd479; font-size: 15px; }
+  header { border-bottom: 1px solid #c3b8a2; padding-bottom: 10px; }
+  .panel .away { margin: 0 0 6px; color: #8a5a12; font-size: 15px; }
   .purse { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-  .purse b { font-size: 22px; color: #8ff0cf; }
-  .purse span { color: #8fa6b6; font-size: 14px; }
-  .purse .rate { color: #5d7182; }
+  .purse b { font-size: 22px; color: #1f6b3a; }
+  .purse span { color: #6a6154; font-size: 14px; }
+  .purse .rate { color: #8c8272; }
   .reset { margin-left: auto; padding: 8px 12px; border-radius: 8px; background: none;
-    border: 1px solid #2b4356; color: #8fa6b6; font: inherit; font-size: 13px; }
+    border: 1px solid #b6ab94; color: #6a6154; font: inherit; font-size: 13px; }
 
   nav { display: flex; gap: 6px; margin: 12px 0 4px; }
   nav button { flex: 1; min-height: 44px; padding: 8px 4px; border-radius: 10px;
-    background: #0d151d; border: 1px solid #24384a; color: #8fa6b6; font: inherit;
+    background: #f2ece0; border: 1px solid #c3b8a2; color: #6a6154; font: inherit;
     font-size: 14px; }
-  nav button.on { background: #12222e; border-color: #2f5568; color: #eafff7;
+  nav button.on { background: #fdfaf2; border-color: #7a4a22; color: #3f3a33;
     font-weight: 600; }
 
   /* The board draws itself; all that is left here is the space it sits in —
@@ -360,29 +360,29 @@
     max-width: 560px; margin: 0 auto; box-sizing: border-box;
     padding: 10px 14px calc(10px + var(--safe-b));
     max-height: 62dvh; overflow-y: auto;
-    background: rgba(8, 13, 19, .93); border-top: 1px solid #1b2c3a;
+    background: rgba(248, 244, 234, .94); border-top: 1px solid #c3b8a2;
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
   .panel h2 { margin: 0 0 6px; font-size: 20px; }
-  .panel p { margin: 0; color: #c8d8e4; font-size: 16px; }
-  .note { color: #6f8798 !important; font-style: italic; }
+  .panel p { margin: 0; color: #4a453c; font-size: 16px; }
+  .note { color: #8c8272 !important; font-style: italic; }
   .deed { display: block; width: 100%; box-sizing: border-box; min-height: 56px;
     margin-top: 10px; padding: 12px 14px; border-radius: 12px; text-align: left;
-    background: #12222e; border: 1px solid #2f5568; color: #cdf3e6; font: inherit;
+    background: #fdfaf2; border: 1px solid #a8907a; color: #3f3a33; font: inherit;
     font-size: 17px; }
   .deed em { display: block; margin-top: 2px; font-style: normal; font-size: 14px;
-    color: #8fb6c4; }
-  .deed.make { background: #16362f; border-color: #3f7d6b; }
+    color: #6a6154; }
+  .deed.make { background: #dff0dc; border-color: #1f7a3f; }
   /* Working is the other thing the clock can do, so it does not look like the
      thing that spends paces. */
 
-  .purse .crossed { color: #8ff0cf; font-weight: 600; }
+  .purse .crossed { color: #1f6b3a; font-weight: 600; }
   /* ⚠️ LAST, SO IT WINS. This rule sat ABOVE `.deed.make` at the same
      specificity, so every disabled forge and every disabled settle drew in the
      live green and only the cursor said otherwise. The oldest complaint this
      game has is "I just randomly clicked around until I got to a stop"; a
      button that looks alive and is not is exactly that, and it took a
      screenshot of a shut Settle to see it. */
-  .deed:disabled { background: #14161a; border-color: #3a3320; color: #b9a276; }
-  .deed.arm { background: #0f1a24; }
-  .deed.arm.armed { background: #1d1a10; border-color: #6b5720; color: #ffd479; }
+  .deed:disabled { background: #e3ddd0; border-color: #c3b8a2; color: #93897a; }
+  .deed.arm { background: #f0ece2; }
+  .deed.arm.armed { background: #fbeccd; border-color: #c8781a; color: #7a4a10; }
 </style>

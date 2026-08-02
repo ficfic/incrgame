@@ -13,6 +13,7 @@
 //
 // ---- PROVEN RED, 2026-08-01 ----------------------------------------------
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { INK, COUNTED, APART, TOL, LOOK, type InkName } from '../src/game/ink';
 import { GROUND_INK, RIVER_INK } from '../src/game/terrain';
 import { KINDS } from '../src/game/world';
@@ -113,6 +114,35 @@ describe('★ every kind of node has a look, and every look names a real ink', (
       expect(INK[look.label], `${k}.label names "${look.label}"`).toBeDefined();
       if (look.ring) expect(INK[look.ring], `${k}.ring names "${look.ring}"`).toBeDefined();
       expect(look.r).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('★★ the probe cannot count an ink nobody declared', () => {
+  it('finds every ink `play-tabs.mjs` counts listed in TOL', () => {
+    // ⚠️ THIS IS THE HOLE THE CONTOUR-INK MISTAKE WENT THROUGH, and it is not
+    // the one it looked like.
+    //
+    // The rule above — "every ink NOT counted stays clear of every ink that IS"
+    // — was already here and already correct. It could not catch #463a24
+    // sitting 9 from `moor` for a simple reason: NEITHER of them was in `TOL`,
+    // so neither counted as counted, and the pair was never compared. Meanwhile
+    // the probe was cheerfully counting both, at its default net of 12.
+    //
+    // ★ SO THE DEFECT WAS A DECLARATION GAP, not a distance one. The probe knew
+    // it was counting contour, region outline and ground; `ink.ts` did not. This
+    // is the only check that can see that, because it is the only one that reads
+    // the probe.
+    const probe = readFileSync('scripts/play-tabs.mjs', 'utf8');
+    const counted = [...probe.matchAll(/\bink\('([a-z]+)'\)/g)].map((m) => m[1]!);
+    expect(counted.length, 'the probe counts no inks at all — this test proves nothing')
+      .toBeGreaterThan(3);
+    for (const name of new Set(counted)) {
+      expect(INK[name as InkName], `the probe counts "${name}", which is not an ink`)
+        .toBeDefined();
+      expect(TOL[name as InkName],
+        `the probe counts "${name}" but it has no declared tolerance, so nothing `
+        + 'holds it apart from the rest of the palette').toBeDefined();
     }
   });
 });

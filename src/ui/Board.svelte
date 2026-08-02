@@ -292,7 +292,7 @@
         const p = posOf.get(d.id)!;
         ctx.beginPath();
         ctx.arc(sx(p.x), sy(p.y), 10, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(143,240,207,.22)';   // the halo round where you stand
+        ctx.strokeStyle = 'rgba(214,59,38,.20)';   // the halo round where you stand
         ctx.lineWidth = 6;
         ctx.stroke();
       }
@@ -433,7 +433,7 @@
      unsized parent it will collapse, which is why `min-height` is here. */
   .board { position: relative; width: 100%; height: 100%; min-height: 240px;
     touch-action: none; overscroll-behavior: contain; overflow: hidden;
-    border-radius: 12px; background: #080d13; }
+    border-radius: 12px; background: #f2ece0; }
   canvas { position: absolute; inset: 0; display: block; }
 
   /* A 44px target centred on the dot — the drawn dot is small and the thing
@@ -446,10 +446,10 @@
      the same decision written twice, in two languages, with nothing checking
      they agreed. */
   .label { position: absolute; top: 24px; white-space: nowrap;
-    font: 11px/1 ui-sans-serif, system-ui, sans-serif; color: var(--label, #7f97a8);
+    font: 11px/1 ui-sans-serif, system-ui, sans-serif; color: var(--label, #6a6154);
     pointer-events: none;
     /* The halo that keeps a name legible where it crosses a line. */
-    text-shadow: 0 0 3px #070b10, 0 0 3px #070b10, 0 0 2px #070b10; }
+    text-shadow: 0 0 3px #f6f1e6, 0 0 3px #f6f1e6, 0 0 2px #f6f1e6; }
   .node.you .label { font-weight: 700; }
   .node:focus-visible .label { text-decoration: underline; }
 </style>

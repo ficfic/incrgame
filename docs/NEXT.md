@@ -104,6 +104,56 @@ with control points derived from the terrain between the two stops.
 `a + (b−a)×fill`, which is a straight line by construction; a bent road needs the
 fill to follow the curve or the growing road will visibly leave its own bed.
 
+## ★★★ THE MAP, ROUND TWO — 2026-08-02, later the same day
+
+Five more, in the owner's words. **E and F are corrections to shipped behaviour**
+— one is a bug they have now reported twice. **G and H are the look.**
+
+### E — the road fills from the wrong end ⟨a bug, reported twice⟩
+
+> *"fix a bug where the line being made solid starts from the wrong side"*
+
+Already in `BACKLOG.md` from 2026-08-01, cause known: `Board.svelte` draws the
+fill as `[a, a + (b−a)×fill]`, and `a` is whichever endpoint the VIEW emitted
+first — on the chapter that is always the lower stop id (`world.ts` filters
+`to > s.id`), never the end you are standing on. The engine already knows:
+`g.at` is one end of `g.building.key`.
+
+### F — you arrive where you built, and you have a marker
+
+> *"i also want an icon for our character when they move.. and like obviously
+> when we build a road somewhere we arrive there too"*
+
+Two things. **Arriving is engine work**: `build` currently leaves you where you
+stood and the road has to be walked afterwards as a separate tap. **The marker is
+the board**: `you` is a slightly bigger dot with a halo, which is not an icon and
+does not read as a person.
+
+### G — the natural features
+
+> *"like i want typical natural features like valleys and hills and bogs and the
+> sea somewhere and beaches and so on and rivers"*
+
+`relief.ts` has the height field already and the contours come off it. Valleys
+and hills are that field named. **Sea, beach and bog are new grounds**, and
+`GOING`/`HEIGHT` both need them — a beach is a shoreline BAND rather than a stop,
+which is the first feature here that is not centred on a stop.
+
+### H — ★ THE HIKING-MAP LOOK, and the owner asked to see it tried
+
+> *"maybe we should move from dark theme design to full blown hiking all trails
+> maps.me look… can you try it"*
+
+Light paper, brown contours, green wooded areas, blue water, a legible trail
+network. Everything in `ink.ts` moves.
+
+⚠️ **THIS TOUCHES EVERY CHECK THAT COUNTS PIXELS.** `test/ink.test.ts` holds the
+distances between counted inks; `scripts/play-tabs.mjs` counts nine of them and
+now also counts contour and region outline. A palette flip that does not move
+those together leaves the probe measuring nothing — and the contour-ink mistake
+of 2026-08-02 proved that failure is silent, not loud. The wider rule stands: a
+new ink must clear every ink the board DRAWS.
+
 ---
 
 ### THEN — answer open question 1
