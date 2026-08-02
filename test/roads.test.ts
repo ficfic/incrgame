@@ -226,7 +226,7 @@ describe('★ a road must be built before it can be walked', () => {
   it('refuses the walk, and says why', () => {
     const g = initial();
     const to = STOP.get(START)!.near[0]!;
-    expect(blocked(g, to)).toBe('that road is not built yet');
+    expect(blocked(g, to)).toBe('there is no pipe here yet');
     expect(apply(g, { type: 'go', to })).toBe(g);
   });
 

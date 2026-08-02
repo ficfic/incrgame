@@ -54,7 +54,17 @@ const INSTEAD = {
 
 /** ⚠️ "way" IS NOT BANNED OUTRIGHT: it is ordinary English and the game will
  *  want it. What is banned is `way`/`ways` standing in for the thing between two
- *  stops — that is a ROAD. */
+ *  stops — that is a PIPE. */
+/** ★ AND NEITHER IS "road", FOR THE SAME REASON AND A SHARPER ONE: the game is
+ *  called King's Roads, the king's road is a real thing in the fiction, and the
+ *  crew lays roads and paths when the ground needs them. What is banned is
+ *  `road` standing in for THE THING YOU LAY. The owner, 2026-08-02:
+ *
+ *    "well like we also do roads or paths when needed, but we lay pipes"
+ *
+ *  So: "the king's road" passes, "Lay the road to Stop 4" does not. */
+const LOOSE_ROAD = /(?<!king's\s)(?<!kings\s)\broads?\b/i;
+
 const LOOSE_WAY =
   /\b(?:a|the|every|each|this|that|no|two)\s+ways?\b(?=\s*(?:to|from|is|are|was|out|here|you|,|\.|$))/i;
 
@@ -132,7 +142,10 @@ for (const file of SURFACES) {
       }
     }
     if (LOOSE_WAY.test(said)) {
-      bad.push(`${file}:${line}  says "way" for the thing between two stops — that is a road\n      ${text.trim().slice(0, 90)}`);
+      bad.push(`${file}:${line}  says "way" for the thing between two stops — that is a pipe\n      ${text.trim().slice(0, 90)}`);
+    }
+    if (LOOSE_ROAD.test(said)) {
+      bad.push(`${file}:${line}  says "road" for the thing you lay — that is a pipe\n      ${text.trim().slice(0, 90)}`);
     }
   }
 }

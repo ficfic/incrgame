@@ -279,18 +279,18 @@
       {/each}
       {#if canArm}
         <button class="deed arm" class:armed={arming} onclick={() => (arming = !arming)}>
-          {arming ? 'Now tap the far stop' : 'Lay a road…'}
+          {arming ? 'Now tap the far stop' : 'Lay a pipe…'}
           <em>{arming ? 'or tap here again to cancel' : 'tap a stop beside this one'}</em>
         </button>
       {/if}
       <!-- The Here tab carries the countdown on a dot of its own, so saying it
            again underneath would be the same number twice on one screen. -->
       {#if game.building && chosen.id !== DOING}
-        <p class="note">Laying road — {Math.ceil(game.building.left)}s left.
+        <p class="note">Laying pipe — {Math.ceil(game.building.left)}s left.
           It keeps going while the game is closed.</p>
       {/if}
       {#if !deeds.length && chosen.id.startsWith('stop:') && numOf(chosen.id) === game.at}
-        <p class="note">You are here. Tap a stop beside it to lay road toward it.</p>
+        <p class="note">You are here. Tap a stop beside it to lay pipe toward it.</p>
       {/if}
     {:else if awayLine}
       <!-- What you missed while the phone was in a pocket. It sits where the

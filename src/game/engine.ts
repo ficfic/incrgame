@@ -175,7 +175,7 @@ export function reached(g: Game): Set<number> {
  *  words, or null. R3.3: a thing you cannot do shows its reason, never hides. */
 export function unbuildable(g: Game, to: number): string | null {
   const here = STOP.get(g.at);
-  if (!here?.near.includes(to)) return 'no road joins these';
+  if (!here?.near.includes(to)) return 'nothing joins these';
   if (g.building) return 'already building one';
   if ((g.gauge[roadKey(g.at, to)] ?? 0) >= MAX_GAUGE) return 'as wide as it goes';
   // ★ THE RULE THE OPENING IS FOR. Reported before the price, because you can
@@ -189,8 +189,8 @@ export function unbuildable(g: Game, to: number): string | null {
 /** Why you cannot walk to `to`, or null. Walking a laid road is always free. */
 export function blocked(g: Game, to: number): string | null {
   const here = STOP.get(g.at);
-  if (!here?.near.includes(to)) return 'no road joins these';
-  if (!((g.gauge[roadKey(g.at, to)] ?? 0) > 0)) return 'that road is not built yet';
+  if (!here?.near.includes(to)) return 'nothing joins these';
+  if (!((g.gauge[roadKey(g.at, to)] ?? 0) > 0)) return 'there is no pipe here yet';
   return null;
 }
 

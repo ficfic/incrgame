@@ -114,6 +114,55 @@ that this is the max-flow economy that was scrapped, wearing a better name.
 
 **Saves reset**: SAVE_VERSION 5, `built: string[]` became `gauge: Record<string, number>`.
 
+## ★★★ PIPES AND ROADS ARE TWO THINGS — 2026-08-02
+
+> *"well like we also do roads or paths when needed, but we lay pipes"*
+
+**Done:** the thing you lay is a PIPE, in every string the player reads, and
+`scripts/check-words.mjs` now fails the build on "road" standing in for it —
+while still passing "the king's road", which is real, and the game's own title.
+
+**⚠️ OPEN, AND THE OWNER'S TO ANSWER: what makes a road NEEDED?** The sentence
+says roads and paths get built "when needed" and nothing in the game currently
+needs one. Two readings, and they are different games:
+
+  1. **A road is what lets you WALK.** Pipe carries mana; road carries you. Bad
+     ground makes walking slow or impossible until a path is cut, so some stops
+     are reachable by mana long before you can stand at them. This adds a second
+     network and a real reason to spend on something that earns nothing.
+
+  2. **A road is what some ground DEMANDS before a pipe can cross it.** A
+     causeway over bog, a bridge over water — an extra cost on hard terrain
+     rather than a network of its own.
+
+Reading 2 is nearly free and reading 1 is a second economy. Do not guess.
+
+### ★ THE CARTOGRAPHY PASS — asked for, not yet started
+
+> *"where are we with reusing maps code for us to render stuff like best
+> practices, then slap some fantasy and our own stuff on top"*
+
+**Where we are: nowhere, and it was a choice.** This was offered as an option on
+2026-08-02 and the owner picked full pipes instead, so it has never been started.
+
+⚠️ **LICENSING, ESTABLISHED — do not re-derive it.** Organic Maps (the living
+fork of maps.me) is Apache-2.0 but requires derivative works to carry a visible,
+clickable link to organicmaps.app; its renderer is C++/OpenGL and nothing in it
+lifts into a canvas. **`openstreetmap-carto` is CC0, cartographic design
+included, with no attribution owed** — that is the one to take from.
+
+What is worth taking is CONVENTION, not code:
+
+- **Casing** — a road is a dark outline with a lighter core drawn over it. It is
+  the single biggest reason real map lines read as lines and ours read as
+  strokes, and it is about six lines in `Board.svelte`.
+- **Draw order as named layers** — landuse, water, contours, paths, roads,
+  labels. Ours is an accident of array order.
+- **Label collision** — the filed overlap bug (`Stop 15`/`Stop 16`) is this. Real
+  renderers place labels last and drop any that would collide.
+- **Dash vocabulary** — a footpath, a track and a road are told apart by dash
+  pattern, not colour.
+
 ## ★★★ THE MAP, ROUND TWO — 2026-08-02, later the same day
 
 Five more, in the owner's words. **E and F are corrections to shipped behaviour**

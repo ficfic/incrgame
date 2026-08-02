@@ -80,7 +80,7 @@ const ground = (g: string): string => ({
   wood: 'Wood — has to be cleared before it is cut',
   crag: 'Crag — steep',
   water: 'Water — needs a ford or a bridge',
-  stone: 'Hard standing — takes a road well',
+  stone: 'Hard standing — takes a pipe well',
 }[g] ?? g);
 
 export const DOING = 'doing';
@@ -93,7 +93,7 @@ function doing(g: Game): Node {
     const far = x === g.at ? y! : x!;
     return {
       id: DOING, kind: 'doing',
-      name: g.building.to > 1 ? 'Widening the road' : 'Laying road',
+      name: g.building.to > 1 ? 'Widening the pipe' : 'Laying pipe',
       body: `Toward ${nameOf(far)}. ${Math.ceil(g.building.left)}s left. It keeps `
         + 'going while the game is closed.',
     };
@@ -145,19 +145,19 @@ export function self(g: Game): View {
         body: `Standing at ${at.name}. ${ground(at.ground)}.` },
       { id: stopId(g.at), kind: 'stop', name: at.name, body: ground(at.ground) },
       { id: 'carry:mana', kind: 'carry', name: `${g.mana} mana`,
-        body: 'Roads are the only thing that takes it. Walking a road you have '
-          + 'already built is free.' },
+        body: 'Pipe is the only thing that takes it. Walking a line you have '
+          + 'already opened is free.' },
       { id: 'stat:flow', kind: 'fact', name: perSec(manaRate(g)),
-        body: 'What the network actually delivers to where you stand. A road is a '
-          + 'pipe, and the narrowest one between here and the start governs the lot, so widening '
-          + 'a tight road is worth more than laying a slack one.' },
+        body: 'What the network actually delivers to where you stand. The narrowest '
+          + 'pipe between here and the start governs the lot, so widening a tight '
+          + 'one is worth more than laying a slack one.' },
       { id: 'stat:next', kind: 'fact',
         name: next ? `Next work: ${next.cost}` : 'Nothing left here',
         body: next
           ? `${buildSecs(g, next.to)}s. Price is how far it runs times how bad the `
             + 'ground is; what it CARRIES runs the other way — cheap ground is '
-            + 'narrow ground, and hard standing takes a road well.'
-          : 'Every road out of this stop is as wide as it goes.' },
+            + 'narrow ground, and hard standing takes a pipe well.'
+          : 'Every pipe out of this stop is as wide as it goes.' },
     ],
     edges: [
       { a: 'you', b: stopId(g.at), rel: 'stands' },
@@ -183,9 +183,9 @@ export function crossing(g: Game): View {
       { id: stopId(FINISH), kind: 'stop', name: 'Finish',
         body: done
           ? 'Joined. The chapter is crossed.'
-          : 'Not joined yet. One road end to end is the whole of it.' },
+          : 'Not joined yet. One line of pipe end to end is the whole of it.' },
       { id: 'stat:reach', kind: 'fact', name: `${lit.size} of ${STOPS.length} reached`,
-        body: 'Stops the mana can get to along road you have built.' },
+        body: 'Stops the mana can get to along pipe you have laid.' },
       { id: 'stat:done', kind: 'fact', name: done ? 'Crossed' : 'Not crossed',
         body: done
           ? 'A path runs start to finish. Done is done.'
@@ -228,14 +228,14 @@ export function deedsFor(g: Game, nodeId: string): Deed[] {
   const walk: Deed[] = r.built ? [{
     kind: 'go', to: id, why: r.why,
     label: r.seen ? `Back to ${r.name}` : `Go to ${r.name}`,
-    note: 'the road is built — free',
+    note: 'the line is open — free',
   }] : [];
   const why = unbuildable(g, id);
   return [...walk, {
     kind: 'build', to: id, why,
     label: r.gauge > 0
-      ? `Widen the road to ${r.name} (${r.gauge} of ${MAX_GAUGE})`
-      : `Lay the road to ${r.name}`,
+      ? `Widen the pipe to ${r.name} (${r.gauge} of ${MAX_GAUGE})`
+      : `Lay the pipe to ${r.name}`,
     note: why ?? `${r.cost} mana · ${buildSecs(g, id)}s · carries `
       + `${((r.gauge + 1) * r.bore).toFixed(2)} a second`,
   }];

@@ -227,9 +227,9 @@ if (!(mana1 > mana0)) misses.push(`mana went ${mana0} → ${mana1} in 16 seconds
 // --------------------------------------------------------- laying a road ----
 //
 // ★★ THE ONE THAT MATTERS. Wait for the mana, tap the stop beside you, lay the
-// road, watch the line FILL, then walk it. Everything else in the game is this
+// pipe, watch the line FILL, then walk it. Everything else in the game is this
 // with weather on top, and if it does not happen on screen nothing does.
-console.log('\nLAYING A ROAD');
+console.log('\nLAYING A PIPE');
 await pick('.map .node.you');
 await page.waitForTimeout(200);
 
@@ -258,8 +258,8 @@ const target = neighbours[0];
 const first = await deedOn(target);
 console.log('  offers  :', first ? `"${first.text}"${first.off ? ' [shut]' : ''}` : '(nothing)');
 if (!first) misses.push('tapping the stop beside you offers no deed at all');
-else if (!/^Lay the road to /.test(first.text)) {
-  misses.push(`the deed does not offer to lay a road: "${first.text}"`);
+else if (!/^Lay the pipe to /.test(first.text)) {
+  misses.push(`the deed does not offer to lay a pipe: "${first.text}"`);
 }
 const shutBg = await page.evaluate(() => {
   const x = [...document.querySelectorAll('.deed')].find((e) => e.disabled);
@@ -282,7 +282,7 @@ if (!live || live.off) {
 } else {
   const liveBg = await page.evaluate(() => {
     const x = [...document.querySelectorAll('.deed')].find((e) => !e.disabled
-      && /^Lay the road/.test(e.textContent.trim()));
+      && /^Lay the pipe/.test(e.textContent.trim()));
     return x ? getComputedStyle(x).backgroundColor : null;
   });
   console.log('  live bg :', liveBg ?? '(none)');
@@ -291,7 +291,7 @@ if (!live || live.off) {
   }
 
   const fill0 = await ink('fill');
-  await page.locator('.deed', { hasText: 'Lay the road' }).first().click({ timeout: 3000 });
+  await page.locator('.deed', { hasText: 'Lay the pipe' }).first().click({ timeout: 3000 });
   await page.waitForTimeout(2500);
   const laying = await panelText();
   const fillMid = await ink('fill');
@@ -361,9 +361,9 @@ const deedTexts = await page.$$eval('.deed', (bs) =>
   bs.map((x) => ({ t: x.textContent.replace(/\s+/g, ' ').trim(), off: x.disabled })));
 console.log('  offers  :', deedTexts.map((d) => `"${d.t}"${d.off ? ' [shut]' : ''}`).join('  |  ') || '(nothing)');
 console.log('  rate    :', `${rate0} a second on gauge 1`);
-const widen = deedTexts.find((d) => /^Widen the road/.test(d.t));
+const widen = deedTexts.find((d) => /^Widen the pipe/.test(d.t));
 if (!widen) {
-  misses.push('a road you have laid offers no way to widen it — the second verb is unreachable');
+  misses.push('a pipe you have laid offers no way to widen it — the second verb is unreachable');
 } else {
   if (!/\(1 of \d\)/.test(widen.t)) misses.push(`the widen deed does not say how wide it is: "${widen.t}"`);
   // ⚠️ THE "CARRIES" LINE IS ONLY ON THE DEED YOU CAN TAKE. A shut deed shows
@@ -374,7 +374,7 @@ if (!widen) {
   // Wait it out and take it.
   let took = false;
   for (let i = 0; i < 40; i++) {
-    const btn = page.locator('.deed', { hasText: 'Widen the road' }).first();
+    const btn = page.locator('.deed', { hasText: 'Widen the pipe' }).first();
     if (await btn.count() && !await btn.isDisabled()) {
       openText = (await btn.textContent()).replace(/\s+/g, ' ').trim();
       await btn.click({ timeout: 3000 });
@@ -385,7 +385,7 @@ if (!widen) {
     await pick('.map .node.you');
     if (backTo) await deedOn(backTo);
   }
-  if (!took) misses.push('never able to afford widening the first road');
+  if (!took) misses.push('never able to afford widening the first pipe');
   else {
     console.log('  open    :', `"${openText}"`);
     if (!/carries [\d.]+ a second/.test(openText)) {
