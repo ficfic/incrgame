@@ -1,4 +1,5 @@
-// WHERE EVERY NODE SITS. Solved by d3-force, run to completion, then FROZEN.
+// WHERE EVERY NODE SITS. The chapter is AUTHORED; every other tab is solved by
+// d3-force, run to completion, then FROZEN.
 //
 // ⚠️ THIS REPLACES A HAND-ROLLED RELAXATION, AT THE OWNER'S REQUEST, 2026-08-01.
 // After playing: *"the graph, as far as I understand, it is now just statically
@@ -108,20 +109,36 @@ export function boxOf(spots: Placed[], pad = 40): Box {
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }
 
-// ---- THE JOURNEY ---------------------------------------------------------
-// Its shape never changes, so it is solved once at module load and is a
-// constant for the rest of the session.
-
-const journeyPos = settle(
-  STOPS.map((p) => stopId(p.id)),
-  STOPS.flatMap((p) => p.near.filter((to) => to > p.id)
-    .map((to) => ({ source: stopId(p.id), target: stopId(to) }))),
-  0x5eed,
-);
-
-export const SPOTS: readonly Spot[] = STOPS.map((p) => ({
-  id: p.id, ...journeyPos.get(stopId(p.id))!,
-}));
+// ---- THE CHAPTER ---------------------------------------------------------
+//
+// ★★ THE CHAPTER IS NOT SOLVED. IT IS AUTHORED, AND THE BOARD DRAWS IT WHERE IT
+// IS WRITTEN.
+//
+// ⚠️ WHAT THIS REPLACED, AND WHY IT WAS A REAL BUG RATHER THAN AN UGLY PICTURE.
+// This used to hand the chapter to `settle()` like any other tab, throwing away
+// the coordinates `stops.ts` had just authored and re-solving from a seed. Two
+// things followed, and the second is the serious one:
+//
+//   THE CROSSING STOPPED READING AS A CROSSING. `stops.ts` bows five routes
+//   between a start on the left and a finish on the right. Force-solved, the
+//   Finish landed in the MIDDLE of the board and the five ways did not read as
+//   five ways — so the one decision a chapter offers was invisible in the one
+//   picture that exists to show it.
+//
+//   ★ AND THE GROUND UNDER A STOP WAS NOT ITS GROUND. `terrain.ts` bakes
+//   scenery from each stop's authored `x`/`y`. The stops were drawn at force
+//   coordinates. So a stop painted on wood was priced by `GOING` as water, and
+//   the map was decoration wearing the costume of information — which is the
+//   exact failure this whole redesign exists to end.
+//
+// No test caught it for a session, because every test asked the SOLVER where
+// things were and the solver was self-consistent. `test/layout.test.ts` now
+// asks `stops.ts` instead.
+//
+// The other tabs are still solved: they are filters with no geography of their
+// own, and `solve()` seeds them from these positions so a room still looks like
+// where it is.
+export const SPOTS: readonly Spot[] = STOPS.map((p) => ({ id: p.id, x: p.x, y: p.y }));
 export const SPOT = new Map(SPOTS.map((s) => [s.id, s]));
 export const VIEW: Box = boxOf(SPOTS.map((s) => ({ id: stopId(s.id), x: s.x, y: s.y })));
 

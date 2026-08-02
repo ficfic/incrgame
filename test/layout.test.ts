@@ -28,6 +28,37 @@ describe('the map layout', () => {
     expect(worst, `closest pair ${pair} at ${worst.toFixed(1)} units`).toBeGreaterThan(24);
   });
 
+  it('★★ draws every stop where stops.ts puts it, not where a solver prefers', () => {
+    // ⚠️ THE ONE THAT WAS MISSING FOR A SESSION, and the reason a bug survived
+    // 509 green tests. The chapter used to be force-solved, which threw the
+    // authored coordinates away. Every test still passed, because every test
+    // asked the SOLVER where things were and the solver agreed with itself.
+    //
+    // ★ WHAT IT ACTUALLY COSTS TO GET THIS WRONG: `terrain.ts` bakes the ground
+    // from each stop's authored x/y. If the stop is DRAWN somewhere else, the
+    // ground it sits on is not the ground `GOING` charges for — a stop painted
+    // on wood priced as water. That is the map lying, which is worse than the
+    // map being ugly, and it is what this compares against.
+    for (const p of PLACES) {
+      const at = SPOT.get(p.id)!;
+      expect(at.x, `${p.name} is drawn at x=${at.x} but authored at ${p.x}`).toBe(p.x);
+      expect(at.y, `${p.name} is drawn at y=${at.y} but authored at ${p.y}`).toBe(p.y);
+    }
+  });
+
+  it('★ and the crossing reads left to right', () => {
+    // A chapter is a crossing: you start at one end and you are trying to reach
+    // the other. If the finish is not the far side of the picture, the shape of
+    // the thing is not on screen — which is how the force-solved board drew the
+    // Finish in the middle and nobody could see what the goal was.
+    const start = SPOT.get(0)!, finish = SPOT.get(1)!;
+    expect(start.x, 'the start is not the leftmost stop')
+      .toBe(Math.min(...SPOTS.map((s) => s.x)));
+    expect(finish.x, 'the finish is not the rightmost stop')
+      .toBe(Math.max(...SPOTS.map((s) => s.x)));
+    expect(finish.x - start.x).toBeGreaterThan(400);
+  });
+
   it('fits every place inside the viewBox', () => {
     for (const s of SPOTS) {
       expect(s.x, `${s.id}`).toBeGreaterThanOrEqual(VIEW.x);

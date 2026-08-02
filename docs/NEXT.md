@@ -20,29 +20,40 @@ mana, roads, a crossing. The word gate is green because the strings went with
 the code. `npm run play` builds a road end to end in a browser and the refusal
 "no mana reaches here" reaches the screen with 9999 mana in hand.
 
-### ★ THE FIRST ITEM OF THE NEXT SESSION — the map is not the map
+## ✅ DONE 2026-08-02 — the chapter is drawn where it is written
 
-**`layout.ts` throws the chapter's geography away, and the screenshot shows it.**
-`stops.ts` authors five routes bowing between a start on the left and a finish
-on the right; `settle()` ignores those coordinates entirely and re-solves the
-whole thing with d3-force from a seed. On screen the Finish sits in the MIDDLE
-of the board and the five ways across do not read as five ways across.
+`layout.ts` no longer force-solves the chapter. The authored positions cleared
+every existing guard untouched (closest pair 41.1 units against a limit of 24),
+so `stops.ts` needed no adjustment. Two new guards, both proven red by putting
+the solver back: the drawn position must EQUAL the authored one, and the finish
+must be the rightmost stop. The screenshot now reads start-left, finish-right,
+five ways between, with the river running along the water route `GOING` charges
+3.1 for.
 
-⚠️ **And the terrain is worse than cosmetic.** `terrain.ts` bakes scenery from
-each stop's authored `x`/`y`, but the stops are drawn at force coordinates — so
-the ground a stop is painted on is not the ground that prices the road out of
-it. That is precisely the "the map is decoration" failure this whole redesign
-exists to end, and no test catches it because every test asks the solver where
-things are.
+### ★ THE FIRST ITEM OF THE NEXT SESSION — answer open question 1
 
-The fix is to use the authored positions for the chapter. It is not a one-liner:
-`test/layout.test.ts` asserts no two stops come within 24 units and that the
-solver is deterministic, and the authored bows may violate the first. Expect to
-adjust the layout in `stops.ts` until it passes rather than loosening the check.
+**What is a stop made of?** It is the first of the five open questions in
+`docs/KINGS_ROADS.md` and it is the owner's to answer, not an agent's. Every
+stop currently says `Stop 14` and reports its ground, because the 37
+machine-written places were scrapped for exactly the reason that an assistant
+answered this question once already.
 
-**Done when:** the Chapter screenshot reads left-to-right as a start, a finish
-and five distinct ways between, and a stop drawn on wood is a stop `GOING` prices
-as wood.
+Nothing else in the game can be authored until it is settled: what a stop offers,
+what threatens it, what a caravan is doing there, and what the 2d10 rolls are
+rolled against all hang off it.
+
+**Everything below is engine work that does NOT need the answer**, if the owner
+would rather it waited:
+
+- **Labels overlap on the Chapter tab** — `Stop 15`/`Stop 16` and `Stop 21`
+  overprint at 390px. The dots clear the 24-unit rule; their NAMES do not, and
+  nothing measures that. See `docs/BACKLOG.md`.
+- **The build deed offers to start what it is already building** — reads
+  "Lay the road to Stop 2 / already building one".
+- **A chapter that is crossed does nothing.** `crossed(g)` is true, the header
+  says `crossed`, and there is no second chapter to go to. "Region through
+  region" is the owner's word for the shape of the game and there is currently
+  one region.
 
 ### The five open questions, which are NOT for an agent to answer
 
