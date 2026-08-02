@@ -17,7 +17,7 @@ import { waysFrom, costOf, unforgeable, forgeSecs, edgeKey, waitFor,
   holder, might, bite, winnable, LEVEL_CAP } from './engine';
 import { POKE } from './foes';
 
-/** Paces a second, said the same way everywhere it is said. */
+/** Stone a second, said the same way everywhere it is said. */
 const perSec = (n: number): string => `${n.toFixed(2)} a second`;
 
 export type Kind = 'place' | 'item' | 'concept' | 'you' | 'doing' | 'fact' | 'foe';
@@ -84,17 +84,17 @@ function doing(g: Game): Node {
     const [x, y] = g.forging.key.split('|').map(Number);
     const far = x === g.at ? y! : x!;
     return {
-      id: DOING, kind: 'doing', name: 'Making a way',
-      body: `Toward ${nameOf(far)}. ${Math.ceil(g.forging.left)}s left, and it `
-        + 'carries on while this is shut.',
+      id: DOING, kind: 'doing', name: 'Building an edge',
+      body: `Toward ${nameOf(far)}. ${Math.ceil(g.forging.left)}s left. It keeps `
+        + 'going while the game is closed.',
     };
   }
   if (g.fight) {
     const f = holder(g);
     return {
       id: DOING, kind: 'doing', name: `Poking ${f?.name ?? 'it'}`,
-      body: `${Math.ceil(g.fight.you)} of you left. No paces and no learning `
-        + 'while this is going on, and walking away ends it.',
+      body: `${Math.ceil(g.fight.you)} of you left. Nothing banked and no XP while `
+        + 'you fight. Walking away ends it.',
     };
   }
   // ★ WORKING IS THE OTHER THING THE CLOCK CAN DO, and while you are doing it
@@ -104,8 +104,8 @@ function doing(g: Game): Node {
     const left = Math.ceil(job.secs - g.workPart);
     return {
       id: DOING, kind: 'doing', name: job.label,
-      body: `${left}s to the next ${job.xp} wayfaring, and it repeats while this `
-        + 'is shut. No paces while you work — that is what it costs.',
+      body: `${left}s to the next ${job.xp} wayfaring. It repeats, and it keeps `
+        + 'going while the game is closed. Nothing banked while you work.',
     };
   }
   const earn = `${perSec(rate(g))}, watched or not.`;
@@ -115,9 +115,9 @@ function doing(g: Game): Node {
     .filter((w) => !w.made && w.cost <= g.paces)
     .sort((a, b) => a.cost - b.cost)[0];
   const wait = waitFor(g);
-  const next = ready ? `Enough in hand for the way to ${ready.name}.`
-    : wait ? `The way to ${wait.name} in ${wait.secs}s.`
-    : 'Every way from here is made.';
+  const next = ready ? `Enough in hand for the edge to ${ready.name}.`
+    : wait ? `Enough for the edge to ${wait.name} in ${wait.secs}s.`
+    : 'Every edge from here is built.';
   return {
     id: DOING, kind: 'doing',
     name: 'Standing still',
@@ -152,8 +152,8 @@ function fighters(g: Game): { nodes: Node[]; edges: Edge[] } {
       body: hurt
         ? `${Math.ceil(hurt.foe)} of it left, and ${Math.ceil(hurt.you)} of you. `
           + `You take ${bite(g)} off it every ${POKE} seconds; it takes 1 off you.`
-        : `${f.body} While it stands here you may neither settle this place nor `
-          + `work it. ${winnable(g) ? 'You would win.' : 'You would not win — not yet.'}`,
+        : `${f.body} You cannot settle or work here until it is out. `
+          + `${winnable(g) ? 'You would win.' : 'You would lose — not yet.'}`,
     }],
     edges: [{ a: placeId(g.at), b: FOE_ID, rel: 'holds' }],
   };
@@ -230,23 +230,22 @@ export function self(g: Game): View {
   const mine: Node[] = [
     // Kind `item` and rel `carries`, which the model already had and nothing
     // had yet used — R1.2's vocabulary, not a new one invented for this tab.
-    { id: 'carry:paces', kind: 'item',
-      name: `${g.paces} ${g.paces === 1 ? 'pace' : 'paces'}`,
-      body: 'In hand, and everything you own. The valley takes them for ways '
-        + 'and for nothing else — a step down a way you have already made has '
-        + 'never cost anybody anything.' },
+    { id: 'carry:it', kind: 'item',
+      name: `${g.paces} in hand`,
+      body: 'Edges and settlements are the only things that take it. Walking an '
+        + 'edge you have already built is free.' },
     // ★ THE RATE IS NOW A PROPERTY OF THE GRAPH, so the sheet says where it
     // came from. `flow.ts` is the long version: settled places make paces,
     // routes carry them, and only what reaches you counts.
     { id: 'stat:gather', kind: 'fact',
       name: perSec(rate(g)),
       body: settledNear === 0
-        ? 'The floor, and nothing on top of it. Nowhere you have settled can '
-          + 'get anything to you from where you are standing.'
-        : `A third of it is yours for breathing. The rest walks in from `
-          + `${settledNear} settled ${settledNear === 1 ? 'place' : 'places'} `
-          + 'along the ways you made — and only as fast as the narrowest way '
-          + 'between there and here will take it.' },
+        ? '0.33 a second for standing anywhere. Nothing you have settled can '
+          + 'reach you from here.'
+        : `0.33 a second for standing anywhere. The rest comes from `
+          + `${settledNear} settled ${settledNear === 1 ? 'place' : 'places'}, `
+          + 'and only as fast as the narrowest edge between them and you can '
+          + 'carry it.' },
     // What you are carrying, each its own node hanging off you by `carries` —
     // the same vocabulary the purse already uses, so an item is not a special
     // case of anything.
@@ -261,33 +260,29 @@ export function self(g: Game): View {
     { id: 'stat:way', kind: 'fact',
       name: `Wayfaring ${lv}`,
       body: lv >= LEVEL_CAP
-        ? 'As far as the valley can teach you. A way goes up in a little under '
-          + 'half the time it took the first morning.'
-        : `${g.wayfaring} of ${xpFor(lv + 1)} toward ${lv + 1}. Sounding, `
-          + 'pacing and sighting are how it is learned, and every level takes '
-          + 'a twelfth off the time a way needs to go up.' },
+        ? 'The top. Edges build in a little under half the time they did at 1.'
+        : `${g.wayfaring} of ${xpFor(lv + 1)} XP toward ${lv + 1}. Work is how `
+          + 'it is learned. Every level takes 8% off the time an edge takes, '
+          + 'and some edges will not open below a level.' },
     { id: 'stat:making', kind: 'fact',
-      name: `A way takes ${secs}s`,
+      name: `Edge: ${secs}s`,
       body: next
-        ? `And ${next.cost} paces, for the cheapest way from where you stand. `
-          + 'Both climb with every way you have already laid, so the tenth is '
-          + 'slower and dearer than the first, wherever you lay it.'
-        : `Every way from here is already made. The next one elsewhere will `
-          + 'still take longer than the last — that price follows you, not the '
-          + 'ground.' },
+        ? `And ${next.cost} for the cheapest edge from here. Both go up `
+          + 'with every edge you have built, wherever you built it.'
+        : 'Every edge from here is built. The next one elsewhere still costs '
+          + 'more than the last.' },
   ];
 
   return {
     nodes: [
       { id: 'you', kind: 'you', name: 'You',
-        body: `Standing in ${at.name}. What you carry and what you are — the `
-          + 'valley keeps its own count of itself elsewhere.' },
+        body: `Standing in ${at.name}. What you carry, and what you are.` },
       { id: placeId(g.at), kind: 'place', name: at.name, body: at.body },
       ...mine,
     ],
     edges: [
       { a: 'you', b: placeId(g.at), rel: 'stands' },
-      { a: 'you', b: 'carry:paces', rel: 'carries' },
+      { a: 'you', b: 'carry:it', rel: 'carries' },
       ...g.pack.map((id) => ({ a: 'you', b: `carry:${id}`, rel: 'carries' as const })),
       { a: 'you', b: 'stat:gather', rel: 'has' },
       { a: 'you', b: 'stat:way', rel: 'has' },
@@ -373,24 +368,24 @@ export function deedsFor(g: Game, nodeId: string): Deed[] {
         : { kind: 'poke', to: id, why: null, label: `Poke ${f.name}`,
             note: winnable(g)
               ? `${f.size} of it, ${might(g)} of you, ${bite(g)} a poke — you win this`
-              : `${f.size} of it, ${might(g)} of you, ${bite(g)} a poke — you lose this` });
+              : `${f.size} of it, ${might(g)} of you, ${bite(g)} a poke — you lose` });
     }
     const job = jobAt(g);
     if (job) {
       out.push(g.busy === 'work'
         ? { kind: 'rest', to: id, why: null,
             label: 'Stand still instead',
-            note: `back to ${perSec(rate(g))} — and the job stops` }
+            note: `back to ${perSec(rate(g))} — the job stops` }
         : { kind: 'work', to: id, why: null,
             label: job.label,
-            note: `${job.secs}s a turn · +${job.xp} wayfaring · no paces while you do` });
+            note: `${job.secs}s a turn · +${job.xp} wayfaring · nothing banked while you do` });
     }
     if (!g.settled.includes(id)) {
       const why = unsettleable(g);
       out.push({ kind: 'settle', to: id, why,
         label: `Settle ${PLACE.get(id)!.name}`,
-        note: why ?? `${settleCost(g)} paces · makes 0.10 a second, as much of `
-          + 'it as the ways can carry to you' });
+        note: why ?? `${settleCost(g)} · makes 0.10 a second, as much of `
+          + 'it as the edges can carry to you' });
     }
     return out;
   }
@@ -403,15 +398,15 @@ export function deedsFor(g: Game, nodeId: string): Deed[] {
     return [{
       kind: 'go', to: id, why: w.why,
       label: w.seen ? `Go back to ${w.name}` : `Go to ${w.name}`,
-      note: 'the way is made — free',
+      note: 'the edge is built — free',
     }];
   }
   // Not made: the only thing on offer is making it.
   const why = unforgeable(g, id);
   return [{
     kind: 'forge', to: id, why,
-    label: `Make the way to ${w.name}`,
-    note: why ?? `${costOf(g, id)} paces · ${forgeSecs(g)}s to fill`,
+    label: `Build the edge to ${w.name}`,
+    note: why ?? `${costOf(g, id)} · ${forgeSecs(g)}s`,
   }];
 }
 

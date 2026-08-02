@@ -159,9 +159,9 @@ describe('one resource, two verbs', () => {
     // frame; none of it is walkable until you have made it so.
     const g = initial();
     const to = PLACE.get(START)!.ways[0]!;
-    expect(blocked(g, to)).toBe('the way is not made yet');
+    expect(blocked(g, to)).toBe('that edge is not built yet');
     expect(apply(g, { type: 'go', to })).toBe(g);
-    expect(unforgeable(g, to)).toBe(`${COST_BASE} paces — you have 0`);
+    expect(unforgeable(g, to)).toBe(`${COST_BASE} — you have 0`);
   });
 
   it('forging costs paces, takes time, and then the way is free forever', () => {
@@ -175,7 +175,7 @@ describe('one resource, two verbs', () => {
     expect(g.forging?.key).toBe(edgeKey(START, to));
     // Half way is still not walkable.
     g = work(g, secs / 2);
-    expect(blocked(g, to)).toBe('the way is not made yet');
+    expect(blocked(g, to)).toBe('that edge is not built yet');
     g = work(g, secs);
     expect(g.forging).toBeNull();
     expect(g.solid).toContain(edgeKey(START, to));
@@ -191,9 +191,9 @@ describe('one resource, two verbs', () => {
     let g = work(initial(), 900);
     const [a, b] = PLACE.get(START)!.ways;
     g = apply(g, { type: 'forge', to: a! });
-    expect(unforgeable(g, b!)).toBe('you are already making one');
+    expect(unforgeable(g, b!)).toBe('already building one');
     g = work(g, forgeSecs(initial()) + 900);
-    expect(unforgeable(g, a!)).toBe('already made');
+    expect(unforgeable(g, a!)).toBe('already built');
   });
 
   it('★ an absence finishes the route it was left making', () => {
@@ -209,7 +209,7 @@ describe('one resource, two verbs', () => {
   it('refuses a move to somewhere that is not next to you', () => {
     const g = { ...initial(), paces: 999 };
     const far = PLACES.find((p) => !PLACE.get(START)!.ways.includes(p.id) && p.id !== START)!;
-    expect(blocked(g, far.id)).toBe('no way from here');
+    expect(blocked(g, far.id)).toBe('no edge joins these');
     expect(apply(g, { type: 'go', to: far.id })).toBe(g);
   });
 
@@ -445,13 +445,13 @@ describe('the player is never stuck', () => {
     const door = GATED[0]!;
     const poor = { ...initial(), at: door.from, paces: 9999, settled: [door.from] };
     expect(demandOn(poor, door.to)).toBe(door.level);
-    expect(unforgeable(poor, door.to)).toBe(`wayfaring ${door.level} — you are 1`);
+    expect(unforgeable(poor, door.to)).toBe(`needs wayfaring ${door.level} — you have 1`);
     expect(apply(poor, { type: 'forge', to: door.to })).toBe(poor);
     // ★ AND THE DOOR IS REPORTED BEFORE THE PRICE. Told it costs paces you do
     // not have, you wait; told it wants a level, you go and work. Reporting the
     // cheaper obstacle first sends the player to do the wrong thing.
     const broke = { ...poor, paces: 0 };
-    expect(unforgeable(broke, door.to)).toMatch(/^wayfaring/);
+    expect(unforgeable(broke, door.to)).toMatch(/^needs wayfaring/);
 
     const able = { ...poor, wayfaring: xpFor(door.level) };
     expect(levelOf(able.wayfaring)).toBe(door.level);
@@ -522,7 +522,7 @@ describe('the player is never stuck', () => {
     const l = LOCKED[0]!;
     const rich = { ...initial(), at: l.from, paces: 9999, settled: [l.from],
       wayfaring: xpFor(LEVEL_CAP) };
-    expect(unforgeable(rich, l.to)).toBe(`you need the ${THING.get(l.item)!.name}`);
+    expect(unforgeable(rich, l.to)).toBe(`locked — needs the ${THING.get(l.item)!.name}`);
     expect(apply(rich, { type: 'forge', to: l.to })).toBe(rich);
     // The board is told too, so it is a door you can see rather than find.
     expect(waysFrom(rich).find((w) => w.to === l.to)!.need).toBe(l.item);

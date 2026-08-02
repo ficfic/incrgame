@@ -113,7 +113,7 @@
         if (got > 0) {
           const h = secs / 3600;
           awayLine = `Away ${h >= 1 ? `${h.toFixed(1)} hours` : `${Math.round(secs / 60)} minutes`}`
-            + ` — ${got} ${got === 1 ? 'pace' : 'paces'} gathered.`;
+            + ` — ${got} gathered.`;
         }
       }
       ready = true;
@@ -199,11 +199,11 @@
 <main>
   <header>
     <div class="purse">
-      <b>{game.paces}</b><span>{game.paces === 1 ? 'pace' : 'paces'}</span>
+      <b>{game.paces}</b>
       <!-- ★ THE RATE IS SOLVED FROM THE GRAPH and it moves, so the header has
            to say what it is now rather than quote a constant. When you are
            working it is zero, and that is the point of working. -->
-      <span class="rate">{working(game) ? 'working — no paces'
+      <span class="rate">{working(game) ? 'working — banking nothing'
         : `+${rate(game).toFixed(2)} a second`}</span>
       <button class="reset" onclick={async () => { await wipe(); game = initial(); picked = null; }}>
         Start over
@@ -255,28 +255,28 @@
       {/each}
       {#if canArm}
         <button class="deed arm" class:armed={arming} onclick={() => (arming = !arming)}>
-          {arming ? 'Now tap where it should go' : 'Connect…'}
-          <em>{arming ? 'or tap here again to stop' : 'tap a neighbouring dot to make a way to it'}</em>
+          {arming ? 'Now tap the far node' : 'Build an edge…'}
+          <em>{arming ? 'or tap here again to stop' : 'tap a neighbouring node'}</em>
         </button>
       {/if}
       <!-- The Here tab carries the countdown on a dot of its own, so saying it
            again underneath would be the same number twice on one screen. -->
       {#if game.forging && chosen.id !== DOING}
-        <p class="note">Making a way — {Math.ceil(game.forging.left)}s left.
-          It carries on while this is shut.</p>
+        <p class="note">Building an edge — {Math.ceil(game.forging.left)}s left.
+          It keeps going while the game is closed.</p>
       {/if}
       {#if !deeds.length && chosen.id.startsWith('place:') && numOf(chosen.id) === game.at}
-        <p class="note">You are standing here, and it is settled. Nothing else
-          to do but leave.</p>
+        <p class="note">Settled, and nothing left to do here. Tap a neighbour
+          to build toward it.</p>
       {/if}
     {:else if awayLine}
       <!-- What you missed while the phone was in a pocket. It sits where the
            panel already is, so it is not a second surface, and tapping any dot
            replaces it. -->
       <p class="away">{awayLine}</p>
-      <p class="note">Tap a dot.</p>
+      <p class="note">Tap a node.</p>
     {:else}
-      <p class="note">Tap a dot.</p>
+      <p class="note">Tap a node.</p>
     {/if}
   </section>
 </main>

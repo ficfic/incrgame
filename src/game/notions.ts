@@ -37,11 +37,10 @@ const always = (): boolean => true;
 
 export const NOTIONS: readonly Notion[] = [
   {
-    id: 'pace',
-    name: 'A pace',
-    body: 'Not a step — the measure of one, held in the hand before it is '
-      + 'spent. They arrive whether you attend to them or not, and they leave '
-      + 'all at once.',
+    id: 'stone',
+    name: 'What you bank',
+    body: 'You earn it by standing still. You spend it building edges and '
+      + 'settling places. That is the whole economy.',
     near: ['rest', 'making'],
     known: always,
   },
@@ -53,11 +52,10 @@ export const NOTIONS: readonly Notion[] = [
     // and the note beside it read "Standing still is the ABSENCE of a work
     // verb". There is a work verb now, so both were a sentence describing an
     // engine that no longer exists — the one thing this file forbids.
-    body: 'There is nothing here to start, and nothing to remember to restart. '
-      + 'Whoever waits is already working. What that costs you stays hidden '
-      + 'until the first time you find something better to do with the same '
-      + 'clock, and after that it is the only thing it costs.',
-    near: ['pace', 'settling'],
+    body: 'Nothing to start and nothing to restart — waiting is the work. The '
+      + 'cost only shows up the first time you have something better to do '
+      + 'with the same clock.',
+    near: ['stone', 'settling'],
     known: always,
   },
   {
@@ -65,29 +63,27 @@ export const NOTIONS: readonly Notion[] = [
     name: 'Settling',
     // Names `settleCost`, `YIELD` and the max-flow solve in `flow.ts` — that a
     // settled place makes paces, and that only what can reach you arrives.
-    body: 'A place you have settled makes paces whether you are standing in it '
-      + 'or not. What it makes still has to get to you along the ways you have '
-      + 'made, and a way will only carry so much. A settlement you cannot reach '
-      + 'is a settlement paying somebody else.',
-    near: ['free', 'pace'],
+    body: 'A settled place earns whether you are standing in it or not. '
+      + 'What it makes still has to reach you along the edges you built, and '
+      + 'an edge only carries so much. A settlement you cannot reach pays you '
+      + 'nothing at all.',
+    near: ['free', 'stone'],
     known: (g) => g.settled.length >= 2,
   },
   {
-    id: 'way',
-    name: 'A way',
-    body: 'Two places and the ground between them. Every way in the valley can '
-      + 'be seen from the first morning and not one of them can be walked. '
-      + 'Seeing has never been the same as having.',
+    id: 'edge',
+    name: 'An edge',
+    body: 'Every edge in the valley is visible from the first morning, and '
+      + 'none of them can be walked until you build it. Seeing is not having.',
     near: ['making', 'valley'],
     known: always,
   },
   {
     id: 'making',
     name: 'Making',
-    body: 'Paces laid along a line until the line will take weight. The valley '
-      + 'gains nothing by it. You gain a road. Everything else you do here '
-      + 'undoes itself by morning; this does not.',
-    near: ['way', 'free', 'frontier'],
+    body: 'Laid along a line until the line will take weight. It costs '
+      + 'more each time, wherever you build, and it is yours for good.',
+    near: ['edge', 'free', 'frontier'],
     known: (g) => g.solid.length > 0 || g.forging !== null,
   },
   {
@@ -97,28 +93,27 @@ export const NOTIONS: readonly Notion[] = [
     // put to you is which edge to open next". There are two questions now —
     // which edge, and whether to buy the ground that pays for it — so the old
     // sentence was a lie the moment settling shipped.
-    body: 'A way you have made asks nothing of you again, ever. Which is why '
-      + 'turning back is never a loss, and why what the valley asks you is not '
-      + 'where to go but what to spend the going on.',
+    body: 'An edge you have built asks nothing of you again. Turning back is '
+      + 'never a loss, so the question is never where to go — it is what to '
+      + 'spend on next.',
     near: ['making', 'settling'],
     known: (g) => g.solid.length >= 2,
   },
   {
     id: 'frontier',
     name: 'The frontier',
-    body: 'Each way costs more than the one before it, wherever you choose to '
-      + 'make it. Nothing is defending itself against you. You are simply '
-      + 'running out of cheap questions.',
+    body: 'Each edge costs more than the one before it, wherever you build it. '
+      + 'Nothing is defending itself against you — you are running out of '
+      + 'cheap questions.',
     near: ['making'],
     known: (g) => g.solid.length >= 3,
   },
   {
     id: 'valley',
     name: 'The valley',
-    body: 'Thirty-seven places and the ways between them, settled long before '
-      + 'you arrived and unmoved by anything you have done since. Only your '
-      + 'part of it changes shape.',
-    near: ['way'],
+    body: 'Thirty-seven places and the edges between them, laid out long '
+      + 'before you arrived. Only your part of it changes shape.',
+    near: ['edge'],
     known: (g) => g.seen.length >= 3,
   },
 ];

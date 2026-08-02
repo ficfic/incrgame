@@ -126,7 +126,7 @@ describe('★ what you are doing, said out loud', () => {
     const g = apply({ ...initial(), at: worded.id, seen: [START, worded.id] },
       { type: 'work' });
     expect(doingOf(g).name).toBe(worded.work!.label);
-    expect(doingOf(g).body).toContain('No paces while you work');
+    expect(doingOf(g).body).toContain('Nothing banked while you work');
   });
 
   it('always says the rate, because that is what standing still pays', () => {
@@ -141,15 +141,15 @@ describe('★ what you are doing, said out loud', () => {
     // exported and called by nothing.
     const g = initial();
     const cheapest = waysFrom(g).sort((a, b) => a.cost - b.cost)[0]!;
-    expect(doingOf(g).body).toContain(`The way to ${cheapest.name} in`);
+    expect(doingOf(g).body).toContain(`Enough for the edge to ${cheapest.name} in`);
     expect(doingOf(g).body).toMatch(/in \d+s\./);
   });
 
   it('switches to what you can already buy once you can buy it', () => {
     const g = rest(initial(), 200);
     const body = doingOf(g).body!;
-    expect(body).toContain('Enough in hand for the way to');
-    expect(body).not.toContain('The way to ');
+    expect(body).toContain('Enough in hand for the edge to');
+    expect(body).not.toContain('Enough for the edge to ');
   });
 
   it('★ becomes the fill, and counts it down', () => {
@@ -157,7 +157,7 @@ describe('★ what you are doing, said out loud', () => {
     const to = PLACE.get(START)!.ways[0]!;
     g = apply(g, { type: 'forge', to });
     const n = doingOf(g);
-    expect(n.name).toBe('Making a way');
+    expect(n.name).toBe('Building an edge');
     expect(n.body).toContain(PLACE.get(to)!.name);
     expect(n.body).toContain(`${forgeSecs(rest(initial(), 200))}s left`);
     // ...and the number is the fill's, so it moves as the fill does.
@@ -187,7 +187,7 @@ describe('★ what you are doing, said out loud', () => {
     }
     // Standing back at the start with every way out already made.
     expect(g.at).toBe(START);
-    expect(doingOf(g).body).toContain('Every way from here is made.');
+    expect(doingOf(g).body).toContain('Every edge from here is built.');
   });
 });
 

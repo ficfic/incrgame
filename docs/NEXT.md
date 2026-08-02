@@ -243,7 +243,7 @@ doors now that a level exists to open them with. The small items below (5, 7,
 
 ## ★ FROM THE SECOND PLAY-TEST, 2026-08-01
 
-### 5. Vocabulary: node and edge, not dot and connection
+### ~~5. Vocabulary: node and edge, not dot and connection~~ ✅ 2026-08-01
 
 > *"It says tap a dot. Prefer them to be called a node."*
 > *"'Tap a neighbouring dot to make a way to it' — I would prefer it to be
@@ -418,7 +418,7 @@ The biggest item and the least specified. **Not to be started without a plan the
 owner has seen.** Items/keys explicitly deferred: *"I don't wanna go as far as
 the key at the moment."*
 
-### 15. Paces: the word and the reason
+### ~~15. Paces: the word and the reason~~ 🟡 HALF DONE 2026-08-01
 
 > *"I don't understand why I'm generating the paces while I'm standing still…
 > it is a bit strange that pace is the resource. I accumulate paces like a step.
@@ -426,6 +426,21 @@ the key at the moment."*
 
 Two complaints, not one: the NAME is wrong for a thing you bank, and the game
 never says why standing still pays.
+
+**The name is fixed: it is STONE.** *"pace is absolutely stupid resource, why are
+we still using it? i asked to remove it multiple times"* — and they were right,
+it had been asked for and skipped through five straight items. `pace` was also
+literally a rate word, so the header read `12 paces +0.33 a second`, which is
+speed per second.
+
+⚠️ **The second half is not fixed and is now bigger than a word.** The owner,
+same session: *"i think we need to re-do entire economy again…"* That is an open
+item, unspecified, and it is the top of the queue.
+
+★ **AND IT IS ENFORCED NOW, NOT REMEMBERED.** `scripts/check-words.mjs` fails
+the build if any player-facing string says dot, dots, pace or paces, or uses
+"way" as the noun for the thing between two places. It is in `npm run guard`.
+The reason it exists is that asking three times did not work.
 
 ### 16. Start over says nothing
 

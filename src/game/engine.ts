@@ -33,8 +33,12 @@ export interface Game {
   at: number;
   /** Everywhere you have been, in order of first arrival. */
   seen: number[];
-  /** The only resource. Whole numbers — a fractional pace is not a thing you
-   *  can take, and showing 4.7 of something you spend in ones is a readout
+  /** ★ THE ONLY RESOURCE — called STONE on screen since 2026-08-01. The field
+   *  keeps its old name so the save shape does not change for a rename; every
+   *  player-facing string says stone, and `scripts/check-words.mjs` makes sure
+   *  it stays that way.
+   *
+   *  Whole numbers: showing 4.7 of something you spend in ones is a readout
    *  arguing with itself. */
   paces: number;
   /** Fractional progress toward the next pace, never shown.
@@ -152,7 +156,7 @@ export function unsettleable(g: Game): string | null {
   const f = holder(g);
   if (f) return `${f.name} is standing here`;
   const cost = settleCost(g);
-  if (cost > g.paces) return `${cost} paces — you have ${g.paces}`;
+  if (cost > g.paces) return `${cost} — you have ${g.paces}`;
   return null;
 }
 
@@ -211,7 +215,7 @@ export function winnable(g: Game): boolean {
 /** Why you cannot put it out, or null. */
 export function unpokeable(g: Game): string | null {
   if (!holder(g)) return 'nothing is standing here';
-  if (g.fight) return 'already at it';
+  if (g.fight) return 'already fighting it';
   return null;
 }
 
@@ -307,8 +311,8 @@ export function forgeSecs(g: Game): number {
 /** Why you cannot WALK there. R4.4: a dotted route is not one yet. */
 export function blocked(g: Game, to: number): string | null {
   const here = PLACE.get(g.at);
-  if (!here?.ways.includes(to)) return 'no way from here';
-  if (!g.solid.includes(edgeKey(g.at, to))) return 'the way is not made yet';
+  if (!here?.ways.includes(to)) return 'no edge joins these';
+  if (!g.solid.includes(edgeKey(g.at, to))) return 'that edge is not built yet';
   return null;
 }
 
@@ -346,8 +350,8 @@ export function payout(g: Game, to: number): string | null {
 
 export function unforgeable(g: Game, to: number): string | null {
   const here = PLACE.get(g.at);
-  if (!here?.ways.includes(to)) return 'nothing joins these';
-  if (g.solid.includes(edgeKey(g.at, to))) return 'already made';
+  if (!here?.ways.includes(to)) return 'no edge joins these';
+  if (g.solid.includes(edgeKey(g.at, to))) return 'already built';
   // ★ THE DOOR, AND IT IS CHECKED BEFORE THE PRICE. Told it needs 24 paces you
   // do not have, you wait; told it needs a level you do not have, you go and
   // work. Reporting the cheaper obstacle first would send the player to do the
@@ -355,22 +359,22 @@ export function unforgeable(g: Game, to: number): string | null {
   // around until I got to a stop".
   const want = demandOn(g, to);
   if (want > levelOf(g.wayfaring)) {
-    return `wayfaring ${want} — you are ${levelOf(g.wayfaring)}`;
+    return `needs wayfaring ${want} — you have ${levelOf(g.wayfaring)}`;
   }
   // ★ AND A LOCK, WHICH IS THE SAME RULE WITH A DIFFERENT KEY. A way that is
   // live BECAUSE its key is droppable (`places.ts`), so this can never be a
   // door with nothing behind it.
   const lock = lockOn(g, to);
-  if (lock) return `you need the ${THING.get(lock)?.name ?? lock}`;
+  if (lock) return `locked — needs the ${THING.get(lock)?.name ?? lock}`;
   // ★ YOU MAY ONLY BUILD OUT OF A PLACE THAT PRODUCES. This is the rule that
   // turns two lists into a game: pushing into the far valley means settling a
   // chain of bases behind you, so income is not a side dish to progress, it is
   // the gate on it. `engine.ts` has claimed "where you park decides what you
   // can reach" since the first commit; until this line it was a comment.
   if (!g.settled.includes(g.at)) return 'settle here first';
-  if (g.forging) return 'you are already making one';
+  if (g.forging) return 'already building one';
   const cost = costOf(g, to);
-  if (cost > g.paces) return `${cost} paces — you have ${g.paces}`;
+  if (cost > g.paces) return `${cost} — you have ${g.paces}`;
   return null;
 }
 

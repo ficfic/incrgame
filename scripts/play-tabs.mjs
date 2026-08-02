@@ -174,7 +174,7 @@ await page.locator('.map .node.you').first().click({ timeout: 3000 }).catch(() =
 await page.waitForTimeout(300);
 const stillTaps = await page.$eval('.panel', (e) => e.textContent.trim());
 console.log('  tap     :', `"${stillTaps.slice(0, 40)}"`);
-if (stillTaps.startsWith('Tap a dot')) misses.push('turning off dragging also killed tapping on the Journey');
+if (stillTaps.startsWith('Tap a node')) misses.push('turning off dragging also killed tapping on the Journey');
 
 // ★ A FRAME BUDGET, so a heavy feature cannot land silently.
 //
@@ -295,13 +295,13 @@ for (const bad of ['skill', 'level', 'xp', 'ways out', 'places found']) {
 const carried = await page.$$eval(".map .node[data-kind='item'] .label", (t) => t.map((x) => x.textContent));
 console.log('  carried :', carried.length ? carried.join(' · ') : '(nothing)');
 if (!carried.length) misses.push('Self has no inventory at all');
-if (!carried.some((c) => /paces?$/.test(c ?? ''))) misses.push('the inventory does not hold your paces');
+if (!carried.some((c) => /in hand$/.test(c ?? ''))) misses.push('the inventory does not hold what you bank');
 const factOne = page.locator(".map .node[data-kind='fact']").first();
 await factOne.click({ timeout: 3000 }).catch((e) => misses.push(`stat dot: ${e}`));
 await page.waitForTimeout(300);
 const factSaid = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
 console.log('  reads   :', `"${factSaid.slice(0, 110)}"`);
-if (factSaid.startsWith('Tap a dot')) misses.push('tapping a stat read nothing');
+if (factSaid.startsWith('Tap a node')) misses.push('tapping a stat read nothing');
 
 // ★ THOUGHTS — what you understand, and how it connects. Build-order step 6.
 // The item it answers said the tab needed something in it that is NOT a place.
@@ -320,7 +320,7 @@ await lit.click({ timeout: 3000 }).catch((e) => misses.push(`thought dot: ${e}`)
 await page.waitForTimeout(300);
 const read = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
 console.log('  reads   :', `"${read.slice(0, 110)}"`);
-if (read.startsWith('Tap a dot')) misses.push('tapping a thought read nothing');
+if (read.startsWith('Tap a node')) misses.push('tapping a thought read nothing');
 if (/Somewhere you have not been/.test(read)) misses.push('a notion is described as a place');
 // ★ A NOTION YOU HAVE NOT THOUGHT MUST LOOK UNTHOUGHT. This is how the tab
 // shows progress at all, and it once drew every dot at full brightness and full
@@ -439,7 +439,7 @@ if (await openDot.count()) {
   const arrived = await page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
   const headNow = await page.$eval('header', (e) => e.textContent.replace(/\s+/g, ' ').trim());
   console.log('  panel   :', `"${arrived.slice(0, 80)}"`);
-  if (arrived.startsWith('Tap a dot')) misses.push('arriving somewhere selected nothing — the prose went nowhere');
+  if (arrived.startsWith('Tap a node')) misses.push('arriving somewhere selected nothing — the prose went nowhere');
   if (arrived.length < 60) misses.push('the panel has no prose for the place just reached');
   if (headNow.length > 60) misses.push(`prose reappeared in the header on arrival: "${headNow.slice(0, 60)}"`);
   const found = await page.$$eval('.map .node.you .label', (t) => t.map((x) => x.textContent));
@@ -473,7 +473,7 @@ if (await jobDeed.count()) {
   await page.locator('nav button', { hasText: 'Self' }).click();
   await page.waitForTimeout(300);
   const sheetBefore = await page.$$eval('.map .node .label', (t) => t.map((x) => x.textContent));
-  const wayBefore = sheetBefore.find((s) => /^A way takes/.test(s ?? ''));
+  const wayBefore = sheetBefore.find((s) => /^Edge:/.test(s ?? ''));
   const skillBefore = sheetBefore.find((s) => /^Wayfaring/.test(s ?? ''));
   console.log('  before  :', `${skillBefore} · ${wayBefore}`);
   if (!skillBefore) misses.push('Self does not show the skill at all');
@@ -507,7 +507,7 @@ if (await jobDeed.count()) {
   await page.locator('nav button', { hasText: 'Self' }).click();
   await page.waitForTimeout(400);
   const sheetAfter = await page.$$eval('.map .node .label', (t) => t.map((x) => x.textContent));
-  const wayAfter = sheetAfter.find((s) => /^A way takes/.test(s ?? ''));
+  const wayAfter = sheetAfter.find((s) => /^Edge:/.test(s ?? ''));
   const skillAfter = sheetAfter.find((s) => /^Wayfaring/.test(s ?? ''));
   console.log('  after   :', `${skillAfter} · ${wayAfter}`);
   if (skillAfter === skillBefore) misses.push(`the skill did not move: still "${skillAfter}" after a full turn of work`);

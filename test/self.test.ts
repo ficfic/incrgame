@@ -67,8 +67,8 @@ describe('Self is you, and everything hangs off you', () => {
     // R1.2: `item`/`carries` already existed in the vocabulary and nothing had
     // used them. An inventory that invents its own relation is a second model.
     const v = self(played());
-    expect(v.nodes.find((n) => n.id === 'carry:paces')!.kind).toBe('item');
-    expect(v.edges).toContainEqual({ a: 'you', b: 'carry:paces', rel: 'carries' });
+    expect(v.nodes.find((n) => n.id === 'carry:it')!.kind).toBe('item');
+    expect(v.edges).toContainEqual({ a: 'you', b: 'carry:it', rel: 'carries' });
     for (const id of ['stat:gather', 'stat:making']) {
       expect(v.edges).toContainEqual({ a: 'you', b: id, rel: 'has' });
     }
@@ -79,8 +79,11 @@ describe('★ the inventory', () => {
   it('holds what is in your hand, in the same word the header uses', () => {
     // Set rather than earned: the rate is solved from the graph now, so "rest
     // for 7 paces' worth of seconds" is no longer a fixed number of seconds.
-    expect(nodeOf({ ...initial(), paces: 7 }, 'carry:paces').name).toBe('7 paces');
-    expect(nodeOf({ ...initial(), paces: 1 }, 'carry:paces').name).toBe('1 pace');
+    expect(nodeOf({ ...initial(), paces: 7 }, 'carry:it').name).toBe('7 in hand');
+    // ⚠️ NO PLURAL BRANCH ANY MORE. "Stone" is its own plural, which is one of
+    // the reasons it beat "paces" — `1 pace / 2 paces` was a branch in the
+    // header AND on this node, and the two could drift.
+    expect(nodeOf({ ...initial(), paces: 1 }, 'carry:it').name).toBe('1 in hand');
   });
 
   it('★ holds nothing else, because nothing else can be held yet', () => {
@@ -89,7 +92,7 @@ describe('★ the inventory', () => {
     // eleven-systems mistake in miniature. When drops arrive, so do they, and
     // this test should be the thing that fails.
     const carried = self(played()).nodes.filter((n) => n.kind === 'item');
-    expect(carried.map((n) => n.id)).toEqual(['carry:paces']);
+    expect(carried.map((n) => n.id)).toEqual(['carry:it']);
   });
 });
 
@@ -107,13 +110,13 @@ describe('★ the stats are yours, not the valley\'s', () => {
 
   it('reads what making a way costs you right now, in time and in paces', () => {
     const g = played();
-    expect(nodeOf(g, 'stat:making').name).toBe(`A way takes ${forgeSecs(g)}s`);
+    expect(nodeOf(g, 'stat:making').name).toBe(`Edge: ${forgeSecs(g)}s`);
     const next = waysFrom(g).filter((w) => !w.made).sort((a, b) => a.cost - b.cost)[0];
     if (next) {
-      expect(nodeOf(g, 'stat:making').body).toContain(`${next.cost} paces`);
+      expect(nodeOf(g, 'stat:making').body).toContain(`${next.cost} `);
       expect(next.cost).toBe(costOf(g, next.to));
     } else {
-      expect(nodeOf(g, 'stat:making').body).toContain('already made');
+      expect(nodeOf(g, 'stat:making').body).toContain('already built');
     }
   });
 
@@ -166,7 +169,7 @@ describe('★ the game statistics stay off the character sheet', () => {
     const skilled = { ...raw, wayfaring: xpFor(LEVEL_CAP) };
     expect(levelOf(skilled.wayfaring)).toBe(LEVEL_CAP);
     expect(forgeSecs(skilled)).toBeLessThan(forgeSecs(raw));
-    expect(nodeOf(skilled, 'stat:making').name).toBe(`A way takes ${forgeSecs(skilled)}s`);
+    expect(nodeOf(skilled, 'stat:making').name).toBe(`Edge: ${forgeSecs(skilled)}s`);
   });
 
   it('★ and the thing that used to block it no longer holds', () => {

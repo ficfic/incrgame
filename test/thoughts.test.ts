@@ -68,7 +68,11 @@ describe('the notions themselves', () => {
   it('keeps every body short enough to read on a phone', () => {
     for (const n of NOTIONS) {
       const words = n.body.trim().split(/\s+/).length;
-      expect(words, `${n.name} is ${words} words`).toBeGreaterThanOrEqual(25);
+      // ⚠️ FLOOR LOWERED FROM 25 ON PURPOSE, 2026-08-01. The owner: "I'm so
+      // tired of it." These ran 40–60 words to state rules that fit in twelve,
+      // and the floor was quietly enforcing that. A notion has to say the rule;
+      // it does not have to say it at length.
+      expect(words, `${n.name} is ${words} words`).toBeGreaterThanOrEqual(12);
       expect(words, `${n.name} is ${words} words`).toBeLessThanOrEqual(65);
     }
   });
@@ -95,7 +99,7 @@ describe('★ the tab fills in from what you do', () => {
   });
 
   it('opens with the three you can see without doing anything', () => {
-    expect(named(initial()).sort()).toEqual(['pace', 'rest', 'way']);
+    expect(named(initial()).sort()).toEqual(['edge', 'rest', 'stone']);
   });
 
   it('★ teaches Making the moment you make something, and not before', () => {
@@ -168,7 +172,7 @@ describe('★ every notion says something the engine actually does', () => {
     // halves of the new sentence are checked: resting needs no action, and the
     // clock spent working is a clock that pays no paces.
     expect(rest(initial(), 30).paces).toBeGreaterThan(0);
-    expect(NOTION.get('rest')!.body).toMatch(/nothing here to start/);
+    expect(NOTION.get('rest')!.body).toMatch(/Nothing to start/);
     const worked = apply({ ...initial(), at: WORKED[0]! }, { type: 'work' });
     expect(rest(worked, 30).paces).toBe(worked.paces);
     expect(rest(worked, 30).wayfaring).toBeGreaterThan(0);
@@ -179,6 +183,6 @@ describe('★ every notion says something the engine actually does', () => {
     const cut = { ...initial(), settled: [START, to] };
     const joined = { ...cut, solid: [edgeKey(START, to)] };
     expect(rate(joined)).toBeGreaterThan(rate(cut));
-    expect(NOTION.get('settling')!.body).toMatch(/has to get to you/);
+    expect(NOTION.get('settling')!.body).toMatch(/has to reach you/);
   });
 });
