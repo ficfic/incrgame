@@ -85,12 +85,33 @@ not in scope however good it is.
 6. **Choose-your-own-adventure**, branching, authored.
 7. **Battles.** Your dot against an enemy dot; they poke each other; one dot goes
    out. Combat is graph-native, not a separate screen.
-8. **The twist: it is all AI.** The fantasy is the surface. At the end it turns
-   out the player is an AI travelling a graph to explore and learn — a model.
-   This is the reveal, and it must be **mechanically true before it is stated**,
-   which is the one lesson `VISION.md` got right and the build never delivered.
-9. **Prestige rotates around the twist.** Whatever carries across a reset is the
-   thing that makes the reveal land.
+8. ~~**The twist: it is all AI.**~~ ★ **VOID — CUT BY THE OWNER, 2026-08-02:**
+   *"screw AI idea, we can do cool graphs without AI premise."*
+
+   Kept on record because it was load-bearing for months: it is why
+   `notions.ts` exists, why Thoughts is a tab, and why prestige was never
+   designed. The original text: *the fantasy is the surface; at the end it
+   turns out the player is an AI travelling a graph to explore and learn — a
+   model; the reveal must be mechanically true before it is stated.*
+
+   The case that killed it, from `the-redditor`, and the owner agreed:
+   it contradicts the new premise's only source of weight (the families are
+   real; "it was a training run" declares every choice about them a prop); it
+   fails this brief's own test, because a road network is not a model learning
+   anything and calling a survey ledger "weights" is a costume change; and
+   there have been hundreds of "you were the AI" pages since Universal
+   Paperclips, so it is a genre marker rather than a twist.
+
+   ⚠️ **This does NOT void "a graph is the game".** The owner's line was
+   *cool graphs WITHOUT the AI premise.* The graph is more load-bearing now,
+   not less — it is the chief engineer's plan, a physical object in the world.
+
+9. ~~**Prestige rotates around the twist.**~~ ★ **VOID with 8.** What replaces
+   it is **the survey**: you finish the plan, the kingdom issues a new plan over
+   the same ground, the roads reset and **what you learned about the terrain does
+   not** — this ford is passable in summer, this wood eats three days a mile,
+   this family will board a crew. Knowledge persists, infrastructure does not,
+   which is how surveying actually works. Not yet approved in detail.
 10. **Inventory and resources.** Keys, passwords, things you carry. A currency
     exists; its name and source are not yet decided.
 
