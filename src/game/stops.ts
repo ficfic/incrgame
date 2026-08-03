@@ -24,7 +24,7 @@
 
 /** The ground a stop sits on. Drives what a road out of it costs, and later
  *  what the weather does to it. Inks for all five already exist in `ink.ts`. */
-export type Ground = 'moor' | 'wood' | 'crag' | 'water' | 'stone';
+export type Ground = 'moor' | 'wood' | 'crag' | 'water' | 'stone' | 'bog';
 
 /** ★ THE GROUND IS THE PRICE. The owner has asked twice for height and contours
  *  on the map; this is the number those contours will be a picture OF. */
@@ -32,6 +32,7 @@ export const GOING: Record<Ground, number> = {
   moor: 1,       // open, level, dull — the cheap way round
   stone: 1.3,    // hard going but it takes a road well
   wood: 1.7,     // has to be cleared before it can be cut
+  bog: 2.1,      // everything you lay sinks a little before it holds
   crag: 2.4,     // steep
   water: 3.1,    // needs a ford or a bridge
 };
@@ -50,6 +51,7 @@ export const GOING: Record<Ground, number> = {
  *  "more options"; the options are here or they are nowhere. */
 export const BORE: Record<Ground, number> = {
   moor: 0.55,    // cheap to lay, and it never carries much
+  bog: 0.70,     // dear AND narrow — the ground that is simply bad
   wood: 0.90,
   water: 0.85,   // dear, and a ford is a ford
   crag: 1.25,    // cut into rock, and it holds
@@ -113,7 +115,7 @@ const LENGTH = [4, 5, 6, 5, 4];
  *  reason there is a choice. */
 const TERRAIN: Ground[][] = [
   ['moor', 'moor', 'stone', 'moor'],
-  ['wood', 'wood', 'moor', 'wood', 'stone'],
+  ['wood', 'bog', 'bog', 'wood', 'stone'],
   ['moor', 'stone', 'moor', 'stone', 'moor', 'moor'],
   ['crag', 'crag', 'stone', 'crag', 'moor'],
   ['water', 'water', 'crag', 'water'],

@@ -81,6 +81,13 @@ export const INK = {
   edgecrag: '#7a6f5c',
   edgemoor: '#a8964a',
   edgewater: '#1f7fae',
+  bog: '#8aa06a',
+  edgebog: '#55703a',
+  /** ★ THE SEA, along the map's western edge, and the BEACH line where it meets
+   *  the land. Decor with a promise in it: *"the sea somewhere and beaches"* —
+   *  the first thing on this map not centred on a stop. */
+  sea: '#9cc7de',
+  beach: '#d9b45f',
 } as const;
 
 export type InkName = keyof typeof INK;
@@ -125,6 +132,8 @@ export const TOL: Partial<Record<InkName, number>> = {
   crag: 12,
   wood: 12,
   river: 12,
+  sea: 12,
+  beach: 12,
 };
 export const COUNTED = Object.keys(TOL) as InkName[];
 

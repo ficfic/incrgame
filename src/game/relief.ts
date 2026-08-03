@@ -33,6 +33,7 @@ import type { Shape, Pt } from './shapes';
  *  low. Deriving one from the other would make the river a ridge. */
 export const HEIGHT: Record<Ground, number> = {
   water: 0,
+  bog: 14,       // the wet low ground the water almost claims
   moor: 34,
   wood: 52,
   stone: 66,
@@ -210,7 +211,7 @@ export function regions(): Region[] {
   // ⚠️ STONE IS DELIBERATELY NOT A REGION. It is the neutral ground the start
   // and the finish sit on and it turns up all over; ringing it would draw a
   // border round most of the map and say nothing.
-  for (const ground of ['wood', 'crag', 'water', 'moor'] as Ground[]) {
+  for (const ground of ['wood', 'crag', 'water', 'moor', 'bog'] as Ground[]) {
     const mine = STOPS.filter((p) => p.ground === ground).map((p) => SPOT.get(p.id)!);
     // Single-link clustering: near anything in the group joins the group.
     const left = [...mine];

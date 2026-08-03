@@ -15,12 +15,12 @@
 //
 // Nothing here knows about the canvas, the camera or the game. It is geometry.
 import { STOPS } from './stops';
-import { SPOT, boxOf, type Box } from './layout';
+import { SPOT, boxOf, VIEW, type Box } from './layout';
 import { INK, type InkName } from './ink';
 import type { Shape, Pt } from './shapes';
 import { contours, regions, HEIGHT } from './relief';
 
-export type Ground = 'wood' | 'moor' | 'crag' | 'under' | 'stone';
+export type Ground = 'wood' | 'moor' | 'crag' | 'under' | 'stone' | 'bog';
 
 /** ⚠️ THE COLOURS LIVE IN `ink.ts` NOW, with every other colour in the game.
  *  Re-exported because the constraint on them is still specific to scenery: the
@@ -29,6 +29,7 @@ export type Ground = 'wood' | 'moor' | 'crag' | 'under' | 'stone';
  *  vacuous. `test/ink.test.ts` holds the distances for all of them now. */
 export const GROUND_INK: Record<Ground, string> = {
   wood: INK.wood, moor: INK.moor, crag: INK.crag, under: INK.under, stone: INK.stone,
+  bog: INK.bog,
 };
 export const RIVER_INK = INK.river;
 
@@ -38,7 +39,7 @@ export const RIVER_INK = INK.river;
  *  of it, and this draws the same fact. **What you see and what you pay are one
  *  number now**, which is the whole reason the map is worth looking at. */
 const GROUND: Record<string, Ground> = {
-  wood: 'wood', moor: 'moor', crag: 'crag', stone: 'stone',
+  wood: 'wood', moor: 'moor', crag: 'crag', stone: 'stone', bog: 'bog',
   // Water is drawn as the river below rather than as scatter.
   water: 'moor',
 };
@@ -118,6 +119,17 @@ function markShapes(m: Mark): Shape[] {
       { x: m.x + m.r, y: m.y },
     ] }];
   }
+  if (m.g === 'bog') {
+    // Two short rushes over a water-line — the standard marsh mark.
+    return [
+      { s: 'path', ink: m.g, w, pts: [
+        { x: m.x - m.r, y: m.y }, { x: m.x + m.r, y: m.y }] },
+      { s: 'path', ink: m.g, w, pts: [
+        { x: m.x - m.r * 0.4, y: m.y - m.r * 0.9 }, { x: m.x - m.r * 0.4, y: m.y }] },
+      { s: 'path', ink: m.g, w, pts: [
+        { x: m.x + m.r * 0.4, y: m.y - m.r * 0.9 }, { x: m.x + m.r * 0.4, y: m.y }] },
+    ];
+  }
   if (m.g === 'crag' || m.g === 'stone') {
     const c = Math.cos(m.a), sn = Math.sin(m.a);
     const at = (dx: number, dy: number): Pt =>
@@ -185,8 +197,35 @@ const LEVELS = (() => {
 
 const RING_INK: Record<string, InkName> = {
   wood: 'edgewood', crag: 'edgecrag', moor: 'edgemoor', water: 'edgewater',
-  stone: 'edgecrag',
+  stone: 'edgecrag', bog: 'edgebog',
 };
+
+/** ★ THE COAST. The sea runs down the map's western edge with a beach line
+ *  where it meets the land — a wavering line, because a ruled coast reads as a
+ *  border. Pure decor for now and honestly so: nothing prices it, nothing stops
+ *  at it. It is the first mark on this map that is not centred on a stop. */
+const COAST: Shape[] = (() => {
+  // ⚠️ BASED ON `VIEW` — THE CAMERA'S BOX — NOT ON THE TERRAIN'S. The first cut
+  // used `TERRAIN.box`, which starts a scatter-width further west than the
+  // frame the board fits to, and the whole sea painted off the left edge of the
+  // screen: the probe read 0px and the screenshot showed one yellow sliver.
+  // Decor the player cannot see is decor that does not exist.
+  const b = TERRAIN.box;
+  const west = VIEW.x;
+  const shore: Pt[] = [];
+  for (let y = b.y; y <= b.y + b.h; y += 18) {
+    shore.push({ x: west + 42 + 9 * Math.sin(y / 84) + 4 * Math.sin(y / 31), y });
+  }
+  const water: Pt[] = [
+    { x: b.x - 40, y: b.y }, ...shore, { x: b.x - 40, y: b.y + b.h },
+  ];
+  return [
+    { s: 'path', pts: water, ink: 'sea', fill: true, close: true, alpha: 0.5 },
+    { s: 'path', pts: shore, ink: 'beach', w: 2.6, alpha: 0.9 },
+    { s: 'path', pts: shore.map((p) => ({ x: p.x + 5, y: p.y })), ink: 'beach',
+      w: 1, dash: [2, 5], alpha: 0.8 },
+  ];
+})();
 
 export const TERRAIN_SHAPES: Shape[] = [
   // ★ THE RELIEF GOES DOWN FIRST, UNDER EVERYTHING. It is the ground; the
@@ -194,6 +233,7 @@ export const TERRAIN_SHAPES: Shape[] = [
   {
     s: 'baked', key: 'relief', box: TERRAIN.box, alpha: 0.9,
     shapes: [
+      ...COAST,
       ...contours(TERRAIN.box, LEVELS).map((pts): Shape =>
         ({ s: 'path', pts, ink: 'relief', w: 1, curve: true })),
       // The region outlines, dashed, in the ground's own colour — so the line

@@ -81,6 +81,7 @@ const ground = (g: string): string => ({
   crag: 'Crag — steep',
   water: 'Water — needs a ford or a bridge',
   stone: 'Hard standing — takes a pipe well',
+  bog: 'Bog — it swallows what you lay in it',
 }[g] ?? g);
 
 export const DOING = 'doing';

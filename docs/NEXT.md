@@ -163,7 +163,16 @@ What is worth taking is CONVENTION, not code:
 - **Dash vocabulary** — a footpath, a track and a road are told apart by dash
   pattern, not colour.
 
-## ★★★ THE MAP, ROUND TWO — 2026-08-02, later the same day
+## ✅ DONE 2026-08-03 — map round two, all four
+
+E: the fill grows from the end you laid it from (`building.from`, SAVE_VERSION 6).
+F: a finished lay carries you over; you are a red map pin.
+Cartography: built pipes are cased; labels drop losers by priority; roads BEND,
+and the bend takes the lower ground, with the fill following by length.
+G: bog is a ground (dear AND narrow); the sea runs down the west edge with a
+beach line. Sea/beach are decor and honestly so — nothing prices them yet.
+
+## ★★★ superseded — THE MAP, ROUND TWO — 2026-08-02
 
 Five more, in the owner's words. **E and F are corrections to shipped behaviour**
 — one is a bug they have now reported twice. **G and H are the look.**

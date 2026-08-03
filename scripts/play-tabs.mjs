@@ -250,6 +250,15 @@ const groundPx = (await ink('moor')) + (await ink('crag'));
 // map — which this project has shipped. These are the pixels.
 const reliefPx = await ink('relief');
 const edgePx = (await ink('edgewood')) + (await ink('edgewater')) + (await ink('edgemoor'));
+// ★ THE COAST. *"the sea somewhere and beaches"* — a band of sea down the west
+// edge with a beach line where it meets the land, the first mark on this map
+// not centred on a stop. Counted, because decor that stops being drawn fails
+// no unit test anywhere.
+const seaPx = await ink('sea');
+const beachPx = await ink('beach');
+console.log('  coast   :', `${seaPx}px of sea, ${beachPx}px of beach`);
+if (seaPx < 500) misses.push(`only ${seaPx}px of sea — the coast is not drawn`);
+if (beachPx < 100) misses.push(`only ${beachPx}px of beach along it`);
 console.log('  stops   :', allStops);
 console.log('  routes  :', `${dottedPx}px dotted, ${builtPx}px built`);
 console.log('  ground  :', `${groundPx}px of terrain under it`);
