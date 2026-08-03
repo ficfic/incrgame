@@ -14,7 +14,7 @@ import { STOPS, STOP, START, FINISH, nameOf, GOING } from './stops';
 import type { Game } from './engine';
 import { STATS } from './dice';
 import { roadsOut, roadCost, buildSecs, manaRate, waitFor, reached, crossed,
-  roadKey, unbuildable, MAX_GAUGE } from './engine';
+  roadKey, unbuildable, climbTo, MAX_GAUGE } from './engine';
 
 /** Mana a second, said the same way everywhere it is said. */
 const perSec = (n: number): string => `${n.toFixed(2)} a second`;
@@ -153,12 +153,15 @@ export function self(g: Game): View {
         body: 'What the network actually delivers to where you stand. The narrowest '
           + 'pipe between here and the start governs the lot, so widening a tight '
           + 'one is worth more than laying a slack one.' },
-      // ★ THE CREW. Five stats and the momentum they bank — Ironsworn's, by
-      // its CC BY 4.0 licence (attribution in README.md and dice.ts).
-      { id: 'stat:crew', kind: 'fact',
-        name: STATS.map((s) => `${s} ${g.stats[s]}`).join(' · '),
-        body: 'What a roll leans on. The dock names which stat carries each '
-          + 'choice when something blocks the line.' },
+      // ★ THE CREW. Five stats, EACH ITS OWN NODE — the owner, on seeing them
+      // crammed into one: *"that doesn't look right, each stat should be a
+      // node."* Ironsworn's five, by its CC BY 4.0 licence (attribution in
+      // README.md and dice.ts).
+      ...STATS.map((s) => ({
+        id: `stat:${s}`, kind: 'fact' as const, name: `${s} ${g.stats[s]}`,
+        body: 'What a roll leans on when this stat carries the choice. One die '
+          + 'and this, against two.',
+      })),
       { id: 'stat:momentum', kind: 'fact', name: `momentum ${g.momentum >= 0 ? '+' : ''}${g.momentum}`,
         body: 'Banked nerve. After a bad roll you can burn it to overrule the '
           + 'dice — it resets to +2 and the world moves on.' },
@@ -174,7 +177,7 @@ export function self(g: Game): View {
       { a: 'you', b: stopId(g.at), rel: 'stands' },
       { a: 'you', b: 'carry:mana', rel: 'carries' },
       { a: 'you', b: 'stat:flow', rel: 'has' },
-      { a: 'you', b: 'stat:crew', rel: 'has' },
+      ...STATS.map((s) => ({ a: 'you', b: `stat:${s}`, rel: 'has' as const })),
       { a: 'you', b: 'stat:momentum', rel: 'has' },
       { a: 'you', b: 'stat:next', rel: 'has' },
     ],
@@ -250,7 +253,7 @@ export function deedsFor(g: Game, nodeId: string): Deed[] {
       ? `Widen the pipe to ${r.name} (${r.gauge} of ${MAX_GAUGE})`
       : `Lay the pipe to ${r.name}`,
     note: why ?? `${r.cost} mana · ${buildSecs(g, id)}s · carries `
-      + `${((r.gauge + 1) * r.bore).toFixed(2)} a second`,
+      + `${((r.gauge + 1) * r.bore).toFixed(2)} a second · climbs ${climbTo(g, id)}`,
   }];
 }
 

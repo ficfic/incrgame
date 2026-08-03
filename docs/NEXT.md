@@ -172,6 +172,37 @@ and the bend takes the lower ground, with the fill following by length.
 G: bog is a ground (dear AND narrow); the sea runs down the west edge with a
 beach line. Sea/beach are decor and honestly so — nothing prices them yet.
 
+## ★★★ THE EXPEDITION PLAN — 2026-08-03, the owner's design, agreed in chips
+
+The owner: *"making a leg from one stop to another Must be a challenge. And it
+should be slow… you need to prepare first… multiple events while building…
+based on how you are prepared, plus based on your stats, you either succeed or
+fail. When you fail, you go back completely or a little, lose resources… we
+need some other resource other than mana… maybe mana should be tapable — tap,
+tap, tap — this is your idle element… pipes are magical, no brass — but you
+need provisions… wagon or cart or on foot depending on terrain… slow the game
+down way more."*
+
+Chosen: **full package, in this order, one session each.**
+
+1. **✦ THE HEIGHT GRID** *(this session)* — topography becomes the MODEL, not a
+   by-product of stop grounds. A coarse sampled grid; contours, road bends,
+   scenery and LEG STEEPNESS all read it; every deed says what its leg climbs.
+2. **THE EXPEDITION LOOP** — a leg is an Ironsworn PROGRESS TRACK ranked by
+   length × steepness. PREPARE first: kit for the terrain (cart / mule / packs
+   — wrong kit is banes) and stock PROVISIONS (Ironsworn Supply). Events mark
+   or erase progress and drain Provisions; a miss at Provisions 0 FAILS the
+   leg — back to its start, mana sunk. Events stop being flavour: they are how
+   a leg is won or lost.
+3. **TAP-MANA** — the trickle shrinks; tapping channels mana. The active layer.
+4. **SCAVENGE** — trade time for Provisions at any stop, wits/shadow roll.
+
+⚠️ This is the THIRD economy. The difference, recorded so the pattern is
+visible: the first two were invented and reviewed on paper; this one is the
+owner's own sketch, and its skeleton (Supply, progress tracks, ranks) is
+borrowed whole from a system people already play for fun, under a licence we
+already carry.
+
 ## ★★★ superseded — THE MAP, ROUND TWO — 2026-08-02
 
 Five more, in the owner's words. **E and F are corrections to shipped behaviour**

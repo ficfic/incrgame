@@ -114,10 +114,33 @@ describe('★ every road has a path, and the path meets its stops', () => {
         }));
         const ends = Math.max(heightAt(A.x, A.y), heightAt(B.x, B.y));
         if (peak(straight) - ends < 20) continue;
+        // ⚠️ JUDGED AGAINST WHAT A ROAD COULD ACTUALLY TAKE, and both earlier
+        // bounds were wrong in turn. "Avoid more than 5" was a magic number;
+        // then a PARALLEL-corridor bound floated its endpoints off the stops —
+        // no end-pinned road can follow it, and it demanded 5.0 where the best
+        // reachable line offered less. The honest family is the BOW: sine-
+        // shaped, ends pinned, within the road's own stray cap — exactly the
+        // move the builder itself owns. The built road must capture at least
+        // three quarters of the best bow's avoidance.
+        const len = Math.hypot(B.x - A.x, B.y - A.y);
+        const nx = -(B.y - A.y) / len, ny = (B.x - A.x) / len;
+        let best = peak(straight);
+        for (let o = -0.32; o <= 0.32; o += 0.04) {
+          let pk = -Infinity;
+          for (let tt = 0; tt <= 1; tt += 0.05) {
+            const bow = o * len * Math.sin(Math.PI * tt);
+            pk = Math.max(pk, heightAt(A.x + (B.x - A.x) * tt + nx * bow,
+              A.y + (B.y - A.y) * tt + ny * bow));
+          }
+          best = Math.min(best, pk);
+        }
+        const offered = peak(straight) - best;
+        if (offered < 4) continue;              // nothing to go around — a wall
         judged++;
         expect(peak(straight) - peak(p),
-          `${s.id}|${to} crests +${(peak(straight) - ends).toFixed(0)} and the road only `
-          + `avoids ${(peak(straight) - peak(p)).toFixed(1)} of it`).toBeGreaterThan(5);
+          `${s.id}|${to} crests +${(peak(straight) - ends).toFixed(0)}, the best bow offers `
+          + `${offered.toFixed(1)} of avoidance, the road takes `
+          + `${(peak(straight) - peak(p)).toFixed(1)}`).toBeGreaterThan(offered * 0.75);
       }
     }
     expect(judged, 'no ruler line crests a real hill — this test judged nothing')

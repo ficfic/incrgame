@@ -46,6 +46,8 @@ import { maxFlow, loads, type Pipe } from './flow';
 import { judge, judgeBurned, burnHelps, legal, clampMomentum, START_STATS,
   MOMENTUM_START, MOMENTUM_RESET, type Roll, type Stat } from './dice';
 import { HAPPENINGS, happeningsOn, type Happening } from './events';
+import { pathOf } from './paths';
+import { climbOf } from './height';
 export { roadCost, START, FINISH } from './stops';
 export { STATS, type Stat, type Roll } from './dice';
 
@@ -203,10 +205,21 @@ export function eventFor(key: string, halt: number): Happening {
   return all[Math.floor(hash(`${key}@${halt}`) * all.length)]!;
 }
 
-/** How long the work will take.
- *  ⚠️ SHORT TIMERS, on the owner's instruction: *"mainly short timers for now"*. */
+/** ★ WHAT THE LEG CLIMBS, ascent and descent together, along the road's real
+ *  bent course. The number that makes a route PLANNED: two legs of equal price
+ *  can differ three-fold here, and from the expedition loop on this is what
+ *  ranks a leg's difficulty. */
+export function climbTo(g: Game, to: number): number {
+  const p = pathOf(g.at, to);
+  return Math.round(p ? climbOf(p) : 0);
+}
+
+/** How long the work will take. Climb slows it: a leg over the ridge takes
+ *  visibly longer than its twin round the side, at the same price — the first
+ *  mechanical tooth of *"we need to slow the game down way more."*
+ *  ⚠️ Still short timers overall, on the owner's standing instruction. */
 export function buildSecs(g: Game, to: number): number {
-  return Math.max(4, Math.round(priceOf(g, to) * 0.6));
+  return Math.max(4, Math.round(priceOf(g, to) * 0.6 + climbTo(g, to) * 0.2));
 }
 
 // ---- where the mana reaches ------------------------------------------------

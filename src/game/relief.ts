@@ -23,46 +23,14 @@ import type { Shape, Pt } from './shapes';
 
 // ---- how high the ground stands --------------------------------------------
 
-/** ★ THE SAME FIVE GROUNDS `GOING` PRICES, AS HEIGHTS. Water sits in the
- *  bottom of the valley and crag stands over everything, which is both what a
- *  map looks like and why one costs 3.1 and the other 2.4: you are bridging a
- *  river or you are climbing.
- *
- *  ⚠️ NOT THE SAME NUMBERS AS `GOING`, deliberately. Cost is "how hard is this
- *  to build across" and height is "how far up is it" — water is expensive AND
- *  low. Deriving one from the other would make the river a ridge. */
-export const HEIGHT: Record<Ground, number> = {
-  water: 0,
-  bog: 14,       // the wet low ground the water almost claims
-  moor: 34,
-  wood: 52,
-  stone: 66,
-  crag: 100,
-};
-
-/** How far a stop's ground reaches before it stops mattering. Wide enough that
- *  the field is smooth between stops, narrow enough that a lone crag is a hill
- *  rather than a tilt across the whole map. */
-const REACH = 210;
-
-/** ★ HEIGHT ANYWHERE, blended from the stops around it — inverse distance
- *  squared, which is the standard way to turn scattered samples into a field.
- *  Pure, so `test/relief.test.ts` can ask it about a point rather than about a
- *  picture of a point. */
-export function heightAt(x: number, y: number): number {
-  let num = 0, den = 0;
-  for (const p of STOPS) {
-    const at = SPOT.get(p.id)!;
-    const d2 = (at.x - x) ** 2 + (at.y - y) ** 2;
-    // +1 so standing exactly on a stop is its own height rather than a divide
-    // by zero, which would put a NaN into the contour pass and lose the map.
-    const w = 1 / (d2 + 1) - 1 / (REACH * REACH);
-    if (w <= 0) continue;
-    num += HEIGHT[p.ground] * w;
-    den += w;
-  }
-  return den > 0 ? num / den : HEIGHT.moor;
-}
+/** ⚠️ THE FIELD MOVED TO `height.ts`, 2026-08-03, on the owner's call:
+ *  *"have the topography in the model somewhere."* This file used to OWN the
+ *  height field as an inverse-distance blur of stop grounds — smooth blobs
+ *  with no ridges, which is why roads climbed hills for no reason: the blobs
+ *  offered nothing to go around. Now the sampled GRID is the model and this
+ *  file only draws it. Re-exported so nothing downstream moves twice. */
+export { HEIGHT, heightAt, gradAt, shoreX, climbOf, GRID, GRID_BOX } from './height';
+import { heightAt } from './height';
 
 // ---- marching squares ------------------------------------------------------
 //
@@ -173,31 +141,6 @@ export function contours(box: { x: number; y: number; w: number; h: number },
     g.push(row);
   }
   return levels.flatMap((l) => stitch(segmentsAt(g, box.x, box.y, step, l)));
-}
-
-// ---- the coast --------------------------------------------------------------
-
-/** ★ WHERE THE LAND ENDS. One function, so the sea's fill, the beach line, the
- *  scatter, and the road bends all agree about where the water starts — four
- *  copies of this wave would drift apart the first time one was tuned. */
-/** ⚠️ BASED ON THE WESTMOST STOP, NOT ON THE CAMERA. The first shoreline sat at
- *  `VIEW.x + 42` — which put the coast EAST of Stop 4, a stop standing in the
- *  sea, caught by the new never-wades test before any screenshot. The land ends
- *  where the stops end; the camera is widened westward to show the water. */
-const WEST = Math.min(...STOPS.map((s) => SPOT.get(s.id)!.x));
-export function shoreX(y: number): number {
-  return WEST - 16 + 7 * Math.sin(y / 84) + 3 * Math.sin(y / 31);
-}
-
-/** ★ THE SLOPE, for anything that wants to follow the ground rather than just
- *  know how high it is. Finite differences over the same field the contours
- *  draw — one source of truth for the shape of the land. */
-export function gradAt(x: number, y: number): { gx: number; gy: number } {
-  const e = 7;
-  return {
-    gx: (heightAt(x + e, y) - heightAt(x - e, y)) / (2 * e),
-    gy: (heightAt(x, y + e) - heightAt(x, y - e)) / (2 * e),
-  };
 }
 
 // ---- a shape around each region --------------------------------------------

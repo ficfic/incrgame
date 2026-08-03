@@ -19,8 +19,17 @@
 //
 // Pure geometry. No DOM, no RNG beyond a seeded hash, no game state.
 import { STOPS, STOP } from './stops';
-import { SPOT } from './layout';
-import { heightAt, gradAt, shoreX } from './relief';
+
+/** Authored coordinates, for the same cycle-breaking reason as `height.ts`:
+ *  engine imports paths now, and paths importing layout would loop back
+ *  through world to engine. The numbers are identical to layout's. */
+const SPOT = new Map(STOPS.map((s) => [s.id, { x: s.x, y: s.y }]));
+// ⚠️ FROM `height` DIRECTLY, NOT via relief's re-export. relief's own imports
+// evaluate layout→world→engine→paths BEFORE relief reaches its height
+// re-export, so importing through relief handed this file an unevaluated
+// binding — "shoreX is not a function", found by the suite the moment the
+// engine started importing paths.
+import { heightAt, gradAt, shoreX } from './height';
 import type { Pt } from './shapes';
 
 /** ★ THE ROAD PICKS THE CHEAPEST LINE THE GROUND OFFERS. The owner, twice:
@@ -43,11 +52,16 @@ import type { Pt } from './shapes';
  *  alternative is a worse hill.
  */
 const STEPS = 10;
-const STRAY = 0.3;
+const STRAY = 0.32;
 
 function cost(x: number, y: number): number {
   const wet = shoreX(y) + 22 - x;
-  return heightAt(x, y) + (wet > 0 ? wet * wet * 0.08 : 0);
+  const h = heightAt(x, y);
+  // ★ HIGH GROUND COSTS MORE THAN LINEARLY. The complaint is about PEAKS —
+  // *"why would it climb up and down a hill"* — and a linear cost happily buys
+  // one 70 crossing to save two 35s. Above the moor line every extra unit
+  // counts double, so a bow that shaves the crest pays for its own bend.
+  return h + Math.max(0, h - 36) * 2 + (wet > 0 ? wet * wet * 0.08 : 0);
 }
 
 function bend(aId: number, bId: number): Pt[] {
@@ -65,10 +79,42 @@ function bend(aId: number, bId: number): Pt[] {
   // the line its neighbours make. That is what keeps the result a road.
   const price = (i: number, o: number): number => {
     const p = at(i, o);
-    return cost(p.x, p.y) + Math.abs(o - (off[i - 1]! + off[i + 1]!) / 2) * 0.35;
+    return cost(p.x, p.y) + Math.abs(o - (off[i - 1]! + off[i + 1]!) / 2) * 0.33;
   };
-  for (let step = 9; step >= 1.5; step *= 0.7) {
-    for (let round = 0; round < 4; round++) {
+  // ⚠️ EIGHT ROUNDS PER STEP, UP FROM FOUR. On the gridded field the crag
+  // shoulder at 22|23 spans the whole corridor; four rounds left the bow
+  // capturing 3.4 of an available ~10 — the schedule ran out before the line
+  // finished sliding off the ridge. Meausured, not guessed: parallel-corridor
+  // sampling puts the best line at 40.4 against a straight-line crest of 50.5.
+  // ⚠️ TWO KINDS OF MOVE, AND THE SECOND EXISTS BECAUSE THE FIRST GETS STUCK.
+  // Point-by-point descent converges into a stiffness trap: sliding one point
+  // off a ridge costs more in bend than it gains in height, even when sliding
+  // the WHOLE line would pay handsomely — 22|23 sat capturing 3.4 of an
+  // available 9.1 at any number of rounds. So each pass also tries a
+  // coordinated BOW of the entire line, which is the move that carries a road
+  // off a ridge in one piece.
+  const total = (): number => {
+    let s = 0;
+    for (let i = 1; i < STEPS; i++) s += price(i, off[i]!);
+    return s;
+  };
+  for (let step = 9; step >= 1.2; step *= 0.7) {
+    for (const dir of [-1, 1]) {
+      // Keep bowing while each increment pays; revert the one that does not.
+      for (let tries = 0; tries < 8; tries++) {
+        const was = total();
+        const saved = [...off];
+        for (let i = 1; i < STEPS; i++) {
+          const bowed = off[i]! + dir * step * Math.sin(Math.PI * (i / STEPS));
+          off[i] = Math.max(-most, Math.min(most, bowed));
+        }
+        if (total() >= was) {
+          for (let i = 0; i <= STEPS; i++) off[i] = saved[i]!;
+          break;
+        }
+      }
+    }
+    for (let round = 0; round < 8; round++) {
       for (let i = 1; i < STEPS; i++) {
         const here = price(i, off[i]!);
         const left = off[i]! - step >= -most ? price(i, off[i]! - step) : Infinity;

@@ -147,12 +147,14 @@ const tabs = await page.$$eval('nav button', (bs) => bs.map((x) => x.textContent
 console.log('TABS:', tabs.join(' · '));
 if (tabs.length !== 4) misses.push(`expected four tabs, found ${tabs.length}`);
 
+let selfDots = 0;
 for (const t of tabs) {
   await page.locator('nav button', { hasText: t }).click({ timeout: 3000 })
     .catch((e) => misses.push(`tab ${t} would not open: ${e}`));
   await page.waitForTimeout(400);
   const bad = await stacked();
   const dots = await page.$$eval('.map .node', (g) => g.length);
+  if (t === 'Self') selfDots = dots;
   console.log(`\n${t.toUpperCase()}  ${dots} stops drawn`);
   console.log('  panel  :', `"${(await panelText()).slice(0, 60)}"`);
   console.log('  stacked:', bad.length ? `⚠️ ${bad.join(' | ')}` : 'clean — nothing over anything');
@@ -185,6 +187,11 @@ for (const t of tabs) {
   });
   if (clash) misses.push(`${t}: ${clash}`);
 }
+
+// ★ EACH STAT IS A NODE — the owner, on seeing five stats crammed into one:
+// *"that doesn't look right, each stat should be a node."* You, the stop, mana,
+// flow, five stats, momentum, next work: eleven nodes.
+if (selfDots < 10) misses.push(`Self draws ${selfDots} nodes — the stats are not split out`);
 
 // ★ NO PROSE ABOVE THE BOARD. The owner, three times in one play-test: *"the
 // text above the map, i don't want to see it."* The header may carry numbers
@@ -431,6 +438,10 @@ if (!first) misses.push('tapping the stop beside you offers no deed at all');
 else if (!/^Lay the pipe to /.test(first.text)) {
   misses.push(`the deed does not offer to lay a pipe: "${first.text}"`);
 }
+// ★ THE ROUTE IS PLANNED, NOT GUESSED: every lay quotes what the leg climbs,
+// off the height grid — the owner: *"our routes are planned and we know the
+// steepness and so on."*
+
 const shutBg = await page.evaluate(() => {
   const x = [...document.querySelectorAll('.deed')].find((e) => e.disabled);
   return x ? getComputedStyle(x).backgroundColor : null;
@@ -447,6 +458,9 @@ for (let i = 0; i < 30 && (!live || live.off); i++) {
   live = await deedOn(target);
 }
 console.log('  after   :', live ? `"${live.text}"${live.off ? ' [still shut]' : ' (OPEN)'}` : '(gone)');
+if (live && !/climbs \d+/.test(live.text)) {
+  misses.push(`the lay deed does not say what the leg climbs: "${live.text}"`);
+}
 if (!live || live.off) {
   misses.push(`never able to afford the first road: "${live?.text ?? 'no deed'}"`);
 } else {
