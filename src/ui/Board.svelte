@@ -401,7 +401,7 @@
     }
 
     // ★ THE KING'S ROAD, in from off the map. Cased like any built way, with
-    // the same crawling dashes — the +0.34 trickle has a visible source now
+    // the same crawling dashes — the trickle has a visible source now
     // instead of arriving from the ether.
     if (feed && feed.length > 1) {
       paint(ctx, { s: 'path', pts: feed, ink: 'casing', w: 7 }, sx, sy, 1);

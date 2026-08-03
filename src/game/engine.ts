@@ -134,6 +134,10 @@ export const roadKey = (a: number, b: number): string =>
 
 export type Action =
   | { type: 'tick'; secs: number }
+  /** ★ DRAW FROM THE SPRING BY HAND — the active layer. Worth `TAP` mana,
+   *  carried through the same remainder as the trickle so a hundred taps pay
+   *  exactly what they promise. */
+  | { type: 'tap' }
   | { type: 'go'; to: number }
   /** Lay the road between where you stand and `to`, or widen it if it is
    *  already there. One verb on the board, two things underneath. */
@@ -160,8 +164,18 @@ export type Action =
 // when to leave**, and no progress bar has to.
 
 /** What you have in hand at the head of the king's road, before a single pipe
- *  exists. A trickle: enough to lay the first road, not enough to enjoy. */
-export const MANA_BASE = 0.34;
+ *  exists. ★ SHRUNK from 0.34 on 2026-08-03, the owner's design: *"for mana, we
+ *  should make it a tapable resource so that you have to tap, tap, tap in order
+ *  to get it, and this is your idle element."* The trickle alone is now too
+ *  thin to live on — drawing from the spring by hand (the `tap` action) is
+ *  where early mana comes from. */
+export const MANA_BASE = 0.12;
+
+/** ★ WHAT ONE DRAW OF THE HAND CHANNELS. Deliberately under a whole mana so
+ *  the purse visibly fills across a burst of tapping rather than jumping per
+ *  touch, and deliberately flat: fingers are the rate limit, and a yield that
+ *  grew with the network would make tapping the endgame instead of the start. */
+export const TAP = 0.4;
 
 /** ★ WHAT THE KINGDOM CAN ACTUALLY PUSH DOWN THE LINE. A ceiling, and a
  *  deliberate one: widen past it and you are widening for nothing, which is
@@ -364,6 +378,13 @@ export function initial(): Game {
 
 export function apply(g: Game, a: Action): Game {
   switch (a.type) {
+    case 'tap': {
+      // Same remainder as the tick: 0.4 five times is 2 mana, never 0.
+      const total = g.part + TAP;
+      const got = Math.floor(total);
+      return { ...g, mana: g.mana + got, part: total - got };
+    }
+
     case 'tick': {
       if (a.secs <= 0) return g;
       // ⚠️ THE REMAINDER CARRIES, so a hundred small ticks pay what one big one

@@ -610,3 +610,4 @@ that a beat is reachable from where the player starts.
 - [ ] **Stop labels overlap on the Chapter tab.** "Stop 14 / Stop 16 / Stop 13" and "Stop 1 / Stop 24" are drawn over each other at 390px wide. Found in `play-chapter.png`, 2026-08-02. Labels are DOM, so this is a layout problem, not a canvas one — the dots clear `test/layout.test.ts`'s 24-unit rule but their NAMES do not.
 
 - [ ] **The deed for the road being laid reads "Lay the road to Stop 2 / already building one".** Seen in `play-laying.png`, 2026-08-02. It is honest (R3.3 shows the reason) but it offers to start a thing that is already started; "Laying it now — 9s left" would say what is true.
+- Fog of war: unexplored land as faded "uncharted" parchment (not blackout), reveal around seen stops + laid pipes; `game.seen` already tracks it. Owner asked 2026-08-03; queued behind tap-mana + scavenge.

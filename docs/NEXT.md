@@ -197,9 +197,11 @@ Chosen: **full package, in this order, one session each.**
    FAILS the leg — crew home, mana sunk, momentum −2. Finishing fresh ground
    restocks +1. Events stopped being flavour: they are how a leg is won or
    lost. Widening meets no hidden stops, so it skips PREPARE.
-3. **NEXT → TAP-MANA** — the trickle shrinks; tapping channels mana. The
-   active layer.
-4. **SCAVENGE** — trade time for Provisions at any stop, wits/shadow roll.
+3. **✦ TAP-MANA** *(shipped 2026-08-03)* — trickle 0.34→0.12 a second; the
+   purse is a button, each press draws 0.4 through the same remainder as the
+   tick. The early game is played with the thumb.
+4. **NEXT → SCAVENGE** — trade time for Provisions at any stop, wits/shadow
+   roll.
 
 ⚠️ This is the THIRD economy. The difference, recorded so the pattern is
 visible: the first two were invented and reviewed on paper; this one is the

@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, unbuildable, blocked, crossed, reached, roadKey,
   roadsOut, manaRate, buildSecs, waitFor, MANA_BASE, MAX_GAUGE, SPRING,
-  priceOf, loadOf, type Game } from '../src/game/engine';
+  priceOf, loadOf, TAP, type Game } from '../src/game/engine';
 import { STOPS, STOP, START, FINISH, roadCost, ROUTE_COUNT, GOING, BORE,
   boreOf } from '../src/game/stops';
 
@@ -110,6 +110,41 @@ describe('★ mana only reaches along road you have built', () => {
     // And now building onward from there is allowed.
     expect(unbuildable({ ...g, mana: 9999 }, STOP.get(to)!.near.find((n) => n !== START)!))
       .toBeNull();
+  });
+});
+
+describe('★ the spring answers the thumb', () => {
+  // The owner, 2026-08-03: *"for mana, we should make it a tapable resource so
+  // that you have to tap, tap, tap in order to get it, and this is your idle
+  // element."* The trickle shrank to make room; drawing by hand is the early
+  // income now.
+  const tap = (g: Game, n: number): Game => {
+    for (let i = 0; i < n; i++) g = apply(g, { type: 'tap' });
+    return g;
+  };
+
+  it('★ a burst of taps pays exactly what it promises — the remainder carries', () => {
+    // 5 × 0.4 is 2 whole mana, never 1.999… lost to flooring per tap.
+    const five = tap(initial(), 5);
+    expect(five.mana).toBe(2);
+    expect(five.part).toBeCloseTo(0, 10);
+    const hundred = tap(initial(), 100);
+    expect(hundred.mana).toBe(Math.floor(100 * TAP));
+  });
+
+  it('touches nothing but the purse — the work and the trouble stand', () => {
+    const to = STOP.get(START)!.near[0]!;
+    const working = apply({ ...initial(), mana: 999 },
+      { type: 'build', to, kit: 'cart' });
+    const tapped = tap(working, 3);
+    expect(tapped.building).toEqual(working.building);
+    expect(tapped.mana).toBe(working.mana + 1);
+  });
+
+  it('★ the trickle alone is thinner than a working thumb', () => {
+    // The point of the shrink: one tap out-earns three seconds of waiting,
+    // so the active layer is a real layer rather than a decoration.
+    expect(MANA_BASE * 3).toBeLessThan(TAP);
   });
 });
 

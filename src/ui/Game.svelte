@@ -161,7 +161,7 @@
   const hops = $derived(hopsFrom(game));
 
   /** ★ THE KING'S ROAD FEED, chapter only: a cased line entering from off the
-   *  top of the map and ending on the Start — the source of the +0.34 trickle,
+   *  top of the map and ending on the Start — the source of the trickle,
    *  visible instead of implied. The first point sits above the camera's box
    *  on purpose: it comes in FROM OFFSCREEN, which is the owner's ask verbatim. */
   const feed = $derived.by(() => {
@@ -316,7 +316,14 @@
 <main>
   <header>
     <div class="purse">
-      <b>{game.mana}</b><span>mana</span>
+      <!-- ★ THE SPRING IS UNDER YOUR THUMB. The owner: *"for mana, we should
+           make it a tapable resource so that you have to tap, tap, tap in
+           order to get it, and this is your idle element."* Each press is the
+           `tap` action — the engine does the arithmetic, the shell only asks. -->
+      <button class="spring" onclick={() => act({ type: 'tap' })}>
+        <b>{game.mana}</b><span>mana</span>
+        <em>tap to draw</em>
+      </button>
       <!-- ★ THE RATE IS SOLVED FROM THE GRAPH and it moves, so the header has
            to say what it is now rather than quote a constant. When you are
            working it is zero, and that is the point of working. -->
@@ -478,6 +485,19 @@
   header { border-bottom: 1px solid #c3b8a2; padding-bottom: 10px; }
   .panel .away { margin: 0 0 6px; color: #8a5a12; font-size: 15px; }
   .purse { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+  /* The spring: the number IS the button. Generous padding for a thumb that
+     will hit it a hundred times, and the press is shown by the button, not by
+     the page — nothing else may move under a tap-tap-tap. */
+  .spring {
+    display: inline-flex; align-items: baseline; gap: 6px;
+    border: 1px solid #d8cdb8; border-radius: 10px; background: #f6f0e2;
+    padding: 4px 10px; margin: -4px 0; cursor: pointer;
+    transition: transform 60ms;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    user-select: none; -webkit-user-select: none;
+  }
+  .spring:active { transform: scale(0.94); background: #efe6d2; }
+  .spring em { color: #a89a80; font-size: 11px; font-style: normal; }
   .purse b { font-size: 22px; color: #1f6b3a; }
   .purse span { color: #6a6154; font-size: 14px; }
   .purse .rate { color: #8c8272; }

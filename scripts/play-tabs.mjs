@@ -401,6 +401,19 @@ console.log('  purse   :', `${mana0} → ${mana1} across 16s`);
 if (!/^\+\d+\.\d\d a second$/.test(rate)) misses.push(`the rate reads "${rate}"`);
 if (!(mana1 > mana0)) misses.push(`mana went ${mana0} → ${mana1} in 16 seconds — it is not arriving`);
 
+// ★★ AND IT ANSWERS THE THUMB. The owner: *"you have to tap, tap, tap in order
+// to get it, and this is your idle element."* Ten presses of the spring are
+// worth 10 × TAP = 4 whole mana — measured against the purse, with a ±1
+// allowance for the trickle crossing a whole on its own during the burst.
+console.log('\nTHE SPRING');
+const preTap = await purse();
+for (let i = 0; i < 10; i++) await page.locator('.spring').click();
+const postTap = await purse();
+console.log('  tapped  :', `${preTap} → ${postTap} across 10 presses`);
+if (postTap - preTap < 4 || postTap - preTap > 5) {
+  misses.push(`ten presses of the spring paid ${postTap - preTap} mana — wanted 4`);
+}
+
 // --------------------------------------------------------- laying a road ----
 //
 // ★★ THE ONE THAT MATTERS. Wait for the mana, tap the stop beside you, lay the
@@ -451,10 +464,12 @@ if (first?.off && !/\d+ mana — you have \d+/.test(first.text)) {
 }
 console.log('  shut bg :', shutBg ?? '(it was already affordable)');
 
-// Wait it out. Short timers, so this is seconds rather than a coffee break.
+// Tap it out — the trickle alone would take minutes now, and that is the
+// design: the early game is played with the thumb.
 let live = first;
 for (let i = 0; i < 30 && (!live || live.off); i++) {
-  await page.waitForTimeout(3000);
+  for (let t = 0; t < 8; t++) await page.locator('.spring').click();
+  await page.waitForTimeout(700);
   live = await deedOn(target);
 }
 console.log('  after   :', live ? `"${live.text}"${live.off ? ' [still shut]' : ' (OPEN)'}` : '(gone)');
