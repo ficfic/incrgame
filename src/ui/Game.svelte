@@ -28,6 +28,8 @@
   import { INK, TOL } from '../game/ink';
   import { apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
     loadOf, roadKey, type Game, type Action } from '../game/engine';
+  import { judge, judgeBurned, burnHelps, type Roll } from '../game/dice';
+  import { HAPPENINGS } from '../game/events';
   import { pathOf } from '../game/paths';
   import { load, save, wipe, elapsedSince } from '../game/store';
 
@@ -44,6 +46,29 @@
    *  is the far end. Armed state lives in the panel where you pressed it — it
    *  does not follow your finger around and it does not float over the graph. */
   let arming = $state(false);
+
+  /** ★ THE ONLY DICE IN THE HOUSE. Rolled here in the shell and handed to the
+   *  engine as plain numbers — `apply` takes no randomness, ever. Real random,
+   *  not seeded: these are dice, and dice that could be predicted from the
+   *  save would be a different and worse game. */
+  const d = (n: number): number => 1 + Math.floor(Math.random() * n);
+
+  /** Everything the dock needs to tell the trouble honestly. */
+  const trouble = $derived.by(() => {
+    if (!game.facing) return null;
+    const ev = HAPPENINGS.find((h) => h.id === game.facing!.event);
+    if (!ev) return null;
+    const rolled = game.facing.rolled;
+    if (!rolled) return { ev, rolled: null, out: null, canBurn: false, burned: null };
+    const choice = ev.choices[rolled.choice]!;
+    const stat = game.stats[choice.stat] ?? 1;
+    return {
+      ev, rolled,
+      out: judge(rolled.roll, stat),
+      canBurn: burnHelps(rolled.roll, stat, game.momentum),
+      burned: judgeBurned(rolled.roll, game.momentum),
+    };
+  });
 
   const act = (a: Action): void => {
     game = apply(game, a);
@@ -280,7 +305,43 @@
   <!-- THE PANEL. Part of the page, below the graph, in flow. It is empty until
        you tap something, and it says so rather than appearing from nowhere. -->
   <section class="panel" bind:this={panelEl}>
-    {#if chosen}
+    {#if trouble}
+      <!-- ★ SOMETHING STANDS IN THE WAY. The work is stopped and this outranks
+           whatever was selected — it is the owner's design: "block progress
+           until resolved". Still the one dock, still nothing to dismiss. -->
+      <h2>{trouble.ev.name}</h2>
+      {#if !trouble.rolled}
+        <p>{trouble.ev.body}</p>
+        {#each trouble.ev.choices as c, i (c.label)}
+          <button class="deed face" onclick={() => act({ type: 'face', choice: i,
+            roll: { a: d(6), c1: d(10), c2: d(10) } })}>
+            {c.label}
+            <em>{c.stat} {game.stats[c.stat]} — one die and your nerve, against two</em>
+          </button>
+        {/each}
+      {:else}
+        {@const c = trouble.ev.choices[trouble.rolled.choice]!}
+        <p class="dice">You rolled {trouble.rolled.roll.a} + {c.stat}
+          {game.stats[c.stat]} = {trouble.out.score}, against
+          {trouble.rolled.roll.c1} and {trouble.rolled.roll.c2} —
+          <b>{trouble.out.tier === 'strong' ? 'a strong hit'
+            : trouble.out.tier === 'weak' ? 'a weak hit' : 'a miss'}</b>{trouble.out.twist
+            ? ', and the dice matched' : ''}.</p>
+        <p>{c[trouble.out.tier]}</p>
+        <button class="deed face" onclick={() => act({ type: 'carry' })}>
+          Carry on
+          <em>{trouble.out.tier === 'strong' ? 'momentum rises'
+            : trouble.out.tier === 'weak' ? 'it costs some mana'
+            : 'the work slides back, and momentum with it'}</em>
+        </button>
+        {#if trouble.canBurn}
+          <button class="deed arm" onclick={() => act({ type: 'burn' })}>
+            Burn momentum ({game.momentum >= 0 ? '+' : ''}{game.momentum})
+            <em>overrule the dice — it resets to +2</em>
+          </button>
+        {/if}
+      {/if}
+    {:else if chosen}
       <h2>{chosen.name || 'A stop you have not stood at'}</h2>
       {#if chosen.body}<p>{chosen.body}</p>{/if}
       <!-- An unnamed dot is a promise, not a bug — the same one the Journey

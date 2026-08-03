@@ -12,6 +12,7 @@
 // in a string nobody re-read.
 import { STOPS, STOP, START, FINISH, nameOf, GOING } from './stops';
 import type { Game } from './engine';
+import { STATS } from './dice';
 import { roadsOut, roadCost, buildSecs, manaRate, waitFor, reached, crossed,
   roadKey, unbuildable, MAX_GAUGE } from './engine';
 
@@ -152,6 +153,15 @@ export function self(g: Game): View {
         body: 'What the network actually delivers to where you stand. The narrowest '
           + 'pipe between here and the start governs the lot, so widening a tight '
           + 'one is worth more than laying a slack one.' },
+      // ★ THE CREW. Five stats and the momentum they bank — Ironsworn's, by
+      // its CC BY 4.0 licence (attribution in README.md and dice.ts).
+      { id: 'stat:crew', kind: 'fact',
+        name: STATS.map((s) => `${s} ${g.stats[s]}`).join(' · '),
+        body: 'What a roll leans on. The dock names which stat carries each '
+          + 'choice when something blocks the line.' },
+      { id: 'stat:momentum', kind: 'fact', name: `momentum ${g.momentum >= 0 ? '+' : ''}${g.momentum}`,
+        body: 'Banked nerve. After a bad roll you can burn it to overrule the '
+          + 'dice — it resets to +2 and the world moves on.' },
       { id: 'stat:next', kind: 'fact',
         name: next ? `Next work: ${next.cost}` : 'Nothing left here',
         body: next
@@ -164,6 +174,8 @@ export function self(g: Game): View {
       { a: 'you', b: stopId(g.at), rel: 'stands' },
       { a: 'you', b: 'carry:mana', rel: 'carries' },
       { a: 'you', b: 'stat:flow', rel: 'has' },
+      { a: 'you', b: 'stat:crew', rel: 'has' },
+      { a: 'you', b: 'stat:momentum', rel: 'has' },
       { a: 'you', b: 'stat:next', rel: 'has' },
     ],
   };

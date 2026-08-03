@@ -417,7 +417,7 @@ if (!live || live.off) {
 
   const fill0 = await ink('fill');
   await page.locator('.deed', { hasText: 'Lay the pipe' }).first().click({ timeout: 3000 });
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(1600);
   const laying = await panelText();
   const fillMid = await ink('fill');
   console.log('  says    :', `"${laying.slice(0, 90)}"`);
@@ -439,6 +439,43 @@ if (!live || live.off) {
   }
 
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-laying.png') });
+
+  // ★★ TROUBLE ON THE LINE. The owner's design: hidden stops on a fresh lay
+  // that "block progress until resolved". The work must HALT, the dock must
+  // name the trouble, the dice must be shown doing arithmetic in the open, and
+  // resolving must set the work moving again. Every fresh lay meets at least
+  // one, so this is not an if — the build cannot finish without it.
+  console.log('\nTROUBLE');
+  let faced = 0;
+  for (let i = 0; i < 30; i++) {
+    const face = page.locator('.deed.face');
+    if (!await face.count()) { await page.waitForTimeout(1200); continue; }
+    const said = await panelText();
+    if (/You rolled \d/.test(said)) {
+      // The result phase: dice arithmetic, tier in words, then carry on.
+      console.log('  dice    :', `"${said.slice(0, 110)}"`);
+      if (!/against \d+ and \d+/.test(said)) {
+        misses.push(`the dice line does not show the arithmetic: "${said.slice(0, 80)}"`);
+      }
+      if (!/(strong hit|weak hit|miss)/.test(said)) {
+        misses.push(`the roll landed but no tier is named: "${said.slice(0, 80)}"`);
+      }
+      await page.locator('.deed.face', { hasText: 'Carry on' }).click({ timeout: 3000 });
+      await page.waitForTimeout(400);
+      faced++;
+      if (faced > 3) break;
+      continue;
+    }
+    // The choice phase: the trouble is named and every choice shows its stat.
+    console.log('  faces   :', `"${said.slice(0, 90)}"`);
+    await page.screenshot({ path: SHOT.replace(/\.png$/, '-trouble.png') });
+    if (!/against two/.test(said)) {
+      misses.push(`a choice does not say what it rolls: "${said.slice(0, 80)}"`);
+    }
+    await face.first().click({ timeout: 3000 });
+    await page.waitForTimeout(400);
+  }
+  if (!faced) misses.push('the lay finished without ever meeting its hidden stop');
 
   // ★★ A FINISHED LAY CARRIES YOU OVER. The owner: *"obviously when we build a
   // road somewhere we arrive there too."* So the probe does NOT walk — it waits,
@@ -587,8 +624,8 @@ await page.evaluate(() => new Promise((done, fail) => {
       // mana gathered") makes the dock TALL at rest — which is exactly the
       // state the owner's live screenshot caught: the board framed itself
       // before the dock reported its height, and the Finish drowned behind it.
-      v: 6, savedAt: Date.now() - 2 * 3600 * 1000,
-      game: { version: 6, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null },
+      v: 7, savedAt: Date.now() - 2 * 3600 * 1000,
+      game: { version: 7, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null },
     }), 'main');
     tx.oncomplete = () => { db.close(); done(); };
     tx.onerror = () => fail(tx.error);

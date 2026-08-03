@@ -1,120 +1,42 @@
-# Semantic Drift
+# King's Roads
 
-*(working repo: `incrgame`)*
+A solo map game about laying the kingdom's mana lines through country that
+objects. Played in a phone browser; built as a PWA on GitHub Pages.
 
-### An incremental game about the tension between building knowledge fast and building it *true*.
+A chapter is a crossing: a start, a finish, five or six dotted routes between
+them. You lay pipe, the mana follows the pipe, and what stands in the way —
+washouts, old stones, somebody's cousin with a chain and a dog — gets faced
+with two ten-sided dice.
 
-Your machines generate knowledge quickly. None of it is checked. Unchecked
-knowledge **drifts** — definitions rot into nonsense — and reasoning over a
-graph you half-trust doesn't degrade gracefully, it degrades fast.
+Live: <https://ficfic.github.io/incrgame/>
 
-Review is the only brake, and review is slow.
+**The design is `docs/KINGS_ROADS.md`. The queue is `docs/NEXT.md`. The rules
+of work are `CLAUDE.md`.** The previous game this repo held (Semantic Drift)
+was scrapped by its owner on 2026-08-02; its docs live in `docs/attic/`.
 
-> **Status: vertical slice playable.** The full loop runs end to end —
-> extraction, drift, human review, the plateau, prestige, and one branching
-> vignette. **The prose is deliberately unwritten** (see below). Design intent
-> lives in [`docs/VISION.md`](docs/VISION.md) — read that first.
-> Live: <https://ficfic.github.io/incrgame/>
+## Dice
 
-## The loop
+This work is based on [Ironsworn](https://www.ironswornrpg.com), created by
+Shawn Tomkin, and licensed for our use under the
+[Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).
+We use its action roll (one d6 plus a stat against two d10 challenge dice),
+its outcome tiers, its five stats, and momentum. The economy is our own. This
+is not an official Ironsworn product.
 
-```
- Extractors mint statements fast  →  everything they mint is UNVERIFIED
-         ↑                                        ↓
-    you want scale                     unverified knowledge DRIFTS
-         ↑                                        ↓
-    review less                    drifted knowledge stalls recovery
-         ↓                          (Reasoners run at fidelity²)
-    review more, grow slower  ←───────────────────┘
-```
+## Map
 
-You cannot lose. You **plateau** — push generation up and fidelity falls until
-recovery stops. Then you retrain, which is this game's prestige.
+Cartographic conventions — line casing, label placement priority, water
+masking land — follow
+[openstreetmap-carto](https://github.com/gravitystorm/openstreetmap-carto)
+(CC0). No code or artwork is copied from it.
 
-**And what you inherit is your own machine output**, unverified, rotting faster
-than last time. Each generation starts richer and more wrong: fidelity caps
-around 96% in generation 2 and 91% in generation 3, and keeps falling.
-
-*(Honest status: coverage itself is still completable — an attentive first run
-finishes in about four hours. The receding-goal design intent is real in the
-fidelity ceiling but not yet in the coverage ceiling. See `docs/VISION.md`.)*
-
-## The concepts are real
-
-The graph is **[Open English WordNet](https://en-word.net/)** — a published
-lexical database, CC BY 4.0, pinned to its 2025 edition:
-
-- **4,096 concepts**, each with its real most-common word form and its real,
-  human-written definition
-- **26 WordNet categories** — `noun.animal`, `noun.cognition`, `noun.substance`, …
-- a single hierarchy, **one root**, breadth-first from `entity`
-
-They're real for one specific reason: **you can only see a definition rot if a
-correct one was there to rot away from.** The dataset is the lab bench, not the
-curriculum — so it's four thousand good concepts, not a whole lexicon.
-
-Curated deliberately: nouns reachable from `entity` only (one true root), one
-concept per word form (a synset is a set of synonyms; two identical cards read
-as a bug), and senses the source marks as slurs are excluded. Changes are
-recorded in [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) and ship with the data
-in `public/ontology/LICENSE.txt`.
-
-## It's secretly a course in 2026 knowledge management
-
-Not by explaining it — by making you do it. **Information extraction** floods
-your graph. **Validation** is the only thing that keeps it usable. Manual review
-is **sampling-based inspection**: you inspect three items and the verdict applies
-to the batch they were drawn from. That principle is what acceptance sampling is
-built on — though the scheme here is not a real sampling plan, and
-`docs/SIMPLIFICATIONS.md` (S11) says exactly how it differs. **Subsumption reasoning** turns trusted statements back into recovered
-concepts. And **model collapse** — training on recursively generated data,
-[Shumailov et al., *Nature*, 2024](https://www.nature.com/articles/s41586-024-07566-y) —
-is the prestige mechanic.
-
-Where a mechanic simplifies real theory, the simplification is labelled
-([`docs/SIMPLIFICATIONS.md`](docs/SIMPLIFICATIONS.md)); real definitions live in
-[`docs/GLOSSARY.md`](docs/GLOSSARY.md).
-
-## No AI-written prose. At all.
-
-Every sentence a player reads is **written by the owner** or **quoted verbatim
-from a licensed dataset with attribution**. The content pipeline emits structured
-data only — numbers, ids, gates, graph shape. Never sentences.
-
-Right now that means the vignettes render visible `⟨title — owner⟩` slots, and
-their choices are legible from their generated numbers alone. **Unfinished on
-purpose beats quietly fake.** A test asserts those fields are still empty.
-
-## Built for
-
-GitHub Pages · mobile browsers · developed entirely through Claude Code on a
-phone. Pure-**TypeScript** headless engine ·
-[**break_eternity.js**](https://github.com/Patashu/break_eternity.js) · **Svelte**
-UI · canvas graph (lines and atmosphere; everything with text is DOM) · **Vite + PWA** · **Vitest**.
+## Running it
 
 ```
 npm install
-npm run ontology   # regenerate the concept data (clones the pinned upstream)
-npm run dev
-npm test
+npm run dev       # local
+npm run check     # svelte-check
+npx vitest run    # the suite
+npm run play      # plays the built app in a headless browser, counts pixels
+node scripts/check-words.mjs   # the vocabulary gate
 ```
-
-## Repo
-
-- [`docs/VISION.md`](docs/VISION.md) — **why this exists. Read first.**
-- [`docs/GAME_DESIGN.md`](docs/GAME_DESIGN.md) — the design.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/SPEC.md`](docs/SPEC.md) — the technical contract.
-- [`docs/ECONOMY_SRR.md`](docs/ECONOMY_SRR.md) · [`docs/ROADMAP.md`](docs/ROADMAP.md) — the economy as built, and the build plan.
-- [`docs/HANDOVER.md`](docs/HANDOVER.md) — what the code actually is today, including what is red.
-- [`docs/GLOSSARY.md`](docs/GLOSSARY.md) · [`docs/SIMPLIFICATIONS.md`](docs/SIMPLIFICATIONS.md) — real theory ↔ game terms.
-- [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) — every third-party dataset and its licence.
-- [`docs/DECISIONS.md`](docs/DECISIONS.md) — why things are the way they are.
-- `CLAUDE.md` — how this project is built (rules & guardrails).
-
-## Licence
-
-- **Code**: MIT — see [`LICENSE`](LICENSE).
-- **Original docs & content**: CC BY 4.0.
-- **Concept data**: Open English WordNet, CC BY 4.0, derived from Princeton
-  WordNet. Notices in [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) and
-  `public/ontology/LICENSE.txt`.

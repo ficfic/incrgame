@@ -43,7 +43,11 @@
 // as a `tick` carrying seconds.
 import { STOP, START, FINISH, nameOf, roadCost, roadsFrom, boreOf } from './stops';
 import { maxFlow, loads, type Pipe } from './flow';
+import { judge, judgeBurned, burnHelps, legal, clampMomentum, START_STATS,
+  MOMENTUM_START, MOMENTUM_RESET, type Roll, type Stat } from './dice';
+import { HAPPENINGS, happeningsOn, type Happening } from './events';
 export { roadCost, START, FINISH } from './stops';
+export { STATS, type Stat, type Roll } from './dice';
 
 export interface Game {
   version: number;
@@ -66,8 +70,25 @@ export interface Game {
    *  `from` is THE END YOU STARTED FROM — it is what the board fills away from,
    *  and where a finished lay carries you over from. The owner reported the
    *  fill growing from the wrong side twice before this field existed: the
-   *  board had no way to know which end was yours, so it guessed the lower id. */
-  building: { key: string; from: number; left: number; secs: number; to: number } | null;
+   *  board had no way to know which end was yours, so it guessed the lower id.
+   *  `halts` are THE HIDDEN STOPS still ahead of the work, as fractions of the
+   *  build — the owner: *"they should not be visible but block progress until
+   *  resolved."* Nothing draws them; the work simply stops there. */
+  building: { key: string; from: number; left: number; secs: number; to: number;
+    halts: number[] } | null;
+  /** ★ THE CREW'S STATS, Ironsworn's five. What a 2d10 roll leans on. */
+  stats: Record<Stat, number>;
+  /** ★ MOMENTUM — the banked kind. Burn it to overrule a bad roll. */
+  momentum: number;
+  /** ★ WHAT STANDS IN THE WAY RIGHT NOW, or null. While this is set, the
+   *  building does not move: block, face, resolve, resume. */
+  facing: {
+    key: string;
+    event: string;
+    /** The roll, once thrown. Two-phase on purpose: Ironsworn burns momentum
+     *  AFTER seeing the dice, so the result stands open until carried. */
+    rolled: { choice: number; roll: Roll } | null;
+  } | null;
 }
 
 /** A road's name, low stop first, so `a-b` and `b-a` are the same road. */
@@ -79,7 +100,14 @@ export type Action =
   | { type: 'go'; to: number }
   /** Lay the road between where you stand and `to`, or widen it if it is
    *  already there. One verb on the board, two things underneath. */
-  | { type: 'build'; to: number };
+  | { type: 'build'; to: number }
+  /** ★ FACE what stands in the way: pick a choice, and hand the engine the
+   *  dice THE SHELL rolled — `apply` takes no randomness, ever. */
+  | { type: 'face'; choice: number; roll: Roll }
+  /** Accept the roll as it landed. */
+  | { type: 'carry' }
+  /** Burn momentum to overrule it. Only legal when it would actually help. */
+  | { type: 'burn' };
 
 // ---- mana -----------------------------------------------------------------
 //
@@ -143,6 +171,36 @@ export function loadOf(g: Game): Map<string, number> {
 export function priceOf(g: Game, to: number): number {
   const next = (g.gauge[roadKey(g.at, to)] ?? 0) + 1;
   return roadCost(g.at, to) * next;
+}
+
+/** A deterministic wobble from a road's key — same trouble on every device,
+ *  because a screenshot of an ambush must be reproducible. */
+function hash(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+  return (h >>> 0) / 4294967296;
+}
+
+/** ★ THE HIDDEN STOPS ON A FRESH LAY. The owner: *"2 to 3 stops while building
+ *  it… not visible but block progress until resolved."* Dear ground carries
+ *  two; easy ground carries one. Widening carries none — the trouble was faced
+ *  when the line first went in. */
+export function haltsFor(key: string, cost: number): number[] {
+  const two = cost >= 18;
+  const first = 0.35 + hash(key) * 0.25;
+  return two ? [first, 0.62 + hash(`${key}~`) * 0.23] : [first];
+}
+
+/** Which trouble waits at this road's next hidden stop. Drawn from the pool of
+ *  both ends' grounds, by the road's own key. */
+export function eventFor(key: string, halt: number): Happening {
+  const [a, b] = key.split('|').map(Number);
+  const pool = [
+    ...happeningsOn(STOP.get(a!)?.ground ?? 'moor'),
+    ...happeningsOn(STOP.get(b!)?.ground ?? 'moor'),
+  ];
+  const all = pool.length ? pool : [...HAPPENINGS];
+  return all[Math.floor(hash(`${key}@${halt}`) * all.length)]!;
 }
 
 /** How long the work will take.
@@ -215,13 +273,16 @@ export function fillOf(g: Game, a: number, b: number): number {
 
 export function initial(): Game {
   return {
-    version: 5,
+    version: 7,
     at: START,
     seen: [START],
     gauge: {},
     mana: 0,
     part: 0,
     building: null,
+    stats: { ...START_STATS },
+    momentum: MOMENTUM_START,
+    facing: null,
   };
 }
 
@@ -236,8 +297,26 @@ export function apply(g: Game, a: Action): Game {
       const got = Math.floor(total);
       let next: Game = { ...g, mana: g.mana + got, part: total - got };
 
-      if (next.building) {
-        const left = next.building.left - a.secs;
+      if (next.building && !next.facing) {
+        let left = next.building.left - a.secs;
+        // ★ THE HIDDEN STOP. The work reaches it and stops dead — the fill sits
+        // exactly there until the trouble is faced. Blocks PROGRESS, not you:
+        // you can still walk, and the mana still comes.
+        const halt = next.building.halts[0];
+        if (halt !== undefined) {
+          const leftAtHalt = next.building.secs * (1 - halt);
+          if (left <= leftAtHalt) {
+            return {
+              ...next,
+              building: { ...next.building, left: leftAtHalt },
+              facing: {
+                key: next.building.key,
+                event: eventFor(next.building.key, halt).id,
+                rolled: null,
+              },
+            };
+          }
+        }
         if (left > 0) return { ...next, building: { ...next.building, left } };
         const done = next.building;
         next = { ...next, gauge: { ...next.gauge, [done.key]: done.to }, building: null };
@@ -263,10 +342,61 @@ export function apply(g: Game, a: Action): Game {
       if (unbuildable(g, a.to)) return g;
       const secs = buildSecs(g, a.to);
       const key = roadKey(g.at, a.to);
+      const fresh = (g.gauge[key] ?? 0) === 0;
       return {
         ...g,
         mana: g.mana - priceOf(g, a.to),
-        building: { key, from: g.at, left: secs, secs, to: (g.gauge[key] ?? 0) + 1 },
+        building: {
+          key, from: g.at, left: secs, secs, to: (g.gauge[key] ?? 0) + 1,
+          halts: fresh ? haltsFor(key, priceOf(g, a.to)) : [],
+        },
+      };
+    }
+
+    case 'face': {
+      if (!g.facing || g.facing.rolled || !legal(a.roll)) return g;
+      const ev = HAPPENINGS.find((h) => h.id === g.facing!.event);
+      if (!ev || !ev.choices[a.choice]) return g;
+      return { ...g, facing: { ...g.facing, rolled: { choice: a.choice, roll: a.roll } } };
+    }
+
+    case 'carry':
+    case 'burn': {
+      if (!g.facing?.rolled || !g.building) return g;
+      const ev = HAPPENINGS.find((h) => h.id === g.facing!.event)!;
+      const choice = ev.choices[g.facing.rolled.choice]!;
+      const stat = g.stats[choice.stat] ?? 1;
+      if (a.type === 'burn' && !burnHelps(g.facing.rolled.roll, stat, g.momentum)) return g;
+      const out = a.type === 'burn'
+        ? judgeBurned(g.facing.rolled.roll, g.momentum)
+        : judge(g.facing.rolled.roll, stat);
+      let next: Game = a.type === 'burn'
+        ? { ...g, momentum: MOMENTUM_RESET }
+        : g;
+
+      // ★ UNIFORM CONSEQUENCES, so the owner can rewrite every word of
+      // `events.ts` without touching a number. The twist doubles the swing.
+      const swing = out.twist ? 2 : 1;
+      if (out.tier === 'strong') {
+        next = { ...next, momentum: clampMomentum(next.momentum + swing) };
+      } else if (out.tier === 'weak') {
+        next = { ...next, mana: Math.max(0, next.mana - 2 * swing) };
+      } else {
+        next = {
+          ...next,
+          momentum: clampMomentum(next.momentum - swing),
+          building: {
+            ...next.building!,
+            left: Math.min(next.building!.secs,
+              next.building!.left + next.building!.secs * 0.25 * swing),
+          },
+        };
+      }
+      // Faced is faced, whatever the dice said: the hidden stop is behind you.
+      return {
+        ...next,
+        facing: null,
+        building: { ...next.building!, halts: next.building!.halts.slice(1) },
       };
     }
 

@@ -18,13 +18,21 @@ import { STOPS, STOP, START, FINISH, roadCost, ROUTE_COUNT, GOING, BORE,
 
 const tick = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
 
-/** Wait for the mana, lay the road, wait for it to go in, walk it. */
+/** Wait for the mana, lay the road, FACE whatever blocks it, walk it.
+ *  ⚠️ The dice are forced to a strong hit — this helper is for reaching states,
+ *  not for testing the trouble; `test/happenings.test.ts` does that. */
 function lay(g: Game, to: number): Game {
   let out = g;
   for (let i = 0; i < 900 && unbuildable(out, to); i++) out = tick(out, 5);
   out = apply(out, { type: 'build', to });
-  out = tick(out, buildSecs(g, to) + 1);
-  return apply(out, { type: 'go', to });
+  for (let i = 0; i < 60 && out.building; i++) {
+    out = tick(out, 2);
+    if (out.facing) {
+      out = apply(out, { type: 'face', choice: 0, roll: { a: 6, c1: 1, c2: 2 } });
+      out = apply(out, { type: 'carry' });
+    }
+  }
+  return out.at === to ? out : apply(out, { type: 'go', to });
 }
 
 describe('the chapter', () => {

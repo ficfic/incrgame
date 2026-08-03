@@ -31,6 +31,7 @@ const SURFACES = [
   'src/game/notions.ts',    // the Thoughts tab
   'src/game/foes.ts',       // what holds a place
   'src/ui/Game.svelte',     // header, panel, buttons
+  'src/game/events.ts',     // every happening a player reads
 ];
 
 /** banned word → what to say instead.
@@ -92,6 +93,18 @@ function strings(src) {
     const c = src[i], next = src[i + 1];
     if (c === '\n') line++;
     if (mode === null) {
+      // ⚠️ HTML COMMENTS ARE SKIPPED, and an apostrophe is why. `the owner's
+      // design` inside a Svelte markup comment flipped this scanner's quote
+      // parity, and every real string after it was read shifted by one — the
+      // gate then reported "dot" inside developer comments three lines that
+      // said no such thing to a player.
+      if (c === '<' && src.slice(i, i + 4) === '<!--') {
+        const end = src.indexOf('-->', i + 4);
+        const skipped = src.slice(i, end === -1 ? src.length : end + 3);
+        line += (skipped.match(/\n/g) ?? []).length;
+        i = end === -1 ? src.length : end + 3;
+        continue;
+      }
       if (c === '/' && next === '/') { mode = 'line'; i += 2; continue; }
       if (c === '/' && next === '*') { mode = 'block'; i += 2; continue; }
       if (c === "'" || c === '"' || c === '`') { mode = c; start = line; buf = ''; i++; continue; }

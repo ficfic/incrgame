@@ -3,9 +3,11 @@
 // week idle, which is exactly the gap between sittings this game is built for.
 import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/storage';
 import { initial, type Game } from './engine';
+import { STATS, MOMENTUM_MIN, MOMENTUM_MAX, legal } from './dice';
+import { HAPPENINGS } from './events';
 import { STOP } from './stops';
 
-export const SAVE_VERSION = 6;   // pipes remember which end you laid them from
+export const SAVE_VERSION = 7;   // stats, momentum, and trouble on the line
 
 interface Blob { v: number; savedAt: number; game: Game }
 
@@ -50,7 +52,26 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     }
     if (g.building && !(typeof g.building.key === 'string'
       && Number.isFinite(g.building.left) && Number.isFinite(g.building.secs)
-      && g.building.secs > 0 && STOP.has(g.building.from))) return null;
+      && g.building.secs > 0 && STOP.has(g.building.from)
+      && Array.isArray(g.building.halts)
+      && g.building.halts.every((h) => typeof h === 'number' && h > 0 && h < 1))) return null;
+    if (g.stats !== undefined) {
+      if (!g.stats || typeof g.stats !== 'object') return null;
+      for (const k of STATS) {
+        const v = (g.stats as Record<string, unknown>)[k];
+        if (!Number.isInteger(v) || (v as number) < 0 || (v as number) > 5) return null;
+      }
+    }
+    if (g.momentum !== undefined
+      && !(Number.isInteger(g.momentum) && g.momentum >= MOMENTUM_MIN
+        && g.momentum <= MOMENTUM_MAX)) return null;
+    // Checked against the CONTENT: a facing that names trouble nobody wrote
+    // would be a dock stuck open forever with nothing in it.
+    if (g.facing) {
+      if (!HAPPENINGS.some((h) => h.id === g.facing!.event)) return null;
+      if (g.facing.rolled && !(Number.isInteger(g.facing.rolled.choice)
+        && legal(g.facing.rolled.roll))) return null;
+    }
     void requestPersistence();
     return { game: { ...initial(), ...g }, savedAt: b.savedAt };
   } catch {
