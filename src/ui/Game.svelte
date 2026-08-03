@@ -21,13 +21,13 @@
   // it says. `scripts/play-tabs.mjs` enforces all three.
   import { onMount } from 'svelte';
   import { STOP } from '../game/stops';
-  import { TABS, deedsFor, numOf, DOING, type TabId } from '../game/world';
+  import { TABS, deedsFor, numOf, stopId, DOING, type TabId } from '../game/world';
   import { solve, JOURNEY } from '../game/layout';
   import Board from './Board.svelte';
   import { TERRAIN_SHAPES } from '../game/terrain';
   import { INK, TOL } from '../game/ink';
   import { apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
-    loadOf, roadKey, type Game, type Action } from '../game/engine';
+    loadOf, roadKey, hopsFrom, START, type Game, type Action } from '../game/engine';
   import { judge, judgeBurned, burnHelps, type Roll } from '../game/dice';
   import { HAPPENINGS } from '../game/events';
   import { pathOf } from '../game/paths';
@@ -151,6 +151,22 @@
    *  not per line — max flow is a whole-graph answer and asking it edge by edge
    *  would be both wrong and 35 times the work. */
   const busy = $derived(loadOf(game));
+  const hops = $derived(hopsFrom(game));
+
+  /** ★ THE KING'S ROAD FEED, chapter only: a cased line entering from off the
+   *  top of the map and ending on the Start — the source of the +0.34 trickle,
+   *  visible instead of implied. The first point sits above the camera's box
+   *  on purpose: it comes in FROM OFFSCREEN, which is the owner's ask verbatim. */
+  const feed = $derived.by(() => {
+    if (tab !== 'chapter') return null;
+    const s = spotOf.get(stopId(START));
+    if (!s) return null;
+    return [
+      { x: s.x + 26, y: laid.box.y - 60 },
+      { x: s.x + 10, y: laid.box.y + 18 },
+      { x: s.x, y: s.y },
+    ];
+  });
 
   const lines = $derived(view.edges.map((e) => {
     const road = e.rel === 'road' && e.a.startsWith('stop:') && e.b.startsWith('stop:');
@@ -174,6 +190,14 @@
       fill: road ? fillOf(game, numOf(e.a), numOf(e.b)) : 1,
       gauge: road ? (game.gauge[key] ?? 0) : 0,
       load: road ? (busy.get(key) ?? 0) : 0,
+      // The crawl direction: mana runs from fewer hops to more. Along the
+      // line's own a→b after any fill-orientation swap.
+      dir: road ? (() => {
+        const ha = hops.get(backwards ? numOf(e.b) : numOf(e.a));
+        const hb = hops.get(backwards ? numOf(e.a) : numOf(e.b));
+        if (ha === undefined || hb === undefined || ha === hb) return 0;
+        return ha < hb ? 1 : -1;
+      })() : 0,
     };
   }));
 
@@ -299,7 +323,7 @@
          is harmless. -->
     <Board {dots} {lines} box={laid.box} label={tab} onTap={tap}
       decor={tab === 'chapter' ? TERRAIN_SHAPES : []}
-      drag={tab !== 'chapter'} {inset} />
+      drag={tab !== 'chapter'} {inset} {feed} pulse={game.mana} />
   </section>
 
   <!-- THE PANEL. Part of the page, below the graph, in flow. It is empty until

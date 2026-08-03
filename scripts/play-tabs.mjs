@@ -261,6 +261,51 @@ const groundPx = (await ink('moor')) + (await ink('crag'));
 // map — which this project has shipped. These are the pixels.
 const reliefPx = await ink('relief');
 const edgePx = (await ink('edgewood')) + (await ink('edgewater')) + (await ink('edgemoor'));
+// ★★ THE PIPELINE READS AS A PIPELINE. The owner: *"can we have a mana
+// pipeline visuals, especially when we start to have to connect to our initial
+// dot from offscreen and do some +1 +1 there."* Three visible things: the
+// king's road FEED entering from off the top of the map, the flow dashes
+// CRAWLING (checked by sampling the same strip twice — a static highlight is
+// exactly what this replaced), and a +1 floating off the pin when a whole mana
+// lands.
+const feedStrip = async () => {
+  const you = await page.locator('.map .node.you').first().boundingBox();
+  return page.evaluate(([hex, tol, cx]) => {
+    const cv = document.querySelector('.map canvas');
+    const off = cv.getBoundingClientRect();
+    const dpr = cv.width / off.width;
+    const x0 = Math.max(0, Math.round((cx - 30 - off.left) * dpr));
+    const w = Math.round(60 * dpr);
+    const h = Math.round(90 * dpr);
+    const d = cv.getContext('2d', { willReadFrequently: true })
+      .getImageData(x0, 0, w, h).data;
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    const hits = [];
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] > 40 && Math.abs(d[i] - r) <= tol && Math.abs(d[i + 1] - g) <= tol
+        && Math.abs(d[i + 2] - b) <= tol) hits.push(i / 4);
+    }
+    return hits;
+  }, [INK.flowing, TOL.flowing ?? 12, (you?.x ?? 0) + (you?.width ?? 0) / 2]);
+};
+const feedA = await feedStrip();
+await page.waitForTimeout(450);
+const feedB = await feedStrip();
+console.log('  feed    :', `${feedA.length}px of flow entering from offscreen, `
+  + `${feedA.length && feedA.join() !== feedB.join() ? 'CRAWLING' : 'not moving'}`);
+if (feedA.length < 20) misses.push(`only ${feedA.length}px of king's-road feed above the Start`);
+else if (feedA.join() === feedB.join()) {
+  misses.push('the feed dashes are frozen — the pipeline does not visibly carry');
+}
+// The +1: mana lands roughly every 3s at the base trickle.
+let plussed = false;
+for (let i = 0; i < 14 && !plussed; i++) {
+  plussed = (await page.locator('.map .plus').count()) > 0;
+  if (!plussed) await page.waitForTimeout(700);
+}
+console.log('  plus    :', plussed ? 'a +1 floated off the pin' : 'no +1 ever appeared');
+if (!plussed) misses.push('no +1 floats when a whole mana lands');
+
 // ★ THE COAST. *"the sea somewhere and beaches"* — a band of sea down the west
 // edge with a beach line where it meets the land, the first mark on this map
 // not centred on a stop. Counted, because decor that stops being drawn fails

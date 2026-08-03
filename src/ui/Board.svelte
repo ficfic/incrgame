@@ -43,15 +43,27 @@
     /** ★ HOW WIDE THE ROAD IS, 0 if it is not laid. A road is a pipe now, and
      *  the whole model is a spreadsheet unless the board draws the bore. */
     gauge?: number;
+    /** ★ WHICH WAY THE MANA RUNS: +1 along a→b, -1 against it, 0 for a pipe
+     *  carrying nothing. Drives the crawl of the flow dashes and nothing else. */
+    dir?: number;
     /** ★ THE BEND — the road's real course in world coordinates, first point at
      *  this line's `a` end. Absent off the chapter, where stops sit at solved
      *  rather than authored positions and a baked path would join two points
      *  that are not there. */
     pts?: Pt[] }
 
-  let { dots, lines, box, label, onTap, decor = [], drag = true, inset = 0 }: {
+  let { dots, lines, box, label, onTap, decor = [], drag = true, inset = 0,
+    feed = null, pulse = 0 }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
     onTap: (id: string) => void;
+    /** ★ THE KING'S ROAD, coming in from off the map. The mana has to come
+     *  from SOMEWHERE, and the owner asked to see it: *"especially when we
+     *  start to have to connect to our initial dot from offscreen."* World
+     *  points, first one off-frame. */
+    feed?: Pt[] | null;
+    /** Bumps every time a whole mana lands — each bump floats a +1 off the
+     *  pin. The number itself is only compared, never shown. */
+    pulse?: number;
     /** ★ HOW MANY PIXELS OF THE BOARD'S BOTTOM ARE COVERED by the panel that
      *  now sits over it. The canvas still PAINTS the full height — terrain
      *  behind a translucent panel is the whole point of overlaying it — but the
@@ -87,6 +99,41 @@
   /** Dots the player has dragged. Cleared whenever the tab's shape changes, so
    *  a nudge is a gesture rather than a thing to save and migrate. */
   let moved = $state<Map<string, { x: number; y: number }>>(new Map());
+
+  /** ★ THE ONE MOVING THING ON THE BOARD. A phase for the flow dashes,
+   *  advanced by rAF ONLY while something is flowing — the board stays a still
+   *  map the rest of the time, which is the old no-jingling rule holding.
+   *  Positions never change; only lineDashOffset does, so nothing a thumb aims
+   *  at ever moves. */
+  let phase = $state(0);
+  $effect(() => {
+    const moving = feed !== null || lines.some((l) => (l.dir ?? 0) !== 0 && l.fill >= 1);
+    if (!moving) return;
+    let raf = 0;
+    let last = performance.now();
+    const step = (t: number): void => {
+      // ~30fps is plenty for a crawl and half the battery of 60.
+      if (t - last > 33) { phase = (phase + (t - last) * 0.012) % 1000; last = t; }
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  });
+
+  /** +1s floating off the pin. Purely cosmetic, capped, self-removing. */
+  let plusses = $state<Array<{ id: number; x: number; y: number }>>([]);
+  let plusId = 0;
+  let lastPulse = 0;
+  $effect(() => {
+    const p = pulse;
+    if (p <= lastPulse) { lastPulse = p; return; }
+    lastPulse = p;
+    const you = dots.find((d) => d.you);
+    if (!you) return;
+    const at = posOf.get(you.id);
+    if (!at || plusses.length >= 4) return;
+    plusses = [...plusses, { id: plusId++, x: sx(at.x), y: sy(at.y) - 26 }];
+  });
 
   const shape = $derived(dots.map((d) => d.id).join(','));
   const posOf = $derived(new Map(dots.map((d) =>
@@ -311,6 +358,16 @@
       if (made && l.load > 0) {
         paint(ctx, { s: 'path', pts: run, ink: 'flowing',
           w: 3 + 6 * l.load, alpha: 0.55 }, sx, sy, 1);
+        // ★ AND IT MOVES. Dashes crawling from the start toward you — the
+        // pipeline visibly carrying, not a static highlight. Direction comes
+        // from hop depth; the dash offset is the only thing animating.
+        if ((l.dir ?? 0) !== 0) {
+          ctx.save();
+          ctx.lineDashOffset = -phase * (l.dir ?? 1);
+          paint(ctx, { s: 'path', pts: run, ink: 'flowing',
+            w: 2, dash: [5, 9], alpha: 0.95 }, sx, sy, 1);
+          ctx.restore();
+        }
       }
       // ⚠️ DASHED UNTIL IT IS FINISHED, NOT UNTIL IT IS STARTED. With the strict
       // test a route lost its dashes the instant it began filling and drew solid
@@ -341,6 +398,18 @@
         paint(ctx, { s: 'path', ink: 'fill', w: 3,
           pts: cutAt(run, l.fill, true) }, sx, sy, 1);
       }
+    }
+
+    // ★ THE KING'S ROAD, in from off the map. Cased like any built way, with
+    // the same crawling dashes — the +0.34 trickle has a visible source now
+    // instead of arriving from the ether.
+    if (feed && feed.length > 1) {
+      paint(ctx, { s: 'path', pts: feed, ink: 'casing', w: 7 }, sx, sy, 1);
+      paint(ctx, { s: 'path', pts: feed, ink: 'route', w: 4.6 }, sx, sy, 1);
+      ctx.save();
+      ctx.lineDashOffset = -phase;
+      paint(ctx, { s: 'path', pts: feed, ink: 'flowing', w: 2.2, dash: [5, 9] }, sx, sy, 1);
+      ctx.restore();
     }
 
     for (const d of dots) {
@@ -380,6 +449,7 @@
   $effect(() => {
     // Re-read everything the picture depends on so the effect tracks it.
     void dots; void lines; void decor; void k; void tx; void ty; void moved; void cssW; void cssH;
+    void phase; void feed;
     draw();
   });
 
@@ -495,6 +565,10 @@
       {#if d.name && !unlabelled.has(d.id)}<span class="label">{d.name}</span>{/if}
     </button>
   {/each}
+  {#each plusses as p (p.id)}
+    <span class="plus" style="left:{p.x}px; top:{p.y}px"
+      onanimationend={() => (plusses = plusses.filter((q) => q.id !== p.id))}>+1</span>
+  {/each}
 </div>
 
 <style>
@@ -528,5 +602,16 @@
     /* The halo that keeps a name legible where it crosses a line. */
     text-shadow: 0 0 3px #f6f1e6, 0 0 3px #f6f1e6, 0 0 2px #f6f1e6; }
   .node.you .label { font-weight: 700; }
+  /* ★ THE +1s. Owner-requested juice: each whole mana floats off the pin and
+     dies. Pointer-events none — decoration must never eat a tap. */
+  .plus { position: absolute; margin-left: -8px; pointer-events: none;
+    font: 700 14px/1 ui-sans-serif, system-ui, sans-serif; color: #1f6b3a;
+    text-shadow: 0 0 3px #f6f1e6, 0 0 3px #f6f1e6;
+    animation: rise 1.3s ease-out forwards; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    18% { opacity: 1; }
+    to { opacity: 0; transform: translateY(-30px); }
+  }
   .node:focus-visible .label { text-decoration: underline; }
 </style>

@@ -256,6 +256,28 @@ export function blocked(g: Game, to: number): string | null {
   return null;
 }
 
+/** How many pipes deep each reached stop is from the start — the direction the
+ *  mana travels, for drawing the flow. Not gameplay: the board animates along
+ *  falling-hop order and nothing else reads this. */
+export function hopsFrom(g: Game): Map<number, number> {
+  const near = new Map<number, number[]>();
+  for (const [k, n] of Object.entries(g.gauge)) {
+    if (!(n > 0)) continue;
+    const [a, b] = k.split('|').map(Number);
+    if (a === undefined || b === undefined) continue;
+    (near.get(a) ?? near.set(a, []).get(a)!).push(b);
+    (near.get(b) ?? near.set(b, []).get(b)!).push(a);
+  }
+  const out = new Map<number, number>([[START, 0]]);
+  const queue = [START];
+  for (let h = 0; h < queue.length; h++) {
+    for (const n of near.get(queue[h]!) ?? []) {
+      if (!out.has(n)) { out.set(n, out.get(queue[h]!)! + 1); queue.push(n); }
+    }
+  }
+  return out;
+}
+
 /** ★ THE CHAPTER IS DONE WHEN ONE PATH RUNS END TO END. *"one path yeah, done
  *  is done."* Not a percentage of the map — a crossing. */
 export function crossed(g: Game): boolean {
