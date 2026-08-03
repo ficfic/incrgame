@@ -226,6 +226,17 @@ if (room.h - room.bottom > 8) {
 if (room.panel > room.h * 0.25) {
   misses.push(`the dock is ${room.panel}px with nothing selected — it should be a bar`);
 }
+// ★ AND NO STOP HIDES BEHIND THE DOCK AT REST. The owner's live screenshot
+// caught it: the away-line made the dock taller, the board never re-framed,
+// and the Finish sat behind the panel. The whole crossing must be VISIBLE —
+// the goal being off-screen is the one decision hidden again.
+const drowned = await page.evaluate(() => {
+  const top = document.querySelector('.panel').getBoundingClientRect().top;
+  return [...document.querySelectorAll('.map .node')]
+    .map((n) => ({ id: n.dataset.id, y: n.getBoundingClientRect().top + 22 }))
+    .filter((n) => n.y > top + 4).map((n) => n.id);
+});
+if (drowned.length) misses.push(`${drowned.join(' ')} hidden behind the dock at rest`);
 
 // ------------------------------------------------------------- the chapter --
 //
@@ -572,7 +583,11 @@ await page.evaluate(() => new Promise((done, fail) => {
     const db = req.result;
     const tx = db.transaction('saves', 'readwrite');
     tx.objectStore('saves').put(JSON.stringify({
-      v: 6, savedAt: Date.now(),
+      // ⚠️ SAVED TWO HOURS AGO ON PURPOSE. The away line ("Away 2.0 hours — N
+      // mana gathered") makes the dock TALL at rest — which is exactly the
+      // state the owner's live screenshot caught: the board framed itself
+      // before the dock reported its height, and the Finish drowned behind it.
+      v: 6, savedAt: Date.now() - 2 * 3600 * 1000,
       game: { version: 6, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null },
     }), 'main');
     tx.oncomplete = () => { db.close(); done(); };
@@ -602,6 +617,34 @@ if (rich < 999) {
 } else if (!/no mana reaches here/.test(refused.text)) {
   misses.push(`the refusal does not say why: "${refused.text}"`);
 }
+
+// ★★ WITH THE TALL DOCK, THE WHOLE CROSSING IS STILL VISIBLE. The away line
+// roughly doubles the dock, and the board must re-frame for it — the owner's
+// live screenshot had the Finish hidden behind exactly this dock.
+//
+// ⚠️ NOT PROVEN RED AT THIS VIEWPORT, and saying so rather than pretending. At
+// 390x844 the fit is width-bound with ~180px of vertical slack, so even with
+// the inset ignored outright (`usable = cssH`) every stop stayed clear of the
+// tall dock and this check stayed green. The ordering bug it guards was real —
+// the board framed itself before the dock reported its height and never
+// re-framed — and shows on aspect ratios with less slack, which is where the
+// owner's phone lives. This is the tripwire for the day the map grows taller.
+await page.locator('nav button', { hasText: 'Chapter' }).click();
+await page.waitForTimeout(600);
+const dockSaid = await panelText();
+console.log('\nTHE TALL DOCK');
+console.log('  says    :', `"${dockSaid.slice(0, 60)}"`);
+if (!/Away /.test(dockSaid)) {
+  misses.push('the away line never appeared — the tall-dock check tested nothing');
+}
+const drowned2 = await page.evaluate(() => {
+  const top = document.querySelector('.panel').getBoundingClientRect().top;
+  return [...document.querySelectorAll('.map .node')]
+    .map((n) => ({ id: n.dataset.id, y: n.getBoundingClientRect().top + 22 }))
+    .filter((n) => n.y > top + 4).map((n) => n.id);
+});
+console.log('  visible :', drowned2.length ? `⚠️ ${drowned2.join(' ')} behind the dock` : 'every stop above the dock');
+if (drowned2.length) misses.push(`${drowned2.join(' ')} hidden behind the TALL dock — the board did not re-frame`);
 
 await page.screenshot({ path: SHOT });
 console.log(`\nscreenshot → ${SHOT}`);

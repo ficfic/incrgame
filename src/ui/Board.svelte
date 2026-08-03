@@ -151,13 +151,13 @@
   // guards are plain variables on purpose — reading them must not subscribe this
   // effect to itself.
   let fitted = '';
-  let fitW = 0, fitH = 0;
+  let fitW = 0, fitH = 0, fitIn = -1;
   $effect(() => {
-    const s = shape, w = cssW, h = cssH;
+    const s = shape, w = cssW, h = cssH, ins = inset;
     if (!w || !h) return;
-    if (s === fitted && w === fitW && h === fitH) return;
+    if (s === fitted && w === fitW && h === fitH && ins === fitIn) return;
     if (s !== fitted) moved = new Map();
-    fitted = s; fitW = w; fitH = h;
+    fitted = s; fitW = w; fitH = h; fitIn = ins;
     fit();
   });
 
