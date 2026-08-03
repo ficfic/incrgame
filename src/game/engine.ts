@@ -41,7 +41,7 @@
 //
 // Pure: `apply(state, action) => state`. No DOM, no clock, no RNG. Time arrives
 // as a `tick` carrying seconds.
-import { STOP, START, FINISH, nameOf, roadCost, roadsFrom, boreOf } from './stops';
+import { STOP, START, FINISH, nameOf, roadCost, roadsFrom, boreOf, GOING } from './stops';
 import { maxFlow, loads, type Pipe } from './flow';
 import { judge, judgeBurned, burnHelps, legal, clampMomentum, START_STATS,
   MOMENTUM_START, MOMENTUM_RESET, type Roll, type Stat } from './dice';
@@ -50,6 +50,36 @@ import { pathOf } from './paths';
 import { climbOf } from './height';
 export { roadCost, START, FINISH } from './stops';
 export { STATS, type Stat, type Roll } from './dice';
+
+/** ★ THE KIT. Chosen when you set off — the PREPARE half of the owner's loop:
+ *  *"in order to start building a leg, you need to prepare first."* Each suits
+ *  two grounds; set off suited and every roll on the leg carries +1, set off
+ *  wrong and it carries -1. The cart does not care how brave you are in a bog. */
+export const KITS = ['cart', 'mule', 'packs'] as const;
+export type Kit = typeof KITS[number];
+export const KIT_SUITS: Record<Kit, readonly string[]> = {
+  cart: ['moor', 'stone'],
+  mule: ['wood', 'crag'],
+  packs: ['bog', 'water'],
+};
+
+/** The ground a leg answers to: the dearer end's, because that is the end
+ *  that decides how the trip actually goes. */
+export function legGround(key: string): string {
+  const [a, b] = key.split('|').map(Number);
+  const A = STOP.get(a!), B = STOP.get(b!);
+  if (!A || !B) return 'moor';
+  return (GOING[A.ground] ?? 1) >= (GOING[B.ground] ?? 1) ? A.ground : B.ground;
+}
+
+/** The +1 / -1 a kit brings to every roll on a leg. */
+export function kitAdd(kit: Kit, key: string): number {
+  const g = legGround(key);
+  if (KIT_SUITS[kit].includes(g)) return 1;
+  // The middle: a mule on the moor is merely slow, not wrong.
+  const suitsAny = KITS.some((k) => k !== kit && KIT_SUITS[k].includes(g));
+  return suitsAny && !KIT_SUITS[kit].includes(g) ? -1 : 0;
+}
 
 export interface Game {
   version: number;
@@ -77,11 +107,16 @@ export interface Game {
    *  build — the owner: *"they should not be visible but block progress until
    *  resolved."* Nothing draws them; the work simply stops there. */
   building: { key: string; from: number; left: number; secs: number; to: number;
-    halts: number[] } | null;
+    halts: number[]; kit: Kit } | null;
   /** ★ THE CREW'S STATS, Ironsworn's five. What a 2d10 roll leans on. */
   stats: Record<Stat, number>;
   /** ★ MOMENTUM — the banked kind. Burn it to overrule a bad roll. */
   momentum: number;
+  /** ★ PROVISIONS — what the crew eats while trouble is faced. Ironsworn's
+   *  Supply, 0..10. Weak hits and misses eat it; a MISS WITH NONE LEFT fails
+   *  the whole leg. The other resource the owner asked for, and the one that
+   *  makes an event mean something. */
+  provisions: number;
   /** ★ WHAT STANDS IN THE WAY RIGHT NOW, or null. While this is set, the
    *  building does not move: block, face, resolve, resume. */
   facing: {
@@ -102,7 +137,7 @@ export type Action =
   | { type: 'go'; to: number }
   /** Lay the road between where you stand and `to`, or widen it if it is
    *  already there. One verb on the board, two things underneath. */
-  | { type: 'build'; to: number }
+  | { type: 'build'; to: number; kit: Kit }
   /** ★ FACE what stands in the way: pick a choice, and hand the engine the
    *  dice THE SHELL rolled — `apply` takes no randomness, ever. */
   | { type: 'face'; choice: number; roll: Roll }
@@ -187,10 +222,15 @@ function hash(s: string): number {
  *  it… not visible but block progress until resolved."* Dear ground carries
  *  two; easy ground carries one. Widening carries none — the trouble was faced
  *  when the line first went in. */
-export function haltsFor(key: string, cost: number): number[] {
-  const two = cost >= 18;
-  const first = 0.35 + hash(key) * 0.25;
-  return two ? [first, 0.62 + hash(`${key}~`) * 0.23] : [first];
+export function haltsFor(key: string, cost: number, climb = 0): number[] {
+  // ★ THE LEG'S RANK, in trouble: length prices one extra stop, real climb
+  // prices another. One to three — the owner asked for 2 to 3 on a real leg,
+  // and an easy lowland hop earning only one is what makes the hard ones read.
+  const n = 1 + (cost >= 14 ? 1 : 0) + (climb >= 40 ? 1 : 0);
+  const out = [0.3 + hash(key) * 0.18];
+  if (n >= 2) out.push(0.52 + hash(`${key}~`) * 0.16);
+  if (n >= 3) out.push(0.74 + hash(`${key}#`) * 0.14);
+  return out;
 }
 
 /** Which trouble waits at this road's next hidden stop. Drawn from the pool of
@@ -308,7 +348,7 @@ export function fillOf(g: Game, a: number, b: number): number {
 
 export function initial(): Game {
   return {
-    version: 7,
+    version: 8,
     at: START,
     seen: [START],
     gauge: {},
@@ -317,6 +357,7 @@ export function initial(): Game {
     building: null,
     stats: { ...START_STATS },
     momentum: MOMENTUM_START,
+    provisions: 6,
     facing: null,
   };
 }
@@ -355,6 +396,11 @@ export function apply(g: Game, a: Action): Game {
         if (left > 0) return { ...next, building: { ...next.building, left } };
         const done = next.building;
         next = { ...next, gauge: { ...next.gauge, [done.key]: done.to }, building: null };
+        // The crew forages as it settles the new stop in — the trickle that
+        // keeps provisions alive until scavenging is a verb of its own.
+        if (done.to === 1) {
+          next = { ...next, provisions: Math.min(10, next.provisions + 1) };
+        }
         // ★ A FINISHED LAY CARRIES YOU OVER. The owner: *"obviously when we
         // build a road somewhere we arrive there too."* Only a fresh lay — a
         // widening is work on a line you already walk — and only if you are
@@ -383,7 +429,8 @@ export function apply(g: Game, a: Action): Game {
         mana: g.mana - priceOf(g, a.to),
         building: {
           key, from: g.at, left: secs, secs, to: (g.gauge[key] ?? 0) + 1,
-          halts: fresh ? haltsFor(key, priceOf(g, a.to)) : [],
+          halts: fresh ? haltsFor(key, priceOf(g, a.to), climbTo(g, a.to)) : [],
+          kit: a.kit,
         },
       };
     }
@@ -400,7 +447,7 @@ export function apply(g: Game, a: Action): Game {
       if (!g.facing?.rolled || !g.building) return g;
       const ev = HAPPENINGS.find((h) => h.id === g.facing!.event)!;
       const choice = ev.choices[g.facing.rolled.choice]!;
-      const stat = g.stats[choice.stat] ?? 1;
+      const stat = (g.stats[choice.stat] ?? 1) + kitAdd(g.building.kit, g.building.key);
       if (a.type === 'burn' && !burnHelps(g.facing.rolled.roll, stat, g.momentum)) return g;
       const out = a.type === 'burn'
         ? judgeBurned(g.facing.rolled.roll, g.momentum)
@@ -409,16 +456,32 @@ export function apply(g: Game, a: Action): Game {
         ? { ...g, momentum: MOMENTUM_RESET }
         : g;
 
-      // ★ UNIFORM CONSEQUENCES, so the owner can rewrite every word of
-      // `events.ts` without touching a number. The twist doubles the swing.
+      // ★ CONSEQUENCES STILL UNIFORM (the owner rewrites events.ts without
+      // touching a number) — but they land on PROVISIONS now, which is what
+      // gives an event teeth: the crew eats through trouble, and a leg without
+      // food left cannot survive a miss.
       const swing = out.twist ? 2 : 1;
       if (out.tier === 'strong') {
         next = { ...next, momentum: clampMomentum(next.momentum + swing) };
       } else if (out.tier === 'weak') {
-        next = { ...next, mana: Math.max(0, next.mana - 2 * swing) };
+        next = { ...next, provisions: Math.max(0, next.provisions - swing) };
       } else {
+        // ★★ THE LEG CAN FAIL. A miss with the provisions gone is the end of
+        // the expedition: the work is abandoned, the mana is sunk, momentum
+        // takes the full hit, and you are still standing where you started.
+        // The owner: *"when you fail, you go back either completely or a
+        // little bit, lose resources and so on."*
+        if (next.provisions <= 0) {
+          return {
+            ...next,
+            momentum: clampMomentum(next.momentum - 2),
+            building: null,
+            facing: null,
+          };
+        }
         next = {
           ...next,
+          provisions: Math.max(0, next.provisions - 1),
           momentum: clampMomentum(next.momentum - swing),
           building: {
             ...next.building!,

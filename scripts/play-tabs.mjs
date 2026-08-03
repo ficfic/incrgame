@@ -476,6 +476,31 @@ if (!live || live.off) {
 
   const fill0 = await ink('fill');
   await page.locator('.deed', { hasText: 'Lay the pipe' }).first().click({ timeout: 3000 });
+  await page.waitForTimeout(300);
+
+  // ★★ PREPARE FIRST. The owner: *"in order to start building a leg, you need
+  // to prepare first."* Tapping the lay deed must NOT start the work — it must
+  // open the kit choice, three ways to set off, each saying up front what it
+  // does to every roll on the leg. Only choosing one sets the crew moving.
+  console.log('\nPREPARE');
+  const kits = await page.$$eval('.deed', (es) => es
+    .map((e) => e.textContent.replace(/\s+/g, ' ').trim())
+    .filter((t) => /^Set off with the /.test(t)));
+  console.log('  offers  :', kits.length ? kits.map((k) => `"${k.slice(0, 60)}"`).join('\n            ') : '(no kit choice — the build just started)');
+  if (kits.length !== 3) {
+    misses.push(`the lay does not ask how the crew sets off: ${kits.length} kit deeds, wanted 3`);
+  }
+  if (!kits.some((k) => /\+1 to every roll/.test(k))
+    || !kits.some((k) => /-1 to every roll/.test(k))) {
+    misses.push('no kit says what it does to the rolls — the choice is blind');
+  }
+  const keep = await page.$eval('.purse .keep', (e) => e.textContent.trim()).catch(() => null);
+  console.log('  keeps   :', keep ?? '(no provisions in the header)');
+  if (!keep || !/^\d+ provisions$/.test(keep)) {
+    misses.push(`the header does not count provisions: "${keep}"`);
+  }
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-prepare.png') });
+  await page.locator('.deed', { hasText: 'Set off with the cart' }).click({ timeout: 3000 });
   await page.waitForTimeout(1600);
   const laying = await panelText();
   const fillMid = await ink('fill');
@@ -683,8 +708,8 @@ await page.evaluate(() => new Promise((done, fail) => {
       // mana gathered") makes the dock TALL at rest — which is exactly the
       // state the owner's live screenshot caught: the board framed itself
       // before the dock reported its height, and the Finish drowned behind it.
-      v: 7, savedAt: Date.now() - 2 * 3600 * 1000,
-      game: { version: 7, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null },
+      v: 8, savedAt: Date.now() - 2 * 3600 * 1000,
+      game: { version: 8, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null },
     }), 'main');
     tx.oncomplete = () => { db.close(); done(); };
     tx.onerror = () => fail(tx.error);

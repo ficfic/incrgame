@@ -96,8 +96,8 @@ function doing(g: Game): Node {
     return {
       id: DOING, kind: 'doing',
       name: g.building.to > 1 ? 'Widening the pipe' : 'Laying pipe',
-      body: `Toward ${nameOf(far)}. ${Math.ceil(g.building.left)}s left. It keeps `
-        + 'going while the game is closed.',
+      body: `Toward ${nameOf(far)}, by ${g.building.kit}. ${Math.ceil(g.building.left)}s `
+        + 'left. It keeps going while the game is closed.',
     };
   }
   const wait = waitFor(g);
@@ -162,6 +162,9 @@ export function self(g: Game): View {
         body: 'What a roll leans on when this stat carries the choice. One die '
           + 'and this, against two.',
       })),
+      { id: 'carry:provisions', kind: 'carry', name: `${g.provisions} provisions`,
+        body: 'What the crew eats while trouble is faced. Weak hits and misses '
+          + 'eat them — and a miss with none left is the end of the leg.' },
       { id: 'stat:momentum', kind: 'fact', name: `momentum ${g.momentum >= 0 ? '+' : ''}${g.momentum}`,
         body: 'Banked nerve. After a bad roll you can burn it to overrule the '
           + 'dice — it resets to +2 and the world moves on.' },
@@ -176,6 +179,7 @@ export function self(g: Game): View {
     edges: [
       { a: 'you', b: stopId(g.at), rel: 'stands' },
       { a: 'you', b: 'carry:mana', rel: 'carries' },
+      { a: 'you', b: 'carry:provisions', rel: 'carries' },
       { a: 'you', b: 'stat:flow', rel: 'has' },
       ...STATS.map((s) => ({ a: 'you', b: `stat:${s}`, rel: 'has' as const })),
       { a: 'you', b: 'stat:momentum', rel: 'has' },

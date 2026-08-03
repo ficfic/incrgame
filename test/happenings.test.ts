@@ -10,8 +10,8 @@ import { describe, it, expect } from 'vitest';
 import { judge, judgeBurned, burnHelps, legal, clampMomentum, STATS,
   START_STATS, MOMENTUM_MAX, MOMENTUM_MIN, MOMENTUM_RESET } from '../src/game/dice';
 import { HAPPENINGS, happeningsOn } from '../src/game/events';
-import { apply, initial, haltsFor, eventFor, buildSecs, roadKey,
-  type Game } from '../src/game/engine';
+import { apply, initial, haltsFor, eventFor, buildSecs, roadKey, kitAdd, KITS,
+  type Game, type Kit } from '../src/game/engine';
 import { STOP, START, GOING, type Ground } from '../src/game/stops';
 
 const tick = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
@@ -22,7 +22,7 @@ const flush = (): Game => ({ ...initial(), mana: 999 });
 /** Start the first lay and run it into its first hidden stop. */
 function intoTrouble(): Game {
   const to = STOP.get(START)!.near[0]!;
-  let g = apply(flush(), { type: 'build', to });
+  let g = apply(flush(), { type: 'build', to, kit: 'cart' });
   for (let i = 0; i < 40 && !g.facing; i++) g = tick(g, 0.5);
   return g;
 }
@@ -101,9 +101,11 @@ describe('★ every ground has trouble waiting on it', () => {
     for (const h of halts) expect(h).toBeLessThan(0.9);
   });
 
-  it('dear ground carries two hidden stops, easy ground one', () => {
-    expect(haltsFor('x', 30).length).toBe(2);
-    expect(haltsFor('x', 10).length).toBe(1);
+  it('★ trouble scales with length AND climb, one to three stops', () => {
+    expect(haltsFor('x', 10, 0).length).toBe(1);
+    expect(haltsFor('x', 30, 0).length).toBe(2);
+    expect(haltsFor('x', 30, 60).length).toBe(3);
+    expect(haltsFor('x', 10, 60).length).toBe(2);
   });
 });
 
@@ -152,13 +154,76 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     expect(g.building!.halts.length).toBeLessThan(2);
   });
 
-  it('a weak hit costs mana and moves on', () => {
+  it('★ a weak hit eats provisions and moves on — mana is untouched', () => {
     let g = intoTrouble();
+    const keep = g.provisions;
     const purse = g.mana;
     g = apply(g, { type: 'face', choice: 0, roll: { a: 4, c1: 2, c2: 9 } });
     g = apply(g, { type: 'carry' });
     expect(g.facing).toBeNull();
-    expect(g.mana).toBeLessThan(purse + 20);   // the tick paid a little in
+    expect(g.provisions).toBe(keep - 1);
+    expect(g.mana).toBe(purse);
+  });
+
+  it('★★ a miss with no provisions left FAILS the leg outright', () => {
+    let g = intoTrouble();
+    g = { ...g, provisions: 0 };
+    const gauge = { ...g.gauge };
+    g = apply(g, { type: 'face', choice: 0, roll: { a: 1, c1: 9, c2: 8 } });
+    g = apply(g, { type: 'carry' });
+    // The expedition is over: no building, no facing, nothing laid, the mana
+    // already sunk stays sunk, momentum takes the full hit.
+    expect(g.building).toBeNull();
+    expect(g.facing).toBeNull();
+    expect(g.gauge).toEqual(gauge);
+    expect(g.momentum).toBe(initial().momentum - 2);
+    expect(g.at).toBe(START);
+  });
+
+  it('★ finishing a fresh lay restocks one provision', () => {
+    const to = STOP.get(START)!.near[0]!;
+    let g = apply(flush(), { type: 'build', to, kit: 'cart' });
+    for (let i = 0; i < 80 && g.building; i++) {
+      g = tick(g, 2);
+      if (g.facing) {
+        g = apply(g, { type: 'face', choice: 0, roll: { a: 6, c1: 1, c2: 2 } });
+        g = apply(g, { type: 'carry' });
+      }
+    }
+    expect(g.gauge[roadKey(START, to)]).toBe(1);
+    expect(g.provisions).toBe(initial().provisions + 1);
+  });
+
+  it('★ the kit rides every roll: suited +1 can turn a weak hit strong', () => {
+    // Stat iron 3. Dice a:3 vs 6 and 5 → score 6: beats 5, ties 6 → weak.
+    // With a suited kit's +1 the score is 7 → beats both → strong. Same dice.
+    const key = roadKey(START, STOP.get(START)!.near[0]!);
+    const suited = KITS.find((k) => kitAdd(k, key) === 1);
+    const flat = KITS.find((k) => kitAdd(k, key) === 0);
+    expect(suited, 'no kit suits the first leg — pick a different fixture').toBeDefined();
+    const run = (kit: Kit): Game => {
+      const to = STOP.get(START)!.near[0]!;
+      let g = apply(flush(), { type: 'build', to, kit });
+      for (let i = 0; i < 40 && !g.facing; i++) g = tick(g, 0.5);
+      const ev = HAPPENINGS.find((h) => h.id === g.facing!.event)!;
+      const iron = ev.choices.findIndex((c) => c.stat === 'iron');
+      const choice = iron >= 0 ? iron : 0;
+      g = apply(g, { type: 'face', choice, roll: { a: 3, c1: 6, c2: 5 } });
+      return apply(g, { type: 'carry' });
+    };
+    // Only meaningful when an iron-3 choice exists on the first leg's event.
+    const probeEv = intoTrouble();
+    const ev = HAPPENINGS.find((h) => h.id === probeEv.facing!.event)!;
+    if (!ev.choices.some((c) => c.stat === 'iron')) return;
+    const withSuit = run(suited!);
+    if (flat) {
+      const without = run(flat);
+      // strong lifts momentum; weak eats provisions — the same dice must land
+      // differently across the two kits.
+      expect(withSuit.momentum).toBeGreaterThan(without.momentum);
+    } else {
+      expect(withSuit.momentum).toBe(initial().momentum + 1);
+    }
   });
 
   it('★ burning momentum overrules the dice and resets to +2', () => {
@@ -188,7 +253,7 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
   it('widening meets no trouble — it was faced when the line went in', () => {
     const to = STOP.get(START)!.near[0]!;
     let g: Game = { ...flush(), gauge: { [roadKey(START, to)]: 1 } };
-    g = apply(g, { type: 'build', to });
+    g = apply(g, { type: 'build', to, kit: 'cart' });
     expect(g.building!.halts).toEqual([]);
     for (let i = 0; i < 40 && g.building; i++) g = tick(g, 1);
     expect(g.facing).toBeNull();

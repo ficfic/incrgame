@@ -24,7 +24,7 @@ const tick = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
 function lay(g: Game, to: number): Game {
   let out = g;
   for (let i = 0; i < 900 && unbuildable(out, to); i++) out = tick(out, 5);
-  out = apply(out, { type: 'build', to });
+  out = apply(out, { type: 'build', to, kit: 'cart' });
   for (let i = 0; i < 60 && out.building; i++) {
     out = tick(out, 2);
     if (out.facing) {
@@ -89,7 +89,7 @@ describe('★ mana only reaches along road you have built', () => {
     const rich = { ...initial(), at: far.id, seen: [START, far.id], mana: 9999 };
     expect(reached(rich).has(far.id)).toBe(false);
     expect(unbuildable(rich, far.near[0]!)).toBe('no mana reaches here');
-    expect(apply(rich, { type: 'build', to: far.near[0]! })).toBe(rich);
+    expect(apply(rich, { type: 'build', to: far.near[0]!, kit: 'cart' })).toBe(rich);
   });
 
   it('and the reason is reported before the price', () => {

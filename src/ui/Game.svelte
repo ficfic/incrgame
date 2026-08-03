@@ -27,7 +27,8 @@
   import { TERRAIN_SHAPES } from '../game/terrain';
   import { INK, TOL } from '../game/ink';
   import { apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
-    loadOf, roadKey, hopsFrom, START, type Game, type Action } from '../game/engine';
+    loadOf, roadKey, hopsFrom, kitAdd, legGround, KITS, START,
+    type Game, type Action, type Kit } from '../game/engine';
   import { judge, judgeBurned, burnHelps, type Roll } from '../game/dice';
   import { HAPPENINGS } from '../game/events';
   import { pathOf } from '../game/paths';
@@ -46,6 +47,11 @@
    *  is the far end. Armed state lives in the panel where you pressed it — it
    *  does not follow your finger around and it does not float over the graph. */
   let arming = $state(false);
+  /** ★ PREPARE BEFORE YOU SET OFF — the owner: *"in order to start building a
+   *  leg, you need to prepare first."* Tapping "Lay the pipe" opens the kit
+   *  choice; tapping a kit is what actually sets off. Cleared by any other
+   *  tap, like everything else in the dock. */
+  let prep = $state<number | null>(null);
 
   /** ★ THE ONLY DICE IN THE HOUSE. Rolled here in the shell and handed to the
    *  engine as plain numbers — `apply` takes no randomness, ever. Real random,
@@ -61,7 +67,8 @@
     const rolled = game.facing.rolled;
     if (!rolled) return { ev, rolled: null, out: null, canBurn: false, burned: null };
     const choice = ev.choices[rolled.choice]!;
-    const stat = game.stats[choice.stat] ?? 1;
+    const stat = (game.stats[choice.stat] ?? 1)
+      + (game.building ? kitAdd(game.building.kit, game.building.key) : 0);
     return {
       ev, rolled,
       out: judge(rolled.roll, stat),
@@ -263,21 +270,36 @@
 
   function tap(id: string): void {
     if (arming && picked !== null && id !== picked) {
-      // The second tap of a connection. Only places can be joined.
+      // The second tap of a connection: opens PREPARE for that leg — unless
+      // the pipe is already laid, in which case it is a widen and starts flat.
       if (id.startsWith('stop:') && picked.startsWith('stop:')) {
-        act({ type: 'build', to: numOf(id) });
+        const to = numOf(id);
+        if (game.gauge[roadKey(game.at, to)]) act({ type: 'build', to, kit: 'cart' });
+        else prep = to;
+        picked = id;
       }
       arming = false;
       return;
     }
     arming = false;
+    prep = null;
     picked = picked === id ? null : id;
   }
   /** One place that turns a deed into an action, so the markup carries no
    *  knowledge of the engine and a new deed is a case rather than a ternary. */
   function doDeed(d: { kind: string; to: number }): void {
     if (d.kind === 'go') { go(d.to); return; }
-    if (d.kind === 'build') act({ type: 'build', to: d.to });
+    if (d.kind !== 'build') return;
+    // ★ PREPARE IS FOR FRESH GROUND ONLY. A widen meets no hidden stops —
+    // no rolls, so a kit choice there would be a question with no answer
+    // riding on it. The crew just gets to work.
+    if (game.gauge[roadKey(game.at, d.to)]) act({ type: 'build', to: d.to, kit: 'cart' });
+    else prep = d.to;
+  }
+  function setOff(kit: Kit): void {
+    if (prep === null) return;
+    act({ type: 'build', to: prep, kit });
+    prep = null;
   }
   function go(to: number): void {
     act({ type: 'go', to });
@@ -299,6 +321,7 @@
            to say what it is now rather than quote a constant. When you are
            working it is zero, and that is the point of working. -->
       <span class="rate">+{manaRate(game).toFixed(2)} a second</span>
+      <span class="keep">{game.provisions} provisions</span>
       {#if crossed(game)}<span class="crossed">crossed</span>{/if}
       <button class="reset" onclick={async () => { await wipe(); game = initial(); picked = null; }}>
         Start over
@@ -346,7 +369,9 @@
       {:else}
         {@const c = trouble.ev.choices[trouble.rolled.choice]!}
         <p class="dice">You rolled {trouble.rolled.roll.a} + {c.stat}
-          {game.stats[c.stat]} = {trouble.out.score}, against
+          {game.stats[c.stat]}{#if game.building && kitAdd(game.building.kit, game.building.key) !== 0}
+            {' '}{kitAdd(game.building.kit, game.building.key) > 0 ? '+' : ''}{kitAdd(game.building.kit, game.building.key)} {game.building.kit}{/if}
+          = {trouble.out.score}, against
           {trouble.rolled.roll.c1} and {trouble.rolled.roll.c2} —
           <b>{trouble.out.tier === 'strong' ? 'a strong hit'
             : trouble.out.tier === 'weak' ? 'a weak hit' : 'a miss'}</b>{trouble.out.twist
@@ -377,6 +402,22 @@
           <em>{d.note}</em>
         </button>
       {/each}
+      {#if prep !== null && picked === `stop:${prep}` && unbuildable(game, prep) === null}
+        <!-- ★ PREPARE. The kit is the choice that outlives the tap: it rides
+             every roll on the leg, +1 suited and -1 wrong. Said up front, so
+             setting off badly is a decision rather than a surprise. -->
+        <p class="note">How does the crew set off? This leg answers to
+          {legGround(roadKey(game.at, prep))}.</p>
+        {#each KITS as k (k)}
+          {@const add = kitAdd(k, roadKey(game.at, prep))}
+          <button class="deed" class:make={add > 0} onclick={() => setOff(k)}>
+            Set off with the {k}
+            <em>{add > 0 ? '+1 to every roll on this leg — it suits the ground'
+              : add < 0 ? '-1 to every roll on this leg — wrong tool for this ground'
+              : 'no help, no harm here'}</em>
+          </button>
+        {/each}
+      {/if}
       {#if canArm}
         <button class="deed arm" class:armed={arming} onclick={() => (arming = !arming)}>
           {arming ? 'Now tap the far stop' : 'Lay a pipe…'}
@@ -440,6 +481,7 @@
   .purse b { font-size: 22px; color: #1f6b3a; }
   .purse span { color: #6a6154; font-size: 14px; }
   .purse .rate { color: #8c8272; }
+  .purse .keep { color: #7a5a2a; }
   .reset { margin-left: auto; padding: 8px 12px; border-radius: 8px; background: none;
     border: 1px solid #b6ab94; color: #6a6154; font: inherit; font-size: 13px; }
 

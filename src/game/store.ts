@@ -7,7 +7,7 @@ import { STATS, MOMENTUM_MIN, MOMENTUM_MAX, legal } from './dice';
 import { HAPPENINGS } from './events';
 import { STOP } from './stops';
 
-export const SAVE_VERSION = 7;   // stats, momentum, and trouble on the line
+export const SAVE_VERSION = 8;   // the expedition: kit, provisions, failure
 
 interface Blob { v: number; savedAt: number; game: Game }
 
@@ -54,7 +54,10 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
       && Number.isFinite(g.building.left) && Number.isFinite(g.building.secs)
       && g.building.secs > 0 && STOP.has(g.building.from)
       && Array.isArray(g.building.halts)
-      && g.building.halts.every((h) => typeof h === 'number' && h > 0 && h < 1))) return null;
+      && g.building.halts.every((h) => typeof h === 'number' && h > 0 && h < 1)
+      && ['cart', 'mule', 'packs'].includes(g.building.kit))) return null;
+    if (g.provisions !== undefined
+      && !(Number.isInteger(g.provisions) && g.provisions >= 0 && g.provisions <= 10)) return null;
     if (g.stats !== undefined) {
       if (!g.stats || typeof g.stats !== 'object') return null;
       for (const k of STATS) {
