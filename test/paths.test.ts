@@ -36,7 +36,10 @@ describe('★ every road has a path, and the path meets its stops', () => {
         const p = pathOf(s.id, to)!;
         const ratio = lengthOf(p) / chordOf(s.id, to);
         expect(ratio, `${s.id}|${to} is dead straight`).toBeGreaterThan(1.003);
-        expect(ratio, `${s.id}|${to} wanders (${ratio.toFixed(2)}x its chord)`).toBeLessThan(1.35);
+        // ⚠️ 1.55, RAISED FROM 1.35 WITH A REASON: road 17|18 detours at 1.42x
+        // to get AROUND the crag cluster instead of over it — which is the
+        // owner's ask, verbatim. The cap now only catches genuine spaghetti.
+        expect(ratio, `${s.id}|${to} wanders (${ratio.toFixed(2)}x its chord)`).toBeLessThan(1.55);
       }
     }
   });
@@ -91,11 +94,48 @@ describe('★ every road has a path, and the path meets its stops', () => {
       .toBeLessThan(0.15);
   });
 
+  it('★ goes AROUND a real hill, not over it', () => {
+    // The owner, on the gradient version: *"some roads go over the hill when
+    // they should go around."* Where the ruler line crests something standing
+    // well above both ends — the crag crossing at 22|23 stands +52.8 — the
+    // built path's PEAK must be meaningfully lower. Small broad bumps (+6 to
+    // +9 exist on this map) are excused: detouring those is not worth a road.
+    const peak = (pts: readonly { x: number; y: number }[]): number =>
+      Math.max(...pts.map((p) => heightAt(p.x, p.y)));
+    let judged = 0;
+    for (const s of STOPS) {
+      for (const to of s.near) {
+        if (to < s.id) continue;
+        const A = SPOT.get(s.id)!, B = SPOT.get(to)!;
+        const p = pathOf(s.id, to)!;
+        const straight = p.map((_, i) => ({
+          x: A.x + ((B.x - A.x) * i) / (p.length - 1),
+          y: A.y + ((B.y - A.y) * i) / (p.length - 1),
+        }));
+        const ends = Math.max(heightAt(A.x, A.y), heightAt(B.x, B.y));
+        if (peak(straight) - ends < 20) continue;
+        judged++;
+        expect(peak(straight) - peak(p),
+          `${s.id}|${to} crests +${(peak(straight) - ends).toFixed(0)} and the road only `
+          + `avoids ${(peak(straight) - peak(p)).toFixed(1)} of it`).toBeGreaterThan(5);
+      }
+    }
+    expect(judged, 'no ruler line crests a real hill — this test judged nothing')
+      .toBeGreaterThan(0);
+  });
+
   it('★ and never wades into the sea', () => {
+    // ⚠️ THE DEFENCES THIS GUARDS ARE CURRENTLY UNEXERCISED, and honestly so:
+    // with height-COMPARISON descent the flat sea plain attracts nothing, so
+    // removing both the water-cost and the clamp changed no road at all. They
+    // were load-bearing under the gradient version (the owner watched roads
+    // pile onto the beach) and they are kept as the rule for maps where the
+    // coast is not conveniently repulsive. The test itself fires — proven by
+    // making water ATTRACT (roads dived straight in).
     for (const [, pts] of ROAD_PATHS) {
       for (const p of pts) {
         expect(p.x, `a road point at ${p.x.toFixed(0)},${p.y.toFixed(0)} is offshore`)
-          .toBeGreaterThan(shoreX(p.y) - 0.5);
+          .toBeGreaterThan(shoreX(p.y) + 7.5);
       }
     }
   });
