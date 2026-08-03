@@ -5,7 +5,7 @@ import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/sto
 import { initial, type Game } from './engine';
 import { STOP } from './stops';
 
-export const SAVE_VERSION = 5;   // King's Roads: roads are pipes with a gauge
+export const SAVE_VERSION = 6;   // pipes remember which end you laid them from
 
 interface Blob { v: number; savedAt: number; game: Game }
 
@@ -50,7 +50,7 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     }
     if (g.building && !(typeof g.building.key === 'string'
       && Number.isFinite(g.building.left) && Number.isFinite(g.building.secs)
-      && g.building.secs > 0)) return null;
+      && g.building.secs > 0 && STOP.has(g.building.from))) return null;
     void requestPersistence();
     return { game: { ...initial(), ...g }, savedAt: b.savedAt };
   } catch {

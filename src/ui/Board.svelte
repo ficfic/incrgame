@@ -27,6 +27,7 @@
   // it is why `layout.ts` ticks to completion and stops.
   import type { Box } from '../game/layout';
   import { INK, LOOK, type InkName } from '../game/ink';
+  import { cutAt } from '../game/paths';
   import type { Shape, Pt } from '../game/shapes';
 
   export interface Dot {
@@ -41,7 +42,12 @@
     load: number;
     /** ★ HOW WIDE THE ROAD IS, 0 if it is not laid. A road is a pipe now, and
      *  the whole model is a spreadsheet unless the board draws the bore. */
-    gauge?: number }
+    gauge?: number;
+    /** ★ THE BEND — the road's real course in world coordinates, first point at
+     *  this line's `a` end. Absent off the chapter, where stops sit at solved
+     *  rather than authored positions and a baked path would join two points
+     *  that are not there. */
+    pts?: Pt[] }
 
   let { dots, lines, box, label, onTap, decor = [], drag = true, inset = 0 }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
@@ -88,6 +94,35 @@
 
   const sx = (x: number): number => x * k + tx;
   const sy = (y: number): number => y * k + ty;
+
+  /** ★ LABELS ARE PLACED LAST AND THE LOSERS ARE DROPPED — the other half of
+   *  how real maps stay legible (openstreetmap-carto does exactly this). The
+   *  owner's filed bug is the reason: Stop 15 / Stop 16 printed over each other
+   *  at phone width, because every label was drawn no matter what it landed on.
+   *
+   *  Priority: you, then the selected stop, then top to bottom — a label that
+   *  loses today wins again the moment the camera or the selection changes.
+   *  ⚠️ THE DOT STAYS. Only the NAME is dropped; the stop is still there and
+   *  still tappable, and selecting it always shows its name (selection wins). */
+  const unlabelled = $derived.by(() => {
+    const boxes: Array<{ x0: number; y0: number; x1: number; y1: number }> = [];
+    const hide = new Set<string>();
+    const order = [...dots].sort((a, b) =>
+      Number(b.you) - Number(a.you) || Number(b.on) - Number(a.on)
+      || (posOf.get(a.id)?.y ?? 0) - (posOf.get(b.id)?.y ?? 0));
+    for (const d of order) {
+      if (!d.name) continue;
+      const p = posOf.get(d.id);
+      if (!p) continue;
+      const w = d.name.length * 6.4 + 8;
+      const bx = { x0: sx(p.x) - w / 2, y0: sy(p.y) + 22, x1: sx(p.x) + w / 2, y1: sy(p.y) + 36 };
+      const hits = boxes.some((o) =>
+        bx.x0 < o.x1 && bx.x1 > o.x0 && bx.y0 < o.y1 && bx.y1 > o.y0);
+      if (hits && !d.you && !d.on) hide.add(d.id);
+      else boxes.push(bx);
+    }
+    return hide;
+  });
 
   /** Frame the whole graph in the VISIBLE part of the element, once per shape.
    *  Visible means everything the panel is not covering — see `inset`. */
@@ -272,8 +307,9 @@
       // still count both. A saturated road is visibly fat: that is the cue to
       // build the second one, and it is the only thing on this board that could
       // not be drawn from a count of what you own.
+      const run = l.pts ?? [a, b];
       if (made && l.load > 0) {
-        paint(ctx, { s: 'path', pts: [a, b], ink: 'flowing',
+        paint(ctx, { s: 'path', pts: run, ink: 'flowing',
           w: 3 + 6 * l.load, alpha: 0.55 }, sx, sy, 1);
       }
       // ⚠️ DASHED UNTIL IT IS FINISHED, NOT UNTIL IT IS STARTED. With the strict
@@ -282,26 +318,60 @@
       // ★ WIDTH IS GAUGE. A road you have widened twice is visibly twice the
       // road, which is the only way "widening a bottleneck is worth more than
       // laying a slack road" is a decision you can make by LOOKING.
-      paint(ctx, made
-        ? { s: 'path', pts: [a, b], ink: (l.rel as InkName) in INK ? l.rel as InkName : 'route',
-            w: 1.6 + 1.5 * Math.max(1, l.gauge ?? 1) }
-        : { s: 'path', pts: [a, b], ink: 'unmade', w: 1, dash: [3, 5] }, sx, sy, 1);
+      //
+      // ★ AND A BUILT ROAD IS CASED — the openstreetmap-carto convention (CC0):
+      // a near-black outline first, the coloured core over it. The casing is
+      // what separates a line from the ground it crosses; without it a brown
+      // road over brown contours is one more contour.
+      if (made && l.rel === 'road') {
+        const w = 1.6 + 1.5 * Math.max(1, l.gauge ?? 1);
+        paint(ctx, { s: 'path', pts: run, ink: 'casing', w: w + 2.2 }, sx, sy, 1);
+        paint(ctx, { s: 'path', pts: run, ink: 'route', w }, sx, sy, 1);
+      } else {
+        paint(ctx, made
+          ? { s: 'path', pts: run, ink: (l.rel as InkName) in INK ? l.rel as InkName : 'route', w: 2 }
+          : { s: 'path', pts: run, ink: 'unmade', w: 1, dash: [3, 5] }, sx, sy, 1);
+      }
       // ★ THE ONE ANIMATION THE GAME GETS: the way being made fills from your
       // end to the far end over real time. Asked for back by name.
+      // ⚠️ ALONG THE BEND, cut by LENGTH — a straight interpolation here would
+      // grow the road outside its own bed the moment roads stopped being
+      // straight.
       if (l.fill > 0 && l.fill < 1) {
-        paint(ctx, { s: 'path', ink: 'fill', w: 3, pts: [a,
-          { x: a.x + (b.x - a.x) * l.fill, y: a.y + (b.y - a.y) * l.fill }] }, sx, sy, 1);
+        paint(ctx, { s: 'path', ink: 'fill', w: 3,
+          pts: cutAt(run, l.fill, true) }, sx, sy, 1);
       }
     }
 
     for (const d of dots) {
       if (d.you) {
+        // ★ THE YOU-ARE-HERE PIN, asked for by name: *"i also want an icon for
+        // our character."* The teardrop every paper map uses — a circle head, a
+        // point standing ON the stop, a paper ring so it reads against any
+        // ground. Drawn in place of the disc, not over it: two marks in the
+        // same spot was how the old boards got muddy.
         const p = posOf.get(d.id)!;
+        const X = sx(p.x), Y = sy(p.y);
         ctx.beginPath();
-        ctx.arc(sx(p.x), sy(p.y), 10, 0, Math.PI * 2);
+        ctx.arc(X, Y, 11, 0, Math.PI * 2);
         ctx.strokeStyle = 'rgba(214,59,38,.20)';   // the halo round where you stand
         ctx.lineWidth = 6;
         ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(X, Y);                                      // the point, on the stop
+        ctx.bezierCurveTo(X - 8.5, Y - 9, X - 6.5, Y - 19, X, Y - 19);
+        ctx.bezierCurveTo(X + 6.5, Y - 19, X + 8.5, Y - 9, X, Y);
+        ctx.closePath();
+        ctx.fillStyle = INK.you;
+        ctx.fill();
+        ctx.strokeStyle = INK.back;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.beginPath();                                       // the pin's eye
+        ctx.arc(X, Y - 13, 2.6, 0, Math.PI * 2);
+        ctx.fillStyle = INK.back;
+        ctx.fill();
+        continue;
       }
       paint(ctx, discOf(d), sx, sy, 1);
     }
@@ -422,7 +492,7 @@
       style:--label={INK[d.you ? 'ring' : d.barred ? 'barred' : d.open ? 'open' : d.known
         ? (LOOK[d.kind]?.label ?? 'known') : 'dot']}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(d.id); } }}>
-      {#if d.name}<span class="label">{d.name}</span>{/if}
+      {#if d.name && !unlabelled.has(d.id)}<span class="label">{d.name}</span>{/if}
     </button>
   {/each}
 </div>

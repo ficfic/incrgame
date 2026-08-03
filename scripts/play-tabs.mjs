@@ -40,6 +40,36 @@ const inked = (hex, tol = 26) => page.evaluate(([hex, tol]) => {
   }
   return n;
 }, [hex, tol]);
+/** Count an ink inside a css-pixel rectangle of the board. For checks that are
+ *  about WHERE something is drawn, not merely whether — the fill direction and
+ *  the pin cannot be told from a whole-canvas count. */
+const inkedIn = (hex, tol, box) => page.evaluate(([hex, tol, bx]) => {
+  const cv = document.querySelector('.map canvas');
+  if (!cv) return -1;
+  const off = cv.getBoundingClientRect();
+  const dpr = cv.width / off.width;
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  const x0 = Math.max(0, Math.round((bx.x0 - off.left) * dpr));
+  const y0 = Math.max(0, Math.round((bx.y0 - off.top) * dpr));
+  const x1 = Math.min(cv.width, Math.round((bx.x1 - off.left) * dpr));
+  const y1 = Math.min(cv.height, Math.round((bx.y1 - off.top) * dpr));
+  if (x1 <= x0 || y1 <= y0) return 0;
+  const d = cv.getContext('2d', { willReadFrequently: true })
+    .getImageData(x0, y0, x1 - x0, y1 - y0).data;
+  let n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] > 40 && Math.abs(d[i] - r) <= tol && Math.abs(d[i + 1] - g) <= tol
+      && Math.abs(d[i + 2] - b) <= tol) n++;
+  }
+  return n;
+}, [hex, tol, box]);
+const inkNear = async (name, sel, rad) => {
+  const bb = await page.locator(sel).first().boundingBox();
+  if (!bb) return -1;
+  const cx = bb.x + bb.width / 2, cy = bb.y + bb.height / 2;
+  return inkedIn(INK[name], TOL[name] ?? 12, { x0: cx - rad, y0: cy - rad, x1: cx + rad, y1: cy + rad });
+};
+
 // ★ THE PALETTE COMES OFF THE RUNNING PAGE, NOT FROM A COPY IN HERE. This file
 // used to carry its own hexes, so the app could change a colour and the probe
 // would go on counting the OLD one, find none of it missing, and pass.
@@ -128,6 +158,32 @@ for (const t of tabs) {
   console.log('  stacked:', bad.length ? `⚠️ ${bad.join(' | ')}` : 'clean — nothing over anything');
   if (bad.length) misses.push(`${t}: ${bad.join(', ')}`);
   if (!dots) misses.push(`${t} draws nothing at all`);
+  // ★ NO NAME PRINTS OVER ANOTHER NAME — the owner's filed bug, measured on
+  // every tab. Real maps place labels last and drop the losers; this proves
+  // ours actually does.
+  //
+  // ⚠️ PROVEN RED IN TWO HALVES, NOT END TO END, and here is why. On the map as
+  // authored, disabling the hider does NOT produce a true overlap — the route
+  // bows and the ±11 stagger keep every label pair ~2px apart vertically, so an
+  // end-to-end sabotage has nothing to catch. The MEASURER was proven red by
+  // piling every node onto one spot with injected CSS ("Start" prints over
+  // "Finish"); the HIDER demonstrably hides (Stop 16's name is dropped in the
+  // green screenshot). The day the map gains two same-height neighbours, this
+  // is the line that goes red.
+  const clash = await page.evaluate(() => {
+    const rs = [...document.querySelectorAll('.map .label')]
+      .map((e) => ({ t: e.textContent, r: e.getBoundingClientRect() }));
+    for (let i = 0; i < rs.length; i++) {
+      for (let j = i + 1; j < rs.length; j++) {
+        const a = rs[i].r, b = rs[j].r;
+        const x = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (x > 3 && y > 3) return `"${rs[i].t}" prints over "${rs[j].t}"`;
+      }
+    }
+    return null;
+  });
+  if (clash) misses.push(`${t}: ${clash}`);
 }
 
 // ★ NO PROSE ABOVE THE BOARD. The owner, three times in one play-test: *"the
@@ -302,41 +358,74 @@ if (!live || live.off) {
   // state is a timer with a number beside it, not a road being laid.
   if (!(fillMid > fill0)) misses.push(`the road is not visibly filling: ${fill0}px then ${fillMid}px`);
 
+  // ★★ AND IT FILLS FROM YOUR END. Reported broken twice: *"the line being
+  // made solid starts from the wrong side."* Early in the build, the fill ink
+  // must cluster round the pin, not round the far stop — a whole-canvas count
+  // cannot see the difference, so this one counts in two windows.
+  const nearMe = await inkNear('fill', '.map .node.you', 40);
+  const nearFar = await inkNear('fill', `.map .node[data-id="${target}"]`, 40);
+  console.log('  fills   :', `${nearMe}px by the pin, ${nearFar}px by the far stop`);
+  if (nearMe >= 0 && nearFar >= 0 && nearMe <= nearFar) {
+    misses.push(`the fill grows from the far side: ${nearMe}px by you, ${nearFar}px by ${target}`);
+  }
+
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-laying.png') });
 
-  // Let it finish, then walk it.
-  // ⚠️ THE BUILT ROAD IS A DIFFERENT INK FROM THE FILLING ONE. `fill` is the
-  // animation and it is SUPPOSED to vanish when the road is done; the finished
-  // road is drawn in `route`. Checking `fill` after the build reported the road
-  // "drawn fainter" when what had actually happened was that it finished.
-  const madeBefore = await ink('route');
-  let walked = false;
-  let paidBefore = null;
-  for (let i = 0; i < 25; i++) {
-    const d = await deedOn(target);
-    if (d && /^(Go|Back) to /.test(d.text) && !d.off) {
-      paidBefore = await purse();
-      await page.locator('.deed').first().click({ timeout: 3000 });
-      await page.waitForTimeout(600);
-      walked = true;
-      break;
-    }
+  // ★★ A FINISHED LAY CARRIES YOU OVER. The owner: *"obviously when we build a
+  // road somewhere we arrive there too."* So the probe does NOT walk — it waits,
+  // and the pin must cross on its own.
+  let arrived = false;
+  for (let i = 0; i < 25 && !arrived; i++) {
     await page.waitForTimeout(2000);
+    const you = await page.$eval('.map .node.you', (n) => n.dataset.id).catch(() => null);
+    arrived = you === target;
   }
   const madeAfter = await ink('route');
+  // ★ A BUILT ROAD IS CASED — outline under core, the thing that makes a map
+  // line read as a line. Counted, because a casing that stops being drawn is
+  // invisible in the state and in every unit test.
+  const casedPx = await ink('casing');
   const standing = await page.$$eval('.map .node.you .label', (t) => t.map((x) => x.textContent));
-  console.log('  built   :', `${madeBefore}px → ${madeAfter}px of made road`);
+  console.log('  built   :', `${madeAfter}px of made road, ${casedPx}px of casing under it`);
+  if (casedPx < 80) misses.push(`only ${casedPx}px of casing — built roads are not outlined`);
   console.log('  standing:', standing.join(' ') || '(nowhere)');
-  if (!walked) misses.push('the road went in but there was never a way to walk it');
+  if (!arrived) misses.push('the pipe went in and you never arrived at the far end');
   if (madeAfter < 60) misses.push(`only ${madeAfter}px of built road on the board — it did not stay drawn`);
-  // ★ AND WALKING IT IS FREE. The mana went into making it, and a toll on a road
-  // you have already paid for would be the same cost charged twice.
-  const paidAfter = await purse();
-  console.log('  walked  :', paidBefore === null ? '(never got there)'
-    : `${paidBefore} → ${paidAfter} mana crossing it`);
-  if (paidBefore !== null && paidAfter < paidBefore) {
-    misses.push(`walking a built road cost ${paidBefore - paidAfter} mana — it is meant to be free`);
+  // ★ AND WALKING BACK IS FREE. The mana went into making it.
+  const paidBefore = await purse();
+  const back = await deedOn('stop:0');
+  if (back && /^(Go|Back) to /.test(back.text) && !back.off) {
+    await page.locator('.deed').first().click({ timeout: 3000 });
+    await page.waitForTimeout(400);
+    const paidAfter = await purse();
+    console.log('  walked  :', `${paidBefore} → ${paidAfter} mana crossing back`);
+    if (paidAfter < paidBefore) {
+      misses.push(`walking a built road cost ${paidBefore - paidAfter} mana — it is meant to be free`);
+    }
+    // and return, so the widening section stands where it expects to.
+    await deedOn(target);
+    await page.locator('.deed').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+  } else {
+    misses.push(`no way to walk back along the pipe: "${back?.text ?? 'no deed'}"`);
   }
+
+  // ★ THE PIN. *"i also want an icon for our character."* A pin has a HEAD that
+  // stands well above the stop; the old disc never put this ink that high. So
+  // the check is where the ink is, not how much of it there is — a count alone
+  // could not tell a pin from a slightly bigger dot.
+  const bb = await page.locator('.map .node.you').first().boundingBox();
+  // ⚠️ THE WINDOW STARTS AT −15, NOT −9, AND A SABOTAGE IS WHY. The halo round
+  // the pin is stroked at alpha 0.2 — and on the parts of the canvas nothing
+  // else has painted, getImageData returns its UNBLENDED colour: pure `you` ink
+  // at alpha 51, which cleared the 40-alpha floor. With the pin deleted, the
+  // halo alone put 265px in a −9..−22 window and the check stayed green. The
+  // halo reaches −14; the pin's head spans −5..−20; only above −15 do they part.
+  const head = bb ? await inkedIn(INK.you, TOL.you ?? 12, {
+    x0: bb.x + bb.width / 2 - 12, y0: bb.y + bb.height / 2 - 22,
+    x1: bb.x + bb.width / 2 + 12, y1: bb.y + bb.height / 2 - 15 }) : -1;
+  console.log('  pin     :', `${head}px of pin-head above the stop`);
+  if (head < 40) misses.push(`no pin head above where you stand (${head}px) — the marker is still a dot`);
 }
 
 // ------------------------------------------------------- widening a road ----
@@ -425,8 +514,8 @@ await page.evaluate(() => new Promise((done, fail) => {
     const db = req.result;
     const tx = db.transaction('saves', 'readwrite');
     tx.objectStore('saves').put(JSON.stringify({
-      v: 5, savedAt: Date.now(),
-      game: { version: 5, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null },
+      v: 6, savedAt: Date.now(),
+      game: { version: 6, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null },
     }), 'main');
     tx.oncomplete = () => { db.close(); done(); };
     tx.onerror = () => fail(tx.error);

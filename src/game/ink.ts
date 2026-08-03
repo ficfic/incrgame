@@ -41,6 +41,11 @@ export const INK = {
   // roads, by state
   /** A built road: the solid brown of a made-up track on an OS sheet. */
   route: '#7a4a22',
+  /** ★ THE CASING UNDER IT — the near-black outline every real map draws first,
+   *  then lays the coloured core over. It is most of why a printed map's lines
+   *  read as LINES and ours read as strokes: the casing separates the road from
+   *  whatever ground it crosses, whatever colour that ground is. */
+  casing: '#3a2410',
   /** A route that is only dotted on the plan — a right of way, not a road. */
   unmade: '#8d8a80',
   // ⚠️ NOT THE SAME AS `you`, AND IT USED TO BE. Both were #8ff0cf in the dark
@@ -111,6 +116,7 @@ export const TOL: Partial<Record<InkName, number>> = {
   // to sit 9 from `moor` and make its own check vacuous. Listed, so the test
   // holds them apart.
   relief: 12,
+  casing: 12,
   edgewood: 12,
   edgecrag: 12,
   edgemoor: 12,

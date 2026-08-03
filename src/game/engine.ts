@@ -62,8 +62,12 @@ export interface Game {
   mana: number;
   /** Fractional progress toward the next mana. Never shown. */
   part: number;
-  /** The one road being worked, and the gauge it will reach. One at a time. */
-  building: { key: string; left: number; secs: number; to: number } | null;
+  /** The one road being worked, and the gauge it will reach. One at a time.
+   *  `from` is THE END YOU STARTED FROM — it is what the board fills away from,
+   *  and where a finished lay carries you over from. The owner reported the
+   *  fill growing from the wrong side twice before this field existed: the
+   *  board had no way to know which end was yours, so it guessed the lower id. */
+  building: { key: string; from: number; left: number; secs: number; to: number } | null;
 }
 
 /** A road's name, low stop first, so `a-b` and `b-a` are the same road. */
@@ -234,13 +238,23 @@ export function apply(g: Game, a: Action): Game {
 
       if (next.building) {
         const left = next.building.left - a.secs;
-        next = left <= 0
-          ? {
+        if (left > 0) return { ...next, building: { ...next.building, left } };
+        const done = next.building;
+        next = { ...next, gauge: { ...next.gauge, [done.key]: done.to }, building: null };
+        // ★ A FINISHED LAY CARRIES YOU OVER. The owner: *"obviously when we
+        // build a road somewhere we arrive there too."* Only a fresh lay — a
+        // widening is work on a line you already walk — and only if you are
+        // still standing where you started it, because you are free to wander
+        // while the crew works and being teleported back would be worse.
+        const [x, y] = done.key.split('|').map(Number);
+        const far = x === done.from ? y! : x!;
+        if (done.to === 1 && next.at === done.from && STOP.has(far)) {
+          next = {
             ...next,
-            gauge: { ...next.gauge, [next.building.key]: next.building.to },
-            building: null,
-          }
-          : { ...next, building: { ...next.building, left } };
+            at: far,
+            seen: next.seen.includes(far) ? next.seen : [...next.seen, far],
+          };
+        }
       }
       return next;
     }
@@ -252,7 +266,7 @@ export function apply(g: Game, a: Action): Game {
       return {
         ...g,
         mana: g.mana - priceOf(g, a.to),
-        building: { key, left: secs, secs, to: (g.gauge[key] ?? 0) + 1 },
+        building: { key, from: g.at, left: secs, secs, to: (g.gauge[key] ?? 0) + 1 },
       };
     }
 

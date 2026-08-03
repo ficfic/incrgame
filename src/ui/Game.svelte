@@ -28,6 +28,7 @@
   import { INK, TOL } from '../game/ink';
   import { apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
     loadOf, roadKey, type Game, type Action } from '../game/engine';
+  import { pathOf } from '../game/paths';
   import { load, save, wipe, elapsedSince } from '../game/store';
 
   let game = $state<Game>(initial());
@@ -129,8 +130,22 @@
   const lines = $derived(view.edges.map((e) => {
     const road = e.rel === 'road' && e.a.startsWith('stop:') && e.b.startsWith('stop:');
     const key = road ? roadKey(numOf(e.a), numOf(e.b)) : '';
+    // ⚠️ THE FILL GROWS FROM THE END YOU LAID IT FROM. The view emits every
+    // road low-id-first, so without this swap the fill drew from whichever end
+    // happened to have the smaller number — the bug the owner reported twice.
+    // The engine knows the right end: `building.from`.
+    const backwards = road && game.building?.key === key
+      && game.building.from !== numOf(e.a);
+    // ★ THE BEND, chapter only: paths are baked in AUTHORED coordinates, and
+    // only the chapter draws stops where they are authored. Oriented so the
+    // path's first point is always this line's `a` — the end the fill grows
+    // from.
+    const bent = road && tab === 'chapter' ? pathOf(numOf(e.a), numOf(e.b)) : null;
+    const lowFirst = road && numOf(e.a) < numOf(e.b);
+    const aFirst = backwards ? !lowFirst : lowFirst;
     return {
-      a: e.a, b: e.b, rel: e.rel,
+      a: backwards ? e.b : e.a, b: backwards ? e.a : e.b, rel: e.rel,
+      pts: bent ? (aFirst ? [...bent] : [...bent].reverse()) : undefined,
       fill: road ? fillOf(game, numOf(e.a), numOf(e.b)) : 1,
       gauge: road ? (game.gauge[key] ?? 0) : 0,
       load: road ? (busy.get(key) ?? 0) : 0,
