@@ -18,7 +18,7 @@
 //
 // Nothing here knows about a canvas, a camera or the game. It is geometry.
 import { STOPS, type Ground } from './stops';
-import { SPOT } from './layout';
+import { SPOT, VIEW } from './layout';
 import type { Shape, Pt } from './shapes';
 
 // ---- how high the ground stands --------------------------------------------
@@ -173,6 +173,31 @@ export function contours(box: { x: number; y: number; w: number; h: number },
     g.push(row);
   }
   return levels.flatMap((l) => stitch(segmentsAt(g, box.x, box.y, step, l)));
+}
+
+// ---- the coast --------------------------------------------------------------
+
+/** ★ WHERE THE LAND ENDS. One function, so the sea's fill, the beach line, the
+ *  scatter, and the road bends all agree about where the water starts — four
+ *  copies of this wave would drift apart the first time one was tuned. */
+/** ⚠️ BASED ON THE WESTMOST STOP, NOT ON THE CAMERA. The first shoreline sat at
+ *  `VIEW.x + 42` — which put the coast EAST of Stop 4, a stop standing in the
+ *  sea, caught by the new never-wades test before any screenshot. The land ends
+ *  where the stops end; the camera is widened westward to show the water. */
+const WEST = Math.min(...STOPS.map((s) => SPOT.get(s.id)!.x));
+export function shoreX(y: number): number {
+  return WEST - 16 + 7 * Math.sin(y / 84) + 3 * Math.sin(y / 31);
+}
+
+/** ★ THE SLOPE, for anything that wants to follow the ground rather than just
+ *  know how high it is. Finite differences over the same field the contours
+ *  draw — one source of truth for the shape of the land. */
+export function gradAt(x: number, y: number): { gx: number; gy: number } {
+  const e = 7;
+  return {
+    gx: (heightAt(x + e, y) - heightAt(x - e, y)) / (2 * e),
+    gy: (heightAt(x, y + e) - heightAt(x, y - e)) / (2 * e),
+  };
 }
 
 // ---- a shape around each region --------------------------------------------

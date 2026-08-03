@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { heightAt, contours, regions, HEIGHT } from '../src/game/relief';
 import { STOPS, GOING } from '../src/game/stops';
+import { TERRAIN } from '../src/game/terrain';
 import { SPOT } from '../src/game/layout';
 
 describe('★ height is the ground, and the ground is the price', () => {
@@ -146,5 +147,39 @@ describe('★★ a region is drawn around the stops that are in it', () => {
       const wide = Math.max(...r.ring.map((p) => p.x)) - Math.min(...r.ring.map((p) => p.x));
       expect(wide, `a ${r.ground} region is ${wide.toFixed(0)} wide`).toBeGreaterThan(40);
     }
+  });
+});
+
+describe('★ the river follows the valley', () => {
+  it('runs lower than the straight lines between its anchor stops', () => {
+    // The owner: "we made hills so that rivers and roads can take them into
+    // account." The anchors are fixed (the river must meet its fords); between
+    // them the relaxed line must sit in lower ground than the ruler line would.
+    const pts = TERRAIN.river;
+    expect(pts.length, 'the river is only its anchors — nothing was relaxed')
+      .toBeGreaterThan(8);
+    const anchors = pts.filter((_, i) => i % 4 === 0 || i === pts.length - 1);
+    let bent = 0, straightSum = 0;
+    for (const p of pts) bent += heightAt(p.x, p.y);
+    // The same count of samples along the straight anchor-to-anchor runs.
+    let n = 0;
+    for (let i = 0; i + 1 < anchors.length; i++) {
+      const a = anchors[i]!, c = anchors[i + 1]!;
+      for (let k = 0; k < 4; k++) {
+        straightSum += heightAt(a.x + ((c.x - a.x) * k) / 4, a.y + ((c.y - a.y) * k) / 4);
+        n++;
+      }
+    }
+    straightSum += heightAt(anchors[anchors.length - 1]!.x, anchors[anchors.length - 1]!.y);
+    n++;
+    // ⚠️ A STRICT MARGIN, AND A SABOTAGE IS WHY. With `+ 0.05` slack this
+    // passed with the relaxation switched OFF ENTIRELY — an unrelaxed river IS
+    // the ruler line, equal means equal, and the epsilon waved it through. The
+    // real relaxed river runs ~3.0 lower (33.8 against 36.8); requiring 1.5
+    // means half the real effect can erode before this fires, and none of it
+    // can vanish.
+    expect(straightSum / n - bent / pts.length,
+      'the river is not meaningfully lower than the ruler line')
+      .toBeGreaterThan(1.5);
   });
 });

@@ -20,17 +20,17 @@
 // Pure geometry. No DOM, no RNG beyond a seeded hash, no game state.
 import { STOPS, STOP } from './stops';
 import { SPOT } from './layout';
-import { heightAt } from './relief';
+import { heightAt, gradAt, shoreX } from './relief';
 import type { Pt } from './shapes';
 
-/** How far the midpoint swings, as a share of the road's length. Enough to
- *  read as a bend at phone size, small enough that roads never wander into a
- *  neighbouring stop's label. */
-const SWING = 0.16;
+/** Points per road. Enough for the relaxation to find a shape, few enough that
+ *  35 roads are still nothing to stroke. */
+const STEPS = 10;
 
-/** Points per road. Nine is smooth at any zoom the board allows and is nothing
- *  to stroke — 35 roads × 8 segments is one order less work than the scatter. */
-const STEPS = 9;
+/** How far a road may stray from its chord, as a share of its length. The cap
+ *  is what keeps a road a road — without it the relaxation would happily send
+ *  every route down the same valley. */
+const STRAY = 0.22;
 
 /** The same key the engine uses, so the two never disagree about a road. */
 const keyOf = (a: number, b: number): string => (a < b ? `${a}|${b}` : `${b}|${a}`);
@@ -43,32 +43,73 @@ function hash(s: string): number {
   return (h >>> 0) / 4294967296;
 }
 
+/** ★ THE ROAD RELAXES ONTO THE GROUND. The owner: *"nothing follows geography,
+ *  we made hills so that rivers and roads can take them into account."* The
+ *  first cut was one quadratic bow toward the lower of two sampled points — a
+ *  nod at the terrain, not a route through it.
+ *
+ *  This walks the straight line, then repeatedly nudges every interior point
+ *  DOWNHILL ACROSS ITS OWN DIRECTION of travel — the lateral part of the
+ *  gradient only, because a road avoids climbs sideways but still has to get
+ *  where it is going. A smoothing pass after each nudge keeps it a road rather
+ *  than a zigzag, and the stray cap keeps it out of the next valley over.
+ *  Deterministic: the only randomness is a hash-seeded nudge that breaks ties
+ *  on flat ground. */
 function bend(aId: number, bId: number): Pt[] {
   const A = SPOT.get(aId)!, B = SPOT.get(bId)!;
   const len = Math.hypot(B.x - A.x, B.y - A.y) || 1;
-  // Unit normal to the chord.
-  const nx = -(B.y - A.y) / len, ny = (B.x - A.x) / len;
-  const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
-  const swing = len * SWING * (0.7 + 0.6 * hash(keyOf(aId, bId)));
-  // ★ THE ROAD GOES ROUND THE HILL: of the two candidate bends, take the one
-  // over lower ground. Ties bend by the hash, so parallel roads on flat moor
-  // do not all bow the same way.
-  const left = { x: mx + nx * swing, y: my + ny * swing };
-  const right = { x: mx - nx * swing, y: my - ny * swing };
-  const dh = heightAt(left.x, left.y) - heightAt(right.x, right.y);
-  const c = Math.abs(dh) < 0.75 ? (hash(`${keyOf(aId, bId)}~`) < 0.5 ? left : right)
-    : dh < 0 ? left : right;
-  // Quadratic bezier through A, c, B, sampled evenly in t.
+  const cx = (B.x - A.x) / len, cy = (B.y - A.y) / len;
+  const nx = -cy, ny = cx;                          // unit normal to the chord
+  const most = len * STRAY;
+  const tie = (hash(keyOf(aId, bId)) - 0.5) * 6;
+
+  // Offsets from the chord, per interior point — SEEDED with a lazy bow, so
+  // ground with no opinion still gives a country road rather than a ruler. The
+  // relaxation then reshapes it wherever the ground does have one.
+  // Downhill if the ground leans at the midpoint; the hash only breaks flats.
+  const g0 = gradAt((A.x + B.x) / 2, (A.y + B.y) / 2);
+  const lean = g0.gx * nx + g0.gy * ny;
+  const dir = Math.abs(lean) > 0.02 ? -Math.sign(lean)
+    : hash(keyOf(aId, bId)) < 0.5 ? -1 : 1;
+  const off: number[] = Array.from({ length: STEPS + 1 },
+    (_, i) => dir * Math.sin(Math.PI * (i / STEPS)) * len * 0.06);
+  off[0] = 0; off[STEPS] = 0;
+  for (let round = 0; round < 14; round++) {
+    for (let i = 1; i < STEPS; i++) {
+      const t = i / STEPS;
+      const x = A.x + (B.x - A.x) * t + nx * off[i]!;
+      const y = A.y + (B.y - A.y) * t + ny * off[i]!;
+      const g = gradAt(x, y);
+      // The lateral component of the slope: positive means uphill toward +n.
+      const lateral = g.gx * nx + g.gy * ny;
+      off[i] = off[i]! - Math.max(-2.4, Math.min(2.4, lateral * 1.6)) + tie / 14;
+      // Smoothing: a road is stiff. Half its position, half its neighbours'.
+      off[i] = 0.6 * off[i]! + 0.2 * off[i - 1]! + 0.2 * off[i + 1]!;
+      off[i] = Math.max(-most, Math.min(most, off[i]!));
+    }
+  }
+
+  // ★ A MINIMUM OF PERSONALITY. Where the ground had no opinion and the
+  // relaxation flattened the seed back out, re-bow gently — the owner's ask was
+  // to stop making roads straight, and "the ground is flat here" is a reason
+  // for a lazy curve, not a ruler.
+  const maxAbs = Math.max(...off.map(Math.abs));
+  if (maxAbs < len * 0.035) {
+    for (let i = 1; i < STEPS; i++) {
+      off[i] = off[i]! + dir * (len * 0.05 - maxAbs) * Math.sin(Math.PI * (i / STEPS));
+    }
+  }
+
   const out: Pt[] = [];
   for (let i = 0; i <= STEPS; i++) {
-    const t = i / STEPS, u = 1 - t;
-    out.push({
-      x: u * u * A.x + 2 * u * t * c.x + t * t * B.x,
-      y: u * u * A.y + 2 * u * t * c.y + t * t * B.y,
-    });
+    const t = i / STEPS;
+    let x = A.x + (B.x - A.x) * t + nx * off[i]!;
+    const y = A.y + (B.y - A.y) * t + ny * off[i]!;
+    // ⚠️ AND NEVER INTO THE SEA. The coast cuts every line that is not the
+    // sea's own — a road wading offshore would be the map contradicting itself.
+    x = Math.max(x, shoreX(y) + 9);
+    out.push({ x, y });
   }
-  // Exact endpoints, whatever floating point thinks: the road must meet its
-  // stops or every junction grows a visible gap at high zoom.
   out[0] = { x: A.x, y: A.y };
   out[STEPS] = { x: B.x, y: B.y };
   return out;

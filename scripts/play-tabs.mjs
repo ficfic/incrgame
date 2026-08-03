@@ -259,6 +259,55 @@ const beachPx = await ink('beach');
 console.log('  coast   :', `${seaPx}px of sea, ${beachPx}px of beach`);
 if (seaPx < 500) misses.push(`only ${seaPx}px of sea — the coast is not drawn`);
 if (beachPx < 100) misses.push(`only ${beachPx}px of beach along it`);
+// ★★ AND THE SEA CUTS. The owner: *"sea should cut any lines going through
+// it."* The leftmost strip of the board is open water — no contour, no region
+// ring, no dotted route may survive there. Counted in the strip, because a
+// whole-canvas count cannot tell "cut" from "drawn elsewhere too".
+// ⚠️ SELF-LOCATING, AND A VACUOUS FIRST VERSION IS WHY. This started as a fixed
+// 18px strip at the canvas edge — which is open water so far offshore that the
+// height field has gone flat and NO contour ever reached it: with the mask
+// disabled outright it still read 0px and passed. So the boundary is now the
+// BEACH THE PAGE ACTUALLY DREW: each sampled row is scanned for the first
+// beach-coloured pixel, and land ink west of it is what the sea failed to cut.
+//
+// ⚠️ AND EVEN THEN, an end-to-end sabotage (mask off) read only 2px — after the
+// shoreline was rebased off the stops, today's contours genuinely stop short of
+// the water on their own. The measurer is proven red synthetically (a
+// relief-coloured line drawn into the sea scored 108px); the mask stands as the
+// rule for everything that will reach the water later — region rings, bent
+// routes, whatever a coast comes to mean.
+const wet = await page.evaluate(([inks, beach]) => {
+  const cv = document.querySelector('.map canvas');
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  const img = ctx.getImageData(0, 0, cv.width, cv.height);
+  const d = img.data, W = cv.width;
+  const at = (x, y) => {
+    const i = (y * W + x) * 4;
+    return [d[i], d[i + 1], d[i + 2], d[i + 3]];
+  };
+  const is = (px, hex, tol) => {
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    return px[3] > 40 && Math.abs(px[0] - r) <= tol && Math.abs(px[1] - g) <= tol
+      && Math.abs(px[2] - b) <= tol;
+  };
+  let bad = 0, rows = 0;
+  for (let y = 0; y < cv.height; y += 6) {
+    let shore = -1;
+    for (let x = 0; x < Math.min(W, 260); x++) {
+      if (is(at(x, y), beach, 12)) { shore = x; break; }
+    }
+    if (shore < 4) continue;
+    rows++;
+    for (let x = 0; x < shore - 3; x++) {
+      const px = at(x, y);
+      for (const [hex, tol] of inks) if (is(px, hex, tol)) { bad++; break; }
+    }
+  }
+  return { bad, rows };
+}, [[[INK.relief, 12], [INK.edgemoor, 12], [INK.edgewood, 12], [INK.unmade, 6]], INK.beach]);
+console.log('  cuts    :', `${wet.bad}px of land ink west of the beach, across ${wet.rows} rows`);
+if (wet.rows < 30) misses.push(`the beach was only found on ${wet.rows} rows — the cut check saw no coast`);
+if (wet.bad > 30) misses.push(`${wet.bad}px of land ink in open water — the sea is not cutting`);
 console.log('  stops   :', allStops);
 console.log('  routes  :', `${dottedPx}px dotted, ${builtPx}px built`);
 console.log('  ground  :', `${groundPx}px of terrain under it`);

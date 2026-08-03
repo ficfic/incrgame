@@ -140,7 +140,13 @@ export function boxOf(spots: Placed[], pad = 40): Box {
 // where it is.
 export const SPOTS: readonly Spot[] = STOPS.map((p) => ({ id: p.id, x: p.x, y: p.y }));
 export const SPOT = new Map(SPOTS.map((s) => [s.id, s]));
-export const VIEW: Box = boxOf(SPOTS.map((s) => ({ id: stopId(s.id), x: s.x, y: s.y })));
+export const VIEW: Box = (() => {
+  const v = boxOf(SPOTS.map((s) => ({ id: stopId(s.id), x: s.x, y: s.y })));
+  // ★ THE WEST MARGIN IS THE SEA. The coast hugs the westmost stops
+  // (`relief.shoreX`), so without extra frame there the water would be a
+  // sliver. Thirty-six units costs ~5% of map scale and buys a visible coast.
+  return { x: v.x - 36, y: v.y, w: v.w + 36, h: v.h };
+})();
 
 export const JOURNEY: Solved = {
   spots: SPOTS.map((s) => ({ id: stopId(s.id), x: s.x, y: s.y })),

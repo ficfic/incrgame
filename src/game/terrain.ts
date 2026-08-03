@@ -18,7 +18,7 @@ import { STOPS } from './stops';
 import { SPOT, boxOf, VIEW, type Box } from './layout';
 import { INK, type InkName } from './ink';
 import type { Shape, Pt } from './shapes';
-import { contours, regions, HEIGHT } from './relief';
+import { contours, regions, HEIGHT, shoreX, gradAt } from './relief';
 
 export type Ground = 'wood' | 'moor' | 'crag' | 'under' | 'stone' | 'bog';
 
@@ -87,6 +87,10 @@ function scatter(): Mark[] {
       // ⚠️ CLEARED AGAINST EVERY PLACE, not just this one. A mark thrown clear
       // of its own dot lands on the neighbour's label often enough to notice.
       if (spots.some((s) => Math.hypot(s.x - x, s.y - y) < CLEAR)) continue;
+      // ⚠️ AND NOT IN THE SEA. The scatter is a separate bake drawn OVER the
+      // coast, so the sea's mask cannot save it — a pine standing offshore
+      // would survive every other rule here.
+      if (x < shoreX(y) + 6) continue;
       out.push({ x, y, g, r: 1.6 + rnd() * 2.2, a: rnd() * Math.PI });
     }
   }
@@ -161,7 +165,33 @@ export const TERRAIN: Terrain = (() => {
   const down = span((s) => s.y) > span((s) => s.x)
     ? (a: { y: number }, b: { y: number }) => a.y - b.y
     : (a: { x: number }, b: { x: number }) => a.x - b.x;
-  const river = wet.sort(down).map((s) => ({ x: s.x, y: s.y }));
+  // ★ AND THE RIVER FOLLOWS THE VALLEY, not just its own anchors. The owner:
+  // *"we made hills so that rivers and roads can take them into account."* The
+  // anchor stops fix where it must pass; between them the line is subdivided
+  // and each point slides downhill a few steps, so the water pools into the same
+  // lows the contours draw. Anchors stay put — the river must still meet its
+  // fords.
+  const anchors = wet.sort(down).map((s) => ({ x: s.x, y: s.y }));
+  const river: Pt[] = [];
+  for (let i = 0; i + 1 < anchors.length; i++) {
+    const a = anchors[i]!, c = anchors[i + 1]!;
+    for (let k = 0; k < 4; k++) {
+      river.push({ x: a.x + ((c.x - a.x) * k) / 4, y: a.y + ((c.y - a.y) * k) / 4 });
+    }
+  }
+  river.push(anchors[anchors.length - 1]!);
+  for (let round = 0; round < 10; round++) {
+    for (let i = 0; i < river.length; i++) {
+      if (i % 4 === 0 || i === river.length - 1) continue;   // anchors hold
+      const p = river[i]!;
+      const g = gradAt(p.x, p.y);
+      const mag = Math.hypot(g.gx, g.gy) || 1;
+      river[i] = {
+        x: 0.7 * (p.x - (g.gx / mag) * 2.2) + 0.15 * river[i - 1]!.x + 0.15 * river[i + 1]!.x,
+        y: 0.7 * (p.y - (g.gy / mag) * 2.2) + 0.15 * river[i - 1]!.y + 0.15 * river[i + 1]!.y,
+      };
+    }
+  }
   // The box has to cover the scenery too, or the bitmap is cropped and the
   // outermost marks vanish at the edges.
   const pts = [
@@ -211,16 +241,20 @@ const COAST: Shape[] = (() => {
   // screen: the probe read 0px and the screenshot showed one yellow sliver.
   // Decor the player cannot see is decor that does not exist.
   const b = TERRAIN.box;
-  const west = VIEW.x;
   const shore: Pt[] = [];
   for (let y = b.y; y <= b.y + b.h; y += 18) {
-    shore.push({ x: west + 42 + 9 * Math.sin(y / 84) + 4 * Math.sin(y / 31), y });
+    shore.push({ x: shoreX(y), y });
   }
   const water: Pt[] = [
     { x: b.x - 40, y: b.y }, ...shore, { x: b.x - 40, y: b.y + b.h },
   ];
   return [
-    { s: 'path', pts: water, ink: 'sea', fill: true, close: true, alpha: 0.5 },
+    // ⚠️ OPAQUE, AND DRAWN AFTER THE LAND — the owner: *"sea should cut any
+    // lines going through it."* The sea is a MASK: contours, region rings and
+    // anything else that wandered west of the shore is painted out, exactly as
+    // a printed map does it. A translucent tint would show the lines through
+    // the water and the map would contradict itself.
+    { s: 'path', pts: water, ink: 'sea', fill: true, close: true },
     { s: 'path', pts: shore, ink: 'beach', w: 2.6, alpha: 0.9 },
     { s: 'path', pts: shore.map((p) => ({ x: p.x + 5, y: p.y })), ink: 'beach',
       w: 1, dash: [2, 5], alpha: 0.8 },
@@ -233,7 +267,6 @@ export const TERRAIN_SHAPES: Shape[] = [
   {
     s: 'baked', key: 'relief', box: TERRAIN.box, alpha: 0.9,
     shapes: [
-      ...COAST,
       ...contours(TERRAIN.box, LEVELS).map((pts): Shape =>
         ({ s: 'path', pts, ink: 'relief', w: 1, curve: true })),
       // The region outlines, dashed, in the ground's own colour — so the line
@@ -243,6 +276,8 @@ export const TERRAIN_SHAPES: Shape[] = [
         s: 'path', pts: [...r.ring, r.ring[0]!], ink: RING_INK[r.ground] ?? 'moor',
         w: 2, curve: true, dash: [11, 9], alpha: 0.9,
       })),
+      // ⚠️ LAST, SO IT CUTS. See the note on COAST.
+      ...COAST,
     ],
   },
   {

@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { ROAD_PATHS, pathOf, cutAt, lengthOf, chordOf } from '../src/game/paths';
 import { STOPS } from '../src/game/stops';
 import { SPOT } from '../src/game/layout';
-import { heightAt } from '../src/game/relief';
+import { heightAt, shoreX } from '../src/game/relief';
 
 describe('★ every road has a path, and the path meets its stops', () => {
   it('covers every road on the chapter, exactly once', () => {
@@ -47,34 +47,57 @@ describe('★ every road has a path, and the path meets its stops', () => {
     expect(a).toEqual(b);
   });
 
-  it('★ takes the LOWER side where the ground clearly leans', () => {
-    // The claim in the header: roads bend round the hill, not onto it. For each
-    // road whose two candidate bends differ meaningfully in height, the built
-    // path's midpoint must sit on the lower side. Roads over near-flat ground
-    // are excused — there the bend is a coin toss on purpose.
-    let judged = 0;
+  it('★ runs LOWER than the straight line would, where the ground leans', () => {
+    // The claim in the header, as an integral rather than a point: a road that
+    // follows geography spends less of its length uphill than the ruler line
+    // between the same two stops. Point-at-the-midpoint was the old test and it
+    // asserted the old mechanism (one quadratic bow); a relaxed path can sit a
+    // touch high at any single point while being lower over its run.
+    const mean = (pts: readonly { x: number; y: number }[]): number =>
+      pts.reduce((s, p) => s + heightAt(p.x, p.y), 0) / pts.length;
+    let judged = 0, uphill = 0, sum = 0;
     for (const s of STOPS) {
       for (const to of s.near) {
         if (to < s.id) continue;
         const A = SPOT.get(s.id)!, B = SPOT.get(to)!;
         const p = pathOf(s.id, to)!;
-        const mid = p[Math.floor(p.length / 2)]!;
-        const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
-        const len = Math.hypot(B.x - A.x, B.y - A.y);
-        const nx = -(B.y - A.y) / len, ny = (B.x - A.x) / len;
-        const off = (mid.x - mx) * nx + (mid.y - my) * ny;
-        const here = heightAt(mx + nx * Math.abs(off), my + ny * Math.abs(off));
-        const there = heightAt(mx - nx * Math.abs(off), my - ny * Math.abs(off));
-        if (Math.abs(here - there) < 2) continue;   // flat enough to be a coin toss
+        const straight = p.map((_, i) => ({
+          x: A.x + ((B.x - A.x) * i) / (p.length - 1),
+          y: A.y + ((B.y - A.y) * i) / (p.length - 1),
+        }));
+        // Only judge roads with real relief across them — on a flat the bend is
+        // a coin toss on purpose and either side is equally honest.
+        const spread = Math.max(...straight.map((q) => heightAt(q.x, q.y)))
+          - Math.min(...straight.map((q) => heightAt(q.x, q.y)));
+        if (spread < 6) continue;
         judged++;
-        const took = off > 0 ? here : there;
-        const spurned = off > 0 ? there : here;
-        expect(took, `road ${s.id}|${to} climbed the hill it could have gone round`)
-          .toBeLessThanOrEqual(spurned);
+        const d = mean(straight) - mean(p);
+        sum += d;
+        if (d < -0.3) uphill++;
       }
     }
-    expect(judged, 'no road had a hill to avoid — this test judged nothing')
-      .toBeGreaterThan(3);
+    expect(judged, 'no road crosses real relief — this test judged nothing')
+      .toBeGreaterThan(5);
+    // ⚠️ AGGREGATE MARGINS, AND A SABOTAGE IS WHY. The first version accepted
+    // any road within +0.75 of its ruler line as "lower" — and with the terrain
+    // entirely ignored (hash-direction bows, no relaxation) small uphill bows
+    // slid under that epsilon and 100% still "passed". Measured on the real
+    // relaxation: mean saving 0.88, one road in 34 marginally uphill. With the
+    // sabotage the mean collapses toward zero and half the bows run uphill —
+    // both lines below fire.
+    expect(sum / judged, 'the roads barely save any climb over the ruler lines')
+      .toBeGreaterThan(0.35);
+    expect(uphill / judged, `${uphill} of ${judged} roads run distinctly UPHILL of their ruler line`)
+      .toBeLessThan(0.15);
+  });
+
+  it('★ and never wades into the sea', () => {
+    for (const [, pts] of ROAD_PATHS) {
+      for (const p of pts) {
+        expect(p.x, `a road point at ${p.x.toFixed(0)},${p.y.toFixed(0)} is offshore`)
+          .toBeGreaterThan(shoreX(p.y) - 0.5);
+      }
+    }
   });
 });
 
