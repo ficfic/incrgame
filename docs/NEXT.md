@@ -1041,7 +1041,9 @@ a refactor.
 2. **✦ TAP-TO-WORK** *(shipped 2026-08-04)* — the crew dawdle at 0.4× on
    their own; tapping the crew mark pushes 1.2s of work. Halts still stop
    everything. Setting off auto-switches to The Way.
-3. **NEXT → FOES** — a new waypoint type: a short Ironsworn progress-track
-   fight (rounds of rolls, mark harm, a miss falls back).
+3. **✦ FOES** *(shipped 2026-08-04)* — ~45% of halts fight back where the
+   ground has a foe. Progress-track rounds: strong marks 2, weak 1 + cost,
+   miss nothing + hurt; the kill clears the halt, +1 momentum. Met foes show
+   red and named on the way.
 4. **RISK TRADEOFFS** — kits trade speed for safety; event choices risk
    different resources; scavenge safe-vs-greedy. Kills the fake choices.

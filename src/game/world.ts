@@ -16,6 +16,7 @@ import { STATS } from './dice';
 import { roadsOut, roadCost, buildSecs, manaRate, waitFor, reached, crossed,
   roadKey, unbuildable, climbTo, MAX_GAUGE, ken } from './engine';
 import { pathOf, cutAt } from './paths';
+import { troubleById } from './events';
 import type { Pt } from './shapes';
 
 /** Mana a second, said the same way everywhere it is said. */
@@ -27,7 +28,7 @@ const perSec = (n: number): string => `${n.toFixed(2)} a second`;
  *  vocabulary turned over, every kind here was renamed, and the test went on
  *  cheerfully checking that the SCRAPPED kinds had ink. Same failure message,
  *  no way to drift. */
-export const KINDS = ['stop', 'you', 'doing', 'fact', 'carry', 'way', 'halt'] as const;
+export const KINDS = ['stop', 'you', 'doing', 'fact', 'carry', 'way', 'halt', 'foe'] as const;
 export type Kind = typeof KINDS[number];
 export type Rel = 'road' | 'stands' | 'doing' | 'has' | 'carries' | 'way';
 
@@ -207,16 +208,29 @@ export function theWay(g: Game): WayPlan | null {
   // ★ WHAT IS STILL IN THE WAY, visible AHEAD of the crew — the anticipation
   // the old hidden halts never had. Resolved ones are simply gone.
   g.building.halts.forEach((h, j) => {
-    marks.push({ id: `halt:${j}`, kind: 'halt', name: 'Something ahead',
-      body: 'The work will stop when the crew reaches it.', at: along(path, h) });
+    // ★ MET TROUBLE SHOWS ITS FACE. The first halt is the one the crew is
+    // stopped at; while a FIGHT is on, its marker turns foe-red and carries
+    // the name — an enemy encounter on this view, the owner's ask verbatim.
+    const met = j === 0 && g.facing?.foe;
+    marks.push(met
+      ? { id: `halt:${j}`, kind: 'foe',
+        name: troubleById(g.facing!.event)?.name ?? 'Something ahead',
+        body: 'It stands between the crew and the far end.', at: along(path, h) }
+      : { id: `halt:${j}`, kind: 'halt', name: 'Something ahead',
+        body: 'The work will stop when the crew reaches it.', at: along(path, h) });
   });
   // The crew, at the head of the works. Keeps the DOING id so the panel rules
   // that know "the thing being done" need not learn a second name.
   marks.push({ id: DOING, kind: 'doing',
-    name: g.building.to > 1 ? 'Widening the pipe' : 'Laying pipe',
+    // Mid-fight the FOE's name is the news — the crew mark goes quiet so the
+    // two never fight over the same patch of label space.
+    name: g.facing?.foe ? ''
+      : g.building.to > 1 ? 'Widening the pipe' : 'Laying pipe',
     body: `Toward ${nameOf(far)}, by ${g.building.kit}. `
       + `${Math.ceil(g.building.left)}s of work left — tap the crew to hurry it.`,
-    at: along(path, Math.max(0.02, Math.min(0.98, f))) });
+    // Stopped AT trouble, the crew stands a step short of it — so the met
+    // foe's mark and name stay legible where they overlap.
+    at: along(path, Math.max(0.02, Math.min(0.98, g.facing ? f - 0.05 : f))) });
 
   const xs = path.map((p) => p.x), ys = path.map((p) => p.y);
   const pad = 70;

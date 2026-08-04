@@ -45,7 +45,8 @@ import { STOP, START, FINISH, nameOf, roadCost, roadsFrom, boreOf, GOING } from 
 import { maxFlow, loads, type Pipe } from './flow';
 import { judge, judgeBurned, burnHelps, legal, clampMomentum, START_STATS,
   MOMENTUM_START, MOMENTUM_RESET, type Roll, type Stat } from './dice';
-import { HAPPENINGS, happeningsOn, type Happening } from './events';
+import { HAPPENINGS, happeningsOn, foesOn, troubleById, isFoe,
+  type Happening, type Foe } from './events';
 import { pathOf } from './paths';
 import { climbOf } from './height';
 export { roadCost, START, FINISH } from './stops';
@@ -131,6 +132,10 @@ export interface Game {
     /** The roll, once thrown. Two-phase on purpose: Ironsworn burns momentum
      *  AFTER seeing the dice, so the result stands open until carried. */
     rolled: { choice: number; roll: Roll } | null;
+    /** ★ SET WHEN THE TROUBLE FIGHTS BACK: how much strength it has left.
+     *  A foe takes ROUNDS — Ironsworn's progress-track fight. Absent for a
+     *  happening, and absent on saves from before foes existed. */
+    foe?: { left: number };
   } | null;
 }
 
@@ -295,6 +300,24 @@ export function eventFor(key: string, halt: number): Happening {
   return all[Math.floor(hash(`${key}@${halt}`) * all.length)]!;
 }
 
+/** How often a halt turns out to be something that fights back. */
+export const FOE_ODDS = 0.45;
+
+/** ★ WHAT ACTUALLY WAITS AT A HALT — a happening, or a FOE. Deterministic
+ *  from the road and the spot, like everything the map promises: the same
+ *  leg meets the same trouble on every device. */
+export function troubleFor(key: string, halt: number): Happening | Foe {
+  const [a, b] = key.split('|').map(Number);
+  const foes = [
+    ...foesOn(STOP.get(a!)?.ground ?? 'moor'),
+    ...foesOn(STOP.get(b!)?.ground ?? 'moor'),
+  ];
+  if (foes.length && hash(`${key}@${halt}#foe`) < FOE_ODDS) {
+    return foes[Math.floor(hash(`${key}@${halt}#which`) * foes.length)]!;
+  }
+  return eventFor(key, halt);
+}
+
 /** ★ WHAT THE LEG CLIMBS, ascent and descent together, along the road's real
  *  bent course. The number that makes a route PLANNED: two legs of equal price
  *  can differ three-fold here, and from the expedition loop on this is what
@@ -447,13 +470,15 @@ function advance(g: Game, work: number): Game {
   if (halt !== undefined) {
     const leftAtHalt = next.building!.secs * (1 - halt);
     if (left <= leftAtHalt) {
+      const t = troubleFor(next.building!.key, halt);
       return {
         ...next,
         building: { ...next.building!, left: leftAtHalt },
         facing: {
           key: next.building!.key,
-          event: eventFor(next.building!.key, halt).id,
+          event: t.id,
           rolled: null,
+          ...(isFoe(t) ? { foe: { left: t.strength } } : {}),
         },
       };
     }
@@ -538,7 +563,7 @@ export function apply(g: Game, a: Action): Game {
 
     case 'face': {
       if (!g.facing || g.facing.rolled || !legal(a.roll)) return g;
-      const ev = HAPPENINGS.find((h) => h.id === g.facing!.event);
+      const ev = troubleById(g.facing.event);
       if (!ev || !ev.choices[a.choice]) return g;
       return { ...g, facing: { ...g.facing, rolled: { choice: a.choice, roll: a.roll } } };
     }
@@ -546,7 +571,7 @@ export function apply(g: Game, a: Action): Game {
     case 'carry':
     case 'burn': {
       if (!g.facing?.rolled || !g.building) return g;
-      const ev = HAPPENINGS.find((h) => h.id === g.facing!.event)!;
+      const ev = troubleById(g.facing.event)!;
       const choice = ev.choices[g.facing.rolled.choice]!;
       const stat = (g.stats[choice.stat] ?? 1) + kitAdd(g.building.kit, g.building.key);
       if (a.type === 'burn' && !burnHelps(g.facing.rolled.roll, stat, g.momentum)) return g;
@@ -562,8 +587,11 @@ export function apply(g: Game, a: Action): Game {
       // gives an event teeth: the crew eats through trouble, and a leg without
       // food left cannot survive a miss.
       const swing = out.twist ? 2 : 1;
+      const fight = g.facing.foe;
       if (out.tier === 'strong') {
-        next = { ...next, momentum: clampMomentum(next.momentum + swing) };
+        // In a FIGHT a strong hit is harm dealt, not banked momentum — the
+        // kill pays the momentum at the end.
+        if (!fight) next = { ...next, momentum: clampMomentum(next.momentum + swing) };
       } else if (out.tier === 'weak') {
         next = { ...next, provisions: Math.max(0, next.provisions - swing) };
       } else {
@@ -590,6 +618,22 @@ export function apply(g: Game, a: Action): Game {
               next.building!.left + next.building!.secs * 0.25 * swing),
           },
         };
+      }
+
+      // ★★ A FOE TAKES ROUNDS. Strong marks two of its strength (three on
+      // matched dice), weak marks one, a miss marks nothing — and until it
+      // is dead the halt is not behind you: the fight simply asks again.
+      if (fight) {
+        const harm = out.tier === 'strong' ? 1 + swing : out.tier === 'weak' ? 1 : 0;
+        const leftNow = fight.left - harm;
+        if (leftNow > 0) {
+          return {
+            ...next,
+            facing: { ...next.facing!, rolled: null, foe: { left: leftNow } },
+          };
+        }
+        // The kill: momentum rises, and the way is clear.
+        next = { ...next, momentum: clampMomentum(next.momentum + 1) };
       }
       // Faced is faced, whatever the dice said: the hidden stop is behind you.
       return {

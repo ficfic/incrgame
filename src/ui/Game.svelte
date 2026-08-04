@@ -31,7 +31,7 @@
     unforageable, FORAGE_SECS, charted,
     type Game, type Action, type Kit } from '../game/engine';
   import { judge, judgeBurned, burnHelps, type Roll } from '../game/dice';
-  import { HAPPENINGS } from '../game/events';
+  import { troubleById } from '../game/events';
   import { pathOf } from '../game/paths';
   import { load, save, wipe, elapsedSince } from '../game/store';
 
@@ -69,7 +69,7 @@
   /** Everything the dock needs to tell the trouble honestly. */
   const trouble = $derived.by(() => {
     if (!game.facing) return null;
-    const ev = HAPPENINGS.find((h) => h.id === game.facing!.event);
+    const ev = troubleById(game.facing.event);
     if (!ev) return null;
     const rolled = game.facing.rolled;
     if (!rolled) return { ev, rolled: null, out: null, canBurn: false, burned: null };
@@ -436,6 +436,10 @@
            whatever was selected — it is the owner's design: "block progress
            until resolved". Still the one dock, still nothing to dismiss. -->
       <h2>{trouble.ev.name}</h2>
+      {#if game.facing?.foe}
+        <p class="note">Its strength: {game.facing.foe.left}. A strong hit
+          takes two, a weak hit one — it falls when none is left.</p>
+      {/if}
       {#if !trouble.rolled}
         <p>{trouble.ev.body}</p>
         {#each trouble.ev.choices as c, i (c.label)}

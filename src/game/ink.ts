@@ -192,4 +192,6 @@ export const LOOK: Record<string, Look> = {
    *  you cannot take yet — trouble you can SEE COMING now, not an interrupt. */
   way: { fill: 'dot', label: 'known', r: 2.6 },
   halt: { fill: 'shut', ring: 'casing', label: 'known', r: 5 },
+  /** A fight, met: the red every map gives danger. */
+  foe: { fill: 'foe', ring: 'casing', label: 'known', r: 6 },
 };

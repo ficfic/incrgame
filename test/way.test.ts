@@ -43,11 +43,14 @@ describe('★★ while a crew is out, the leg is a place', () => {
 
   it('★ a resolved halt is gone from the way', () => {
     let g = laying();
-    // Run the work to its first halt, face it, carry on.
-    g = apply(g, { type: 'tick', secs: g.building!.secs });
+    // Run the work to its first halt, face it down (rounds, if it fights).
+    g = apply(g, { type: 'tick', secs: g.building!.secs / 0.4 + 1 });
     expect(g.facing).not.toBeNull();
-    g = apply(g, { type: 'face', choice: 0, roll: { a: 6, c1: 3, c2: 4 } });
-    g = apply(g, { type: 'carry' });
+    for (let i = 0; i < 8 && g.facing; i++) {
+      g = apply(g, { type: 'face', choice: 0, roll: { a: 6, c1: 3, c2: 4 } });
+      g = apply(g, { type: 'carry' });
+    }
+    expect(g.facing).toBeNull();
     const w = theWay(g)!;
     expect(w.view.nodes.filter((n) => n.kind === 'halt').length)
       .toBe(g.building!.halts.length);

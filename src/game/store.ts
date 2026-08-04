@@ -4,7 +4,7 @@
 import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/storage';
 import { initial, type Game } from './engine';
 import { STATS, MOMENTUM_MIN, MOMENTUM_MAX, legal } from './dice';
-import { HAPPENINGS } from './events';
+import { troubleById } from './events';
 import { STOP } from './stops';
 
 export const SAVE_VERSION = 8;   // the expedition: kit, provisions, failure
@@ -78,9 +78,13 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     // Checked against the CONTENT: a facing that names trouble nobody wrote
     // would be a dock stuck open forever with nothing in it.
     if (g.facing) {
-      if (!HAPPENINGS.some((h) => h.id === g.facing!.event)) return null;
+      if (!troubleById(g.facing.event)) return null;
       if (g.facing.rolled && !(Number.isInteger(g.facing.rolled.choice)
         && legal(g.facing.rolled.roll))) return null;
+      // A fight mid-save keeps its strength; a crooked one is refused.
+      if (g.facing.foe !== undefined
+        && !(Number.isInteger(g.facing.foe.left) && g.facing.foe.left >= 1
+          && g.facing.foe.left <= 12)) return null;
     }
     void requestPersistence();
     return { game: { ...initial(), ...g }, savedAt: b.savedAt };

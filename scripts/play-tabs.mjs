@@ -692,7 +692,7 @@ if (!live || live.off) {
   // one, so this is not an if — the build cannot finish without it.
   console.log('\nTROUBLE');
   let faced = 0;
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 44; i++) {
     const face = page.locator('.deed.face');
     if (!await face.count()) {
       // ★ TAP-TO-WORK: the crew dawdle at WORK_PACE without this. Pushing is
@@ -716,7 +716,9 @@ if (!live || live.off) {
       await page.locator('.deed.face', { hasText: 'Carry on' }).click({ timeout: 3000 });
       await page.waitForTimeout(400);
       faced++;
-      if (faced > 3) break;
+      // ⚠️ A FIGHT TAKES ROUNDS — this used to break after four carries and
+      // left a foe mid-fight, stranding everything downstream.
+      if (faced > 11) break;
       continue;
     }
     // The choice phase: the trouble is named and every choice shows its stat.
@@ -965,6 +967,60 @@ if (!await scav.count()) {
       }
     }
   }
+}
+
+// ------------------------------------------------------------- the fight ----
+//
+// ★★ SOME TROUBLE FIGHTS BACK — the owner: *"an enemy encounter might happen
+// on that same view."* Injected mid-fight so the dice cannot dodge it: the
+// dock must name the foe and its STRENGTH, the way must mark it foe-red at
+// the halt, rounds must repeat until it falls (or the leg honestly fails),
+// and the whole exchange happens on screen.
+console.log('\nTHE FIGHT');
+const foeTarget = Number(target.split(':')[1]);
+const tookFight = await loadSave(
+  () => ({ v: 8, savedAt: Date.now(),
+    game: { version: 8, at: 0, seen: [0], gauge: {}, mana: 50, part: 0,
+      building: { key: `0|${foeTarget}`, from: 0, left: 7, secs: 14, to: 1,
+        halts: [0.5], kit: 'cart' },
+      facing: { key: `0|${foeTarget}`, event: 'wights', rolled: null, foe: { left: 3 } } } }),
+  async () => /Its strength/.test(await panelText()));
+if (!tookFight) misses.push('the mid-fight save never loaded — the fight was never tested');
+else {
+  const opening = await panelText();
+  console.log('  faces   :', `"${opening.slice(0, 90)}"`);
+  if (!/Bog wights/.test(opening)) misses.push(`the dock does not name the foe: "${opening.slice(0, 60)}"`);
+  if (!/Its strength: 3/.test(opening)) misses.push(`no strength on the dock: "${opening.slice(0, 60)}"`);
+  // The way marks the met foe in its own red, with its name.
+  await page.locator('nav button', { hasText: 'Here' }).click();
+  await page.waitForTimeout(500);
+  const foePx = await inkNear('foe', '.map .node[data-id="halt:0"]', 20);
+  const foeName = (await labelsNow()).includes('Bog wights') ? 'Bog wights' : '(unnamed)';
+  console.log('  marked  :', `${foePx}px of foe ink at the halt, named "${foeName}"`);
+  if (foePx < 12) misses.push(`only ${foePx}px of foe ink at the met halt — the fight is invisible on the way`);
+  if (foeName !== 'Bog wights') misses.push(`the met foe is not named on the way: "${foeName}"`);
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-fight.png') });
+  // Rounds, until it falls — or the leg honestly fails.
+  let rounds = 0;
+  let sawStrength = false;
+  for (let i = 0; i < 16; i++) {
+    const said = await panelText();
+    if (!/Bog wights/.test(said)) break;
+    sawStrength = sawStrength || /Its strength: \d/.test(said);
+    if (/You rolled \d/.test(said)) {
+      await page.locator('.deed.face', { hasText: 'Carry on' }).click({ timeout: 3000 });
+      rounds++;
+    } else {
+      await page.locator('.deed.face').first().click({ timeout: 3000 });
+    }
+    await page.waitForTimeout(350);
+  }
+  const after = await panelText();
+  const fell = !/Bog wights/.test(after);
+  const failed = !(await page.$$eval('.map .node[data-id="doing"]', (g) => g.length));
+  console.log('  rounds  :', `${rounds}, then ${fell ? failed ? 'the LEG FELL instead' : 'the foe fell' : 'STUCK'}`);
+  if (!sawStrength) misses.push('no round ever showed the strength falling');
+  if (!fell) misses.push(`sixteen rounds and the fight never ended: "${after.slice(0, 60)}"`);
 }
 
 // ------------------------------------------- you cannot build from the middle -

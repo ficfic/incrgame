@@ -19,11 +19,18 @@ const tick = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
 /** A game standing at the start with the mana to lay the first pipe. */
 const flush = (): Game => ({ ...initial(), mana: 999 });
 
-/** Start the first lay and run it into its first hidden stop. */
+/** Start the first lay and run it into its first hidden stop.
+ *  ⚠️ PINNED TO A HAPPENING. Since foes exist, `troubleFor` may arm the halt
+ *  as a FIGHT — different consequence table, its own test file. This file is
+ *  about happenings and the dice, so the facing is set to a known one. */
 function intoTrouble(): Game {
   const to = STOP.get(START)!.near[0]!;
   let g = apply(flush(), { type: 'build', to, kit: 'cart' });
-  for (let i = 0; i < 40 && !g.facing; i++) g = tick(g, 0.5);
+  for (let i = 0; i < 90 && !g.facing; i++) g = tick(g, 0.5);
+  if (g.facing) {
+    const { foe: _, ...rest } = g.facing;
+    g = { ...g, facing: { ...rest, event: 'washout' } };
+  }
   return g;
 }
 
@@ -204,7 +211,10 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     const run = (kit: Kit): Game => {
       const to = STOP.get(START)!.near[0]!;
       let g = apply(flush(), { type: 'build', to, kit });
-      for (let i = 0; i < 40 && !g.facing; i++) g = tick(g, 0.5);
+      for (let i = 0; i < 90 && !g.facing; i++) g = tick(g, 0.5);
+      // Pinned to a happening — foes have their own file.
+      const { foe: _, ...rest } = g.facing!;
+      g = { ...g, facing: { ...rest, event: 'washout' } };
       const ev = HAPPENINGS.find((h) => h.id === g.facing!.event)!;
       const iron = ev.choices.findIndex((c) => c.stat === 'iron');
       const choice = iron >= 0 ? iron : 0;

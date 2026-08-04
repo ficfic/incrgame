@@ -150,3 +150,81 @@ export const HAPPENINGS: readonly Happening[] = [
  *  its roads silently event-free — checked in `test/happenings.test.ts`. */
 export const happeningsOn = (g: Ground): Happening[] =>
   HAPPENINGS.filter((h) => h.on.includes(g));
+
+// ---- FOES ---------------------------------------------------------------------
+//
+// ★★ SOME TROUBLE FIGHTS BACK, 2026-08-04 — the owner: *"an enemy encounter
+// might happen on that same view."* A foe is trouble with STRENGTH: one roll
+// does not settle it, rounds do. Strong hits mark two of its strength (three
+// on matched dice), weak hits mark one and cost you, misses mark nothing and
+// hurt — Ironsworn's progress-track fight, worn local. Killing it clears the
+// halt and lifts momentum.
+//
+// ⚠️ EVERY LINE OF PROSE IN HERE IS ⟨draft⟩, same as above.
+
+export interface Foe extends Happening {
+  /** How much harm ends it. The whole difference between a foe and a
+   *  happening: this is a track, not a coin flip. */
+  strength: number;
+}
+
+export const FOES: readonly Foe[] = [
+  {
+    id: 'wights', name: 'Bog wights', strength: 3,
+    on: ['bog', 'water'],
+    body: 'Grey shapes stand up out of the pools, wearing the faces of drowned '
+      + 'surveyors. They do not want the pipe here.',
+    choices: [
+      { label: 'Break them with iron', stat: 'iron',
+        strong: 'The bar goes through one like wet peat. The others watch, and learn.',
+        weak: 'They fall back a step. Something of yours goes under the water.',
+        miss: 'Cold hands in the trench. The crew scrambles out and back.' },
+      { label: 'Read what holds them here', stat: 'wits',
+        strong: 'Old survey stakes, driven wrong. You pull one and a wight folds like fog.',
+        weak: 'You learn a little. The night takes a little back.',
+        miss: 'The reading is wrong, and the water is not where the map says.' },
+    ],
+  },
+  {
+    id: 'brigands', name: 'Toll brigands', strength: 3,
+    on: ['moor', 'wood'],
+    body: 'A rope across the way and four grinning reasons to respect it. They '
+      + 'call it a toll. They have not said what happens if you refuse.',
+    choices: [
+      { label: 'Refuse, loudly', stat: 'iron',
+        strong: 'The rope comes down and one of them with it. The rest reconsider the trade.',
+        weak: 'They scatter — with a sack of yours as severance.',
+        miss: 'More of them than you counted. The crew gives ground.' },
+      { label: 'Slip round by night', stat: 'shadow',
+        strong: 'By morning the rope guards an empty stretch of nothing.',
+        weak: 'Round them — minus what fell from the packs at a dead run.',
+        miss: 'A dog. Of course they had a dog.' },
+    ],
+  },
+  {
+    id: 'watcher', name: 'The stone watcher', strength: 4,
+    on: ['stone', 'crag'],
+    body: 'It was a standing stone until the crew\'s picks got close. Now it '
+      + 'stands somewhere new each time you look, always nearer the trench.',
+    choices: [
+      { label: 'Topple it while it is stone', stat: 'iron',
+        strong: 'It cracks along an old seam. Whatever wore it moves out and away.',
+        weak: 'It rocks, and settles, and the ground you stood on does not.',
+        miss: 'It is not stone when the pick lands. The crew runs a full length back.' },
+      { label: 'Wait for it to walk, and watch', stat: 'wits',
+        strong: 'You see how it moves, and where it cannot. The line bends past it, safe.',
+        weak: 'You learn its gait. It learns your camp.',
+        miss: 'You blink. It is between you and the trench, and the night is long.' },
+    ],
+  },
+];
+
+/** The foes a ground can produce. */
+export const foesOn = (g: Ground): Foe[] => FOES.filter((f) => f.on.includes(g));
+
+/** One lookup for anything that stands in the way, happening or foe. */
+export const troubleById = (id: string): Happening | Foe | undefined =>
+  HAPPENINGS.find((h) => h.id === id) ?? FOES.find((f) => f.id === id);
+
+export const isFoe = (t: Happening | Foe | undefined): t is Foe =>
+  !!t && 'strength' in t;
