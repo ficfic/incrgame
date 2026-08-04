@@ -88,6 +88,13 @@ export const INK = {
    *  the first thing on this map not centred on a stop. */
   sea: '#9cc7de',
   beach: '#d9b45f',
+  /** ★ THE FOG OF WAR — uncharted parchment, not blackout (the owner queued it
+   *  in exactly those words). Drawn OPAQUE with soft holes cut around every
+   *  stop you have stood at and along every pipe, so what you know reads as a
+   *  chart and what you do not reads as the paper it will be drawn on. Near
+   *  `back` on purpose — it is the same paper, unmapped — but far enough on
+   *  the blue channel that a counted pixel is fog and never bare page. */
+  fog: '#e7dcc0',
 } as const;
 
 export type InkName = keyof typeof INK;
@@ -134,6 +141,7 @@ export const TOL: Partial<Record<InkName, number>> = {
   river: 12,
   sea: 12,
   beach: 12,
+  fog: 10,
 };
 export const COUNTED = Object.keys(TOL) as InkName[];
 

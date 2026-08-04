@@ -53,9 +53,15 @@
     pts?: Pt[] }
 
   let { dots, lines, box, label, onTap, decor = [], drag = true, inset = 0,
-    feed = null, pulse = 0 }: {
+    feed = null, pulse = 0, fog = null }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
     onTap: (id: string) => void;
+    /** ★ THE FOG OF WAR, or null for no fog. Uncharted parchment drawn OVER
+     *  the terrain with soft holes cut around `spots` (stops stood at) and
+     *  along `runs` (pipes, and the feed). The graph itself — dots, dotted
+     *  routes, labels — draws ON TOP of the fog: the skeleton of the crossing
+     *  is always visible, the LAND is what you have not earned yet. */
+    fog?: { spots: Pt[]; runs: Pt[][] } | null;
     /** ★ THE KING'S ROAD, coming in from off the map. The mana has to come
      *  from SOMEWHERE, and the owner asked to see it: *"especially when we
      *  start to have to connect to our initial dot from offscreen."* World
@@ -326,7 +332,65 @@
     // visibly shrink is the whole mechanic reduced to a number in a sentence.
     const r = d.r ?? (d.you ? 7
       : d.open || d.shut || d.barred || (!d.place && d.known) ? 5.5 : look.r);
-    return { s: 'disc', x: p.x, y: p.y, r, ink: fill, ring, rw };
+    // ★ A PLACE BEYOND YOUR KEN IS A FAINT DOT. It has no name to draw, and it
+    // sits on fogged parchment — full ink there would read as charted.
+    const alpha = d.place && !d.name && !d.you ? 0.5 : undefined;
+    return { s: 'disc', x: p.x, y: p.y, r, ink: fill, ring, rw, alpha };
+  }
+
+  // ---- the fog bake ---------------------------------------------------------
+  //
+  // ⚠️ BAKED, NOT PAINTED PER FRAME. The veil plus its holes is a dozen
+  // gradients and strokes over a megapixel — cheap once, not thirty times a
+  // second under the flow crawl. Re-baked only when what is revealed changes,
+  // which is when a stop is first stood at or a pipe goes in.
+  const FOG_PAD = 600;
+  const FOG_RES = 0.5;
+  let fogBaked: { key: string; cv: HTMLCanvasElement } | null = null;
+  function fogCanvas(): HTMLCanvasElement | null {
+    if (!fog) return null;
+    const key = JSON.stringify([fog.spots, fog.runs, box]);
+    if (fogBaked?.key === key) return fogBaked.cv;
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round((box.w + FOG_PAD * 2) * FOG_RES));
+    c.height = Math.max(1, Math.round((box.h + FOG_PAD * 2) * FOG_RES));
+    const g = c.getContext('2d');
+    if (!g) return null;
+    const fx = (n: number): number => (n - box.x + FOG_PAD) * FOG_RES;
+    const fy = (n: number): number => (n - box.y + FOG_PAD) * FOG_RES;
+    g.fillStyle = INK.fog;
+    g.fillRect(0, 0, c.width, c.height);
+    // The holes: what you have stood at, and what the crews have walked.
+    g.globalCompositeOperation = 'destination-out';
+    for (const p of fog.spots) {
+      const r = 190 * FOG_RES;
+      const hole = g.createRadialGradient(fx(p.x), fy(p.y), 0, fx(p.x), fy(p.y), r);
+      hole.addColorStop(0, 'rgba(0,0,0,1)');
+      hole.addColorStop(0.62, 'rgba(0,0,0,1)');
+      hole.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = hole;
+      g.beginPath();
+      g.arc(fx(p.x), fy(p.y), r, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    for (const run of fog.runs) {
+      if (run.length < 2) continue;
+      // Three passes, narrowing and hardening — a feathered corridor.
+      for (const [w, a] of [[170, 0.4], [125, 0.65], [85, 1]] as const) {
+        g.globalAlpha = a;
+        g.lineWidth = w * FOG_RES;
+        g.beginPath();
+        g.moveTo(fx(run[0]!.x), fy(run[0]!.y));
+        for (const p of run.slice(1)) g.lineTo(fx(p.x), fy(p.y));
+        g.stroke();
+      }
+    }
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
+    fogBaked = { key, cv: c };
+    return c;
   }
 
   function draw(): void {
@@ -344,6 +408,14 @@
     ctx.lineCap = 'round';
 
     for (const sh of decor) paint(ctx, sh, sx, sy, k);
+
+    // ★ THE FOG SITS ON THE LAND AND UNDER THE GRAPH. Terrain fogged, routes
+    // and dots drawn over it — the crossing stays a visible choice.
+    const veil = fogCanvas();
+    if (veil) {
+      ctx.drawImage(veil, sx(box.x - FOG_PAD), sy(box.y - FOG_PAD),
+        (box.w + FOG_PAD * 2) * k, (box.h + FOG_PAD * 2) * k);
+    }
 
     for (const l of lines) {
       const a = posOf.get(l.a), b = posOf.get(l.b);
@@ -449,7 +521,7 @@
   $effect(() => {
     // Re-read everything the picture depends on so the effect tracks it.
     void dots; void lines; void decor; void k; void tx; void ty; void moved; void cssW; void cssH;
-    void phase; void feed;
+    void phase; void feed; void fog;
     draw();
   });
 

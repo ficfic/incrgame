@@ -14,7 +14,7 @@ import { STOPS, STOP, START, FINISH, nameOf, GOING } from './stops';
 import type { Game } from './engine';
 import { STATS } from './dice';
 import { roadsOut, roadCost, buildSecs, manaRate, waitFor, reached, crossed,
-  roadKey, unbuildable, climbTo, MAX_GAUGE } from './engine';
+  roadKey, unbuildable, climbTo, MAX_GAUGE, ken } from './engine';
 
 /** Mana a second, said the same way everywhere it is said. */
 const perSec = (n: number): string => `${n.toFixed(2)} a second`;
@@ -49,16 +49,23 @@ export interface View { nodes: Node[]; edges: Edge[] }
 
 /** THE CHAPTER — every stop, and every dotted route between them.
  *
- *  ★ THE WHOLE CROSSING IS VISIBLE FROM THE FIRST FRAME. That is the point of
- *  the design: five or six ways across, drawn dotted, and the game is picking
- *  one. A map you have to uncover would hide the only decision there is. */
+ *  ⚠️ THE OLD RULE HERE — "the whole crossing is visible from the first frame,
+ *  a map you have to uncover would hide the only decision there is" — WAS
+ *  REVERSED BY THE OWNER, 2026-08-04: *"can we do fog of war maybe."* What
+ *  that rule was protecting survives it: the SKELETON stays — every dot and
+ *  every dotted route is drawn from frame one, so the five ways across are
+ *  still a visible choice. What the fog takes is the DETAIL: names and the
+ *  land itself exist only within your ken (`engine.ken`), and the terrain
+ *  beyond it is parchment until you stand there. */
 export function chapter(g: Game): View {
   const lit = reached(g);
+  const known = ken(g);
   return {
     nodes: STOPS.map((s) => ({
       id: stopId(s.id),
       kind: 'stop' as const,
-      name: s.id === START ? 'Start' : s.id === FINISH ? 'Finish' : s.name,
+      name: !known.has(s.id) ? ''
+        : s.id === START ? 'Start' : s.id === FINISH ? 'Finish' : s.name,
       body: g.seen.includes(s.id)
         ? `${ground(s.ground)}. ${lit.has(s.id) ? 'The mana reaches here.' : 'No mana here yet.'}`
         : undefined,

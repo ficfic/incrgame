@@ -245,14 +245,68 @@ const drowned = await page.evaluate(() => {
 });
 if (drowned.length) misses.push(`${drowned.join(' ')} hidden behind the dock at rest`);
 
-// ------------------------------------------------------------- the chapter --
+// ----------------------------------------------------------------- the fog --
 //
-// ★★ THE WHOLE CROSSING IS VISIBLE FROM THE FIRST FRAME. That is the design:
-// five or six dotted ways across, and the game is choosing one. If the board
-// showed only where you have been there would be no choice to see.
-console.log('\nTHE CHAPTER');
+// ★★ THE FOG OF WAR, on a FRESH game. The owner reversed the old visible-from-
+// frame-one rule: *"can we do fog of war maybe."* The rule's point survives as
+// the skeleton — every dot and dotted route drawn — while the LAND and the
+// NAMES exist only within your ken. Three pixels-and-DOM facts, each of which
+// dies to a different sabotage: the veil is painted in bulk, the veil has a
+// HOLE where you stand, and the far names are not printed.
+console.log('\nTHE FOG');
 await page.locator('nav button', { hasText: 'Chapter' }).click();
 await page.waitForTimeout(600);
+const fogPx = await ink('fog');
+const fogAtPin = await inkNear('fog', '.map .node.you', 55);
+const fogLabels = await page.$$eval('.map .label', (ls) => ls.map((l) => l.textContent.trim()));
+const fogDots = await page.$$eval('.map .node', (g) => g.length);
+console.log('  veil    :', `${fogPx}px of uncharted parchment`);
+console.log('  hole    :', `${fogAtPin}px of fog within 55px of the pin`);
+console.log('  named   :', fogLabels.join(' · ') || '(nothing)');
+console.log('  dots    :', `${fogDots} stops still drawn under it`);
+if (fogPx < 50000) misses.push(`only ${fogPx}px of fog on a fresh game — the veil is not drawn`);
+if (fogAtPin > 60) misses.push(`${fogAtPin}px of fog on top of the pin — no hole where you stand`);
+if (!fogLabels.includes('Start')) misses.push('the Start is not named inside your ken');
+if (fogLabels.includes('Finish')) misses.push('the Finish is named through the fog');
+if (fogLabels.length > 8) misses.push(`${fogLabels.length} names printed on a fresh chart — the fog hides nothing`);
+if (fogDots < 20) misses.push(`only ${fogDots} dots under the fog — the skeleton went missing with the names`);
+await page.screenshot({ path: SHOT.replace(/\.png$/, '-fog.png') });
+
+// ------------------------------------------------------------- the chapter --
+//
+// ★★ THE WHOLE CROSSING'S SKELETON IS VISIBLE FROM THE FIRST FRAME; the full
+// chart is what a FINISHED chapter looks like, so everything map-wide below is
+// counted on a fully charted save — every stop stood at, fog gone for good.
+console.log('\nTHE CHAPTER (charted)');
+const stopIds = await page.$$eval('.map .node[data-id^="stop:"]',
+  (ns) => ns.map((n) => Number(n.dataset.id.split(':')[1])));
+await page.evaluate((ids) => new Promise((done, fail) => {
+  const req = indexedDB.open('semantic-drift', 1);
+  req.onupgradeneeded = () => req.result.createObjectStore('saves');
+  req.onsuccess = () => {
+    const db = req.result;
+    const tx = db.transaction('saves', 'readwrite');
+    tx.objectStore('saves').put(JSON.stringify({
+      v: 8, savedAt: Date.now(),
+      game: { version: 8, at: 0, seen: ids, gauge: {}, mana: 0, part: 0, building: null },
+    }), 'main');
+    tx.oncomplete = () => { db.close(); done(); };
+    tx.onerror = () => fail(tx.error);
+  };
+  req.onerror = () => fail(req.error);
+}), stopIds);
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForSelector('.map canvas');
+await page.waitForTimeout(600);
+await page.locator('nav button', { hasText: 'Chapter' }).click();
+await page.waitForTimeout(600);
+// ★ AND THE FOG IS GONE FOR GOOD: a finished chapter earns its finished chart.
+const fogCharted = await ink('fog');
+const chartedLabels = await page.$$eval('.map .label', (ls) => ls.map((l) => l.textContent.trim()));
+console.log('  lifted  :', `${fogCharted}px of fog with every stop stood at; `
+  + `${chartedLabels.length} names, Finish ${chartedLabels.includes('Finish') ? 'named' : 'MISSING'}`);
+if (fogCharted > 400) misses.push(`${fogCharted}px of fog on a fully charted game — it never lifts`);
+if (!chartedLabels.includes('Finish')) misses.push('the Finish is nameless on a charted map');
 const allStops = await page.$$eval('.map .node', (g) => g.length);
 // ⚠️ `unmade`, NOT `route`. A route you have not built is dashed in `unmade`;
 // `route` is the ink a BUILT road is drawn in. Counting the wrong one here
@@ -384,6 +438,25 @@ if (!groundPx) misses.push('the chapter draws no ground — the terrain layer is
 // number in this file can tell you whether it reads. Rule 2 is "look at the
 // screenshot", and this is the one to look at.
 await page.screenshot({ path: SHOT.replace(/\.png$/, '-chapter.png') });
+
+// ---- back to a fresh run: the play-through below starts from nothing -------
+await page.evaluate(() => new Promise((done, fail) => {
+  const req = indexedDB.open('semantic-drift', 1);
+  req.onsuccess = () => {
+    const db = req.result;
+    const tx = db.transaction('saves', 'readwrite');
+    tx.objectStore('saves').put(JSON.stringify({
+      v: 8, savedAt: Date.now(),
+      game: { version: 8, at: 0, seen: [0], gauge: {}, mana: 0, part: 0, building: null },
+    }), 'main');
+    tx.oncomplete = () => { db.close(); done(); };
+    tx.onerror = () => fail(tx.error);
+  };
+  req.onerror = () => fail(req.error);
+}));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForSelector('.map canvas');
+await page.waitForTimeout(600);
 
 // ------------------------------------------------------------------ mana ----
 //

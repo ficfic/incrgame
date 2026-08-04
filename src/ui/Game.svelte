@@ -28,7 +28,7 @@
   import { INK, TOL } from '../game/ink';
   import { apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
     loadOf, roadKey, hopsFrom, kitAdd, legGround, KITS, START,
-    unforageable, FORAGE_SECS,
+    unforageable, FORAGE_SECS, charted,
     type Game, type Action, type Kit } from '../game/engine';
   import { judge, judgeBurned, burnHelps, type Roll } from '../game/dice';
   import { HAPPENINGS } from '../game/events';
@@ -212,6 +212,22 @@
     };
   }));
 
+  // ★ THE FOG OF WAR, chapter only, and gone for good once every stop has been
+  // stood at — a finished chapter deserves its finished chart. Holes around
+  // every stop you have SEEN (your ken names more, but names are not charts),
+  // and along every pipe with any work in it, plus the king's-road feed.
+  const fog = $derived.by(() => {
+    if (tab !== 'chapter' || charted(game)) return null;
+    const spots: { x: number; y: number }[] = [];
+    for (const id of game.seen) {
+      const p = spotOf.get(stopId(id));
+      if (p) spots.push({ x: p.x, y: p.y });
+    }
+    const runs = lines.filter((l) => l.fill > 0 && l.pts).map((l) => l.pts!);
+    if (feed) runs.push(feed);
+    return { spots, runs };
+  });
+
   // ---- the clock, and the only one ----------------------------------------
   onMount(() => {
     void (async () => {
@@ -374,7 +390,7 @@
          is harmless. -->
     <Board {dots} {lines} box={laid.box} label={tab} onTap={tap}
       decor={tab === 'chapter' ? TERRAIN_SHAPES : []}
-      drag={tab !== 'chapter'} {inset} {feed} pulse={game.mana} />
+      drag={tab !== 'chapter'} {inset} {feed} pulse={game.mana} {fog} />
   </section>
 
   <!-- THE PANEL. Part of the page, below the graph, in flow. It is empty until

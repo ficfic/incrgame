@@ -375,6 +375,25 @@ export function crossed(g: Game): boolean {
   return reached(g).has(FINISH);
 }
 
+/** ★ YOUR KEN: every stop you have stood at, and every stop one route away
+ *  from one of those. The fog of war's rule — inside it stops have names and
+ *  the land is charted; beyond it the chart is parchment and the dots are
+ *  bare. One route out, because the routes are surveyed: you always know
+ *  where you COULD go, never what it is like there. */
+export function ken(g: Game): Set<number> {
+  const out = new Set<number>(g.seen);
+  for (const id of g.seen) {
+    for (const n of STOP.get(id)?.near ?? []) out.add(n);
+  }
+  return out;
+}
+
+/** The chart is complete when you have stood everywhere — the fog lifts for
+ *  good and the map becomes the finished document it was pretending to be. */
+export function charted(g: Game): boolean {
+  return g.seen.length >= STOP.size;
+}
+
 /** How far along each road is, for drawing. 1 is laid, 0 is a dotted route you
  *  have not taken, and anything between is the one going in right now. */
 export function fillOf(g: Game, a: number, b: number): number {
