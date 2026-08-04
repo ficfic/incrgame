@@ -56,6 +56,13 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
       && Array.isArray(g.building.halts)
       && g.building.halts.every((h) => typeof h === 'number' && h > 0 && h < 1)
       && ['cart', 'mule', 'packs'].includes(g.building.kit))) return null;
+    // Checked against the CONTENT: a scavenge whose clock outruns its own
+    // length, or leaning on a stat that is not a scavenging stat, would be a
+    // countdown the dock can never end.
+    if (g.foraging && !(Number.isFinite(g.foraging.secs) && g.foraging.secs > 0
+      && Number.isFinite(g.foraging.left) && g.foraging.left >= 0
+      && g.foraging.left <= g.foraging.secs
+      && ['wits', 'shadow'].includes(g.foraging.stat))) return null;
     if (g.provisions !== undefined
       && !(Number.isInteger(g.provisions) && g.provisions >= 0 && g.provisions <= 10)) return null;
     if (g.stats !== undefined) {

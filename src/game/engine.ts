@@ -117,6 +117,12 @@ export interface Game {
    *  the whole leg. The other resource the owner asked for, and the one that
    *  makes an event mean something. */
   provisions: number;
+  /** ★ SCAVENGING — Ironsworn's Resupply, worn local. The owner: *"so, like,
+   *  scavenge for provisions."* Time spent at a stop with the crew idle, ended
+   *  by a roll on the stat you chose going in. Trades the one thing the game
+   *  is made of — time you could be laying pipe — for the resource legs run
+   *  on. Null when nobody is out. */
+  foraging: { secs: number; left: number; stat: 'wits' | 'shadow' } | null;
   /** ★ WHAT STANDS IN THE WAY RIGHT NOW, or null. While this is set, the
    *  building does not move: block, face, resolve, resume. */
   facing: {
@@ -148,7 +154,12 @@ export type Action =
   /** Accept the roll as it landed. */
   | { type: 'carry' }
   /** Burn momentum to overrule it. Only legal when it would actually help. */
-  | { type: 'burn' };
+  | { type: 'burn' }
+  /** ★ SEND THE CREW SCAVENGING, on wits (the open ground) or shadow (other
+   *  people's stores). The stat is chosen going IN — the dice come at the end. */
+  | { type: 'forage'; stat: 'wits' | 'shadow' }
+  /** See what the scavenging found. Legal only once the time is served. */
+  | { type: 'gather'; roll: Roll };
 
 // ---- mana -----------------------------------------------------------------
 //
@@ -185,6 +196,18 @@ export const SPRING = 2.4;
 /** The widest a road goes. Three is enough to make widening a real decision and
  *  few enough that the board can draw the difference. */
 export const MAX_GAUGE = 3;
+
+/** How long a scavenge takes. Longer than a tap-burst, shorter than a lay:
+ *  it has to COST time to be a trade, and it has to fit inside one sitting. */
+export const FORAGE_SECS = 18;
+
+/** Why the crew cannot go scavenging right now, in plain words, or null. */
+export function unforageable(g: Game): string | null {
+  if (g.building) return 'the crew is laying pipe';
+  if (g.foraging) return 'already out scavenging';
+  if (g.provisions >= 10) return 'your packs are full';
+  return null;
+}
 
 /** Every road you have, as a pipe with what it can carry. */
 export function pipes(g: Game): Pipe[] {
@@ -306,6 +329,7 @@ export function unbuildable(g: Game, to: number): string | null {
   const here = STOP.get(g.at);
   if (!here?.near.includes(to)) return 'nothing joins these';
   if (g.building) return 'already building one';
+  if (g.foraging) return 'the crew is out scavenging';
   if ((g.gauge[roadKey(g.at, to)] ?? 0) >= MAX_GAUGE) return 'as wide as it goes';
   // ★ THE RULE THE OPENING IS FOR. Reported before the price, because you can
   // wait out a price and you cannot wait out being in the wrong place.
@@ -372,6 +396,7 @@ export function initial(): Game {
     stats: { ...START_STATS },
     momentum: MOMENTUM_START,
     provisions: 6,
+    foraging: null,
     facing: null,
   };
 }
@@ -393,6 +418,15 @@ export function apply(g: Game, a: Action): Game {
       const total = g.part + a.secs * manaRate(g);
       const got = Math.floor(total);
       let next: Game = { ...g, mana: g.mana + got, part: total - got };
+
+      // The scavenge serves its time. It stops at zero and WAITS — the dice
+      // belong to the shell, so the tick cannot roll the result itself.
+      if (next.foraging && next.foraging.left > 0) {
+        next = {
+          ...next,
+          foraging: { ...next.foraging, left: Math.max(0, next.foraging.left - a.secs) },
+        };
+      }
 
       if (next.building && !next.facing) {
         let left = next.building.left - a.secs;
@@ -519,6 +553,34 @@ export function apply(g: Game, a: Action): Game {
       };
     }
 
+    case 'forage': {
+      if (unforageable(g)) return g;
+      if (a.stat !== 'wits' && a.stat !== 'shadow') return g;
+      return { ...g, foraging: { secs: FORAGE_SECS, left: FORAGE_SECS, stat: a.stat } };
+    }
+
+    case 'gather': {
+      // Legal only once the time is served — see-what-you-found is the END of
+      // the trade, not a way around it.
+      if (!g.foraging || g.foraging.left > 0 || !legal(a.roll)) return g;
+      const out = judge(a.roll, g.stats[g.foraging.stat] ?? 1);
+      const swing = out.twist ? 2 : 1;
+      // ★ IRONSWORN'S RESUPPLY, worn local: a strong hit fills packs, a weak
+      // hit finds a little and costs the night, a miss finds nothing and the
+      // crew comes home rattled. Nothing here touches mana or the works.
+      if (out.tier === 'strong') {
+        return { ...g, foraging: null,
+          provisions: Math.min(10, g.provisions + 1 + swing) };
+      }
+      if (out.tier === 'weak') {
+        return { ...g, foraging: null,
+          provisions: Math.min(10, g.provisions + 1),
+          momentum: clampMomentum(g.momentum - swing) };
+      }
+      return { ...g, foraging: null,
+        momentum: clampMomentum(g.momentum - 1 - swing) };
+    }
+
     case 'go': {
       if (blocked(g, a.to)) return g;
       if (!STOP.has(a.to)) return g;
@@ -528,7 +590,9 @@ export function apply(g: Game, a: Action): Game {
         at: a.to,
         seen: first ? [...g.seen, a.to] : g.seen,
         // Walking a laid road is free, now and always. The mana went into
-        // making it.
+        // making it. ⚠️ Walking off ABANDONS a scavenge — the time is lost,
+        // said in the deed's note rather than silently.
+        foraging: null,
       };
     }
   }

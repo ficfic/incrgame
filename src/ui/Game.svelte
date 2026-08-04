@@ -28,6 +28,7 @@
   import { INK, TOL } from '../game/ink';
   import { apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
     loadOf, roadKey, hopsFrom, kitAdd, legGround, KITS, START,
+    unforageable, FORAGE_SECS,
     type Game, type Action, type Kit } from '../game/engine';
   import { judge, judgeBurned, burnHelps, type Roll } from '../game/dice';
   import { HAPPENINGS } from '../game/events';
@@ -52,6 +53,9 @@
    *  choice; tapping a kit is what actually sets off. Cleared by any other
    *  tap, like everything else in the dock. */
   let prep = $state<number | null>(null);
+  /** ★ WHAT THE SCAVENGE TURNED UP, arithmetic in the open like the trouble
+   *  dock — shell-side only, because the engine keeps no memory of dice. */
+  let found = $state<string | null>(null);
 
   /** ★ THE ONLY DICE IN THE HOUSE. Rolled here in the shell and handed to the
    *  engine as plain numbers — `apply` takes no randomness, ever. Real random,
@@ -283,6 +287,7 @@
     }
     arming = false;
     prep = null;
+    found = null;
     picked = picked === id ? null : id;
   }
   /** One place that turns a deed into an action, so the markup carries no
@@ -300,6 +305,22 @@
     if (prep === null) return;
     act({ type: 'build', to: prep, kit });
     prep = null;
+  }
+  /** The end of a scavenge: roll here, judge in the engine, say the arithmetic
+   *  out loud — the same honesty as the trouble dock, in one line. */
+  function gather(): void {
+    if (!game.foraging || game.foraging.left > 0) return;
+    const stat = game.foraging.stat;
+    const s = game.stats[stat] ?? 1;
+    const roll = { a: d(6), c1: d(10), c2: d(10) };
+    const out = judge(roll, s);
+    act({ type: 'gather', roll });
+    const swing = out.twist ? 2 : 1;
+    found = `You rolled ${roll.a} + ${stat} ${s} = ${out.score}, against `
+      + `${roll.c1} and ${roll.c2} — `
+      + (out.tier === 'strong' ? `a strong hit. The packs come back heavy: +${1 + swing} provisions.`
+        : out.tier === 'weak' ? 'a weak hit. A little found, a hard night: +1 provision, momentum falls.'
+        : 'a miss. Nothing out there — the crew comes home rattled, momentum falls.');
   }
   function go(to: number): void {
     act({ type: 'go', to });
@@ -430,6 +451,33 @@
           {arming ? 'Now tap the far stop' : 'Lay a pipe…'}
           <em>{arming ? 'or tap here again to cancel' : 'tap a stop beside this one'}</em>
         </button>
+      {/if}
+      {#if picked === `stop:${game.at}`}
+        <!-- ★ SCAVENGE — Ironsworn's Resupply, the owner's ask: *"so, like,
+             scavenge for provisions."* Stat chosen going in, dice at the end,
+             and the price is the time the crew is not laying pipe. -->
+        {#if game.foraging === null}
+          {@const cant = unforageable(game)}
+          <button class="deed" disabled={cant !== null}
+            onclick={() => { found = null; act({ type: 'forage', stat: 'wits' }); }}>
+            Scavenge the open ground
+            <em>{cant ?? `wits ${game.stats.wits} · ${FORAGE_SECS}s — walking off abandons it`}</em>
+          </button>
+          <button class="deed" disabled={cant !== null}
+            onclick={() => { found = null; act({ type: 'forage', stat: 'shadow' }); }}>
+            Scavenge by shadow
+            <em>{cant ?? `shadow ${game.stats.shadow} · ${FORAGE_SECS}s — walking off abandons it`}</em>
+          </button>
+        {:else if game.foraging.left > 0}
+          <p class="note">Scavenging — {Math.ceil(game.foraging.left)}s left.
+            It keeps going while the game is closed.</p>
+        {:else}
+          <button class="deed face" onclick={gather}>
+            See what the crew found
+            <em>{game.foraging.stat} {game.stats[game.foraging.stat]} — one die and your nerve, against two</em>
+          </button>
+        {/if}
+        {#if found}<p class="dice">{found}</p>{/if}
       {/if}
       <!-- The Here tab carries the countdown on a dot of its own, so saying it
            again underneath would be the same number twice on one screen. -->

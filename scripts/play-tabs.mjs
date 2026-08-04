@@ -701,6 +701,66 @@ if (!widen) {
   }
 }
 
+// ------------------------------------------------------------- scavenging ----
+//
+// ★★ THE TRADE: time at a stop for provisions, stat chosen going in, dice at
+// the end — the owner: *"so, like, scavenge for provisions."* The whole loop
+// must happen ON SCREEN: the deed says its stat and its price, the countdown
+// is visible, the reveal shows the arithmetic, and the header's provisions
+// count moves by exactly what the named tier pays.
+console.log('\nSCAVENGING');
+const keepCount = () => page.$eval('.purse .keep', (e) => Number(e.textContent.match(/\d+/)[0]));
+await pick('.map .node.you');
+await page.waitForTimeout(200);
+const packsBefore = await keepCount();
+const scav = page.locator('.deed', { hasText: 'Scavenge the open ground' });
+if (!await scav.count()) {
+  misses.push('standing idle at a stop offers no way to scavenge');
+} else {
+  const scavNote = (await scav.textContent()).replace(/\s+/g, ' ').trim();
+  console.log('  offers  :', `"${scavNote}"`);
+  if (!/wits \d+ · \d+s/.test(scavNote)) {
+    misses.push(`the scavenge deed does not say its stat and its price: "${scavNote}"`);
+  }
+  await scav.click({ timeout: 3000 });
+  await page.waitForTimeout(400);
+  const counting = await panelText();
+  console.log('  serving :', `"${counting.slice(0, 70)}"`);
+  if (!/Scavenging — \d+s left/.test(counting)) {
+    misses.push(`no countdown while the crew is out: "${counting.slice(0, 60)}"`);
+  }
+  // ⚠️ AND THE TIME IS A WALL, NOT A SUGGESTION: the reveal must not exist yet.
+  if (await page.locator('.deed.face', { hasText: 'See what the crew found' }).count()) {
+    misses.push('the reveal is offered before the time is served');
+  }
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-scavenge.png') });
+  let seen = false;
+  for (let i = 0; i < 25; i++) {
+    await page.waitForTimeout(1000);
+    if (await page.locator('.deed.face', { hasText: 'See what the crew found' }).count()) { seen = true; break; }
+  }
+  if (!seen) misses.push('the scavenge never came home — no reveal after the time was served');
+  else {
+    await page.locator('.deed.face', { hasText: 'See what the crew found' }).click({ timeout: 3000 });
+    await page.waitForTimeout(400);
+    const told = await panelText();
+    console.log('  found   :', `"${told.slice(0, 130)}"`);
+    const tier = (told.match(/a (strong hit|weak hit|miss)/) ?? [])[1];
+    if (!/You rolled \d+ \+ wits \d+ = \d+, against \d+ and \d+/.test(told) || !tier) {
+      misses.push(`the reveal does not show its arithmetic: "${told.slice(0, 90)}"`);
+    } else {
+      const packsAfter = await keepCount();
+      const matched = /and \d+ — a strong hit\. The packs come back heavy: \+3/.test(told);
+      const want = tier === 'strong hit' ? Math.min(10, packsBefore + (matched ? 3 : 2))
+        : tier === 'weak hit' ? Math.min(10, packsBefore + 1) : packsBefore;
+      console.log('  packs   :', `${packsBefore} → ${packsAfter} on ${tier}`);
+      if (packsAfter !== want) {
+        misses.push(`a ${tier} paid ${packsAfter - packsBefore} provisions — the header disagrees with the dice`);
+      }
+    }
+  }
+}
+
 // ------------------------------------------- you cannot build from the middle -
 //
 // ★★ THE RULE THE WHOLE OPENING EXISTS TO SET UP, and the one thing playing

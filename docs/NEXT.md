@@ -200,8 +200,13 @@ Chosen: **full package, in this order, one session each.**
 3. **✦ TAP-MANA** *(shipped 2026-08-03)* — trickle 0.34→0.12 a second; the
    purse is a button, each press draws 0.4 through the same remainder as the
    tick. The early game is played with the thumb.
-4. **NEXT → SCAVENGE** — trade time for Provisions at any stop, wits/shadow
-   roll.
+4. **✦ SCAVENGE** *(shipped 2026-08-04)* — 18s at your stop, wits or shadow
+   chosen going in, dice at the end: strong +2 (+3 twist), weak +1 and
+   momentum falls, miss nothing and the crew comes home rattled. Exclusive
+   with laying pipe both ways; walking off abandons it.
+
+**THE EXPEDITION PLAN IS COMPLETE.** All four steps shipped. The queue below
+this line is the owner's to refill — fog of war is first in `BACKLOG.md`.
 
 ⚠️ This is the THIRD economy. The difference, recorded so the pattern is
 visible: the first two were invented and reviewed on paper; this one is the
