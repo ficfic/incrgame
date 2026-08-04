@@ -641,6 +641,21 @@ if (!live || live.off) {
 
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-laying.png') });
 
+  // ★★ THE WAY. The owner's redesign: *"instead of just waiting and being
+  // interrupted, it is the separate tab kinda where it happens."* While the
+  // crew is out, Here IS the leg: waypoints along the real path, the trouble
+  // still ahead drawn as a marker you can SEE COMING, and the crew mark on
+  // the works. All of it must be on screen DURING the build.
+  console.log('\nTHE WAY');
+  const wayDots = await page.$$eval('.map .node[data-id^="way:"]', (g) => g.length);
+  const haltDots = await page.$$eval('.map .node[data-id^="halt:"]', (g) => g.length);
+  const crewDot = await page.$$eval('.map .node[data-id="doing"]', (g) => g.length);
+  console.log('  shows   :', `${wayDots} waypoints, ${haltDots} trouble ahead, ${crewDot} crew mark`);
+  if (wayDots < 3) misses.push(`the leg shows only ${wayDots} waypoints — Here did not become the way`);
+  if (!haltDots) misses.push('nothing marks the trouble ahead — the halt is invisible again');
+  if (!crewDot) misses.push('no crew mark on the works');
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-way.png') });
+
   // ★★ TROUBLE ON THE LINE. The owner's design: hidden stops on a fresh lay
   // that "block progress until resolved". The work must HALT, the dock must
   // name the trouble, the dice must be shown doing arithmetic in the open, and
@@ -677,6 +692,11 @@ if (!live || live.off) {
     await page.waitForTimeout(400);
   }
   if (!faced) misses.push('the lay finished without ever meeting its hidden stop');
+  // ★ AND THE WAY FOLDS UP WHEN THE CREW COMES HOME: after arrival Here is a
+  // stop again, not a stale leg.
+  await page.waitForTimeout(400);
+  const wayGone = await page.$$eval('.map .node[data-id^="way:"]', (g) => g.length);
+  if (wayGone) misses.push(`${wayGone} waypoints still on Here after the leg finished`);
 
   // ★★ A FINISHED LAY CARRIES YOU OVER. The owner: *"obviously when we build a
   // road somewhere we arrive there too."* So the probe does NOT walk — it waits,

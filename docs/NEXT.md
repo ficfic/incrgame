@@ -1028,3 +1028,19 @@ building it now with zero users is how this project got eleven systems.
 And the headline: **the code is no longer the bottleneck. The decisions are.**
 Every remaining item needs an answer from the owner about what the game IS, not
 a refactor.
+
+## ★★★ THE WAY — 2026-08-04, the owner's redesign, agreed in chips
+
+> *"nothing we do is choose your own adventure… gamify the point A to point B
+> journey… a separate view… you need to tap something… enemy encounters might
+> happen on that same view… reuse one of the tabs."*
+
+1. **✦ THE WAY VIEW** *(shipped 2026-08-04)* — while a crew is out, Here IS
+   the leg: real path, own terrain frame, visible waypoints, halts as
+   "Something ahead" markers, crew mark, road solidifying behind them.
+2. **NEXT → TAP-TO-WORK** — tapping on the way view pushes the crew; waiting
+   alone is slower. The active layer moves INTO the journey.
+3. **FOES** — a new waypoint type: a short Ironsworn progress-track fight
+   (rounds of rolls, mark harm, a miss falls back).
+4. **RISK TRADEOFFS** — kits trade speed for safety; event choices risk
+   different resources; scavenge safe-vs-greedy. Kills the fake choices.

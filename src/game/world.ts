@@ -15,6 +15,8 @@ import type { Game } from './engine';
 import { STATS } from './dice';
 import { roadsOut, roadCost, buildSecs, manaRate, waitFor, reached, crossed,
   roadKey, unbuildable, climbTo, MAX_GAUGE, ken } from './engine';
+import { pathOf, cutAt } from './paths';
+import type { Pt } from './shapes';
 
 /** Mana a second, said the same way everywhere it is said. */
 const perSec = (n: number): string => `${n.toFixed(2)} a second`;
@@ -25,9 +27,9 @@ const perSec = (n: number): string => `${n.toFixed(2)} a second`;
  *  vocabulary turned over, every kind here was renamed, and the test went on
  *  cheerfully checking that the SCRAPPED kinds had ink. Same failure message,
  *  no way to drift. */
-export const KINDS = ['stop', 'you', 'doing', 'fact', 'carry'] as const;
+export const KINDS = ['stop', 'you', 'doing', 'fact', 'carry', 'way', 'halt'] as const;
 export type Kind = typeof KINDS[number];
-export type Rel = 'road' | 'stands' | 'doing' | 'has' | 'carries';
+export type Rel = 'road' | 'stands' | 'doing' | 'has' | 'carries' | 'way';
 
 export interface Node {
   id: string;
@@ -139,6 +141,115 @@ export function here(g: Game): View {
       { a: stopId(g.at), b: DOING, rel: 'doing' as const },
       ...at.near.map((to) => ({ a: stopId(g.at), b: stopId(to), rel: 'road' as const })),
     ],
+  };
+}
+
+// ---- THE WAY -----------------------------------------------------------------
+//
+// ★★ THE LEG IS A PLACE, 2026-08-04 — the owner's design: *"instead of just
+// waiting and being interrupted, it is the separate tab kinda where it
+// happens… you're building, like, little graph through the terrain."* While a
+// crew is out, the Here tab stops being a wheel of neighbours and becomes the
+// LEG ITSELF: the real bent path through the real terrain, waypoint by
+// waypoint, with everything still ahead of the crew drawn as a marker you can
+// see coming — and everything behind them already a road.
+//
+// Fractal on purpose: the chapter is a graph of stops; a leg is a graph of
+// waypoints. Same board, same inks, same rules.
+
+/** A point a fraction of the way along the leg, by LENGTH. */
+const along = (path: readonly Pt[], f: number): Pt => {
+  const cut = cutAt(path, Math.max(0.001, Math.min(0.999, f)), true);
+  return cut[cut.length - 1]!;
+};
+
+export interface WayLine {
+  a: string; b: string; rel: 'road';
+  fill: number; load: number; gauge: number; dir: number; pts: Pt[];
+}
+
+export interface WayPlan {
+  view: View;
+  spots: Array<{ id: string; x: number; y: number }>;
+  box: { x: number; y: number; w: number; h: number };
+  lines: WayLine[];
+}
+
+/** How far the work has got, 0..1 — one definition for the crew marker and
+ *  every segment's fill, so they can never disagree. */
+const wayFill = (g: Game): number =>
+  g.building ? 1 - g.building.left / g.building.secs : 0;
+
+export function theWay(g: Game): WayPlan | null {
+  if (!g.building) return null;
+  const [lo, hi] = g.building.key.split('|').map(Number);
+  const far = lo === g.building.from ? hi! : lo!;
+  const raw = pathOf(g.building.from, far);
+  if (!raw) return null;
+  // Oriented from YOUR end — the crew and the fill grow away from it.
+  const first = raw[0]!;
+  const fromAt = STOP.get(g.building.from)!;
+  const path = Math.hypot(first.x - fromAt.x, first.y - fromAt.y) < 1
+    ? [...raw] : [...raw].reverse();
+
+  const f = wayFill(g);
+  const farSeen = g.seen.includes(far);
+  // Enough waypoints that the leg reads as a journey, few enough for thumbs.
+  const N = 5;
+  const marks: Array<{ id: string; kind: Kind; name: string; body?: string; at: Pt }> = [];
+  marks.push({ id: stopId(g.building.from), kind: 'stop',
+    name: nameOf(g.building.from), at: path[0]! });
+  for (let i = 1; i < N; i++) {
+    marks.push({ id: `way:${i}`, kind: 'way', name: '', at: along(path, i / N) });
+  }
+  marks.push({ id: stopId(far), kind: 'stop',
+    name: farSeen ? nameOf(far) : '', at: path[path.length - 1]! });
+  // ★ WHAT IS STILL IN THE WAY, visible AHEAD of the crew — the anticipation
+  // the old hidden halts never had. Resolved ones are simply gone.
+  g.building.halts.forEach((h, j) => {
+    marks.push({ id: `halt:${j}`, kind: 'halt', name: 'Something ahead',
+      body: 'The work will stop when the crew reaches it.', at: along(path, h) });
+  });
+  // The crew, at the head of the works. Keeps the DOING id so the panel rules
+  // that know "the thing being done" need not learn a second name.
+  marks.push({ id: DOING, kind: 'doing',
+    name: g.building.to > 1 ? 'Widening the pipe' : 'Laying pipe',
+    body: `Toward ${nameOf(far)}, by ${g.building.kit}. `
+      + `${Math.ceil(g.building.left)}s left. It keeps going while the game is closed.`,
+    at: along(path, Math.max(0.02, Math.min(0.98, f))) });
+
+  const xs = path.map((p) => p.x), ys = path.map((p) => p.y);
+  const pad = 70;
+  const box = {
+    x: Math.min(...xs) - pad, y: Math.min(...ys) - pad,
+    w: Math.max(...xs) - Math.min(...xs) + pad * 2,
+    h: Math.max(...ys) - Math.min(...ys) + pad * 2,
+  };
+
+  // The chain, one segment per waypoint gap, each with its own fill so the
+  // road solidifies behind the crew and stays dotted ahead of them.
+  const stopsIdx = [stopId(g.building.from),
+    ...Array.from({ length: N - 1 }, (_, i) => `way:${i + 1}`), stopId(far)];
+  const lines: WayLine[] = [];
+  for (let i = 0; i < N; i++) {
+    const f0 = i / N, f1 = (i + 1) / N;
+    const pts: Pt[] = Array.from({ length: 5 },
+      (_, t) => along(path, f0 + ((f1 - f0) * t) / 4));
+    lines.push({
+      a: stopsIdx[i]!, b: stopsIdx[i + 1]!, rel: 'road',
+      fill: Math.max(0, Math.min(1, (f - f0) * N)),
+      load: 0, gauge: g.building.to > 1 ? g.building.to : 1, dir: 0, pts,
+    });
+  }
+
+  return {
+    view: {
+      nodes: marks.map(({ at: _, ...n }) => n),
+      edges: lines.map((l) => ({ a: l.a, b: l.b, rel: l.rel })),
+    },
+    spots: marks.map((m) => ({ id: m.id, x: m.at.x, y: m.at.y })),
+    box,
+    lines,
   };
 }
 

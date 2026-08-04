@@ -21,7 +21,7 @@
   // it says. `scripts/play-tabs.mjs` enforces all three.
   import { onMount } from 'svelte';
   import { STOP } from '../game/stops';
-  import { TABS, deedsFor, numOf, stopId, DOING, type TabId } from '../game/world';
+  import { TABS, deedsFor, numOf, stopId, DOING, theWay, type TabId } from '../game/world';
   import { solve, JOURNEY } from '../game/layout';
   import Board from './Board.svelte';
   import { TERRAIN_SHAPES } from '../game/terrain';
@@ -103,10 +103,16 @@
   // this text when you tap a place. So the header keeps numbers and a button;
   // prose lives in one place, below, and tapping anything else clears it.
 
-  const view = $derived(TABS.find((t) => t.id === tab)!.view(game));
+  // ★ THE WAY — while a crew is out, Here IS the leg (the owner's design:
+  // "it is the separate tab kinda where it happens"). Authored positions
+  // along the real path, so no force layout and no fog: the corridor is
+  // surveyed by definition.
+  const way = $derived(tab === 'here' ? theWay(game) : null);
+  const view = $derived(way ? way.view : TABS.find((t) => t.id === tab)!.view(game));
   // The journey's shape never changes, so its layout is the constant solved at
   // load. Every other tab is a filter whose shape follows the run.
-  const laid = $derived(tab === 'chapter' ? JOURNEY : solve(view));
+  const laid = $derived(tab === 'chapter' ? JOURNEY
+    : way ? { spots: way.spots, box: way.box } : solve(view));
   const spotOf = $derived(new Map(laid.spots.map((s) => [s.id, s])));
 
   // ---- how much of the board the dock is sitting on -------------------------
@@ -182,7 +188,7 @@
     ];
   });
 
-  const lines = $derived(view.edges.map((e) => {
+  const lines = $derived(way ? way.lines : view.edges.map((e) => {
     const road = e.rel === 'road' && e.a.startsWith('stop:') && e.b.startsWith('stop:');
     const key = road ? roadKey(numOf(e.a), numOf(e.b)) : '';
     // ⚠️ THE FILL GROWS FROM THE END YOU LAID IT FROM. The view emits every
@@ -401,8 +407,9 @@
          for exactly that. Everywhere else a dot is a diagram and nudging one
          is harmless. -->
     <Board {dots} {lines} box={laid.box} label={tab} onTap={tap}
-      decor={tab === 'chapter' ? TERRAIN_SHAPES : []}
-      drag={tab !== 'chapter'} {inset} {feed} pulse={game.mana} {fog} />
+      decor={tab === 'chapter' || way ? TERRAIN_SHAPES : []}
+      drag={tab !== 'chapter' && !way} {inset} feed={way ? null : feed}
+      pulse={game.mana} {fog} />
   </section>
 
   <!-- THE PANEL. Part of the page, below the graph, in flow. It is empty until
@@ -447,7 +454,8 @@
         {/if}
       {/if}
     {:else if chosen}
-      <h2>{chosen.name || 'A stop you have not stood at'}</h2>
+      <h2>{chosen.name || (chosen.kind === 'way' ? 'The way ahead'
+        : 'A stop you have not stood at')}</h2>
       {#if chosen.body}<p>{chosen.body}</p>{/if}
       <!-- An unnamed dot is a promise, not a bug — the same one the Journey
            makes about a place you have not reached. Say which promise it is. -->

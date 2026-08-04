@@ -187,4 +187,9 @@ export const LOOK: Record<string, Look> = {
   doing: { fill: 'back', ring: 'open', label: 'doing', r: 5.5 },
   fact: { fill: 'back', ring: 'known', label: 'known', r: 5.5 },
   carry: { fill: 'back', ring: 'open', label: 'open', r: 5.5 },
+  /** ★ THE WAY's own marks. A waypoint is a small survey dot on the leg; a
+   *  halt is the thing still ahead of the crew, in the same amber as a road
+   *  you cannot take yet — trouble you can SEE COMING now, not an interrupt. */
+  way: { fill: 'dot', label: 'known', r: 2.6 },
+  halt: { fill: 'shut', ring: 'casing', label: 'known', r: 5 },
 };
