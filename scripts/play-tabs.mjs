@@ -578,8 +578,8 @@ if (!live || live.off) {
   if (kits.length !== 3) {
     misses.push(`the lay does not ask how the crew sets off: ${kits.length} kit deeds, wanted 3`);
   }
-  if (!kits.some((k) => /\+1 to every roll/.test(k))
-    || !kits.some((k) => /-1 to every roll/.test(k))) {
+  if (!kits.some((k) => /\+1 every roll/.test(k))
+    || !kits.some((k) => /-1 every roll/.test(k))) {
     misses.push('no kit says what it does to the rolls — the choice is blind');
   }
   const keep = await page.$eval('.purse .keep', (e) => e.textContent.trim()).catch(() => null);
@@ -823,7 +823,7 @@ if (!await scav.count()) {
       misses.push(`the reveal does not show its arithmetic: "${told.slice(0, 90)}"`);
     } else {
       const packsAfter = await keepCount();
-      const matched = /and \d+ — a strong hit\. The packs come back heavy: \+3/.test(told);
+      const matched = /a strong hit\. \+3/.test(told);
       const want = tier === 'strong hit' ? Math.min(10, packsBefore + (matched ? 3 : 2))
         : tier === 'weak hit' ? Math.min(10, packsBefore + 1) : packsBefore;
       console.log('  packs   :', `${packsBefore} → ${packsAfter} on ${tier}`);

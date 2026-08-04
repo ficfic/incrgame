@@ -334,9 +334,9 @@
     const swing = out.twist ? 2 : 1;
     found = `You rolled ${roll.a} + ${stat} ${s} = ${out.score}, against `
       + `${roll.c1} and ${roll.c2} — `
-      + (out.tier === 'strong' ? `a strong hit. The packs come back heavy: +${1 + swing} provisions.`
-        : out.tier === 'weak' ? 'a weak hit. A little found, a hard night: +1 provision, momentum falls.'
-        : 'a miss. Nothing out there — the crew comes home rattled, momentum falls.');
+      + (out.tier === 'strong' ? `a strong hit. +${1 + swing} provisions.`
+        : out.tier === 'weak' ? 'a weak hit. +1 provision, momentum falls.'
+        : 'a miss. Nothing — momentum falls.');
   }
   function go(to: number): void {
     act({ type: 'go', to });
@@ -359,7 +359,6 @@
            `tap` action — the engine does the arithmetic, the shell only asks. -->
       <button class="spring" onclick={() => act({ type: 'tap' })}>
         <b>{game.mana}</b><span>mana</span>
-        <em>tap to draw</em>
       </button>
       <!-- ★ THE RATE IS SOLVED FROM THE GRAPH and it moves, so the header has
            to say what it is now rather than quote a constant. When you are
@@ -407,7 +406,7 @@
           <button class="deed face" onclick={() => act({ type: 'face', choice: i,
             roll: { a: d(6), c1: d(10), c2: d(10) } })}>
             {c.label}
-            <em>{c.stat} {game.stats[c.stat]} — one die and your nerve, against two</em>
+            <em>{c.stat} {game.stats[c.stat]}, against two</em>
           </button>
         {/each}
       {:else}
@@ -424,8 +423,8 @@
         <button class="deed face" onclick={() => act({ type: 'carry' })}>
           Carry on
           <em>{trouble.out.tier === 'strong' ? 'momentum rises'
-            : trouble.out.tier === 'weak' ? 'it costs some mana'
-            : 'the work slides back, and momentum with it'}</em>
+            : trouble.out.tier === 'weak' ? 'it eats a provision'
+            : 'the work slides back'}</em>
         </button>
         {#if trouble.canBurn}
           <button class="deed arm" onclick={() => act({ type: 'burn' })}>
@@ -450,15 +449,15 @@
         <!-- ★ PREPARE. The kit is the choice that outlives the tap: it rides
              every roll on the leg, +1 suited and -1 wrong. Said up front, so
              setting off badly is a decision rather than a surprise. -->
-        <p class="note">How does the crew set off? This leg answers to
+        <p class="note">Set off how? The ground is
           {legGround(roadKey(game.at, prep))}.</p>
         {#each KITS as k (k)}
           {@const add = kitAdd(k, roadKey(game.at, prep))}
           <button class="deed" class:make={add > 0} onclick={() => setOff(k)}>
             Set off with the {k}
-            <em>{add > 0 ? '+1 to every roll on this leg — it suits the ground'
-              : add < 0 ? '-1 to every roll on this leg — wrong tool for this ground'
-              : 'no help, no harm here'}</em>
+            <em>{add > 0 ? '+1 every roll — suits the ground'
+              : add < 0 ? '-1 every roll — wrong tool'
+              : 'no help, no harm'}</em>
           </button>
         {/each}
       {/if}
@@ -477,20 +476,19 @@
           <button class="deed" disabled={cant !== null}
             onclick={() => { found = null; act({ type: 'forage', stat: 'wits' }); }}>
             Scavenge the open ground
-            <em>{cant ?? `wits ${game.stats.wits} · ${FORAGE_SECS}s — walking off abandons it`}</em>
+            <em>{cant ?? `wits ${game.stats.wits} · ${FORAGE_SECS}s — walking off wastes it`}</em>
           </button>
           <button class="deed" disabled={cant !== null}
             onclick={() => { found = null; act({ type: 'forage', stat: 'shadow' }); }}>
             Scavenge by shadow
-            <em>{cant ?? `shadow ${game.stats.shadow} · ${FORAGE_SECS}s — walking off abandons it`}</em>
+            <em>{cant ?? `shadow ${game.stats.shadow} · ${FORAGE_SECS}s — walking off wastes it`}</em>
           </button>
         {:else if game.foraging.left > 0}
-          <p class="note">Scavenging — {Math.ceil(game.foraging.left)}s left.
-            It keeps going while the game is closed.</p>
+          <p class="note">Scavenging — {Math.ceil(game.foraging.left)}s left.</p>
         {:else}
           <button class="deed face" onclick={gather}>
             See what the crew found
-            <em>{game.foraging.stat} {game.stats[game.foraging.stat]} — one die and your nerve, against two</em>
+            <em>{game.foraging.stat} {game.stats[game.foraging.stat]}, against two</em>
           </button>
         {/if}
         {#if found}<p class="dice">{found}</p>{/if}
@@ -502,7 +500,7 @@
           It keeps going while the game is closed.</p>
       {/if}
       {#if !deeds.length && chosen.id.startsWith('stop:') && numOf(chosen.id) === game.at}
-        <p class="note">You are here. Tap a stop beside it to lay pipe toward it.</p>
+        <p class="note">You are here. Tap a stop beside you to lay pipe.</p>
       {/if}
     {:else if awayLine}
       <!-- What you missed while the phone was in a pocket. It sits where the
@@ -553,16 +551,20 @@
      will hit it a hundred times, and the press is shown by the button, not by
      the page — nothing else may move under a tap-tap-tap. */
   .spring {
-    display: inline-flex; align-items: baseline; gap: 6px;
-    border: 1px solid #d8cdb8; border-radius: 10px; background: #f6f0e2;
-    padding: 4px 10px; margin: -4px 0; cursor: pointer;
+    display: inline-flex; align-items: baseline; gap: 7px;
+    border: 1px solid #d8cdb8; border-radius: 12px; background: #f6f0e2;
+    /* ★ A THUMB-SIZED TARGET — the owner: "tap button is too small". 48px
+       tall, wide from its padding, and the header stays under the probe's
+       96px prose ceiling. */
+    min-height: 48px; min-width: 128px; align-items: center;
+    padding: 4px 18px; margin: -4px 0; cursor: pointer;
     transition: transform 60ms;
     -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     user-select: none; -webkit-user-select: none;
   }
-  .spring:active { transform: scale(0.94); background: #efe6d2; }
-  .spring em { color: #a89a80; font-size: 11px; font-style: normal; }
+  .spring:active { transform: scale(0.95); background: #efe6d2; }
   .purse b { font-size: 22px; color: #1f6b3a; }
+  .spring b { font-size: 28px; }
   .purse span { color: #6a6154; font-size: 14px; }
   .purse .rate { color: #8c8272; }
   .purse .keep { color: #7a5a2a; }
