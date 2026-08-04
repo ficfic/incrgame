@@ -83,6 +83,35 @@ if (!INK || !INK.route) {
 const purse = () => page.$eval('.purse b', (e) => Number(e.textContent));
 const panelText = () => page.$eval('.panel', (e) => e.textContent.replace(/\s+/g, ' ').trim());
 
+/** ⚠️ INJECT A SAVE AND PROVE IT TOOK. `page.reload` fires the app's own
+ *  pagehide flush, whose async IndexedDB write can land AFTER the probe's and
+ *  put the live game straight back — a race this probe has genuinely lost on
+ *  green-looking runs. So: write, reload, VERIFY against the page, and go
+ *  again when the flush wins. `blob` is a factory so time-relative saves
+ *  (savedAt two hours ago) are minted fresh per attempt. */
+async function loadSave(blob, verify) {
+  for (let tries = 0; tries < 4; tries++) {
+    await page.evaluate((json) => new Promise((done, fail) => {
+      const req = indexedDB.open('semantic-drift', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('saves');
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put(json, 'main');
+        tx.oncomplete = () => { db.close(); done(); };
+        tx.onerror = () => fail(tx.error);
+      };
+      req.onerror = () => fail(req.error);
+    }), JSON.stringify(blob()));
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForSelector('.map canvas');
+    await page.waitForTimeout(600);
+    if (await verify()) return true;
+  }
+  return false;
+}
+const labelsNow = () => page.$$eval('.map .label', (ls) => ls.map((l) => l.textContent.trim()));
+
 /** ⚠️ SELECT, DO NOT TOGGLE. Tapping a stop that is already selected CLEARS the
  *  selection — R3.4, and correct. It also means a probe that taps blind can
  *  deselect the very thing it is about to read, which has cost a run before. */
@@ -280,24 +309,11 @@ await page.screenshot({ path: SHOT.replace(/\.png$/, '-fog.png') });
 console.log('\nTHE CHAPTER (charted)');
 const stopIds = await page.$$eval('.map .node[data-id^="stop:"]',
   (ns) => ns.map((n) => Number(n.dataset.id.split(':')[1])));
-await page.evaluate((ids) => new Promise((done, fail) => {
-  const req = indexedDB.open('semantic-drift', 1);
-  req.onupgradeneeded = () => req.result.createObjectStore('saves');
-  req.onsuccess = () => {
-    const db = req.result;
-    const tx = db.transaction('saves', 'readwrite');
-    tx.objectStore('saves').put(JSON.stringify({
-      v: 8, savedAt: Date.now(),
-      game: { version: 8, at: 0, seen: ids, gauge: {}, mana: 0, part: 0, building: null },
-    }), 'main');
-    tx.oncomplete = () => { db.close(); done(); };
-    tx.onerror = () => fail(tx.error);
-  };
-  req.onerror = () => fail(req.error);
-}), stopIds);
-await page.reload({ waitUntil: 'networkidle' });
-await page.waitForSelector('.map canvas');
-await page.waitForTimeout(600);
+const tookCharted = await loadSave(
+  () => ({ v: 8, savedAt: Date.now(),
+    game: { version: 8, at: 0, seen: stopIds, gauge: {}, mana: 0, part: 0, building: null } }),
+  async () => (await labelsNow()).includes('Finish'));
+if (!tookCharted) misses.push('the fully charted save never loaded — the chapter counts below prove nothing');
 await page.locator('nav button', { hasText: 'Chapter' }).click();
 await page.waitForTimeout(600);
 // ★ AND THE FOG IS GONE FOR GOOD: a finished chapter earns its finished chart.
@@ -440,23 +456,11 @@ if (!groundPx) misses.push('the chapter draws no ground — the terrain layer is
 await page.screenshot({ path: SHOT.replace(/\.png$/, '-chapter.png') });
 
 // ---- back to a fresh run: the play-through below starts from nothing -------
-await page.evaluate(() => new Promise((done, fail) => {
-  const req = indexedDB.open('semantic-drift', 1);
-  req.onsuccess = () => {
-    const db = req.result;
-    const tx = db.transaction('saves', 'readwrite');
-    tx.objectStore('saves').put(JSON.stringify({
-      v: 8, savedAt: Date.now(),
-      game: { version: 8, at: 0, seen: [0], gauge: {}, mana: 0, part: 0, building: null },
-    }), 'main');
-    tx.oncomplete = () => { db.close(); done(); };
-    tx.onerror = () => fail(tx.error);
-  };
-  req.onerror = () => fail(req.error);
-}));
-await page.reload({ waitUntil: 'networkidle' });
-await page.waitForSelector('.map canvas');
-await page.waitForTimeout(600);
+const tookFresh = await loadSave(
+  () => ({ v: 8, savedAt: Date.now(),
+    game: { version: 8, at: 0, seen: [0], gauge: {}, mana: 0, part: 0, building: null } }),
+  async () => !(await labelsNow()).includes('Finish'));
+if (!tookFresh) misses.push('the fresh save never loaded — the play-through below starts mid-chart');
 
 // ------------------------------------------------------------------ mana ----
 //
@@ -485,6 +489,31 @@ const postTap = await purse();
 console.log('  tapped  :', `${preTap} → ${postTap} across 10 presses`);
 if (postTap - preTap < 4 || postTap - preTap > 5) {
   misses.push(`ten presses of the spring paid ${postTap - preTap} mana — wanted 4`);
+}
+// ★ AND THE BUTTON SAYS WHAT A PRESS IS WORTH — the affordance the owner
+// found missing twice, once as "too small" and once as "unclear you can tap".
+const springSays = await page.$eval('.spring', (e) => e.textContent.replace(/\s+/g, ' ').trim());
+console.log('  says    :', `"${springSays}"`);
+if (!/\+0\.4 a tap/.test(springSays)) {
+  misses.push(`the spring does not say what a tap is worth: "${springSays}"`);
+}
+
+// ★★ START OVER ASKS FIRST. The owner: *"doesn't have any confirmation, so
+// it's very easy to accidentally lose progress."* One tap arms, says so on the
+// button, and disarms itself — the purse must survive the whole exchange.
+console.log('\nSTART OVER');
+const beforeArm = await purse();
+await page.locator('.reset').click({ timeout: 3000 });
+const armed = await page.$eval('.reset', (e) => e.textContent.trim());
+console.log('  armed   :', `"${armed}"`);
+if (!/Tap again/.test(armed)) misses.push(`one tap of Start over does not ask: "${armed}"`);
+await page.waitForTimeout(3400);
+const disarmed = await page.$eval('.reset', (e) => e.textContent.trim());
+const afterArm = await purse();
+console.log('  disarms :', `"${disarmed}", purse ${beforeArm} → ${afterArm}`);
+if (!/Start over/.test(disarmed)) misses.push(`the armed wipe never disarms: "${disarmed}"`);
+if (afterArm < beforeArm) {
+  misses.push(`one tap and a wait wiped the run — purse fell ${beforeArm} → ${afterArm}`);
 }
 
 // --------------------------------------------------------- laying a road ----
@@ -770,6 +799,45 @@ if (!widen) {
     if (!busyPx) {
       misses.push('nothing on the board shows what a road is carrying — the pipes are invisible');
     }
+
+    // ★★ AND THE PIPE ITSELF CRAWLS. The owner: *"I can see a dotted line
+    // moving through it… but I don't see it after start."* The crawl was
+    // painted UNDER the road core and buried by it on every real pipe — this
+    // check samples the strip between you and the far stop, twice, the same
+    // way the feed check always did. Same-colour pixels in the same places
+    // twice is a frozen pipe.
+    const pipeStrip = async () => {
+      const you = await page.locator('.map .node.you').first().boundingBox();
+      const far = await page.locator(`.map .node[data-id="${backTo}"]`).first().boundingBox();
+      if (!you || !far) return null;
+      const cx = (you.x + you.width / 2 + far.x + far.width / 2) / 2;
+      const cy = (you.y + you.height / 2 + far.y + far.height / 2) / 2;
+      return page.evaluate(([hex, tol, x0, y0]) => {
+        const cv = document.querySelector('.map canvas');
+        const off = cv.getBoundingClientRect();
+        const dpr = cv.width / off.width;
+        const d = cv.getContext('2d', { willReadFrequently: true })
+          .getImageData(Math.max(0, Math.round((x0 - 40 - off.left) * dpr)),
+            Math.max(0, Math.round((y0 - 40 - off.top) * dpr)),
+            Math.round(80 * dpr), Math.round(80 * dpr)).data;
+        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+        const hits = [];
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] > 40 && Math.abs(d[i] - r) <= tol && Math.abs(d[i + 1] - g) <= tol
+            && Math.abs(d[i + 2] - b) <= tol) hits.push(i / 4);
+        }
+        return hits;
+      }, [INK.flowing, TOL.flowing ?? 12, cx, cy]);
+    };
+    const pipeA = await pipeStrip();
+    await page.waitForTimeout(450);
+    const pipeB = await pipeStrip();
+    console.log('  crawls  :', pipeA === null ? '(strip not found)'
+      : `${pipeA.length}px of flow on the pipe, ${pipeA.length && pipeA.join() !== pipeB.join() ? 'CRAWLING' : 'not moving'}`);
+    if (!pipeA || pipeA.length < 10) misses.push(`only ${pipeA?.length ?? 0}px of flow ink on a carrying pipe`);
+    else if (pipeA.join() === pipeB.join()) {
+      misses.push('the pipe\'s dashes are frozen — the crawl is buried under the road again');
+    }
     await page.screenshot({ path: SHOT.replace(/\.png$/, '-widened.png') });
   }
 }
@@ -845,30 +913,19 @@ if (!await scav.count()) {
 // words. That it holds in the engine is `test/roads.test.ts`, which is where the
 // property belongs.
 console.log('\nOUT IN THE MIDDLE');
-await page.evaluate(() => new Promise((done, fail) => {
-  const req = indexedDB.open('semantic-drift', 1);
-  req.onupgradeneeded = () => req.result.createObjectStore('saves');
-  req.onsuccess = () => {
-    const db = req.result;
-    const tx = db.transaction('saves', 'readwrite');
-    tx.objectStore('saves').put(JSON.stringify({
-      // ⚠️ SAVED TWO HOURS AGO ON PURPOSE. The away line ("Away 2.0 hours — N
-      // mana gathered") makes the dock TALL at rest — which is exactly the
-      // state the owner's live screenshot caught: the board framed itself
-      // before the dock reported its height, and the Finish drowned behind it.
-      v: 8, savedAt: Date.now() - 2 * 3600 * 1000,
-      game: { version: 8, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null },
-    }), 'main');
-    tx.oncomplete = () => { db.close(); done(); };
-    tx.onerror = () => fail(tx.error);
-  };
-  req.onerror = () => fail(req.error);
-}));
-await page.reload({ waitUntil: 'networkidle' });
-await page.waitForSelector('.map canvas');
-await page.waitForTimeout(800);
-await page.locator('nav button', { hasText: 'Here' }).click();
-await page.waitForTimeout(400);
+// ⚠️ SAVED TWO HOURS AGO ON PURPOSE. The away line ("Away 2.0 hours — N mana
+// gathered") makes the dock TALL at rest — which is exactly the state the
+// owner's live screenshot caught: the board framed itself before the dock
+// reported its height, and the Finish drowned behind it.
+const tookMiddle = await loadSave(
+  () => ({ v: 8, savedAt: Date.now() - 2 * 3600 * 1000,
+    game: { version: 8, at: 6, seen: [0, 6], gauge: {}, mana: 9999, part: 0, building: null } }),
+  async () => {
+    await page.locator('nav button', { hasText: 'Here' }).click();
+    await page.waitForTimeout(400);
+    return (await purse()) >= 999;
+  });
+if (!tookMiddle) misses.push('the out-in-the-middle save never loaded — the refusal check proves nothing');
 const rich = await purse();
 await pick('.map .node.you');
 await page.waitForTimeout(200);
@@ -914,6 +971,30 @@ const drowned2 = await page.evaluate(() => {
 });
 console.log('  visible :', drowned2.length ? `⚠️ ${drowned2.join(' ')} behind the dock` : 'every stop above the dock');
 if (drowned2.length) misses.push(`${drowned2.join(' ')} hidden behind the TALL dock — the board did not re-frame`);
+
+// ★★ THE CAMERA BELONGS TO THE PLAYER. The owner: *"when I zoom in… it resets
+// my zoom level completely… even without me doing anything."* The culprits
+// were the panel's rest-height and the browser chrome nudging the board's
+// size, each re-framing the map. Zoom by wheel, then shrink the viewport the
+// way iOS's URL bar does — the zoomed node must not move.
+console.log('\nTHE CAMERA');
+await page.locator('nav button', { hasText: 'Chapter' }).click();
+await page.waitForTimeout(500);
+const mapBox = await page.locator('.map').boundingBox();
+await page.mouse.move(mapBox.x + mapBox.width / 2, mapBox.y + mapBox.height / 2);
+await page.mouse.wheel(0, -500);
+await page.waitForTimeout(400);
+const youBefore = await page.locator('.map .node.you').first().boundingBox();
+await page.setViewportSize({ width: 390, height: 780 });
+await page.waitForTimeout(500);
+const youAfter = await page.locator('.map .node.you').first().boundingBox();
+const drift = youBefore && youAfter
+  ? Math.hypot(youBefore.x - youAfter.x, youBefore.y - youAfter.y) : -1;
+console.log('  held    :', drift < 0 ? '(pin not found)' : `${drift.toFixed(1)}px of drift after the chrome nudged the board`);
+if (drift < 0 || drift > 4) {
+  misses.push(`zoom did not survive a viewport nudge — the pin drifted ${drift.toFixed(1)}px`);
+}
+await page.setViewportSize({ width: 390, height: 844 });
 
 await page.screenshot({ path: SHOT });
 console.log(`\nscreenshot → ${SHOT}`);

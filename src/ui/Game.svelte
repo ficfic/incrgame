@@ -56,6 +56,9 @@
   /** ★ WHAT THE SCAVENGE TURNED UP, arithmetic in the open like the trouble
    *  dock — shell-side only, because the engine keeps no memory of dice. */
   let found = $state<string | null>(null);
+  /** ★ START OVER ARMS FIRST. One stray tap wiped a run in the owner's
+   *  play-test; now the first tap asks and disarms itself in 3s. */
+  let wiping = $state(false);
 
   /** ★ THE ONLY DICE IN THE HOUSE. Rolled here in the shell and handed to the
    *  engine as plain numbers — `apply` takes no randomness, ever. Real random,
@@ -359,6 +362,7 @@
            `tap` action — the engine does the arithmetic, the shell only asks. -->
       <button class="spring" onclick={() => act({ type: 'tap' })}>
         <b>{game.mana}</b><span>mana</span>
+        <em>+0.4 a tap</em>
       </button>
       <!-- ★ THE RATE IS SOLVED FROM THE GRAPH and it moves, so the header has
            to say what it is now rather than quote a constant. When you are
@@ -366,8 +370,17 @@
       <span class="rate">+{manaRate(game).toFixed(2)} a second</span>
       <span class="keep">{game.provisions} provisions</span>
       {#if crossed(game)}<span class="crossed">crossed</span>{/if}
-      <button class="reset" onclick={async () => { await wipe(); game = initial(); picked = null; }}>
-        Start over
+      <button class="reset" class:armed={wiping}
+        onclick={async () => {
+          if (!wiping) {
+            wiping = true;
+            setTimeout(() => (wiping = false), 3000);
+            return;
+          }
+          wiping = false;
+          await wipe(); game = initial(); picked = null;
+        }}>
+        {wiping ? 'Wipe it? Tap again' : 'Start over'}
       </button>
     </div>
   </header>
@@ -563,6 +576,8 @@
     user-select: none; -webkit-user-select: none;
   }
   .spring:active { transform: scale(0.95); background: #efe6d2; }
+  .spring em { color: #a89a80; font-size: 12px; font-style: normal; }
+  .reset.armed { border-color: #b03050; color: #b03050; font-weight: 600; }
   .purse b { font-size: 22px; color: #1f6b3a; }
   .spring b { font-size: 28px; }
   .purse span { color: #6a6154; font-size: 14px; }

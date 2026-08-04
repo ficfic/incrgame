@@ -611,3 +611,10 @@ that a beat is reachable from where the player starts.
 
 - [ ] **The deed for the road being laid reads "Lay the road to Stop 2 / already building one".** Seen in `play-laying.png`, 2026-08-02. It is honest (R3.3 shows the reason) but it offers to start a thing that is already started; "Laying it now — 9s left" would say what is true.
 - ~~Fog of war~~ SHIPPED 2026-08-04.
+- [ ] ★ DESIGN: choices are fake (owner playtest 2026-08-04): kit = always the +1, events = always highest stat, scavenge wits=shadow identical. Systems exist, decisions don't. Needs a design session — tradeoffs that bite.
+- [ ] ★ DESIGN: fog of war "brings no value — we don't care which way to go" (same root as fake choices). Owner floated: hide more (only next stops), or keep fog cold/disabled until routes differ. Also: stop placement not tied to geography (Stop 17 ON a hill), stop numbers arbitrary.
+- [ ] Deed metadata unexplained: "carries 1.25 a second" and "climbs 85" mean nothing to the player yet.
+- [ ] Wording: owner dislikes "Lay the pipe".
+- [ ] Self tab "a little bit ugly" (hub and spokes); Crossing tab "doesn't do anything" — reads dead at 3/26.
+- [ ] Route brown "a weird choice" of colour tone.
+- [ ] Momentum illegible: falls on a scavenge miss and the player doesn't know what it is or why.

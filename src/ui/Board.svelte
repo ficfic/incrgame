@@ -130,16 +130,26 @@
   let plusses = $state<Array<{ id: number; x: number; y: number }>>([]);
   let plusId = 0;
   let lastPulse = 0;
+  let lastPlusAt = 0;
   $effect(() => {
     const p = pulse;
     if (p <= lastPulse) { lastPulse = p; return; }
     lastPulse = p;
+    // ⚠️ AT PIPE RATES A +1 EVERY LAND IS CONFETTI — the owner: *"the plus
+    // one… it breaks things."* One a second at most, and none while a build
+    // or a widen is running the income to zero anyway.
+    const t = performance.now();
+    if (t - lastPlusAt < 1000) return;
     const you = dots.find((d) => d.you);
     if (!you) return;
     const at = posOf.get(you.id);
     if (!at || plusses.length >= 4) return;
+    lastPlusAt = t;
     plusses = [...plusses, { id: plusId++, x: sx(at.x), y: sy(at.y) - 26 }];
   });
+  // Floaters hold SCREEN coordinates, so a pan or a pinch strands them over
+  // the wrong ground — clear them the moment the camera moves.
+  $effect(() => { void k; void tx; void ty; plusses = []; });
 
   const shape = $derived(dots.map((d) => d.id).join(','));
   const posOf = $derived(new Map(dots.map((d) =>
@@ -205,11 +215,19 @@
   // effect to itself.
   let fitted = '';
   let fitW = 0, fitH = 0, fitIn = -1;
+  /** ★ ONCE A THUMB HAS PANNED OR PINCHED, THE CAMERA IS THE PLAYER'S. The
+   *  owner's play-test: *"when I zoom in… sometimes it resets my zoom level
+   *  completely… it resets it even without me doing anything."* The culprits:
+   *  the panel's rest-height and the iOS URL bar both nudge `inset`/`cssH`,
+   *  and this effect re-framed on every nudge. Now only a SHAPE change (a
+   *  different graph) reclaims the camera. */
+  let touched = false;
   $effect(() => {
     const s = shape, w = cssW, h = cssH, ins = inset;
     if (!w || !h) return;
+    if (s === fitted && touched) { fitW = w; fitH = h; fitIn = ins; return; }
     if (s === fitted && w === fitW && h === fitH && ins === fitIn) return;
-    if (s !== fitted) moved = new Map();
+    if (s !== fitted) { moved = new Map(); touched = false; }
     fitted = s; fitW = w; fitH = h; fitIn = ins;
     fit();
   });
@@ -430,16 +448,6 @@
       if (made && l.load > 0) {
         paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
           w: 3 + 6 * l.load, alpha: 0.55 }, sx, sy, 1);
-        // ★ AND IT MOVES. Dashes crawling from the start toward you — the
-        // pipeline visibly carrying, not a static highlight. Direction comes
-        // from hop depth; the dash offset is the only thing animating.
-        if ((l.dir ?? 0) !== 0) {
-          ctx.save();
-          ctx.lineDashOffset = -phase * (l.dir ?? 1);
-          paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
-            w: 2, dash: [5, 9], alpha: 0.95 }, sx, sy, 1);
-          ctx.restore();
-        }
       }
       // ⚠️ DASHED UNTIL IT IS FINISHED, NOT UNTIL IT IS STARTED. With the strict
       // test a route lost its dashes the instant it began filling and drew solid
@@ -456,6 +464,20 @@
         const w = 1.6 + 1.5 * Math.max(1, l.gauge ?? 1);
         paint(ctx, { s: 'path', pts: run, ink: 'casing', curve: true, w: w + 2.2 }, sx, sy, 1);
         paint(ctx, { s: 'path', pts: run, ink: 'route', curve: true, w }, sx, sy, 1);
+        // ★ AND IT MOVES — ON TOP OF THE ROAD, where the feed always drew it.
+        // ⚠️ THE OWNER FOUND THIS DRAWN UNDER THE CORE: *"I can see a dotted
+        // line moving through it… but I don't see it after start."* The crawl
+        // painted before the casing was buried by it on every real pipe, and
+        // the probe's motion check only ever sampled the FEED strip — over
+        // brown — so it stayed green. Order is the fix; the probe now samples
+        // a pipe too.
+        if (l.load > 0 && (l.dir ?? 0) !== 0) {
+          ctx.save();
+          ctx.lineDashOffset = -phase * (l.dir ?? 1);
+          paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
+            w: 2, dash: [5, 9], alpha: 0.95 }, sx, sy, 1);
+          ctx.restore();
+        }
       } else {
         paint(ctx, made
           ? { s: 'path', pts: run, ink: (l.rel as InkName) in INK ? l.rel as InkName : 'route', w: 2 }
@@ -586,6 +608,7 @@
       }
     } else {
       tx += dx; ty += dy;
+      if (dx || dy) touched = true;
     }
   }
 
@@ -601,6 +624,7 @@
   }
 
   function zoomAt(by: number, px: number, py: number): void {
+    touched = true;
     const next = Math.min(6, Math.max(0.25, k * by));
     const r = next / k;
     tx = px - (px - tx) * r;
