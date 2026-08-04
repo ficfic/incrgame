@@ -125,20 +125,12 @@ function bend(aId: number, bId: number): Pt[] {
     }
   }
 
-  // ★ A MINIMUM OF PERSONALITY on ground with no opinion — the ask was to stop
-  // making roads straight, and "flat here" earns a lazy curve, not a ruler.
-  const maxAbs = Math.max(...off.map(Math.abs));
-  if (maxAbs < len * 0.055) {
-    // ⚠️ ALONG THE EXISTING BOW, NOT BY THE HASH. A hash direction opposing the
-    // descent's own small bow CANCELS it — road 1|5 came out at 1.0016x its
-    // chord that way, deader than either part alone.
-    const mid = off[Math.floor(STEPS / 2)]!;
-    const dir = mid !== 0 ? Math.sign(mid) : hash(keyOf(aId, bId)) < 0.5 ? -1 : 1;
-    for (let i = 1; i < STEPS; i++) {
-      off[i] = off[i]! + dir * (len * 0.055 - maxAbs) * Math.sin(Math.PI * (i / STEPS));
-    }
-  }
-
+  // ⚠️ THE "MINIMUM OF PERSONALITY" FLOOR THAT USED TO LIVE HERE IS GONE, on
+  // the owner's play-test, 2026-08-04: *"the dotted line dots are too weird
+  // and don't follow topology i don't think."* It forced EVERY route to bow at
+  // least 5.5% of its length, terrain or no terrain — which is precisely a
+  // bend that does not follow topology. Flat ground now earns a straight
+  // road, and every curve on the map is the height grid talking.
   const out: Pt[] = [];
   for (let i = 0; i <= STEPS; i++) {
     const p = at(i, off[i]!);
@@ -149,14 +141,6 @@ function bend(aId: number, bId: number): Pt[] {
   out[0] = { x: A.x, y: A.y };
   out[STEPS] = { x: B.x, y: B.y };
   return out;
-}
-
-/** A deterministic wobble from the key, so the same road bends the same way on
- *  every device — a screenshot of a bug must be reproducible. */
-function hash(s: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
-  return (h >>> 0) / 4294967296;
 }
 
 /** The same key the engine uses, so the two never disagree about a road. */

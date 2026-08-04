@@ -428,7 +428,7 @@
       // not be drawn from a count of what you own.
       const run = l.pts ?? [a, b];
       if (made && l.load > 0) {
-        paint(ctx, { s: 'path', pts: run, ink: 'flowing',
+        paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
           w: 3 + 6 * l.load, alpha: 0.55 }, sx, sy, 1);
         // ★ AND IT MOVES. Dashes crawling from the start toward you — the
         // pipeline visibly carrying, not a static highlight. Direction comes
@@ -436,7 +436,7 @@
         if ((l.dir ?? 0) !== 0) {
           ctx.save();
           ctx.lineDashOffset = -phase * (l.dir ?? 1);
-          paint(ctx, { s: 'path', pts: run, ink: 'flowing',
+          paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
             w: 2, dash: [5, 9], alpha: 0.95 }, sx, sy, 1);
           ctx.restore();
         }
@@ -454,12 +454,12 @@
       // road over brown contours is one more contour.
       if (made && l.rel === 'road') {
         const w = 1.6 + 1.5 * Math.max(1, l.gauge ?? 1);
-        paint(ctx, { s: 'path', pts: run, ink: 'casing', w: w + 2.2 }, sx, sy, 1);
-        paint(ctx, { s: 'path', pts: run, ink: 'route', w }, sx, sy, 1);
+        paint(ctx, { s: 'path', pts: run, ink: 'casing', curve: true, w: w + 2.2 }, sx, sy, 1);
+        paint(ctx, { s: 'path', pts: run, ink: 'route', curve: true, w }, sx, sy, 1);
       } else {
         paint(ctx, made
           ? { s: 'path', pts: run, ink: (l.rel as InkName) in INK ? l.rel as InkName : 'route', w: 2 }
-          : { s: 'path', pts: run, ink: 'unmade', w: 1, dash: [3, 5] }, sx, sy, 1);
+          : { s: 'path', pts: run, ink: 'unmade', curve: true, w: 1.2, dash: [7, 5] }, sx, sy, 1);
       }
       // ★ THE ONE ANIMATION THE GAME GETS: the way being made fills from your
       // end to the far end over real time. Asked for back by name.
@@ -467,7 +467,7 @@
       // grow the road outside its own bed the moment roads stopped being
       // straight.
       if (l.fill > 0 && l.fill < 1) {
-        paint(ctx, { s: 'path', ink: 'fill', w: 3,
+        paint(ctx, { s: 'path', ink: 'fill', w: 3, curve: true,
           pts: cutAt(run, l.fill, true) }, sx, sy, 1);
       }
     }

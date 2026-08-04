@@ -29,19 +29,33 @@ describe('★ every road has a path, and the path meets its stops', () => {
     }
   });
 
-  it('★ bends — every road is longer than its chord, and none is spaghetti', () => {
+  it('★ bends where the ground says, runs straight where it does not', () => {
+    // ⚠️ THE PER-ROUTE "never dead straight" FLOOR IS GONE, with the fake bow
+    // that satisfied it — the owner, 2026-08-04: *"the dotted line dots are
+    // too weird and don't follow topology i don't think."* A route on flat
+    // ground is now ALLOWED to be a ruler. What must still hold: the map as a
+    // whole visibly answers the terrain (most routes bend, and bend hard),
+    // and no single route is spaghetti.
+    const ratios: number[] = [];
     for (const s of STOPS) {
       for (const to of s.near) {
         if (to < s.id) continue;
         const p = pathOf(s.id, to)!;
         const ratio = lengthOf(p) / chordOf(s.id, to);
-        expect(ratio, `${s.id}|${to} is dead straight`).toBeGreaterThan(1.003);
+        ratios.push(ratio);
         // ⚠️ 1.55, RAISED FROM 1.35 WITH A REASON: road 17|18 detours at 1.42x
         // to get AROUND the crag cluster instead of over it — which is the
         // owner's ask, verbatim. The cap now only catches genuine spaghetti.
         expect(ratio, `${s.id}|${to} wanders (${ratio.toFixed(2)}x its chord)`).toBeLessThan(1.55);
       }
     }
+    // Measured 2026-08-04, terrain-only: 32 of 35 bend past 1.01, median
+    // 1.32. Bounds set well inside that, so this is red if the relaxer stops
+    // reading the grid — not if the map gains one more flat route.
+    const bent = ratios.filter((r) => r > 1.01).length;
+    expect(bent, `only ${bent} of ${ratios.length} routes bend at all`).toBeGreaterThan(ratios.length * 0.6);
+    const median = [...ratios].sort((a, b) => a - b)[Math.floor(ratios.length / 2)]!;
+    expect(median, `median bend ${median.toFixed(3)} — the grid is not being read`).toBeGreaterThan(1.05);
   });
 
   it('is the same on every load — no clock, no Math.random', () => {
