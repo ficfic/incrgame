@@ -1038,9 +1038,10 @@ a refactor.
 1. **✦ THE WAY VIEW** *(shipped 2026-08-04)* — while a crew is out, Here IS
    the leg: real path, own terrain frame, visible waypoints, halts as
    "Something ahead" markers, crew mark, road solidifying behind them.
-2. **NEXT → TAP-TO-WORK** — tapping on the way view pushes the crew; waiting
-   alone is slower. The active layer moves INTO the journey.
-3. **FOES** — a new waypoint type: a short Ironsworn progress-track fight
-   (rounds of rolls, mark harm, a miss falls back).
+2. **✦ TAP-TO-WORK** *(shipped 2026-08-04)* — the crew dawdle at 0.4× on
+   their own; tapping the crew mark pushes 1.2s of work. Halts still stop
+   everything. Setting off auto-switches to The Way.
+3. **NEXT → FOES** — a new waypoint type: a short Ironsworn progress-track
+   fight (rounds of rolls, mark harm, a miss falls back).
 4. **RISK TRADEOFFS** — kits trade speed for safety; event choices risk
    different resources; scavenge safe-vs-greedy. Kills the fake choices.

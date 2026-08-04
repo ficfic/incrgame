@@ -298,13 +298,23 @@
   });
 
   function tap(id: string): void {
+    // ★ TAP THE CREW, PUSH THE WORK — the owner: *"you need to tap something
+    // to do it."* On the way, the crew mark is the work button: each tap is
+    // PUSH_SECS of work, and it never toggles the selection out from under a
+    // thumb that is drumming on it.
+    if (way && id === DOING) {
+      act({ type: 'push' });
+      return;
+    }
     if (arming && picked !== null && id !== picked) {
       // The second tap of a connection: opens PREPARE for that leg — unless
       // the pipe is already laid, in which case it is a widen and starts flat.
       if (id.startsWith('stop:') && picked.startsWith('stop:')) {
         const to = numOf(id);
-        if (game.gauge[roadKey(game.at, to)]) act({ type: 'build', to, kit: 'cart' });
-        else prep = to;
+        if (game.gauge[roadKey(game.at, to)]) {
+          act({ type: 'build', to, kit: 'cart' });
+          if (game.building) tab = 'here';
+        } else prep = to;
         picked = id;
       }
       arming = false;
@@ -323,13 +333,19 @@
     // ★ PREPARE IS FOR FRESH GROUND ONLY. A widen meets no hidden stops —
     // no rolls, so a kit choice there would be a question with no answer
     // riding on it. The crew just gets to work.
-    if (game.gauge[roadKey(game.at, d.to)]) act({ type: 'build', to: d.to, kit: 'cart' });
-    else prep = d.to;
+    if (game.gauge[roadKey(game.at, d.to)]) {
+      act({ type: 'build', to: d.to, kit: 'cart' });
+      if (game.building) { tab = 'here'; picked = stopId(d.to); }
+    } else prep = d.to;
   }
   function setOff(kit: Kit): void {
     if (prep === null) return;
-    act({ type: 'build', to: prep, kit });
+    const to = prep;
+    act({ type: 'build', to, kit });
     prep = null;
+    // ★ SETTING OFF TAKES YOU TO THE WAY — the owner: *"we should
+    // automatically switch to the second tab when we start journey."*
+    if (game.building) { tab = 'here'; picked = stopId(to); }
   }
   /** The end of a scavenge: roll here, judge in the engine, say the arithmetic
    *  out loud — the same honesty as the trouble dock, in one line. */

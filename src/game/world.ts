@@ -215,7 +215,7 @@ export function theWay(g: Game): WayPlan | null {
   marks.push({ id: DOING, kind: 'doing',
     name: g.building.to > 1 ? 'Widening the pipe' : 'Laying pipe',
     body: `Toward ${nameOf(far)}, by ${g.building.kit}. `
-      + `${Math.ceil(g.building.left)}s left. It keeps going while the game is closed.`,
+      + `${Math.ceil(g.building.left)}s of work left — tap the crew to hurry it.`,
     at: along(path, Math.max(0.02, Math.min(0.98, f))) });
 
   const xs = path.map((p) => p.x), ys = path.map((p) => p.y);

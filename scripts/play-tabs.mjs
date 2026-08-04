@@ -592,6 +592,12 @@ if (!live || live.off) {
   }
 
   const fill0 = await ink('fill');
+  // ★ INITIATED FROM THE CHART, deliberately: setting off must then flip the
+  // player to the way by itself — the owner: *"we should automatically switch
+  // to the second tab when we start journey."*
+  await page.locator('nav button', { hasText: 'Chapter' }).click();
+  await page.waitForTimeout(400);
+  await pick(`.map .node[data-id="${target}"]`);
   await page.locator('.deed', { hasText: 'Lay the pipe' }).first().click({ timeout: 3000 });
   await page.waitForTimeout(300);
 
@@ -619,6 +625,11 @@ if (!live || live.off) {
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-prepare.png') });
   await page.locator('.deed', { hasText: 'Set off with the cart' }).click({ timeout: 3000 });
   await page.waitForTimeout(1600);
+  const onTab = await page.$eval('nav button.on', (e) => e.textContent.trim());
+  console.log('  lands on:', onTab);
+  if (onTab !== 'Here') {
+    misses.push(`setting off left the player on ${onTab} — no auto-switch to the way`);
+  }
   const laying = await panelText();
   const fillMid = await ink('fill');
   console.log('  says    :', `"${laying.slice(0, 90)}"`);
@@ -656,6 +667,24 @@ if (!live || live.off) {
   if (!crewDot) misses.push('no crew mark on the works');
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-way.png') });
 
+  // ★★ THE PUSH. Five taps of the crew mark are six seconds of work — the
+  // countdown must fall by far more than the second of wall clock this takes.
+  console.log('\nTHE PUSH');
+  const leftOf = async () => Number(((await panelText()).match(/(\d+)s of work left|(\d+)s left/) ?? [])
+    .slice(1).find(Boolean) ?? NaN);
+  const left0 = await leftOf();
+  for (let t = 0; t < 5; t++) {
+    await page.locator('.map .node[data-id="doing"]').click({ timeout: 1500 }).catch(() => {});
+  }
+  await page.waitForTimeout(300);
+  const left1 = await leftOf();
+  // Pushing INTO the halt is also proof — the work moved until trouble took it.
+  const pushedIntoHalt = (await page.locator('.deed.face').count()) > 0;
+  console.log('  pushed  :', `${left0}s → ${Number.isNaN(left1) ? '(halted)' : `${left1}s`} across five taps`);
+  if (!(left0 > 0) || (!(left1 <= left0 - 4) && !pushedIntoHalt)) {
+    misses.push(`five pushes only moved the work ${left0}s → ${left1}s — the crew mark does not take taps`);
+  }
+
   // ★★ TROUBLE ON THE LINE. The owner's design: hidden stops on a fresh lay
   // that "block progress until resolved". The work must HALT, the dock must
   // name the trouble, the dice must be shown doing arithmetic in the open, and
@@ -665,7 +694,15 @@ if (!live || live.off) {
   let faced = 0;
   for (let i = 0; i < 30; i++) {
     const face = page.locator('.deed.face');
-    if (!await face.count()) { await page.waitForTimeout(1200); continue; }
+    if (!await face.count()) {
+      // ★ TAP-TO-WORK: the crew dawdle at WORK_PACE without this. Pushing is
+      // both the hurry-up and the proof the crew mark takes taps.
+      for (let t = 0; t < 3; t++) {
+        await page.locator('.map .node[data-id="doing"]').click({ timeout: 1000 }).catch(() => {});
+      }
+      await page.waitForTimeout(600);
+      continue;
+    }
     const said = await panelText();
     if (/You rolled \d/.test(said)) {
       // The result phase: dice arithmetic, tier in words, then carry on.
@@ -703,7 +740,10 @@ if (!live || live.off) {
   // and the pin must cross on its own.
   let arrived = false;
   for (let i = 0; i < 25 && !arrived; i++) {
-    await page.waitForTimeout(2000);
+    for (let t = 0; t < 3; t++) {
+      await page.locator('.map .node[data-id="doing"]').click({ timeout: 1000 }).catch(() => {});
+    }
+    await page.waitForTimeout(1000);
     const you = await page.$eval('.map .node.you', (n) => n.dataset.id).catch(() => null);
     arrived = you === target;
   }
@@ -807,7 +847,12 @@ if (!widen) {
     if (!/carries [\d.]+ a second/.test(openText)) {
       misses.push(`the widen deed does not say what it would carry: "${openText}"`);
     }
-    for (let i = 0; i < 25 && (await rateNow()) <= rate0; i++) await page.waitForTimeout(2000);
+    for (let i = 0; i < 25 && (await rateNow()) <= rate0; i++) {
+      for (let t = 0; t < 4; t++) {
+        await page.locator('.map .node[data-id="doing"]').click({ timeout: 1000 }).catch(() => {});
+      }
+      await page.waitForTimeout(1500);
+    }
     const rate1 = await rateNow();
     console.log('  widened :', `${rate0} → ${rate1} a second`);
     // ★ THE POINT. A wider pipe delivers more, and the header says so.

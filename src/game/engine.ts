@@ -155,6 +155,9 @@ export type Action =
   | { type: 'carry' }
   /** Burn momentum to overrule it. Only legal when it would actually help. */
   | { type: 'burn' }
+  /** ★ PUSH THE CREW — one tap of work on the way. Respects halts exactly
+   *  like the clock does: you cannot tap through trouble. */
+  | { type: 'push' }
   /** ★ SEND THE CREW SCAVENGING, on wits (the open ground) or shadow (other
    *  people's stores). The stat is chosen going IN — the dice come at the end. */
   | { type: 'forage'; stat: 'wits' | 'shadow' }
@@ -187,6 +190,16 @@ export const MANA_BASE = 0.12;
  *  touch, and deliberately flat: fingers are the rate limit, and a yield that
  *  grew with the network would make tapping the endgame instead of the start. */
 export const TAP = 0.4;
+
+/** ★ THE CREW DAWDLE WITHOUT YOU. Work advances at this fraction of real
+ *  time on its own — the owner: *"we're still moving without me doing much."*
+ *  Waiting still finishes a leg, slowly; pushing is what makes it move. */
+export const WORK_PACE = 0.4;
+
+/** ★ ONE PUSH OF THE CREW — the `push` action, worth this much work. The
+ *  journey's own tap-tap-tap: roughly three pushes buy a second of wall
+ *  clock back, and a halt still stops everything until it is faced. */
+export const PUSH_SECS = 1.2;
 
 /** ★ WHAT THE KINGDOM CAN ACTUALLY PUSH DOWN THE LINE. A ceiling, and a
  *  deliberate one: widen past it and you are widening for nothing, which is
@@ -420,6 +433,56 @@ export function initial(): Game {
   };
 }
 
+/** ★ THE WORK ADVANCES — by the clock at WORK_PACE, or by a push. One
+ *  function, so a halt, a completion and an arrival mean the same thing
+ *  whichever way the work got there. */
+function advance(g: Game, work: number): Game {
+  if (!g.building || g.facing || work <= 0) return g;
+  let next = g;
+  const left = next.building!.left - work;
+  // ★ THE HIDDEN STOP. The work reaches it and stops dead — the fill sits
+  // exactly there until the trouble is faced. Blocks PROGRESS, not you:
+  // you can still walk, and the mana still comes.
+  const halt = next.building!.halts[0];
+  if (halt !== undefined) {
+    const leftAtHalt = next.building!.secs * (1 - halt);
+    if (left <= leftAtHalt) {
+      return {
+        ...next,
+        building: { ...next.building!, left: leftAtHalt },
+        facing: {
+          key: next.building!.key,
+          event: eventFor(next.building!.key, halt).id,
+          rolled: null,
+        },
+      };
+    }
+  }
+  if (left > 0) return { ...next, building: { ...next.building!, left } };
+  const done = next.building!;
+  next = { ...next, gauge: { ...next.gauge, [done.key]: done.to }, building: null };
+  // The crew forages as it settles the new stop in — the trickle that
+  // keeps provisions alive until scavenging is a verb of its own.
+  if (done.to === 1) {
+    next = { ...next, provisions: Math.min(10, next.provisions + 1) };
+  }
+  // ★ A FINISHED LAY CARRIES YOU OVER. The owner: *"obviously when we
+  // build a road somewhere we arrive there too."* Only a fresh lay — a
+  // widening is work on a line you already walk — and only if you are
+  // still standing where you started it, because you are free to wander
+  // while the crew works and being teleported back would be worse.
+  const [x, y] = done.key.split('|').map(Number);
+  const far = x === done.from ? y! : x!;
+  if (done.to === 1 && next.at === done.from && STOP.has(far)) {
+    next = {
+      ...next,
+      at: far,
+      seen: next.seen.includes(far) ? next.seen : [...next.seen, far],
+    };
+  }
+  return next;
+}
+
 export function apply(g: Game, a: Action): Game {
   switch (a.type) {
     case 'tap': {
@@ -447,50 +510,14 @@ export function apply(g: Game, a: Action): Game {
         };
       }
 
-      if (next.building && !next.facing) {
-        let left = next.building.left - a.secs;
-        // ★ THE HIDDEN STOP. The work reaches it and stops dead — the fill sits
-        // exactly there until the trouble is faced. Blocks PROGRESS, not you:
-        // you can still walk, and the mana still comes.
-        const halt = next.building.halts[0];
-        if (halt !== undefined) {
-          const leftAtHalt = next.building.secs * (1 - halt);
-          if (left <= leftAtHalt) {
-            return {
-              ...next,
-              building: { ...next.building, left: leftAtHalt },
-              facing: {
-                key: next.building.key,
-                event: eventFor(next.building.key, halt).id,
-                rolled: null,
-              },
-            };
-          }
-        }
-        if (left > 0) return { ...next, building: { ...next.building, left } };
-        const done = next.building;
-        next = { ...next, gauge: { ...next.gauge, [done.key]: done.to }, building: null };
-        // The crew forages as it settles the new stop in — the trickle that
-        // keeps provisions alive until scavenging is a verb of its own.
-        if (done.to === 1) {
-          next = { ...next, provisions: Math.min(10, next.provisions + 1) };
-        }
-        // ★ A FINISHED LAY CARRIES YOU OVER. The owner: *"obviously when we
-        // build a road somewhere we arrive there too."* Only a fresh lay — a
-        // widening is work on a line you already walk — and only if you are
-        // still standing where you started it, because you are free to wander
-        // while the crew works and being teleported back would be worse.
-        const [x, y] = done.key.split('|').map(Number);
-        const far = x === done.from ? y! : x!;
-        if (done.to === 1 && next.at === done.from && STOP.has(far)) {
-          next = {
-            ...next,
-            at: far,
-            seen: next.seen.includes(far) ? next.seen : [...next.seen, far],
-          };
-        }
-      }
-      return next;
+      // ⚠️ WORK MOVES SLOWER THAN THE CLOCK — WORK_PACE of it. The rest is
+      // the player's to push. Same advance the push action uses, so the two
+      // can never disagree about halts or arrival.
+      return advance(next, a.secs * WORK_PACE);
+    }
+
+    case 'push': {
+      return advance(g, PUSH_SECS);
     }
 
     case 'build': {

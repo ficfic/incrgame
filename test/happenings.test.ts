@@ -255,7 +255,8 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     let g: Game = { ...flush(), gauge: { [roadKey(START, to)]: 1 } };
     g = apply(g, { type: 'build', to, kit: 'cart' });
     expect(g.building!.halts).toEqual([]);
-    for (let i = 0; i < 40 && g.building; i++) g = tick(g, 1);
+    // 90 wall-seconds is 36 of work at WORK_PACE — enough for any widen.
+    for (let i = 0; i < 90 && g.building; i++) g = tick(g, 1);
     expect(g.facing).toBeNull();
     expect(g.gauge[roadKey(START, to)]).toBe(2);
   });

@@ -4,7 +4,7 @@
 //
 // ---- PROVEN RED, 2026-08-04 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
-import { apply, initial, roadKey, type Game } from '../src/game/engine';
+import { apply, initial, roadKey, WORK_PACE, PUSH_SECS, type Game } from '../src/game/engine';
 import { theWay, DOING, stopId } from '../src/game/world';
 import { pathOf, lengthOf } from '../src/game/paths';
 import { STOP, START } from '../src/game/stops';
@@ -84,5 +84,44 @@ describe('★★ while a crew is out, the leg is a place', () => {
       expect(s.y).toBeGreaterThan(w.box.y);
       expect(s.y).toBeLessThan(w.box.y + w.box.h);
     }
+  });
+});
+
+describe('★★ the crew dawdle without you — pushing is the game', () => {
+  it('★ the clock advances work at WORK_PACE, not one for one', () => {
+    const g = laying();
+    const after = apply(g, { type: 'tick', secs: 10 });
+    expect(g.building!.left - after.building!.left).toBeCloseTo(10 * WORK_PACE, 6);
+  });
+
+  it('★ a push is worth PUSH_SECS of work, on top of the clock', () => {
+    const g = laying();
+    const pushed = apply(g, { type: 'push' });
+    expect(g.building!.left - pushed.building!.left).toBeCloseTo(PUSH_SECS, 6);
+  });
+
+  it('★★ you cannot tap through trouble: a push stops at the halt and waits', () => {
+    let g = laying();
+    for (let i = 0; i < 200 && !g.facing; i++) g = apply(g, { type: 'push' });
+    expect(g.facing).not.toBeNull();
+    const stuck = apply(g, { type: 'push' });
+    expect(stuck.building!.left).toBe(g.building!.left);
+  });
+
+  it('pushes alone finish the leg and carry you over', () => {
+    let g = laying();
+    for (let i = 0; i < 400 && g.building; i++) {
+      g = apply(g, { type: 'push' });
+      if (g.facing) {
+        g = apply(g, { type: 'face', choice: 0, roll: { a: 6, c1: 3, c2: 4 } });
+        g = apply(g, { type: 'carry' });
+      }
+    }
+    expect(g.building).toBeNull();
+    expect(g.at).toBe(to);
+  });
+
+  it('a push with nobody out does nothing', () => {
+    expect(apply(initial(), { type: 'push' })).toEqual(initial());
   });
 });
