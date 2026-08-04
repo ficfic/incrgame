@@ -1045,5 +1045,13 @@ a refactor.
    ground has a foe. Progress-track rounds: strong marks 2, weak 1 + cost,
    miss nothing + hurt; the kill clears the halt, +1 momentum. Met foes show
    red and named on the way.
-4. **RISK TRADEOFFS** — kits trade speed for safety; event choices risk
-   different resources; scavenge safe-vs-greedy. Kills the fake choices.
+4. **✦ RISK TRADEOFFS** *(shipped 2026-08-04)* — the suited kit costs 1
+   provision to stock (refused on empty packs); scavenge split into wits-safe
+   vs shadow-greedy. Event-choice risk profiles remain OPEN — the foes carry
+   per-choice flavour but uniform costs, deliberately, so the owner can
+   rewrite prose without touching numbers. Revisit if choices still feel flat.
+
+**THE WAY IS COMPLETE — all four steps of the owner's redesign shipped in one
+day.** What remains open for the owner: event prose passes (all ⟨draft⟩),
+what crossing the chapter means, stat renames, and whether choice-level risk
+profiles are wanted on happenings too.

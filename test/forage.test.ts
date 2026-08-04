@@ -44,25 +44,38 @@ describe('★ scavenging trades time for provisions', () => {
     expect(apply(g, { type: 'gather', roll: { a: 7, c1: 3, c2: 4 } }).foraging).not.toBeNull();
   });
 
-  it('★ a strong hit fills the packs: +2, +3 on matched dice, capped at 10', () => {
+  // ★ TWO RISK SHAPES — the owner: *"what would by shadow mean… my stats are
+  // identical for both. So what's the point?"* WITS is safe, SHADOW is greedy.
+  const servedAs = (stat: 'wits' | 'shadow'): Game =>
+    apply(forage(initial(), stat), { type: 'tick', secs: FORAGE_SECS });
+
+  it('★ wits, the safe walk: +2 strong (+3 twist), weak costs nothing extra, a miss only dips', () => {
     expect(gather(served(initial()), 3, 4).provisions).toBe(8);
     expect(gather(served(initial()), 3, 3).provisions).toBe(9);
-    const rich = served({ ...initial(), provisions: 9 });
-    expect(gather(rich, 3, 3).provisions).toBe(10);
+    const weak = gather(served(initial()), 3, 9);
+    expect(weak.provisions).toBe(7);
+    expect(weak.momentum).toBe(initial().momentum);
+    const miss = gather(served(initial()), 9, 10);
+    expect(miss.provisions).toBe(6);
+    expect(miss.momentum).toBe(initial().momentum - 1);
+    expect(gather(served(initial()), 9, 9).momentum).toBe(initial().momentum - 1);
   });
 
-  it('a weak hit finds a little and costs the night: +1, momentum down', () => {
-    const g = gather(served(initial()), 3, 9);
-    expect(g.provisions).toBe(7);
-    expect(g.momentum).toBe(initial().momentum - 1);
+  it('★ shadow, the greedy one: +3 strong (+4 twist), weak rattles, a MISS gets you caught', () => {
+    expect(gather(servedAs('shadow'), 3, 4).provisions).toBe(9);
+    expect(gather(servedAs('shadow'), 3, 3).provisions).toBe(10);
+    const weak = gather(servedAs('shadow'), 3, 9);
+    expect(weak.provisions).toBe(7);
+    expect(weak.momentum).toBe(initial().momentum - 1);
+    const caught = gather(servedAs('shadow'), 9, 10);
+    expect(caught.provisions).toBe(5);
+    expect(caught.momentum).toBe(initial().momentum - 2);
+    expect(gather(servedAs('shadow'), 9, 9).momentum).toBe(initial().momentum - 3);
   });
 
-  it('★ a miss finds nothing and rattles the crew: momentum -2, -3 on a twist', () => {
-    const g = gather(served(initial()), 9, 10);
-    expect(g.provisions).toBe(6);
-    expect(g.momentum).toBe(initial().momentum - 2);
-    expect(g.foraging).toBeNull();
-    expect(gather(served(initial()), 9, 9).momentum).toBe(initial().momentum - 3);
+  it('the cap still holds at ten, greedy or not', () => {
+    expect(gather(apply(forage({ ...initial(), provisions: 9 }, 'shadow'),
+      { type: 'tick', secs: FORAGE_SECS }), 3, 3).provisions).toBe(10);
   });
 });
 
@@ -93,5 +106,36 @@ describe('★★ the trade is exclusive both ways round', () => {
     expect(walked.at).toBe(to);
     expect(walked.foraging).toBeNull();
     expect(walked.provisions).toBe(6);
+  });
+});
+
+describe('★★ the suited kit is stocked from the packs', () => {
+  it('★ +1 on every roll costs one provision to outfit', () => {
+    const g = apply({ ...initial(), mana: 999 }, { type: 'build', to, kit: 'cart' });
+    expect(g.building).not.toBeNull();
+    expect(g.provisions).toBe(5);
+  });
+
+  it('the wrong tool travels light — no cost', () => {
+    const g = apply({ ...initial(), mana: 999 }, { type: 'build', to, kit: 'packs' });
+    expect(g.building).not.toBeNull();
+    expect(g.provisions).toBe(6);
+  });
+
+  it('★★ empty packs refuse the suited kit outright', () => {
+    const broke = { ...initial(), mana: 999, provisions: 0 };
+    const g = apply(broke, { type: 'build', to, kit: 'cart' });
+    expect(g.building).toBeNull();
+    expect(g.mana).toBe(999);
+    // The light kit still goes.
+    expect(apply(broke, { type: 'build', to, kit: 'packs' }).building).not.toBeNull();
+  });
+
+  it('a widen is not an expedition — no outfit cost', () => {
+    const laid = { ...initial(), mana: 999,
+      gauge: { [`${Math.min(START, to)}|${Math.max(START, to)}`]: 1 }, seen: [START, to] };
+    const g = apply(laid, { type: 'build', to, kit: 'cart' });
+    expect(g.building).not.toBeNull();
+    expect(g.provisions).toBe(6);
   });
 });

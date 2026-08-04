@@ -550,9 +550,15 @@ export function apply(g: Game, a: Action): Game {
       const secs = buildSecs(g, a.to);
       const key = roadKey(g.at, a.to);
       const fresh = (g.gauge[key] ?? 0) === 0;
+      // ★ THE SUITED KIT IS STOCKED FROM THE PACKS — one provision to outfit
+      // it. That is the choice the owner found missing: +1 on every roll now
+      // COSTS something the rolls are protecting. No stock, no suited kit.
+      const outfit = fresh && kitAdd(a.kit, key) === 1 ? 1 : 0;
+      if (outfit > g.provisions) return g;
       return {
         ...g,
         mana: g.mana - priceOf(g, a.to),
+        provisions: g.provisions - outfit,
         building: {
           key, from: g.at, left: secs, secs, to: (g.gauge[key] ?? 0) + 1,
           halts: fresh ? haltsFor(key, priceOf(g, a.to), climbTo(g, a.to)) : [],
@@ -655,20 +661,25 @@ export function apply(g: Game, a: Action): Game {
       if (!g.foraging || g.foraging.left > 0 || !legal(a.roll)) return g;
       const out = judge(a.roll, g.stats[g.foraging.stat] ?? 1);
       const swing = out.twist ? 2 : 1;
-      // ★ IRONSWORN'S RESUPPLY, worn local: a strong hit fills packs, a weak
-      // hit finds a little and costs the night, a miss finds nothing and the
-      // crew comes home rattled. Nothing here touches mana or the works.
+      // ★ TWO WAYS OUT, TWO RISK SHAPES — the owner found wits and shadow
+      // identical and asked what the point was. Now: WITS is the safe walk
+      // (smaller finds, gentle misses); SHADOW is the greedy one (bigger
+      // finds, and a miss means you were CAUGHT — it eats food and nerve).
+      const greedy = g.foraging.stat === 'shadow';
       if (out.tier === 'strong') {
         return { ...g, foraging: null,
-          provisions: Math.min(10, g.provisions + 1 + swing) };
+          provisions: Math.min(10, g.provisions + 1 + swing + (greedy ? 1 : 0)) };
       }
       if (out.tier === 'weak') {
         return { ...g, foraging: null,
           provisions: Math.min(10, g.provisions + 1),
-          momentum: clampMomentum(g.momentum - swing) };
+          momentum: greedy ? clampMomentum(g.momentum - swing) : g.momentum };
       }
-      return { ...g, foraging: null,
-        momentum: clampMomentum(g.momentum - 1 - swing) };
+      return greedy
+        ? { ...g, foraging: null,
+          provisions: Math.max(0, g.provisions - 1),
+          momentum: clampMomentum(g.momentum - 1 - swing) }
+        : { ...g, foraging: null, momentum: clampMomentum(g.momentum - 1) };
     }
 
     case 'go': {

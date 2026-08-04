@@ -357,11 +357,13 @@
     const out = judge(roll, s);
     act({ type: 'gather', roll });
     const swing = out.twist ? 2 : 1;
+    const greedy = stat === 'shadow';
     found = `You rolled ${roll.a} + ${stat} ${s} = ${out.score}, against `
       + `${roll.c1} and ${roll.c2} — `
-      + (out.tier === 'strong' ? `a strong hit. +${1 + swing} provisions.`
-        : out.tier === 'weak' ? 'a weak hit. +1 provision, momentum falls.'
-        : 'a miss. Nothing — momentum falls.');
+      + (out.tier === 'strong' ? `a strong hit. +${1 + swing + (greedy ? 1 : 0)} provisions.`
+        : out.tier === 'weak' ? `a weak hit. +1 provision${greedy ? ', momentum falls' : ''}.`
+        : greedy ? 'a miss. Caught — a provision gone, momentum falls hard.'
+        : 'a miss. Nothing — momentum dips.');
   }
   function go(to: number): void {
     act({ type: 'go', to });
@@ -494,10 +496,13 @@
           {legGround(roadKey(game.at, prep))}.</p>
         {#each KITS as k (k)}
           {@const add = kitAdd(k, roadKey(game.at, prep))}
-          <button class="deed" class:make={add > 0} onclick={() => setOff(k)}>
+          <button class="deed" class:make={add > 0}
+            disabled={add > 0 && game.provisions < 1} onclick={() => setOff(k)}>
             Set off with the {k}
-            <em>{add > 0 ? '+1 every roll — suits the ground'
-              : add < 0 ? '-1 every roll — wrong tool'
+            <em>{add > 0 ? (game.provisions < 1
+                ? 'nothing left to stock it with'
+                : '+1 every roll — costs 1 provision to stock')
+              : add < 0 ? '-1 every roll — wrong tool, travels light'
               : 'no help, no harm'}</em>
           </button>
         {/each}
@@ -517,12 +522,12 @@
           <button class="deed" disabled={cant !== null}
             onclick={() => { found = null; act({ type: 'forage', stat: 'wits' }); }}>
             Scavenge the open ground
-            <em>{cant ?? `wits ${game.stats.wits} · ${FORAGE_SECS}s — walking off wastes it`}</em>
+            <em>{cant ?? `wits ${game.stats.wits} · ${FORAGE_SECS}s · safe — small finds, gentle misses`}</em>
           </button>
           <button class="deed" disabled={cant !== null}
             onclick={() => { found = null; act({ type: 'forage', stat: 'shadow' }); }}>
             Scavenge by shadow
-            <em>{cant ?? `shadow ${game.stats.shadow} · ${FORAGE_SECS}s — walking off wastes it`}</em>
+            <em>{cant ?? `shadow ${game.stats.shadow} · ${FORAGE_SECS}s · greedy — bigger finds, a miss gets you caught`}</em>
           </button>
         {:else if game.foraging.left > 0}
           <p class="note">Scavenging — {Math.ceil(game.foraging.left)}s left.</p>

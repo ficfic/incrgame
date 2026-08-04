@@ -198,7 +198,10 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
       }
     }
     expect(g.gauge[roadKey(START, to)]).toBe(1);
-    expect(g.provisions).toBe(initial().provisions + 1);
+    // The cart is the suited kit on this leg: one provision to stock it going
+    // out, one restocked on arrival — net level, which is the design: the
+    // suited kit pays for itself only if the leg actually finishes.
+    expect(g.provisions).toBe(initial().provisions - 1 + 1);
   });
 
   it('★ the kit rides every roll: suited +1 can turn a weak hit strong', () => {

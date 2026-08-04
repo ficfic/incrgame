@@ -617,6 +617,10 @@ if (!live || live.off) {
     || !kits.some((k) => /-1 every roll/.test(k))) {
     misses.push('no kit says what it does to the rolls — the choice is blind');
   }
+  // ★ AND THE +1 HAS A PRICE ON IT — the choice the owner found missing.
+  if (!kits.some((k) => /costs 1 provision/.test(k))) {
+    misses.push('the suited kit does not say its price — the choice is free again');
+  }
   const keep = await page.$eval('.purse .keep', (e) => e.textContent.trim()).catch(() => null);
   console.log('  keeps   :', keep ?? '(no provisions in the header)');
   if (!keep || !/^\d+ provisions$/.test(keep)) {
@@ -953,7 +957,9 @@ if (!await scav.count()) {
     await page.waitForTimeout(400);
     const told = await panelText();
     console.log('  found   :', `"${told.slice(0, 130)}"`);
-    const tier = (told.match(/a (strong hit|weak hit|miss)/) ?? [])[1];
+    // ⚠️ ANCHORED TO THE DICE SENTENCE. The shadow deed's own note says "a
+    // miss gets you caught", and an unanchored match read THAT as the tier.
+    const tier = (told.match(/against \d+ and \d+ — a (strong hit|weak hit|miss)/) ?? [])[1];
     if (!/You rolled \d+ \+ wits \d+ = \d+, against \d+ and \d+/.test(told) || !tier) {
       misses.push(`the reveal does not show its arithmetic: "${told.slice(0, 90)}"`);
     } else {
