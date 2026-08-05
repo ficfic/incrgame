@@ -4,7 +4,7 @@
 //
 // ---- PROVEN RED, 2026-08-04 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
-import { apply, initial, troubleFor, roadKey, FOE_ODDS, type Game } from '../src/game/engine';
+import { apply, initial, troubleFor, sceneFor, roadKey, FOE_ODDS, type Game } from '../src/game/engine';
 import { FOES, HAPPENINGS, isFoe, troubleById } from '../src/game/events';
 import { STOP, START, STOPS } from '../src/game/stops';
 
@@ -106,6 +106,8 @@ describe('★★ every halt is an encounter — the owner: "event has HP"', () =
       for (const n of s.near) {
         if (n < s.id) continue;
         for (const h of [0.25, 0.5, 0.75]) {
+          // Skip halts a SCENE claims — those arm as scenes, their own file.
+          if (sceneFor(roadKey(s.id, n), h)) continue;
           const t = troubleFor(roadKey(s.id, n), h);
           if (!isFoe(troubleById(t.id))) { found = { key: roadKey(s.id, n), h }; break outer; }
         }

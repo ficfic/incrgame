@@ -1055,3 +1055,33 @@ a refactor.
 day.** What remains open for the owner: event prose passes (all ⟨draft⟩),
 what crossing the chapter means, stat renames, and whether choice-level risk
 profiles are wanted on happenings too.
+
+## ★★★ SCENES — 2026-08-05, the owner's design, the vertical slice is in
+
+> *"every event should be an extended branching CYOA with hidden HP states…
+> make each event a little incremental game of its own, so these are going to
+> be our incremental layers… incremental game components combined differently
+> in various events… various journey types: forest, valley, hill, rock,
+> desert, bog… objectives like going from point A to B (tapping to increase
+> speed), keeping resources intact, provisions, unexpected obstacles with
+> gauges."*
+
+**Shipped in the slice** (`src/game/scenes.ts` + engine scene machine):
+gauges/verbs/rules/mods as composable data; The washout and Toll brigands;
+hidden meters; stage branching; terrain as drift modifier; setback/cleared
+endings wired into the expedition loop.
+
+**The component roadmap, in rough order:**
+1. **Convert the rest** — wights (a ward-vs-press siege scene), the watcher
+   (a watch-and-wait scene with a movement gauge), oldstones, nightwatch.
+   Retire the dice encounters as scenes replace them, or keep dice as a
+   COMPONENT (a gamble verb) inside scenes.
+2. **More components** — timers (a gauge that only falls), paced objectives
+   (the owner's "A to B, tapping to increase speed" as a distance gauge vs a
+   deadline gauge), convoy integrity ("keeping resources intact" — a cargo
+   gauge foes and terrain chip at), multi-objective scenes.
+3. **Outcome grades** — clear WITH margin pays extra (provisions, momentum,
+   maybe loot); scraping through pays less. Makes play skill matter.
+4. **Graphs on top** — the owner: *"we'd need to somehow slap graphs on top,
+   not sure how yet."* Candidate: a scene's stages ARE a small graph drawn on
+   the board while it runs (the fractal again). OWNER'S CALL before building.

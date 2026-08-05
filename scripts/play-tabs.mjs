@@ -704,6 +704,19 @@ if (!live || live.off) {
   console.log('\nTROUBLE');
   let faced = 0;
   for (let i = 0; i < 44; i++) {
+    // ★ A SCENE INSTEAD OF DICE: play it — Dig for the washout, Talk for the
+    // brigands. Which one is on this leg is the map's call, not the probe's.
+    if (await page.locator('.dial').count()) {
+      const which = await panelText();
+      const btn = /washout/i.test(which) ? 'Dig' : 'Talk them down';
+      for (let t = 0; t < 4; t++) {
+        await page.locator('.deed.face', { hasText: btn }).click({ timeout: 800 }).catch(() => {});
+      }
+      await page.waitForTimeout(300);
+      faced++;
+      if (faced > 11) break;
+      continue;
+    }
     const face = page.locator('.deed.face');
     if (!await face.count()) {
       // ★ TAP-TO-WORK: the crew dawdle at WORK_PACE without this. Pushing is
@@ -1034,6 +1047,51 @@ else {
   console.log('  rounds  :', `${rounds}, then ${fell ? failed ? 'the LEG FELL instead' : 'the foe fell' : 'STUCK'}`);
   if (!sawStrength) misses.push('no round ever showed the strength falling');
   if (!fell) misses.push(`sixteen rounds and the fight never ended: "${after.slice(0, 60)}"`);
+}
+
+// ------------------------------------------------------------- the scene ----
+//
+// ★★ THE ENCOUNTER AS ITS OWN INCREMENTAL GAME — the owner's design: gauges
+// that drift, verbs you tap, hidden meters, stages that branch. Injected
+// mid-washout so the map's odds cannot dodge it: the dock must show the
+// meters, the water must MOVE ON ITS OWN, digging must clear the way.
+console.log('\nTHE SCENE');
+const tookScene = await loadSave(
+  () => ({ v: 8, savedAt: Date.now(),
+    game: { version: 8, at: 0, seen: [0], gauge: {}, mana: 20, part: 0,
+      building: { key: `0|${foeTarget}`, from: 0, left: 7, secs: 14, to: 1,
+        halts: [0.5], kit: 'packs' },
+      facing: { key: `0|${foeTarget}`, event: 'washout', rolled: null,
+        scene: { stage: 'open', gauges: { cut: 0, water: 3 }, shown: [] } } } }),
+  async () => /washout/i.test(await panelText()));
+if (!tookScene) misses.push('the mid-scene save never loaded — the scene was never tested');
+else {
+  const opening = await panelText();
+  const dials = await page.$$eval('.dial', (g) => g.length);
+  console.log('  faces   :', `"${opening.slice(0, 80)}"`);
+  console.log('  dials   :', `${dials} meters on the dock`);
+  if (!/The washout/.test(opening)) misses.push(`the dock does not name the scene: "${opening.slice(0, 60)}"`);
+  if (dials < 2) misses.push(`only ${dials} meters — the gauges are not drawn`);
+  // ★ THE INCREMENTAL HEARTBEAT: the water moves with nobody touching it.
+  const w0 = await page.$eval('[data-bar="water"]', (e) => e.style.width);
+  await page.waitForTimeout(2600);
+  const w1 = await page.$eval('[data-bar="water"]', (e) => e.style.width);
+  console.log('  drifts  :', `the water ${w0} → ${w1} across 2.6 idle seconds`);
+  if (w0 === w1) misses.push('the water does not drift — the scene is not incremental');
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-scene.png') });
+  // Dig it out. Iron 3 digs 1.05 a tap; twenty-four taps survives one setback.
+  let cleared = false;
+  for (let i = 0; i < 24 && !cleared; i++) {
+    const dig = page.locator('.deed.face', { hasText: 'Dig' });
+    if (!(await dig.count())) { cleared = true; break; }
+    await dig.click({ timeout: 1500 }).catch(() => {});
+    await page.waitForTimeout(140);
+  }
+  const after = await panelText();
+  console.log('  dug     :', cleared || !/The washout/.test(after) ? 'the way is CLEAR' : `still in it: "${after.slice(0, 60)}"`);
+  if (!cleared && /The washout/.test(after)) {
+    misses.push('twenty-four digs never cleared the washout');
+  }
 }
 
 // ------------------------------------------- you cannot build from the middle -

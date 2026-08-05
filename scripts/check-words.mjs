@@ -32,6 +32,7 @@ const SURFACES = [
   'src/game/foes.ts',       // what holds a place
   'src/ui/Game.svelte',     // header, panel, buttons
   'src/game/events.ts',     // every happening a player reads
+  'src/game/scenes.ts',     // every scene: stage prose, gauge labels, verbs
 ];
 
 /** banned word → what to say instead.

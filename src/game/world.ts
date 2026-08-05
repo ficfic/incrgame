@@ -17,6 +17,7 @@ import { roadsOut, roadCost, buildSecs, manaRate, waitFor, reached, crossed,
   roadKey, unbuildable, climbTo, MAX_GAUGE, ken } from './engine';
 import { pathOf, cutAt } from './paths';
 import { troubleById, isFoe } from './events';
+import { sceneById } from './scenes';
 import type { Pt } from './shapes';
 
 /** Mana a second, said the same way everywhere it is said. */
@@ -211,9 +212,11 @@ export function theWay(g: Game): WayPlan | null {
     // ★ MET TROUBLE SHOWS ITS FACE. The first halt is the one the crew is
     // stopped at: every encounter reveals its name once met, and the ones
     // that FIGHT BACK turn foe-red — an enemy on this view, the owner's ask.
-    const met = j === 0 && g.facing ? troubleById(g.facing.event) : undefined;
+    const met = j === 0 && g.facing
+      ? (g.facing.scene ? sceneById(g.facing.event) : troubleById(g.facing.event))
+      : undefined;
     marks.push(met
-      ? { id: `halt:${j}`, kind: isFoe(met) ? 'foe' : 'halt',
+      ? { id: `halt:${j}`, kind: !g.facing?.scene && isFoe(met as Parameters<typeof isFoe>[0]) ? 'foe' : 'halt',
         name: met.name,
         body: 'It stands between the crew and the far end.', at: along(path, h) }
       : { id: `halt:${j}`, kind: 'halt', name: 'Something ahead',

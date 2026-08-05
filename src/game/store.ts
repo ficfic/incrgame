@@ -5,6 +5,7 @@ import { loadBlob, saveBlob, deleteBlob, requestPersistence } from '../shell/sto
 import { initial, type Game } from './engine';
 import { STATS, MOMENTUM_MIN, MOMENTUM_MAX, legal } from './dice';
 import { troubleById } from './events';
+import { sceneById } from './scenes';
 import { STOP } from './stops';
 
 export const SAVE_VERSION = 8;   // the expedition: kit, provisions, failure
@@ -78,7 +79,19 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
     // Checked against the CONTENT: a facing that names trouble nobody wrote
     // would be a dock stuck open forever with nothing in it.
     if (g.facing) {
-      if (!troubleById(g.facing.event)) return null;
+      if (!troubleById(g.facing.event) && !sceneById(g.facing.event)) return null;
+      // A scene mid-save must name a real stage of its own scene and carry
+      // finite gauges; anything else is a dock stuck open with nothing in it.
+      if (g.facing.scene) {
+        const sc = sceneById(g.facing.event);
+        if (!sc) return null;
+        if (!sc.stages.some((x) => x.id === g.facing!.scene!.stage)) return null;
+        if (!g.facing.scene.gauges || typeof g.facing.scene.gauges !== 'object') return null;
+        for (const v of Object.values(g.facing.scene.gauges)) {
+          if (!Number.isFinite(v)) return null;
+        }
+        if (!Array.isArray(g.facing.scene.shown)) return null;
+      }
       if (g.facing.rolled && !(Number.isInteger(g.facing.rolled.choice)
         && legal(g.facing.rolled.roll))) return null;
       // A fight mid-save keeps its strength; a crooked one is refused.

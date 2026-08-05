@@ -32,6 +32,7 @@
     type Game, type Action, type Kit } from '../game/engine';
   import { judge, judgeBurned, burnHelps, type Roll } from '../game/dice';
   import { troubleById, isFoe } from '../game/events';
+  import { sceneById } from '../game/scenes';
   import { pathOf } from '../game/paths';
   import { load, save, wipe, elapsedSince } from '../game/store';
 
@@ -67,8 +68,24 @@
   const d = (n: number): number => 1 + Math.floor(Math.random() * n);
 
   /** Everything the dock needs to tell the trouble honestly. */
+  /** ★★ A SCENE IN PLAY — the encounter as its own incremental game. When
+   *  this is non-null the dice dock stays shut: gauges and verbs instead. */
+  const scenePlay = $derived.by(() => {
+    if (!game.facing?.scene) return null;
+    const sc = sceneById(game.facing.event);
+    if (!sc) return null;
+    const st = game.facing.scene;
+    return {
+      sc, st,
+      stage: sc.stages.find((x) => x.id === st.stage) ?? sc.stages[0]!,
+      gauges: sc.gauges.filter((g) => !g.hidden || st.shown.includes(g.id)),
+      verbs: sc.verbs.filter((v) => !v.stages || v.stages.includes(st.stage)),
+    };
+  });
+
   const trouble = $derived.by(() => {
     if (!game.facing) return null;
+    if (game.facing.scene) return null;
     const ev = troubleById(game.facing.event);
     if (!ev) return null;
     const rolled = game.facing.rolled;
@@ -445,7 +462,28 @@
   <!-- THE PANEL. Part of the page, below the graph, in flow. It is empty until
        you tap something, and it says so rather than appearing from nowhere. -->
   <section class="panel" bind:this={panelEl}>
-    {#if trouble}
+    {#if scenePlay}
+      <!-- ★★ THE SCENE. Gauges drift, verbs are taps, stages branch — the
+           owner's design: "each event a little incremental game of its own". -->
+      <h2>{scenePlay.sc.name}</h2>
+      <p>{scenePlay.stage.text}</p>
+      {#each scenePlay.gauges as gg (gg.id)}
+        {@const v = scenePlay.st.gauges[gg.id] ?? gg.start}
+        <div class="dial" data-gauge={gg.id}>
+          <span>{gg.label}</span>
+          <div class="meter"><div class="bar" data-bar={gg.id}
+            style="width:{Math.round(((v - gg.min) / (gg.max - gg.min)) * 100)}%"></div></div>
+        </div>
+      {/each}
+      {#each scenePlay.verbs as v (v.id)}
+        <button class="deed face"
+          disabled={(v.mana ?? 0) > game.mana || (v.provisions ?? 0) > game.provisions}
+          onclick={() => act({ type: 'scene', verb: v.id })}>
+          {v.label}
+          <em>{v.note}</em>
+        </button>
+      {/each}
+    {:else if trouble}
       <!-- ★ SOMETHING STANDS IN THE WAY. The work is stopped and this outranks
            whatever was selected — it is the owner's design: "block progress
            until resolved". Still the one dock, still nothing to dismiss. -->
@@ -625,6 +663,12 @@
   .spring em { color: #a89a80; font-size: 12px; font-style: normal; }
   .reset.armed { border-color: #b03050; color: #b03050; font-weight: 600; }
   .purse b { font-size: 22px; color: #1f6b3a; }
+  /* Scene gauges: a label and a thin bar, nothing that needs reading twice. */
+  .dial { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .dial span { font-size: 13px; color: #6a6154; min-width: 108px; }
+  .meter { flex: 1; height: 10px; border-radius: 5px; background: #e3ddd0;
+    border: 1px solid #d2c9b6; overflow: hidden; }
+  .meter .bar { height: 100%; background: #1d7f86; transition: width 300ms; }
   .spring b { font-size: 28px; }
   .purse span { color: #6a6154; font-size: 14px; }
   .purse .rate { color: #8c8272; }

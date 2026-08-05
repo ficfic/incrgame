@@ -47,6 +47,7 @@ import { judge, judgeBurned, burnHelps, legal, clampMomentum, START_STATS,
   MOMENTUM_START, MOMENTUM_RESET, type Roll, type Stat } from './dice';
 import { HAPPENINGS, happeningsOn, foesOn, troubleById, isFoe,
   type Happening, type Foe } from './events';
+import { sceneById, scenesOn, type Scene } from './scenes';
 import { pathOf } from './paths';
 import { climbOf } from './height';
 export { roadCost, START, FINISH } from './stops';
@@ -136,6 +137,11 @@ export interface Game {
      *  A foe takes ROUNDS — Ironsworn's progress-track fight. Absent for a
      *  happening, and absent on saves from before foes existed. */
     foe?: { left: number };
+    /** ★★ A SCENE — the encounter as its own little incremental game (the
+     *  owner's design, 2026-08-05). Gauges drift with the tick, verbs are
+     *  your taps, rules branch the stage or end it. When this is set the
+     *  dice stay in the drawer: a scene is played, not rolled. */
+    scene?: { stage: string; gauges: Record<string, number>; shown: string[] };
   } | null;
 }
 
@@ -163,6 +169,9 @@ export type Action =
   /** ★ PUSH THE CREW — one tap of work on the way. Respects halts exactly
    *  like the clock does: you cannot tap through trouble. */
   | { type: 'push' }
+  /** ★★ TAP A VERB IN A SCENE. The whole encounter loop: deterministic
+   *  effects, costs, reveals — the dice stay out of it. */
+  | { type: 'scene'; verb: string }
   /** ★ SEND THE CREW SCAVENGING, on wits (the open ground) or shadow (other
    *  people's stores). The stat is chosen going IN — the dice come at the end. */
   | { type: 'forage'; stat: 'wits' | 'shadow' }
@@ -302,6 +311,79 @@ export function eventFor(key: string, halt: number): Happening {
 
 /** How often a halt turns out to be something that fights back. */
 export const FOE_ODDS = 0.45;
+
+/** How often a halt is a SCENE where the ground offers one — the little
+ *  incremental games take the front row. */
+export const SCENE_ODDS = 0.6;
+
+/** ★ THE SCENE AT A HALT, or null when this one rolls dice instead. */
+export function sceneFor(key: string, halt: number): Scene | null {
+  const [a, b] = key.split('|').map(Number);
+  const pool = [
+    ...scenesOn(STOP.get(a!)?.ground ?? 'moor'),
+    ...scenesOn(STOP.get(b!)?.ground ?? 'moor'),
+  ];
+  if (!pool.length || hash(`${key}@${halt}#scene`) >= SCENE_ODDS) return null;
+  return pool[Math.floor(hash(`${key}@${halt}#which-scene`) * pool.length)]!;
+}
+
+/** A fresh scene state, gauges at their starting marks, nothing revealed. */
+export function sceneStart(sc: Scene): { stage: string; gauges: Record<string, number>; shown: string[] } {
+  const gauges: Record<string, number> = {};
+  for (const g of sc.gauges) gauges[g.id] = g.start;
+  return { stage: sc.stages[0]!.id, gauges, shown: [] };
+}
+
+/** ★ THE RULES, checked in order — first match wins. Returns the game after
+ *  any branch or ending. `cleared` opens the way (+1 momentum); `setback`
+ *  costs a provision, knocks the work back a quarter and RESETS the scene —
+ *  the trouble is still there — and with no provisions left it is the end of
+ *  the leg, exactly like every other disaster in this game. */
+function judgeScene(g: Game): Game {
+  if (!g.facing?.scene || !g.building) return g;
+  const sc = sceneById(g.facing.event);
+  if (!sc) return g;
+  const st = g.facing.scene;
+  for (const r of sc.rules) {
+    if (r.stages && !r.stages.includes(st.stage)) continue;
+    const v = st.gauges[r.gauge] ?? 0;
+    const hit = r.op === '>=' ? v >= r.value : v <= r.value;
+    if (!hit) continue;
+    if (r.goto && r.goto !== st.stage) {
+      return { ...g, facing: { ...g.facing, scene: { ...st, stage: r.goto } } };
+    }
+    if (r.end === 'cleared') {
+      return {
+        ...g,
+        momentum: clampMomentum(g.momentum + 1),
+        facing: null,
+        building: { ...g.building, halts: g.building.halts.slice(1) },
+      };
+    }
+    if (r.end === 'setback') {
+      if (g.provisions <= 0) {
+        return { ...g, momentum: clampMomentum(g.momentum - 2), building: null, facing: null };
+      }
+      return {
+        ...g,
+        provisions: Math.max(0, g.provisions - 1),
+        momentum: clampMomentum(g.momentum - 1),
+        building: {
+          ...g.building,
+          left: Math.min(g.building.secs, g.building.left + g.building.secs * 0.25),
+        },
+        facing: { ...g.facing, scene: sceneStart(sc) },
+      };
+    }
+  }
+  return g;
+}
+
+/** Clamp a gauge into its own rails. */
+const railed = (sc: Scene, id: string, v: number): number => {
+  const spec = sc.gauges.find((x) => x.id === id);
+  return spec ? Math.max(spec.min, Math.min(spec.max, v)) : v;
+};
 
 /** ★ WHAT ACTUALLY WAITS AT A HALT — a happening, or a FOE. Deterministic
  *  from the road and the spot, like everything the map promises: the same
@@ -470,10 +552,18 @@ function advance(g: Game, work: number): Game {
   if (halt !== undefined) {
     const leftAtHalt = next.building!.secs * (1 - halt);
     if (left <= leftAtHalt) {
+      // ★★ A SCENE FIRST, where the ground offers one — the encounter as its
+      // own incremental game. Otherwise the dice encounter, tracked as ever.
+      const sc = sceneFor(next.building!.key, halt);
+      if (sc) {
+        return {
+          ...next,
+          building: { ...next.building!, left: leftAtHalt },
+          facing: { key: next.building!.key, event: sc.id, rolled: null,
+            scene: sceneStart(sc) },
+        };
+      }
       const t = troubleFor(next.building!.key, halt);
-      // ★ EVERYTHING AT A HALT IS AN ENCOUNTER — the owner: *"event has HP,
-      // we have provisions."* A washout takes clearing the same way a foe
-      // takes killing; the difference is flavour and how much.
       return {
         ...next,
         building: { ...next.building!, left: leftAtHalt },
@@ -538,6 +628,26 @@ export function apply(g: Game, a: Action): Game {
         };
       }
 
+      // ★★ A RUNNING SCENE DRIFTS — the incremental heartbeat of the
+      // encounter. Ground multiplies the drift: the journey type is a
+      // modifier, exactly the owner's sketch.
+      if (next.facing?.scene && next.building) {
+        const sc = sceneById(next.facing.event);
+        if (sc) {
+          const ground = legGround(next.building.key) as keyof NonNullable<Scene['mods']>;
+          const mods = sc.mods?.[ground] ?? {};
+          const st = next.facing.scene;
+          const gauges = { ...st.gauges };
+          for (const spec of sc.gauges) {
+            if (!spec.drift) continue;
+            gauges[spec.id] = railed(sc, spec.id,
+              (gauges[spec.id] ?? spec.start) + spec.drift * (mods[spec.id] ?? 1) * a.secs);
+          }
+          next = { ...next, facing: { ...next.facing, scene: { ...st, gauges } } };
+          next = judgeScene(next);
+        }
+      }
+
       // ⚠️ WORK MOVES SLOWER THAN THE CLOCK — WORK_PACE of it. The rest is
       // the player's to push. Same advance the push action uses, so the two
       // can never disagree about halts or arrival.
@@ -546,6 +656,33 @@ export function apply(g: Game, a: Action): Game {
 
     case 'push': {
       return advance(g, PUSH_SECS);
+    }
+
+    case 'scene': {
+      if (!g.facing?.scene || !g.building) return g;
+      const sc = sceneById(g.facing.event);
+      if (!sc) return g;
+      const st = g.facing.scene;
+      const verb = sc.verbs.find((v) => v.id === a.verb);
+      if (!verb) return g;
+      if (verb.stages && !verb.stages.includes(st.stage)) return g;
+      if ((verb.mana ?? 0) > g.mana) return g;
+      if ((verb.provisions ?? 0) > g.provisions) return g;
+      const statVal = verb.stat ? (g.stats[verb.stat] ?? 1) : 0;
+      const gauges = { ...st.gauges };
+      for (const [id, base] of Object.entries(verb.effect)) {
+        const per = verb.perStat?.[id] ?? 0;
+        gauges[id] = railed(sc, id, (gauges[id] ?? 0) + base + per * statVal);
+      }
+      const shown = verb.reveals
+        ? [...new Set([...st.shown, ...verb.reveals])] : st.shown;
+      const next: Game = {
+        ...g,
+        mana: g.mana - (verb.mana ?? 0),
+        provisions: g.provisions - (verb.provisions ?? 0),
+        facing: { ...g.facing, scene: { stage: st.stage, gauges, shown } },
+      };
+      return judgeScene(next);
     }
 
     case 'build': {
