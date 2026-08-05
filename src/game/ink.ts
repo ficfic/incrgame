@@ -58,7 +58,11 @@ export const INK = {
   // with nothing filling at all. Found by `test/ink.test.ts` the day it was
   // written, and the constraint survives the repaint.
   fill: '#3ec6da',       // the flow being opened — bright, unmistakably arcane
-  flowing: '#e8a13c',
+  /** ★ THE CURRENT ITSELF — 2026-08-05, the owner: *"the mana is orange dots
+   *  over blue channel. I don't understand why they're orange."* They were
+   *  brass-era amber. Mana light now: a pale luminous cyan riding inside the
+   *  teal, the same family as the fill it becomes. */
+  flowing: '#bfeef5',
   barred: '#b03050',
   foe: '#8f2f22',
 

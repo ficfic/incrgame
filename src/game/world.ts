@@ -222,10 +222,10 @@ export function theWay(g: Game): WayPlan | null {
   // The crew, at the head of the works. Keeps the DOING id so the panel rules
   // that know "the thing being done" need not learn a second name.
   marks.push({ id: DOING, kind: 'doing',
-    // Mid-fight the FOE's name is the news — the crew mark goes quiet so the
-    // two never fight over the same patch of label space.
-    name: g.facing?.foe ? ''
-      : g.building.to > 1 ? 'Widening the flow' : 'Opening the flow',
+    // ⚠️ NO LABEL, EVER — the owner: *"that floating opening-the-flow label
+    // is very weird. Shouldn't be there."* The countdown lives in the dock;
+    // the mark itself is the message.
+    name: '',
     body: `Toward ${nameOf(far)}, by ${g.building.kit}. `
       + `${Math.ceil(g.building.left)}s of work left — tap the crew to hurry it.`,
     // Stopped AT trouble, the crew stands a step short of it — so the met
