@@ -16,7 +16,7 @@ import { STATS } from './dice';
 import { roadsOut, roadCost, buildSecs, manaRate, waitFor, reached, crossed,
   roadKey, unbuildable, climbTo, MAX_GAUGE, ken } from './engine';
 import { pathOf, cutAt } from './paths';
-import { troubleById } from './events';
+import { troubleById, isFoe } from './events';
 import type { Pt } from './shapes';
 
 /** Mana a second, said the same way everywhere it is said. */
@@ -209,12 +209,12 @@ export function theWay(g: Game): WayPlan | null {
   // the old hidden halts never had. Resolved ones are simply gone.
   g.building.halts.forEach((h, j) => {
     // ★ MET TROUBLE SHOWS ITS FACE. The first halt is the one the crew is
-    // stopped at; while a FIGHT is on, its marker turns foe-red and carries
-    // the name — an enemy encounter on this view, the owner's ask verbatim.
-    const met = j === 0 && g.facing?.foe;
+    // stopped at: every encounter reveals its name once met, and the ones
+    // that FIGHT BACK turn foe-red — an enemy on this view, the owner's ask.
+    const met = j === 0 && g.facing ? troubleById(g.facing.event) : undefined;
     marks.push(met
-      ? { id: `halt:${j}`, kind: 'foe',
-        name: troubleById(g.facing!.event)?.name ?? 'Something ahead',
+      ? { id: `halt:${j}`, kind: isFoe(met) ? 'foe' : 'halt',
+        name: met.name,
         body: 'It stands between the crew and the far end.', at: along(path, h) }
       : { id: `halt:${j}`, kind: 'halt', name: 'Something ahead',
         body: 'The work will stop when the crew reaches it.', at: along(path, h) });

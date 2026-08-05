@@ -471,6 +471,9 @@ function advance(g: Game, work: number): Game {
     const leftAtHalt = next.building!.secs * (1 - halt);
     if (left <= leftAtHalt) {
       const t = troubleFor(next.building!.key, halt);
+      // ★ EVERYTHING AT A HALT IS AN ENCOUNTER — the owner: *"event has HP,
+      // we have provisions."* A washout takes clearing the same way a foe
+      // takes killing; the difference is flavour and how much.
       return {
         ...next,
         building: { ...next.building!, left: leftAtHalt },
@@ -478,7 +481,7 @@ function advance(g: Game, work: number): Game {
           key: next.building!.key,
           event: t.id,
           rolled: null,
-          ...(isFoe(t) ? { foe: { left: t.strength } } : {}),
+          foe: { left: t.strength },
         },
       };
     }

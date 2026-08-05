@@ -28,8 +28,9 @@ function intoTrouble(): Game {
   let g = apply(flush(), { type: 'build', to, kit: 'cart' });
   for (let i = 0; i < 90 && !g.facing; i++) g = tick(g, 0.5);
   if (g.facing) {
-    const { foe: _, ...rest } = g.facing;
-    g = { ...g, facing: { ...rest, event: 'washout' } };
+    // Pinned to the washout WITH its live strength-2 track — every trouble
+    // is an encounter now, and these tests exercise the path the game takes.
+    g = { ...g, facing: { ...g.facing, event: 'washout', foe: { left: 2 } } };
   }
   return g;
 }
@@ -149,27 +150,36 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     expect(g.building!.left).toBeLessThan(leftAtHalt);
   });
 
-  it('★ a miss knocks the work back and momentum down — but the stop is faced', () => {
+  it('★ a miss clears NOTHING — the encounter stands, and it cost you', () => {
+    // The owner: *"event has HP, we have provisions."* A miss used to wave
+    // the trouble through; now the washout is still there, a provision and
+    // some momentum lighter.
     let g = intoTrouble();
     const leftAtHalt = g.building!.left;
     g = apply(g, { type: 'face', choice: 0, roll: { a: 1, c1: 9, c2: 8 } });
     g = apply(g, { type: 'carry' });
-    expect(g.facing).toBeNull();
+    expect(g.facing).not.toBeNull();
+    expect(g.facing!.foe!.left).toBe(2);
+    expect(g.facing!.rolled).toBeNull();
     expect(g.momentum).toBe(initial().momentum - 1);
     expect(g.building!.left).toBeGreaterThan(leftAtHalt);
-    // Faced is faced: the same stop does not rise twice.
-    expect(g.building!.halts.length).toBeLessThan(2);
   });
 
-  it('★ a weak hit eats provisions and moves on — mana is untouched', () => {
+  it('★ a weak hit clears one and eats a provision — two weak hits open the way', () => {
     let g = intoTrouble();
     const keep = g.provisions;
     const purse = g.mana;
     g = apply(g, { type: 'face', choice: 0, roll: { a: 4, c1: 2, c2: 9 } });
     g = apply(g, { type: 'carry' });
-    expect(g.facing).toBeNull();
+    expect(g.facing).not.toBeNull();
+    expect(g.facing!.foe!.left).toBe(1);
     expect(g.provisions).toBe(keep - 1);
     expect(g.mana).toBe(purse);
+    g = apply(g, { type: 'face', choice: 0, roll: { a: 4, c1: 2, c2: 9 } });
+    g = apply(g, { type: 'carry' });
+    expect(g.facing).toBeNull();
+    expect(g.provisions).toBe(keep - 2);
+    expect(g.building!.halts.length).toBeLessThan(2);
   });
 
   it('★★ a miss with no provisions left FAILS the leg outright', () => {

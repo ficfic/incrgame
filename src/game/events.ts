@@ -37,12 +37,19 @@ export interface Happening {
   /** The grounds this trouble belongs to. */
   on: readonly Ground[];
   choices: readonly Choice[];
+  /** ★ EVERY TROUBLE IS AN ENCOUNTER NOW — the owner, 2026-08-05: *"like
+   *  event has HP, we have provisions."* How much clearing it takes: a
+   *  strong hit clears two (three on matched dice), a weak hit one, a miss
+   *  none — and every round the crew's provisions are what is on the table.
+   *  Happenings run 2; foes run 3–4 and are the ones that fight back. */
+  strength: number;
 }
 
 export const HAPPENINGS: readonly Happening[] = [
   {
     id: 'washout', name: 'A washout',
     on: ['moor', 'water'],
+    strength: 2,
     body: 'The night\'s rain took the bank and a length of your trench with it. '
       + 'Brown water is still finding new ways through.',
     choices: [
@@ -59,6 +66,7 @@ export const HAPPENINGS: readonly Happening[] = [
   {
     id: 'oldstones', name: 'Old stones',
     on: ['moor', 'stone', 'crag'],
+    strength: 2,
     body: 'The picks ring on worked stone a foot under the turf. Squared blocks, '
       + 'laid by nobody the kingdom remembers, running exactly where your flow wants to go.',
     choices: [
@@ -79,6 +87,7 @@ export const HAPPENINGS: readonly Happening[] = [
   {
     id: 'toll', name: 'Somebody\'s cousin',
     on: ['moor', 'wood'],
+    strength: 2,
     body: 'Three of them, one dog, and a chain across your line. The tall one '
       + 'says this ground has been their family\'s since before the king\'s road had an end.',
     choices: [
@@ -95,6 +104,7 @@ export const HAPPENINGS: readonly Happening[] = [
   {
     id: 'sinking', name: 'The bog is drinking it',
     on: ['bog'],
+    strength: 2,
     body: 'Yesterday\'s laid length has gone down a hand\'s width overnight, '
       + 'evenly, like something under there is swallowing with care.',
     choices: [
@@ -115,6 +125,7 @@ export const HAPPENINGS: readonly Happening[] = [
   {
     id: 'clearing', name: 'A clearing that was not surveyed',
     on: ['wood'],
+    strength: 2,
     body: 'The trees stop in a circle no chart shows. Grass short as a kept lawn. '
       + 'The birds go around it, and now the crew wants to as well.',
     choices: [
@@ -131,6 +142,7 @@ export const HAPPENINGS: readonly Happening[] = [
   {
     id: 'nightwatch', name: 'Lights on the crag',
     on: ['crag', 'stone'],
+    strength: 2,
     body: 'Two nights running, a lantern where no path is, standing still for '
       + 'an hour and then not being there. The crew has started sleeping in shifts without being asked.',
     choices: [
@@ -162,11 +174,7 @@ export const happeningsOn = (g: Ground): Happening[] =>
 //
 // ⚠️ EVERY LINE OF PROSE IN HERE IS ⟨draft⟩, same as above.
 
-export interface Foe extends Happening {
-  /** How much harm ends it. The whole difference between a foe and a
-   *  happening: this is a track, not a coin flip. */
-  strength: number;
-}
+export interface Foe extends Happening {}
 
 export const FOES: readonly Foe[] = [
   {
@@ -226,5 +234,7 @@ export const foesOn = (g: Ground): Foe[] => FOES.filter((f) => f.on.includes(g))
 export const troubleById = (id: string): Happening | Foe | undefined =>
   HAPPENINGS.find((h) => h.id === id) ?? FOES.find((f) => f.id === id);
 
+/** A foe is trouble that FIGHTS — membership, not shape, now that every
+ *  trouble carries a strength track. */
 export const isFoe = (t: Happening | Foe | undefined): t is Foe =>
-  !!t && 'strength' in t;
+  !!t && FOES.some((f) => f.id === t.id);

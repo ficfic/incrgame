@@ -31,7 +31,7 @@
     unforageable, FORAGE_SECS, charted,
     type Game, type Action, type Kit } from '../game/engine';
   import { judge, judgeBurned, burnHelps, type Roll } from '../game/dice';
-  import { troubleById } from '../game/events';
+  import { troubleById, isFoe } from '../game/events';
   import { pathOf } from '../game/paths';
   import { load, save, wipe, elapsedSince } from '../game/store';
 
@@ -72,12 +72,13 @@
     const ev = troubleById(game.facing.event);
     if (!ev) return null;
     const rolled = game.facing.rolled;
-    if (!rolled) return { ev, rolled: null, out: null, canBurn: false, burned: null };
+    const fights = isFoe(ev);
+    if (!rolled) return { ev, fights, rolled: null, out: null, canBurn: false, burned: null };
     const choice = ev.choices[rolled.choice]!;
     const stat = (game.stats[choice.stat] ?? 1)
       + (game.building ? kitAdd(game.building.kit, game.building.key) : 0);
     return {
-      ev, rolled,
+      ev, rolled, fights,
       out: judge(rolled.roll, stat),
       canBurn: burnHelps(rolled.roll, stat, game.momentum),
       burned: judgeBurned(rolled.roll, game.momentum),
@@ -450,8 +451,9 @@
            until resolved". Still the one dock, still nothing to dismiss. -->
       <h2>{trouble.ev.name}</h2>
       {#if game.facing?.foe}
-        <p class="note">Its strength: {game.facing.foe.left}. A strong hit
-          takes two, a weak hit one — it falls when none is left.</p>
+        <p class="note">{trouble.fights ? 'Its strength' : 'Work in it'}:
+          {game.facing.foe.left}. A strong hit clears two, a weak hit one —
+          the way opens when none is left.</p>
       {/if}
       {#if !trouble.rolled}
         <p>{trouble.ev.body}</p>

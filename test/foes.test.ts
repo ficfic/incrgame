@@ -5,7 +5,7 @@
 // ---- PROVEN RED, 2026-08-04 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
 import { apply, initial, troubleFor, roadKey, FOE_ODDS, type Game } from '../src/game/engine';
-import { FOES, isFoe, troubleById } from '../src/game/events';
+import { FOES, HAPPENINGS, isFoe, troubleById } from '../src/game/events';
 import { STOP, START, STOPS } from '../src/game/stops';
 
 const to = STOP.get(START)!.near[0]!;
@@ -93,5 +93,37 @@ describe('★★ a foe takes rounds — Ironsworn\'s progress track', () => {
     const g = round(fight(3, 0), 9, 10, 1);
     expect(g.building).toBeNull();
     expect(g.facing).toBeNull();
+  });
+});
+
+describe('★★ every halt is an encounter — the owner: "event has HP"', () => {
+  it('★ a HAPPENING arms a strength track exactly like a foe', () => {
+    // ⚠️ THE FIRST VERSION BUILT LEG 0|2 — whose halt happens to be a FOE, so
+    // reverting happenings to one-roll left it green. Vacuous, proven by its
+    // own sabotage. Now it hunts the map for a halt that is a HAPPENING.
+    let found: { key: string; h: number } | null = null;
+    outer: for (const s of STOPS) {
+      for (const n of s.near) {
+        if (n < s.id) continue;
+        for (const h of [0.25, 0.5, 0.75]) {
+          const t = troubleFor(roadKey(s.id, n), h);
+          if (!isFoe(troubleById(t.id))) { found = { key: roadKey(s.id, n), h }; break outer; }
+        }
+      }
+    }
+    expect(found).not.toBeNull();
+    const [a] = found!.key.split('|').map(Number);
+    let g: Game = { ...initial(), mana: 999,
+      building: { key: found!.key, from: a!, left: 14, secs: 14, to: 1,
+        halts: [found!.h], kit: 'packs' } };
+    g = apply(g, { type: 'tick', secs: 100 });
+    expect(g.facing).not.toBeNull();
+    expect(isFoe(troubleById(g.facing!.event))).toBe(false);
+    expect(g.facing!.foe).toBeDefined();
+    expect(g.facing!.foe!.left).toBe(troubleById(g.facing!.event)!.strength);
+  });
+
+  it('every happening carries a real track', () => {
+    for (const h of HAPPENINGS) expect(h.strength).toBeGreaterThanOrEqual(2);
   });
 });
