@@ -38,14 +38,18 @@ export const INK = {
   you: '#d63b26',        // where you are standing — the red pin every map has
   ring: '#12203a',       // the selection ring, which outranks everything
 
-  // roads, by state
-  /** A built road: the solid brown of a made-up track on an OS sheet. */
-  route: '#7a4a22',
+  // the flows, by state
+  /** ★ AN OPEN FLOW — 2026-08-04, the owner: *"i don't like the pipe wording
+   *  and brown colors, we are building mana flows."* The brown OS-track ink is
+   *  gone: a flow is a channelled current of mana, drawn in a deep arcane
+   *  teal no natural feature on this map uses. */
+  route: '#1d7f86',
   /** ★ THE CASING UNDER IT — the near-black outline every real map draws first,
    *  then lays the coloured core over. It is most of why a printed map's lines
-   *  read as LINES and ours read as strokes: the casing separates the road from
-   *  whatever ground it crosses, whatever colour that ground is. */
-  casing: '#3a2410',
+   *  read as LINES and ours read as strokes: the casing separates the flow from
+   *  whatever ground it crosses, whatever colour that ground is. Teal-black
+   *  now, matching the current it cases. */
+  casing: '#0c353b',
   /** A route that is only dotted on the plan — a right of way, not a road. */
   unmade: '#8d8a80',
   // ⚠️ NOT THE SAME AS `you`, AND IT USED TO BE. Both were #8ff0cf in the dark
@@ -53,7 +57,7 @@ export const INK = {
   // dot you are standing on — which is always there. The check would have passed
   // with nothing filling at all. Found by `test/ink.test.ts` the day it was
   // written, and the constraint survives the repaint.
-  fill: '#e2622e',       // the road being made, filling
+  fill: '#3ec6da',       // the flow being opened — bright, unmistakably arcane
   flowing: '#e8a13c',
   barred: '#b03050',
   foe: '#8f2f22',

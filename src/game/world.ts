@@ -91,7 +91,7 @@ const ground = (g: string): string => ({
   wood: 'Wood — has to be cleared before it is cut',
   crag: 'Crag — steep',
   water: 'Water — needs a ford or a bridge',
-  stone: 'Hard standing — takes a pipe well',
+  stone: 'Hard standing — takes a flow well',
   bog: 'Bog — it swallows what you lay in it',
 }[g] ?? g);
 
@@ -105,7 +105,7 @@ function doing(g: Game): Node {
     const far = x === g.at ? y! : x!;
     return {
       id: DOING, kind: 'doing',
-      name: g.building.to > 1 ? 'Widening the pipe' : 'Laying pipe',
+      name: g.building.to > 1 ? 'Widening the flow' : 'Opening the flow',
       body: `Toward ${nameOf(far)}, by ${g.building.kit}. ${Math.ceil(g.building.left)}s `
         + 'left. It keeps going while the game is closed.',
     };
@@ -225,7 +225,7 @@ export function theWay(g: Game): WayPlan | null {
     // Mid-fight the FOE's name is the news — the crew mark goes quiet so the
     // two never fight over the same patch of label space.
     name: g.facing?.foe ? ''
-      : g.building.to > 1 ? 'Widening the pipe' : 'Laying pipe',
+      : g.building.to > 1 ? 'Widening the flow' : 'Opening the flow',
     body: `Toward ${nameOf(far)}, by ${g.building.kit}. `
       + `${Math.ceil(g.building.left)}s of work left — tap the crew to hurry it.`,
     // Stopped AT trouble, the crew stands a step short of it — so the met
@@ -279,11 +279,11 @@ export function self(g: Game): View {
         body: `Standing at ${at.name}. ${ground(at.ground)}.` },
       { id: stopId(g.at), kind: 'stop', name: at.name, body: ground(at.ground) },
       { id: 'carry:mana', kind: 'carry', name: `${g.mana} mana`,
-        body: 'Pipe is the only thing that takes it. Walking a line you have '
+        body: 'The flows are the only thing that takes it. Walking a line you have '
           + 'already opened is free.' },
       { id: 'stat:flow', kind: 'fact', name: perSec(manaRate(g)),
         body: 'What the network actually delivers to where you stand. The narrowest '
-          + 'pipe between here and the start governs the lot, so widening a tight '
+          + 'flow between here and the start governs the lot, so widening a tight '
           + 'one is worth more than laying a slack one.' },
       // ★ THE CREW. Five stats, EACH ITS OWN NODE — the owner, on seeing them
       // crammed into one: *"that doesn't look right, each stat should be a
@@ -305,8 +305,8 @@ export function self(g: Game): View {
         body: next
           ? `${buildSecs(g, next.to)}s. Price is how far it runs times how bad the `
             + 'ground is; what it CARRIES runs the other way — cheap ground is '
-            + 'narrow ground, and hard standing takes a pipe well.'
-          : 'Every pipe out of this stop is as wide as it goes.' },
+            + 'narrow ground, and hard standing takes a flow well.'
+          : 'Every flow out of this stop is as wide as it goes.' },
     ],
     edges: [
       { a: 'you', b: stopId(g.at), rel: 'stands' },
@@ -335,9 +335,9 @@ export function crossing(g: Game): View {
       { id: stopId(FINISH), kind: 'stop', name: 'Finish',
         body: done
           ? 'Joined. The chapter is crossed.'
-          : 'Not joined yet. One line of pipe end to end is the whole of it.' },
+          : 'Not joined yet. One flow running end to end is the whole of it.' },
       { id: 'stat:reach', kind: 'fact', name: `${lit.size} of ${STOPS.length} reached`,
-        body: 'Stops the mana can get to along pipe you have laid.' },
+        body: 'Stops the mana can get to along flows you have opened.' },
       { id: 'stat:done', kind: 'fact', name: done ? 'Crossed' : 'Not crossed',
         body: done
           ? 'A path runs start to finish. Done is done.'
@@ -386,8 +386,8 @@ export function deedsFor(g: Game, nodeId: string): Deed[] {
   return [...walk, {
     kind: 'build', to: id, why,
     label: r.gauge > 0
-      ? `Widen the pipe to ${r.name} (${r.gauge} of ${MAX_GAUGE})`
-      : `Lay the pipe to ${r.name}`,
+      ? `Widen the flow to ${r.name} (${r.gauge} of ${MAX_GAUGE})`
+      : `Open a flow to ${r.name}`,
     note: why ?? `${r.cost} mana · ${buildSecs(g, id)}s · carries `
       + `${((r.gauge + 1) * r.bore).toFixed(2)} a second · climbs ${climbTo(g, id)}`,
   }];

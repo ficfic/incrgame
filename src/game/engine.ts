@@ -221,7 +221,7 @@ export const FORAGE_SECS = 18;
 
 /** Why the crew cannot go scavenging right now, in plain words, or null. */
 export function unforageable(g: Game): string | null {
-  if (g.building) return 'the crew is laying pipe';
+  if (g.building) return 'the crew is out opening a flow';
   if (g.foraging) return 'already out scavenging';
   if (g.provisions >= 10) return 'your packs are full';
   return null;
@@ -379,7 +379,7 @@ export function unbuildable(g: Game, to: number): string | null {
 export function blocked(g: Game, to: number): string | null {
   const here = STOP.get(g.at);
   if (!here?.near.includes(to)) return 'nothing joins these';
-  if (!((g.gauge[roadKey(g.at, to)] ?? 0) > 0)) return 'there is no pipe here yet';
+  if (!((g.gauge[roadKey(g.at, to)] ?? 0) > 0)) return 'no flow is open here yet';
   return null;
 }
 

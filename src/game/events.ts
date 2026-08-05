@@ -60,7 +60,7 @@ export const HAPPENINGS: readonly Happening[] = [
     id: 'oldstones', name: 'Old stones',
     on: ['moor', 'stone', 'crag'],
     body: 'The picks ring on worked stone a foot under the turf. Squared blocks, '
-      + 'laid by nobody the kingdom remembers, running exactly where your pipe wants to go.',
+      + 'laid by nobody the kingdom remembers, running exactly where your flow wants to go.',
     choices: [
       { label: 'Read them before you break them', stat: 'wits',
         strong: 'An older line, dead level, laid by better men. You run yours along its back and gain by it.',
@@ -83,7 +83,7 @@ export const HAPPENINGS: readonly Happening[] = [
       + 'says this ground has been their family\'s since before the king\'s road had an end.',
     choices: [
       { label: 'Talk it through by the fire', stat: 'heart',
-        strong: 'By dark they are helping carry pipe, on the promise the line names their ford.',
+        strong: 'By dark they are helping haul the line, on the promise it names their ford.',
         weak: 'They take a toll in mana and leave grinning. Cheaper than a feud.',
         miss: 'The talk sours. The chain stays and the day is gone with it.' },
       { label: 'Walk the chain down', stat: 'iron',
@@ -99,7 +99,7 @@ export const HAPPENINGS: readonly Happening[] = [
       + 'evenly, like something under there is swallowing with care.',
     choices: [
       { label: 'Raft the line on cut brush', stat: 'wits',
-        strong: 'The old trick holds. The pipe rides the bog like a boat.',
+        strong: 'The old trick holds. The flow rides the bog like a boat.',
         weak: 'It holds, but the brush-cutting eats mana and daylight.',
         miss: 'The raft ties into the roots of something that objects. Back a length.' },
       { label: 'Wade in and shore it by hand', stat: 'iron',
@@ -173,7 +173,7 @@ export const FOES: readonly Foe[] = [
     id: 'wights', name: 'Bog wights', strength: 3,
     on: ['bog', 'water'],
     body: 'Grey shapes stand up out of the pools, wearing the faces of drowned '
-      + 'surveyors. They do not want the pipe here.',
+      + 'surveyors. They do not want the flow here.',
     choices: [
       { label: 'Break them with iron', stat: 'iron',
         strong: 'The bar goes through one like wet peat. The others watch, and learn.',

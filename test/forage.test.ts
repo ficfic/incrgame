@@ -80,13 +80,13 @@ describe('★ scavenging trades time for provisions', () => {
 });
 
 describe('★★ the trade is exclusive both ways round', () => {
-  it('no scavenging while the crew lays pipe, and it says why', () => {
+  it('no scavenging while the crew is out on a flow, and it says why', () => {
     const laying = apply({ ...initial(), mana: 999 }, { type: 'build', to, kit: 'cart' });
-    expect(unforageable(laying)).toBe('the crew is laying pipe');
+    expect(unforageable(laying)).toBe('the crew is out opening a flow');
     expect(forage(laying).foraging).toBeNull();
   });
 
-  it('no laying pipe while the crew scavenges, and it says why', () => {
+  it('no opening flows while the crew scavenges, and it says why', () => {
     const out = forage({ ...initial(), mana: 999 });
     expect(unbuildable(out, to)).toBe('the crew is out scavenging');
     expect(apply(out, { type: 'build', to, kit: 'cart' }).building).toBeNull();

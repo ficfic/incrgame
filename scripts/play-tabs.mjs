@@ -550,8 +550,8 @@ const target = neighbours[0];
 const first = await deedOn(target);
 console.log('  offers  :', first ? `"${first.text}"${first.off ? ' [shut]' : ''}` : '(nothing)');
 if (!first) misses.push('tapping the stop beside you offers no deed at all');
-else if (!/^Lay the pipe to /.test(first.text)) {
-  misses.push(`the deed does not offer to lay a pipe: "${first.text}"`);
+else if (!/^Open a flow to /.test(first.text)) {
+  misses.push(`the deed does not offer to open a flow: "${first.text}"`);
 }
 // ★ THE ROUTE IS PLANNED, NOT GUESSED: every lay quotes what the leg climbs,
 // off the height grid — the owner: *"our routes are planned and we know the
@@ -583,7 +583,7 @@ if (!live || live.off) {
 } else {
   const liveBg = await page.evaluate(() => {
     const x = [...document.querySelectorAll('.deed')].find((e) => !e.disabled
-      && /^Lay the pipe/.test(e.textContent.trim()));
+      && /^Open a flow/.test(e.textContent.trim()));
     return x ? getComputedStyle(x).backgroundColor : null;
   });
   console.log('  live bg :', liveBg ?? '(none)');
@@ -598,7 +598,7 @@ if (!live || live.off) {
   await page.locator('nav button', { hasText: 'Chapter' }).click();
   await page.waitForTimeout(400);
   await pick(`.map .node[data-id="${target}"]`);
-  await page.locator('.deed', { hasText: 'Lay the pipe' }).first().click({ timeout: 3000 });
+  await page.locator('.deed', { hasText: 'Open a flow' }).first().click({ timeout: 3000 });
   await page.waitForTimeout(300);
 
   // ★★ PREPARE FIRST. The owner: *"in order to start building a leg, you need
@@ -669,6 +669,13 @@ if (!live || live.off) {
   if (wayDots < 3) misses.push(`the leg shows only ${wayDots} waypoints — Here did not become the way`);
   if (!haltDots) misses.push('nothing marks the trouble ahead — the halt is invisible again');
   if (!crewDot) misses.push('no crew mark on the works');
+  // ★ FOGGED HERE TOO — the owner: *"there's no fog of war in here tab."*
+  // The surveyed corridor is clear; the land beyond it is still parchment.
+  const wayFogPx = await ink('fog');
+  const fogAtCrew = await inkNear('fog', '.map .node[data-id="doing"]', 40);
+  console.log('  fogged  :', `${wayFogPx}px of parchment beyond the corridor, ${fogAtCrew}px on the crew`);
+  if (wayFogPx < 50000) misses.push(`only ${wayFogPx}px of fog on the way — the land beyond the corridor is charted for free`);
+  if (fogAtCrew > 60) misses.push(`${fogAtCrew}px of fog on the crew — the surveyed corridor is not clear`);
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-way.png') });
 
   // ★★ THE PUSH. Five taps of the crew mark are six seconds of work — the
@@ -823,7 +830,7 @@ const deedTexts = await page.$$eval('.deed', (bs) =>
   bs.map((x) => ({ t: x.textContent.replace(/\s+/g, ' ').trim(), off: x.disabled })));
 console.log('  offers  :', deedTexts.map((d) => `"${d.t}"${d.off ? ' [shut]' : ''}`).join('  |  ') || '(nothing)');
 console.log('  rate    :', `${rate0} a second on gauge 1`);
-const widen = deedTexts.find((d) => /^Widen the pipe/.test(d.t));
+const widen = deedTexts.find((d) => /^Widen the flow/.test(d.t));
 if (!widen) {
   misses.push('a pipe you have laid offers no way to widen it — the second verb is unreachable');
 } else {
@@ -836,7 +843,7 @@ if (!widen) {
   // Wait it out and take it.
   let took = false;
   for (let i = 0; i < 40; i++) {
-    const btn = page.locator('.deed', { hasText: 'Widen the pipe' }).first();
+    const btn = page.locator('.deed', { hasText: 'Widen the flow' }).first();
     if (await btn.count() && !await btn.isDisabled()) {
       openText = (await btn.textContent()).replace(/\s+/g, ' ').trim();
       await btn.click({ timeout: 3000 });

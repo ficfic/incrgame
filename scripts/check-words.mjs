@@ -51,6 +51,10 @@ const INSTEAD = {
   node: 'stop', nodes: 'stops',
   edge: 'road', edges: 'roads',
   pace: 'a real resource', paces: 'a real resource',
+  // ★ THE THIRD TURN OF THE WHEEL, 2026-08-04. The owner: "i don't like the
+  // pipe wording… we are building mana flows." Yesterday's enforced word is
+  // today's banned one, exactly as this file's header predicts.
+  pipe: 'flow', pipes: 'flows',
 };
 
 /** ⚠️ "way" IS NOT BANNED OUTRIGHT: it is ordinary English and the game will

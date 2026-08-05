@@ -105,8 +105,8 @@
 
   // ★ THE WAY — while a crew is out, Here IS the leg (the owner's design:
   // "it is the separate tab kinda where it happens"). Authored positions
-  // along the real path, so no force layout and no fog: the corridor is
-  // surveyed by definition.
+  // along the real path, so no force layout; the fog covers everything but
+  // the surveyed corridor.
   const way = $derived(tab === 'here' ? theWay(game) : null);
   const view = $derived(way ? way.view : TABS.find((t) => t.id === tab)!.view(game));
   // The journey's shape never changes, so its layout is the constant solved at
@@ -226,7 +226,18 @@
   // every stop you have SEEN (your ken names more, but names are not charts),
   // and along every pipe with any work in it, plus the king's-road feed.
   const fog = $derived.by(() => {
-    if (tab !== 'chapter' || charted(game)) return null;
+    if (charted(game)) return null;
+    // ★ ON THE WAY TOO — the owner: *"there's no fog of war in here tab."*
+    // The corridor the crew surveys is clear; the land beyond it is still
+    // parchment, and the far stop's surroundings stay unknown until you have
+    // stood there.
+    if (way) {
+      const spots = way.spots
+        .filter((p) => p.id.startsWith('stop:') && game.seen.includes(numOf(p.id)))
+        .map((p) => ({ x: p.x, y: p.y }));
+      return { spots, runs: [way.lines.flatMap((l) => l.pts)] };
+    }
+    if (tab !== 'chapter') return null;
     const spots: { x: number; y: number }[] = [];
     for (const id of game.seen) {
       const p = spotOf.get(stopId(id));
@@ -509,7 +520,7 @@
       {/if}
       {#if canArm}
         <button class="deed arm" class:armed={arming} onclick={() => (arming = !arming)}>
-          {arming ? 'Now tap the far stop' : 'Lay a pipe…'}
+          {arming ? 'Now tap the far stop' : 'Open a flow…'}
           <em>{arming ? 'or tap here again to cancel' : 'tap a stop beside this one'}</em>
         </button>
       {/if}
@@ -542,11 +553,11 @@
       <!-- The Here tab carries the countdown on a dot of its own, so saying it
            again underneath would be the same number twice on one screen. -->
       {#if game.building && chosen.id !== DOING}
-        <p class="note">Laying pipe — {Math.ceil(game.building.left)}s left.
+        <p class="note">Opening the flow — {Math.ceil(game.building.left)}s left.
           It keeps going while the game is closed.</p>
       {/if}
       {#if !deeds.length && chosen.id.startsWith('stop:') && numOf(chosen.id) === game.at}
-        <p class="note">You are here. Tap a stop beside you to lay pipe.</p>
+        <p class="note">You are here. Tap a stop beside you to open a flow.</p>
       {/if}
     {:else if awayLine}
       <!-- What you missed while the phone was in a pocket. It sits where the
