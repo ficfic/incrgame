@@ -30,7 +30,19 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
   const raw = await loadBlob().catch(() => null);
   if (!raw) return null;
   try {
-    const b = JSON.parse(raw) as Blob;
+    const got = honour(JSON.parse(raw) as Blob);
+    if (got) void requestPersistence();
+    return got;
+  } catch {
+    return null;
+  }
+}
+
+/** ★ THE ONE JUDGE OF A SAVE — shared by load and import, so a blob a friend
+ *  pastes is held to exactly the law the disk is. Pure: no storage, no side
+ *  effects, testable in a vice. */
+export function honour(b: Blob | null | undefined): { game: Game; savedAt: number } | null {
+  try {
     if (b?.v !== SAVE_VERSION || typeof b.savedAt !== 'number') return null;
     const g = b.game;
     if (!g || !STOP.has(g.at)) return null;
@@ -66,6 +78,8 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
       && ['wits', 'shadow'].includes(g.foraging.stat))) return null;
     if (g.provisions !== undefined
       && !(Number.isInteger(g.provisions) && g.provisions >= 0 && g.provisions <= 10)) return null;
+    if (g.cleared !== undefined
+      && !(Number.isInteger(g.cleared) && g.cleared >= 0)) return null;
     if (g.stats !== undefined) {
       if (!g.stats || typeof g.stats !== 'object') return null;
       for (const k of STATS) {
@@ -99,8 +113,24 @@ export async function load(): Promise<{ game: Game; savedAt: number } | null> {
         && !(Number.isInteger(g.facing.foe.left) && g.facing.foe.left >= 1
           && g.facing.foe.left <= 12)) return null;
     }
-    void requestPersistence();
     return { game: { ...initial(), ...g }, savedAt: b.savedAt };
+  } catch {
+    return null;
+  }
+}
+
+/** ★ EXPORT — how the owner moves a save between devices; the guarantee that
+ *  survived even the breakable-saves reversal. Just the blob, as text. */
+export const exportRaw = (g: Game): string =>
+  JSON.stringify({ v: SAVE_VERSION, savedAt: Date.now(), game: g });
+
+/** ★ IMPORT — honour it first, store it only if honoured. */
+export async function importRaw(json: string): Promise<{ game: Game; savedAt: number } | null> {
+  try {
+    const got = honour(JSON.parse(json) as Blob);
+    if (!got) return null;
+    await saveBlob(json).catch(() => {});
+    return got;
   } catch {
     return null;
   }

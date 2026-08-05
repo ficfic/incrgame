@@ -108,7 +108,9 @@ describe('★★ the washout, played', () => {
     expect(broke.facing!.scene!.gauges.water).toBe(3);
     const paid = verb(inWashout(key, { mana: 5 }), 'channel');
     expect(paid.mana).toBe(2);
-    expect(paid.facing!.scene!.gauges.water).toBe(0);
+    // Railed to 0 by the payment, then the verb's own time cost drifts it:
+    // VERB_SECS 1.5 x 0.45 = 0.675 of water back in. Tapping costs time now.
+    expect(paid.facing!.scene!.gauges.water).toBeCloseTo(0.675, 6);
   });
 
   it('★★ deep water BRANCHES the stage, bailing branches it back', () => {
@@ -190,5 +192,58 @@ describe('★★ the brigands: hidden HP, revealed by playing', () => {
       for (const r of sc.rules) expect(ids.has(r.gauge), `${sc.id}:${r.gauge}`).toBe(true);
       expect(sc.stages.length).toBeGreaterThanOrEqual(2);
     }
+  });
+});
+
+describe('★★ the tuning pass, 2026-08-05 — the reviews made flesh', () => {
+  const key = legOn('stone') ?? roadKey(START, STOP.get(START)!.near[0]!);
+
+  it('★★ tapping is not free: every verb lets VERB_SECS of world in', () => {
+    // Five free digs used to cost nothing; now they let ~3.4 of water rise.
+    let g = inWashout(key);
+    for (let i = 0; i < 5; i++) g = verb(g, 'dig');
+    expect(g.facing!.scene!.gauges.water!).toBeGreaterThan(3 + 3);
+  });
+
+  it('★ a long absence is ONE gentle breath, not a drowning', () => {
+    const g = tick(inWashout(key), 3600);
+    // Clamped to DRIFT_CAP seconds of drift: 3 + 6 x 0.45 = 5.7, no setback.
+    expect(g.facing!.scene!.gauges.water!).toBeLessThan(6);
+    expect(g.provisions).toBe(initial().provisions);
+  });
+
+  it('★ a setback keeps what you LEARNED — revealed gauges stay revealed', () => {
+    const brigands = sceneById('brigands')!;
+    let g: Game = { ...initial(), mana: 20,
+      building: { key, from: Number(key.split('|')[0]), left: 7, secs: 14, to: 1,
+        halts: [0.5], kit: 'packs' },
+      facing: { key, event: 'brigands', rolled: null,
+        scene: { stage: 'knives', gauges: { patience: 4, temper: 8, nerve: 0.05 },
+          shown: ['patience'] } } };
+    void brigands;
+    g = tick(g, 1);
+    expect(g.facing!.scene!.stage).toBe(sceneById('brigands')!.stages[0]!.id);
+    expect(g.facing!.scene!.shown).toContain('patience');
+  });
+
+  it('★★ the crew HARDENS: every third encounter cleared raises the weakest stat', () => {
+    let g = inWashout(key, { cleared: 2 });
+    for (let i = 0; i < 12 && g.facing; i++) g = verb(g, 'dig');
+    expect(g.facing).toBeNull();
+    expect(g.cleared).toBe(3);
+    const before = Object.values(initial().stats).reduce((a, b) => a + b, 0);
+    const after = Object.values(g.stats).reduce((a, b) => a + b, 0);
+    expect(after).toBe(before + 1);
+    // The weakest went up — heart or its twin at 1, never iron at 3.
+    expect(Math.min(...Object.values(g.stats))).toBeGreaterThanOrEqual(
+      Math.min(...Object.values(initial().stats)));
+    expect(g.stats.iron).toBe(initial().stats.iron);
+  });
+
+  it('two clears do not harden — the third does', () => {
+    let g = inWashout(key, { cleared: 0 });
+    for (let i = 0; i < 12 && g.facing; i++) g = verb(g, 'dig');
+    expect(g.cleared).toBe(1);
+    expect(g.stats).toEqual(initial().stats);
   });
 });

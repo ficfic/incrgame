@@ -503,17 +503,24 @@ if (!/\+0\.4 a tap/.test(springSays)) {
 // button, and disarms itself — the purse must survive the whole exchange.
 console.log('\nSTART OVER');
 const beforeArm = await purse();
-await page.locator('.reset').click({ timeout: 3000 });
-const armed = await page.$eval('.reset', (e) => e.textContent.trim());
+await page.locator('.reset:not(.porter)').click({ timeout: 3000 });
+const armed = await page.$eval('.reset:not(.porter)', (e) => e.textContent.trim());
 console.log('  armed   :', `"${armed}"`);
 if (!/Tap again/.test(armed)) misses.push(`one tap of Start over does not ask: "${armed}"`);
 await page.waitForTimeout(3400);
-const disarmed = await page.$eval('.reset', (e) => e.textContent.trim());
+const disarmed = await page.$eval('.reset:not(.porter)', (e) => e.textContent.trim());
 const afterArm = await purse();
 console.log('  disarms :', `"${disarmed}", purse ${beforeArm} → ${afterArm}`);
 if (!/Start over/.test(disarmed)) misses.push(`the armed wipe never disarms: "${disarmed}"`);
 if (afterArm < beforeArm) {
   misses.push(`one tap and a wait wiped the run — purse fell ${beforeArm} → ${afterArm}`);
+}
+// ★ EXPORT/IMPORT — the one save guarantee, flagged missing twice by the
+// genre review. The buttons must exist; the law behind them is vitest's.
+const porters = await page.$$eval('.reset.porter', (bs) => bs.map((b) => b.textContent.trim()));
+console.log('  ports   :', porters.join(' · ') || '(none)');
+if (!porters.includes('Copy save') || !porters.includes('Load a save')) {
+  misses.push('export/import buttons are missing from the header');
 }
 
 // --------------------------------------------------------- laying a road ----
@@ -708,8 +715,11 @@ if (!live || live.off) {
     // brigands. Which one is on this leg is the map's call, not the probe's.
     if (await page.locator('.dial').count()) {
       const which = await panelText();
-      const btn = /washout/i.test(which) ? 'Dig' : 'Talk them down';
+      const wet = /washout/i.test(which);
       for (let t = 0; t < 4; t++) {
+        const water = wet ? parseInt(await page.$eval('[data-bar="water"]', (e) => e.style.width)
+          .catch(() => '0'), 10) : 0;
+        const btn = wet ? (water > 70 ? 'Bail' : 'Dig') : 'Talk them down';
         await page.locator('.deed.face', { hasText: btn }).click({ timeout: 800 }).catch(() => {});
       }
       await page.waitForTimeout(300);
@@ -1081,11 +1091,20 @@ else {
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-scene.png') });
   // Dig it out. Iron 3 digs 1.05 a tap; twenty-four taps survives one setback.
   let cleared = false;
-  for (let i = 0; i < 24 && !cleared; i++) {
+  for (let i = 0; i < 30 && !cleared; i++) {
     const dig = page.locator('.deed.face', { hasText: 'Dig' });
     if (!(await dig.count())) { cleared = true; break; }
-    await dig.click({ timeout: 1500 }).catch(() => {});
-    await page.waitForTimeout(140);
+    // ★ PLAYED, NOT MASHED: verbs cost time now, so the water races the
+    // spade — bail when it runs high. The tuning pass made Bail a real verb;
+    // this is it, earning its keep on screen.
+    const water = parseInt(await page.$eval('[data-bar="water"]', (e) => e.style.width)
+      .catch(() => '0'), 10);
+    if (water > 70) {
+      await page.locator('.deed.face', { hasText: 'Bail' }).click({ timeout: 1500 }).catch(() => {});
+    } else {
+      await dig.click({ timeout: 1500 }).catch(() => {});
+    }
+    await page.waitForTimeout(120);
   }
   const after = await panelText();
   console.log('  dug     :', cleared || !/The washout/.test(after) ? 'the way is CLEAR' : `still in it: "${after.slice(0, 60)}"`);

@@ -197,21 +197,23 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     expect(g.at).toBe(START);
   });
 
-  it('★ finishing a fresh lay restocks one provision', () => {
+  it('★ finishing a fresh lay restocks NOTHING — food comes from scavenging', () => {
+    // ⚠️ REVERSED 2026-08-05 on chad-liquidity's books: with the arrival
+    // refund, provisions were EV-positive and never bit. The suited kit's
+    // provision is a real spend now.
     const to = STOP.get(START)!.near[0]!;
     let g = apply(flush(), { type: 'build', to, kit: 'cart' });
     for (let i = 0; i < 80 && g.building; i++) {
       g = tick(g, 2);
-      if (g.facing) {
+      if (g.facing?.scene) {
+        for (let j = 0; j < 20 && g.facing; j++) g = apply(g, { type: 'scene', verb: 'dig' });
+      } else if (g.facing) {
         g = apply(g, { type: 'face', choice: 0, roll: { a: 6, c1: 1, c2: 2 } });
         g = apply(g, { type: 'carry' });
       }
     }
     expect(g.gauge[roadKey(START, to)]).toBe(1);
-    // The cart is the suited kit on this leg: one provision to stock it going
-    // out, one restocked on arrival — net level, which is the design: the
-    // suited kit pays for itself only if the leg actually finishes.
-    expect(g.provisions).toBe(initial().provisions - 1 + 1);
+    expect(g.provisions).toBe(initial().provisions - 1);
   });
 
   it('★ the kit rides every roll: suited +1 can turn a weak hit strong', () => {

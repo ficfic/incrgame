@@ -34,7 +34,7 @@
   import { troubleById, isFoe } from '../game/events';
   import { sceneById } from '../game/scenes';
   import { pathOf } from '../game/paths';
-  import { load, save, wipe, elapsedSince } from '../game/store';
+  import { load, save, wipe, elapsedSince, exportRaw, importRaw } from '../game/store';
 
   let game = $state<Game>(initial());
   let ready = $state(false);
@@ -60,6 +60,29 @@
   /** ★ START OVER ARMS FIRST. One stray tap wiped a run in the owner's
    *  play-test; now the first tap asks and disarms itself in 3s. */
   let wiping = $state(false);
+  /** ★ EXPORT/IMPORT — the one save guarantee that survived every reversal:
+   *  it is how the owner moves a run between devices. Flagged missing by
+   *  the-redditor twice; here at last. */
+  let ported = $state<'copied' | 'refused' | null>(null);
+  async function copySave(): Promise<void> {
+    await navigator.clipboard.writeText(exportRaw(game)).catch(() => {});
+    ported = 'copied';
+    setTimeout(() => (ported = null), 2000);
+  }
+  async function pasteSave(): Promise<void> {
+    const t = window.prompt('Paste a save');
+    if (!t) return;
+    const got = await importRaw(t);
+    if (got) {
+      game = got.game;
+      picked = null;
+      prep = null;
+      found = null;
+    } else {
+      ported = 'refused';
+      setTimeout(() => (ported = null), 2600);
+    }
+  }
 
   /** ★ THE ONLY DICE IN THE HOUSE. Rolled here in the shell and handed to the
    *  engine as plain numbers — `apply` takes no randomness, ever. Real random,
@@ -435,6 +458,12 @@
         }}>
         {wiping ? 'Wipe it? Tap again' : 'Start over'}
       </button>
+      <button class="reset porter" onclick={copySave}>
+        {ported === 'copied' ? 'Copied' : 'Copy save'}
+      </button>
+      <button class="reset porter" onclick={pasteSave}>
+        {ported === 'refused' ? 'That save was refused' : 'Load a save'}
+      </button>
     </div>
   </header>
 
@@ -662,6 +691,7 @@
   .spring:active { transform: scale(0.95); background: #efe6d2; }
   .spring em { color: #a89a80; font-size: 12px; font-style: normal; }
   .reset.armed { border-color: #b03050; color: #b03050; font-weight: 600; }
+  .reset.porter { font-size: 12px; padding: 4px 9px; }
   .purse b { font-size: 22px; color: #1f6b3a; }
   /* Scene gauges: a label and a thin bar, nothing that needs reading twice. */
   .dial { display: flex; align-items: center; gap: 10px; margin: 6px 0; }

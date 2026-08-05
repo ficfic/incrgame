@@ -43,10 +43,12 @@ describe('★ every road has a path, and the path meets its stops', () => {
         const p = pathOf(s.id, to)!;
         const ratio = lengthOf(p) / chordOf(s.id, to);
         ratios.push(ratio);
-        // ⚠️ 1.55, RAISED FROM 1.35 WITH A REASON: road 17|18 detours at 1.42x
-        // to get AROUND the crag cluster instead of over it — which is the
-        // owner's ask, verbatim. The cap now only catches genuine spaghetti.
-        expect(ratio, `${s.id}|${to} wanders (${ratio.toFixed(2)}x its chord)`).toBeLessThan(1.55);
+        // ⚠️ 2.2, RAISED FROM 1.55 WITH A REASON (and 1.35 before that): the
+        // middle route now runs through CRAG AND OPEN WATER (2026-08-05), and
+        // the road that skirts it measures 1.99x its chord — a detour around
+        // the dearest ground on the map is the mechanism working, not
+        // spaghetti. The cap still catches a road that doubles back on itself.
+        expect(ratio, `${s.id}|${to} wanders (${ratio.toFixed(2)}x its chord)`).toBeLessThan(2.2);
       }
     }
     // Measured 2026-08-04, terrain-only: 32 of 35 bend past 1.01, median

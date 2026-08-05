@@ -43,7 +43,7 @@
 // as a `tick` carrying seconds.
 import { STOP, START, FINISH, nameOf, roadCost, roadsFrom, boreOf, GOING } from './stops';
 import { maxFlow, loads, type Pipe } from './flow';
-import { judge, judgeBurned, burnHelps, legal, clampMomentum, START_STATS,
+import { judge, judgeBurned, burnHelps, legal, clampMomentum, START_STATS, STATS,
   MOMENTUM_START, MOMENTUM_RESET, type Roll, type Stat } from './dice';
 import { HAPPENINGS, happeningsOn, foesOn, troubleById, isFoe,
   type Happening, type Foe } from './events';
@@ -119,6 +119,9 @@ export interface Game {
    *  the whole leg. The other resource the owner asked for, and the one that
    *  makes an event mean something. */
   provisions: number;
+  /** ★ ENCOUNTERS CLEARED, lifetime — the compounding the reviews found
+   *  missing. Every GROW_EVERY of these hardens the crew's weakest stat. */
+  cleared: number;
   /** ★ SCAVENGING — Ironsworn's Resupply, worn local. The owner: *"so, like,
    *  scavenge for provisions."* Time spent at a stop with the crew idle, ended
    *  by a roll on the stat you chose going in. Trades the one thing the game
@@ -327,6 +330,31 @@ export function sceneFor(key: string, halt: number): Scene | null {
   return pool[Math.floor(hash(`${key}@${halt}#which-scene`) * pool.length)]!;
 }
 
+/** ★ THE CREW HARDENS. Every third encounter cleared raises the weakest
+ *  stat by one (cap 5) — the one compounding number every review agreed was
+ *  missing: minute nine is now measurably stronger than minute one. */
+export const GROW_EVERY = 3;
+function harden(g: Game): Game {
+  const cleared = g.cleared + 1;
+  let next: Game = { ...g, cleared };
+  if (cleared % GROW_EVERY === 0) {
+    const low = [...STATS].sort((a, b) => next.stats[a] - next.stats[b])
+      .find((k) => next.stats[k] < 5);
+    if (low) next = { ...next, stats: { ...next.stats, [low]: next.stats[low] + 1 } };
+  }
+  return next;
+}
+
+/** ★ EVERY VERB COSTS TIME. Tapping is not free any more: each use of a
+ *  scene verb lets the world drift this many seconds — which is what makes
+ *  Bail, the mana channel and the whole flooded stage reachable at all. */
+export const VERB_SECS = 1.5;
+
+/** ⚠️ A LONG TICK IS A KIND TICK. Scene drift per single tick is clamped, so
+ *  coming back after an hour does not drown a scene you left open — an idle
+ *  game must never punish putting the phone down. */
+export const DRIFT_CAP = 6;
+
 /** A fresh scene state, gauges at their starting marks, nothing revealed. */
 export function sceneStart(sc: Scene): { stage: string; gauges: Record<string, number>; shown: string[] } {
   const gauges: Record<string, number> = {};
@@ -353,12 +381,12 @@ function judgeScene(g: Game): Game {
       return { ...g, facing: { ...g.facing, scene: { ...st, stage: r.goto } } };
     }
     if (r.end === 'cleared') {
-      return {
+      return harden({
         ...g,
         momentum: clampMomentum(g.momentum + 1),
         facing: null,
         building: { ...g.building, halts: g.building.halts.slice(1) },
-      };
+      });
     }
     if (r.end === 'setback') {
       if (g.provisions <= 0) {
@@ -372,11 +400,31 @@ function judgeScene(g: Game): Game {
           ...g.building,
           left: Math.min(g.building.secs, g.building.left + g.building.secs * 0.25),
         },
-        facing: { ...g.facing, scene: sceneStart(sc) },
+        // What you LEARNED survives the setback — their patience does not
+        // re-hide because the water won a round.
+        facing: { ...g.facing, scene: { ...sceneStart(sc), shown: g.facing.scene!.shown } },
       };
     }
   }
   return g;
+}
+
+/** ★ THE DRIFT, shared by the tick and by every verb's time cost. Ground
+ *  multiplies it: the journey type is a modifier, the owner's sketch. */
+function driftScene(g: Game, secs: number): Game {
+  if (secs <= 0 || !g.facing?.scene || !g.building) return g;
+  const sc = sceneById(g.facing.event);
+  if (!sc) return g;
+  const ground = legGround(g.building.key) as keyof NonNullable<Scene['mods']>;
+  const mods = sc.mods?.[ground] ?? {};
+  const st = g.facing.scene;
+  const gauges = { ...st.gauges };
+  for (const spec of sc.gauges) {
+    if (!spec.drift) continue;
+    gauges[spec.id] = railed(sc, spec.id,
+      (gauges[spec.id] ?? spec.start) + spec.drift * (mods[spec.id] ?? 1) * secs);
+  }
+  return judgeScene({ ...g, facing: { ...g.facing, scene: { ...st, gauges } } });
 }
 
 /** Clamp a gauge into its own rails. */
@@ -533,6 +581,7 @@ export function initial(): Game {
     stats: { ...START_STATS },
     momentum: MOMENTUM_START,
     provisions: 6,
+    cleared: 0,
     foraging: null,
     facing: null,
   };
@@ -579,11 +628,10 @@ function advance(g: Game, work: number): Game {
   if (left > 0) return { ...next, building: { ...next.building!, left } };
   const done = next.building!;
   next = { ...next, gauge: { ...next.gauge, [done.key]: done.to }, building: null };
-  // The crew forages as it settles the new stop in — the trickle that
-  // keeps provisions alive until scavenging is a verb of its own.
-  if (done.to === 1) {
-    next = { ...next, provisions: Math.min(10, next.provisions + 1) };
-  }
+  // ⚠️ THE ARRIVAL RESTOCK IS GONE (chad-liquidity, 2026-08-05: provisions
+  // were EV-positive and never bit). Food comes from scavenging, and the
+  // suited kit's provision is a real spend now, not a loan.
+
   // ★ A FINISHED LAY CARRIES YOU OVER. The owner: *"obviously when we
   // build a road somewhere we arrive there too."* Only a fresh lay — a
   // widening is work on a line you already walk — and only if you are
@@ -629,24 +677,9 @@ export function apply(g: Game, a: Action): Game {
       }
 
       // ★★ A RUNNING SCENE DRIFTS — the incremental heartbeat of the
-      // encounter. Ground multiplies the drift: the journey type is a
-      // modifier, exactly the owner's sketch.
-      if (next.facing?.scene && next.building) {
-        const sc = sceneById(next.facing.event);
-        if (sc) {
-          const ground = legGround(next.building.key) as keyof NonNullable<Scene['mods']>;
-          const mods = sc.mods?.[ground] ?? {};
-          const st = next.facing.scene;
-          const gauges = { ...st.gauges };
-          for (const spec of sc.gauges) {
-            if (!spec.drift) continue;
-            gauges[spec.id] = railed(sc, spec.id,
-              (gauges[spec.id] ?? spec.start) + spec.drift * (mods[spec.id] ?? 1) * a.secs);
-          }
-          next = { ...next, facing: { ...next.facing, scene: { ...st, gauges } } };
-          next = judgeScene(next);
-        }
-      }
+      // encounter — CLAMPED per tick so a long absence is one gentle breath,
+      // not a drowning.
+      next = driftScene(next, Math.min(a.secs, DRIFT_CAP));
 
       // ⚠️ WORK MOVES SLOWER THAN THE CLOCK — WORK_PACE of it. The rest is
       // the player's to push. Same advance the push action uses, so the two
@@ -676,13 +709,20 @@ export function apply(g: Game, a: Action): Game {
       }
       const shown = verb.reveals
         ? [...new Set([...st.shown, ...verb.reveals])] : st.shown;
-      const next: Game = {
+      let next: Game = {
         ...g,
         mana: g.mana - (verb.mana ?? 0),
         provisions: g.provisions - (verb.provisions ?? 0),
         facing: { ...g.facing, scene: { stage: st.stage, gauges, shown } },
       };
-      return judgeScene(next);
+      next = judgeScene(next);
+      // ★ THE TAP COSTS TIME. If the scene still stands, the world takes its
+      // VERB_SECS of drift — mashing the free verb now races the water for
+      // real, which is what wakes Bail, the channel and the flooded stage.
+      if (next.facing?.scene && next.facing.event === g.facing.event) {
+        next = driftScene(next, VERB_SECS);
+      }
+      return next;
     }
 
     case 'build': {
@@ -782,11 +822,11 @@ export function apply(g: Game, a: Action): Game {
         next = { ...next, momentum: clampMomentum(next.momentum + 1) };
       }
       // Faced is faced, whatever the dice said: the hidden stop is behind you.
-      return {
+      return harden({
         ...next,
         facing: null,
         building: { ...next.building!, halts: next.building!.halts.slice(1) },
-      };
+      });
     }
 
     case 'forage': {

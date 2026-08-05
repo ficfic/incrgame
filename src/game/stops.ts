@@ -116,7 +116,11 @@ const LENGTH = [4, 5, 6, 5, 4];
 const TERRAIN: Ground[][] = [
   ['moor', 'moor', 'stone', 'moor'],
   ['wood', 'bog', 'bog', 'wood', 'stone'],
-  ['moor', 'stone', 'moor', 'stone', 'moor', 'moor'],
+  // ⚠️ FIXED 2026-08-05 (chad-liquidity): this row shipped as all moor and
+  // stone — the straight middle way was the CHEAPEST, making route choice
+  // theatre and this file's own header a lie. Now the short way is the dear
+  // one, as the header always claimed: crag and open water in the middle.
+  ['moor', 'crag', 'water', 'crag', 'stone', 'moor'],
   ['crag', 'crag', 'stone', 'crag', 'moor'],
   ['water', 'water', 'crag', 'water'],
 ];
