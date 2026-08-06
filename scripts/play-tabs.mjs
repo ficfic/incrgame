@@ -709,22 +709,53 @@ if (!live || live.off) {
   // resolving must set the work moving again. Every fresh lay meets at least
   // one, so this is not an if — the build cannot finish without it.
   console.log('\nTROUBLE');
+  // ★ HOW THE PROBE PLAYS EACH SCENE — the win verb, the verb that cools the
+  // threat meter when it runs past its mark (or below it, for breath), and
+  // the verb a branched stage falls back to when the win verb is locked.
+  // One row per scene. A scene this table does not know is a probe defect
+  // and is REPORTED, not skipped — the old version mashed a button that was
+  // not there and called the silence progress.
+  const PLAYS = [
+    { name: /washout/i, win: 'Dig', bar: 'water', coolAt: 70, cool: 'Bail', alt: 'Bail' },
+    { name: /brigands/i, win: 'Talk them down', alt: 'Stand together' },
+    { name: /wights/i, win: 'Drive the iron ring', bar: 'press', coolAt: 55,
+      cool: 'Rally the crew', alt: 'Drive them out' },
+    { name: /watcher/i, win: 'Watch how it moves', bar: 'near', coolAt: 65,
+      cool: 'Back the crew off', alt: 'Down tools and stare' },
+    { name: /Old stones/i, win: 'Bare them with care', alt: 'Shore the trench wall' },
+    { name: /Lights on the crag/i, win: 'Climb toward it', bar: 'dread', coolAt: 55,
+      cool: 'Post a steady watch', alt: 'Walk the rounds together' },
+    { name: /last of the light/i, win: 'Press them on', bar: 'wind', coolBelow: 25,
+      cool: 'Let them breathe', alt: 'Let them breathe' },
+  ];
   let faced = 0;
-  for (let i = 0; i < 44; i++) {
-    // ★ A SCENE INSTEAD OF DICE: play it — Dig for the washout, Talk for the
-    // brigands. Which one is on this leg is the map's call, not the probe's.
+  for (let i = 0; i < 70; i++) {
+    // ★ A SCENE INSTEAD OF DICE: play it by its row above. Which scene is on
+    // this leg is the map's call, not the probe's.
     if (await page.locator('.dial').count()) {
       const which = await panelText();
-      const wet = /washout/i.test(which);
+      const play = PLAYS.find((p) => p.name.test(which));
+      if (!play) {
+        misses.push(`a scene the probe cannot play: "${which.slice(0, 60)}"`);
+        break;
+      }
       for (let t = 0; t < 4; t++) {
-        const water = wet ? parseInt(await page.$eval('[data-bar="water"]', (e) => e.style.width)
-          .catch(() => '0'), 10) : 0;
-        const btn = wet ? (water > 70 ? 'Bail' : 'Dig') : 'Talk them down';
-        await page.locator('.deed.face', { hasText: btn }).click({ timeout: 800 }).catch(() => {});
+        const pct = play.bar
+          ? parseInt(await page.$eval(`[data-bar="${play.bar}"]`, (e) => e.style.width)
+            .catch(() => '-1'), 10)
+          : -1;
+        const coolNow = (play.coolAt != null && pct > play.coolAt)
+          || (play.coolBelow != null && pct >= 0 && pct < play.coolBelow);
+        for (const btn of [coolNow ? play.cool : play.win, play.alt]) {
+          const b = page.locator('.deed.face', { hasText: btn });
+          if (await b.count()) { await b.first().click({ timeout: 800 }).catch(() => {}); break; }
+        }
       }
       await page.waitForTimeout(300);
       faced++;
-      if (faced > 11) break;
+      // ⚠️ A SCENE TAKES TAPS — the wights run ~30, so the budget is wider
+      // than the dice cap ever needed to be.
+      if (faced > 27) break;
       continue;
     }
     const face = page.locator('.deed.face');
@@ -751,8 +782,9 @@ if (!live || live.off) {
       await page.waitForTimeout(400);
       faced++;
       // ⚠️ A FIGHT TAKES ROUNDS — this used to break after four carries and
-      // left a foe mid-fight, stranding everything downstream.
-      if (faced > 11) break;
+      // left a foe mid-fight, stranding everything downstream. The cap is
+      // shared with the scene path, so it matches the wider scene budget.
+      if (faced > 27) break;
       continue;
     }
     // The choice phase: the trouble is named and every choice shows its stat.
@@ -1111,6 +1143,47 @@ else {
   if (!cleared && /The washout/.test(after)) {
     misses.push('twenty-four digs never cleared the washout');
   }
+}
+
+// -------------------------------------------------------------- the race ----
+//
+// ★★ THE OWNER'S A-TO-B OBJECTIVE, verbatim: *"going from point a to b
+// (tapping to increase speed)."* Injected mid-leg so the odds cannot dodge
+// it: the crew must move ON THEIR OWN (the paced part), the dark must also
+// move (the deadline), and pressing must bring them home.
+console.log('\nTHE RACE');
+const tookRace = await loadSave(
+  () => ({ v: 8, savedAt: Date.now(),
+    game: { version: 8, at: 0, seen: [0], gauge: {}, mana: 20, part: 0,
+      building: { key: `0|${foeTarget}`, from: 0, left: 7, secs: 14, to: 1,
+        halts: [0.5], kit: 'packs' },
+      facing: { key: `0|${foeTarget}`, event: 'longdark', rolled: null,
+        scene: { stage: 'strung', gauges: { home: 0, dark: 0, wind: 8 }, shown: [] } } } }),
+  async () => /last of the light/i.test(await panelText()));
+if (!tookRace) misses.push('the mid-race save never loaded — the A-to-B objective was never tested');
+else {
+  const pct = async (bar) => parseInt(
+    await page.$eval(`[data-bar="${bar}"]`, (e) => e.style.width).catch(() => '-1'), 10);
+  const h0 = await pct('home');
+  await page.waitForTimeout(2600);
+  const h1 = await pct('home');
+  const d1 = await pct('dark');
+  console.log('  paced   :', `the crew ${h0}% → ${h1}% home across 2.6 idle seconds, the dark at ${d1}%`);
+  if (!(h1 > h0)) misses.push('the crew do not move on their own — the objective is not paced');
+  if (!(d1 > 0)) misses.push('the dark does not come — there is no deadline in the race');
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-race.png') });
+  // Press them home: seven taps beat the dark on paper, fourteen forgive lag.
+  let home = false;
+  for (let i = 0; i < 14 && !home; i++) {
+    for (const btn of ['Press them on', 'Let them breathe']) {
+      const b = page.locator('.deed.face', { hasText: btn });
+      if (await b.count()) { await b.first().click({ timeout: 1500 }).catch(() => {}); break; }
+    }
+    await page.waitForTimeout(120);
+    if (!/last of the light/i.test(await panelText())) home = true;
+  }
+  console.log('  pressed :', home ? 'the crew came HOME ahead of the dark' : 'STUCK out there');
+  if (!home) misses.push('fourteen presses never brought the crew home — the race cannot be won');
 }
 
 // ------------------------------------------- you cannot build from the middle -

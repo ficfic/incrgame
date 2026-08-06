@@ -1072,14 +1072,17 @@ hidden meters; stage branching; terrain as drift modifier; setback/cleared
 endings wired into the expedition loop.
 
 **The component roadmap, in rough order:**
-1. **Convert the rest** — wights (a ward-vs-press siege scene), the watcher
-   (a watch-and-wait scene with a movement gauge), oldstones, nightwatch.
-   Retire the dice encounters as scenes replace them, or keep dice as a
-   COMPONENT (a gamble verb) inside scenes.
-2. **More components** — timers (a gauge that only falls), paced objectives
-   (the owner's "A to B, tapping to increase speed" as a distance gauge vs a
-   deadline gauge), convoy integrity ("keeping resources intact" — a cargo
-   gauge foes and terrain chip at), multi-objective scenes.
+1. **✦ CONVERTED, 2026-08-06** — wights (a siege where the ward ROTS), the
+   watcher (watch-and-wait; watching costs closeness), oldstones (a deadline
+   that only falls, with a hidden hollow), nightwatch (a vigil where the win
+   verb feeds the loss gauge). The dice encounters were KEPT as the 40%
+   fallback — same trouble, two faces; dice as a COMPONENT (a gamble verb)
+   inside scenes stays open.
+2. **✦ THE PACED OBJECTIVE SHIPPED, 2026-08-06** — "The last of the light":
+   the A-to-B race, distance gauge with its own helpful drift vs a deadline
+   gauge, pressing spends breath. Still to build from this list: convoy
+   integrity ("keeping resources intact" — a cargo gauge foes and terrain
+   chip at), multi-objective scenes.
 3. **Outcome grades** — clear WITH margin pays extra (provisions, momentum,
    maybe loot); scraping through pays less. Makes play skill matter.
 4. **Graphs on top** — the owner: *"we'd need to somehow slap graphs on top,
