@@ -80,6 +80,12 @@ export interface Scene {
   id: string;
   name: string;
   on: readonly Ground[];
+  /** ★ A CAMP SCENE: played standing at a stop, no crew out — the owner's
+   *  basecamp sketch. Cleared pays `haul`; a setback means the day is lost,
+   *  the scene does NOT reset. Never armed on a road (`on` stays empty). */
+  camp?: boolean;
+  /** What clearing pays into the stores. */
+  haul?: { provisions?: number; makings?: number; mana?: number };
   stages: readonly Stage[];
   gauges: readonly Gauge[];
   verbs: readonly Verb[];
@@ -318,6 +324,42 @@ export const SCENES: readonly Scene[] = [
       { gauge: 'quiet', op: '>=', value: 8, end: 'cleared' },
     ],
     mods: { crag: { dread: 1.2 } },
+  },
+  {
+    // ★★ THE HUNT — the first CAMP scene, the owner's basecamp sketch:
+    // *"we need to hunt."* A day of camp spent stalking: corner the quarry
+    // before their wariness fills. Stalking is the win verb AND feeds the
+    // loss gauge; holding still is the cool; driving them is the gamble.
+    id: 'hunt', name: 'The hunt', camp: true,
+    haul: { provisions: 4 },
+    on: [],
+    stages: [
+      { id: 'close', text: 'Deer sign in the soft ground off the camp — fresh, '
+        + 'plural, upwind. The larder is asking, and the day is for this.' },
+      { id: 'spooked', text: 'Heads up, ears wide. One more careless move and '
+        + 'the ground empties for the day.' },
+    ],
+    gauges: [
+      { id: 'quarry', label: 'The quarry, cornered', start: 0, min: 0, max: 8 },
+      { id: 'wary', label: 'Their wariness', start: 0, min: 0, max: 10, perTurn: 0.9 },
+    ],
+    verbs: [
+      { id: 'stalk', label: 'Stalk closer', note: 'wits — ground gained, quietly',
+        stat: 'wits', effect: { quarry: 0.6, wary: 0.5 }, perStat: { quarry: 0.2 },
+        stages: ['close'] },
+      { id: 'wait', label: 'Hold and wait', note: 'the wind settles them',
+        effect: { wary: -2.0 } },
+      { id: 'drive', label: 'Drive them at the brush', note: 'iron — noise, speed, and no second try',
+        stat: 'iron', effect: { quarry: 1.0, wary: 2.0 }, perStat: { quarry: 0.15 } },
+    ],
+    rules: [
+      { gauge: 'wary', op: '>=', value: 10, end: 'setback' },
+      { gauge: 'wary', op: '>=', value: 7, goto: 'spooked', stages: ['close'] },
+      { gauge: 'wary', op: '<=', value: 4, goto: 'close', stages: ['spooked'] },
+      { gauge: 'quarry', op: '>=', value: 8, end: 'cleared' },
+    ],
+    // Open moor carries sound; woods hide you.
+    mods: { moor: { wary: 1.2 }, wood: { wary: 0.8 } },
   },
   {
     // ★★ THE RACE — the owner's A-to-B objective, verbatim: *"going from

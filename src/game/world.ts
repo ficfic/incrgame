@@ -10,11 +10,12 @@
 // anymore."* `scripts/check-words.mjs` fails the build if one slips through —
 // the vocabulary has turned over three times and each time an old word survived
 // in a string nobody re-read.
-import { STOPS, STOP, START, FINISH, nameOf, GOING } from './stops';
+import { STOPS, STOP, START, FINISH, nameOf, GOING, NEEDS } from './stops';
 import type { Game } from './engine';
 import { STATS } from './dice';
 import { roadsOut, roadCost, buildSecs, manaRate, waitFor, reached, crossed,
-  roadKey, unbuildable, climbTo, MAX_GAUGE, ken } from './engine';
+  roadKey, unbuildable, climbTo, MAX_GAUGE, ken, campless, daysLeft,
+  GATHER_MAKINGS } from './engine';
 import { pathOf, cutAt } from './paths';
 import { troubleById, isFoe } from './events';
 import { sceneById } from './scenes';
@@ -366,7 +367,7 @@ export const TABS: ReadonlyArray<{ id: TabId; label: string; view: (g: Game) => 
 
 /** What tapping a stop can do. R3.3: a thing you cannot do shows its reason. */
 export interface Deed {
-  kind: 'go' | 'build';
+  kind: 'go' | 'build' | 'hunt' | 'make';
   label: string;
   note: string;
   to: number;
@@ -376,7 +377,23 @@ export interface Deed {
 export function deedsFor(g: Game, nodeId: string): Deed[] {
   if (!nodeId.startsWith('stop:')) return [];
   const id = numOf(nodeId);
-  if (id === g.at) return [];
+  // ★★ THE CAMP — the owner's sketch: *"we must have something to do at the
+  // stops in order to prepare for the expedition."* Standing at a stop with
+  // days left, the work is here: hunt for the larder, gather the makings.
+  if (id === g.at) {
+    const why = campless(g);
+    const days = daysLeft(g);
+    return [
+      { kind: 'hunt', to: id, why,
+        label: 'Hunt for the larder',
+        note: why ?? `a day of camp — corner the quarry, up to 4 provisions · ${days} left`,
+      },
+      { kind: 'make', to: id, why,
+        label: 'Gather makings',
+        note: why ?? `a day of camp — a sure ${GATHER_MAKINGS} makings · ${days} left`,
+      },
+    ];
+  }
   const r = roadsOut(g).find((x) => x.to === id);
   if (!r) return [];
 
@@ -386,13 +403,22 @@ export function deedsFor(g: Game, nodeId: string): Deed[] {
     note: 'the line is open — free',
   }] : [];
   const why = unbuildable(g, id);
+  const need = r.gauge === 0 ? NEEDS[roadKey(g.at, id)] : undefined;
+  const asks = need
+    ? [need.provisions && `${need.provisions} provisions`,
+      need.makings && `${need.makings} makings`].filter(Boolean).join(' · ') + ' · '
+    : '';
   return [...walk, {
     kind: 'build', to: id, why,
     label: r.gauge > 0
       ? `Widen the flow to ${r.name} (${r.gauge} of ${MAX_GAUGE})`
       : `Open a flow to ${r.name}`,
-    note: why ?? `${r.cost} mana · ${buildSecs(g, id)}s · carries `
-      + `${((r.gauge + 1) * r.bore).toFixed(2)} a second · climbs ${climbTo(g, id)}`,
+    // ★ The profile STAYS on the note even when the deed is shut for some
+    // other reason — a destination's asks are what you plan a camp around.
+    note: why
+      ? (need && !/camp is short/.test(why) ? `${asks}${why}` : why)
+      : `${asks}${r.cost} mana · ${buildSecs(g, id)}s · carries `
+        + `${((r.gauge + 1) * r.bore).toFixed(2)} a second · climbs ${climbTo(g, id)}`,
   }];
 }
 

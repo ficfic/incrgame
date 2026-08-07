@@ -5,11 +5,14 @@
 //
 // ---- PROVEN RED, 2026-08-03 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
-import { apply, initial, unbuildable, unforageable, FORAGE_SECS,
+import { roadKey, apply, initial, unbuildable, unforageable, FORAGE_SECS, PROV_CAP,
   type Game } from '../src/game/engine';
-import { STOP, START } from '../src/game/stops';
+import { STOP, START, NEEDS } from '../src/game/stops';
 
-const to = STOP.get(START)!.near[0]!;
+// ★ The first UNGATED road out of the start — three roads carry camp
+// profiles now (NEEDS), and these tests are about scavenging and kits,
+// not about affording a departure.
+const to = STOP.get(START)!.near.find((n) => !NEEDS[roadKey(START, n)])!;
 const forage = (g: Game, stat: 'wits' | 'shadow' = 'wits'): Game =>
   apply(g, { type: 'forage', stat });
 const served = (g: Game): Game => apply(forage(g), { type: 'tick', secs: FORAGE_SECS });
@@ -73,9 +76,11 @@ describe('★ scavenging trades time for provisions', () => {
     expect(gather(servedAs('shadow'), 9, 9).momentum).toBe(initial().momentum - 3);
   });
 
-  it('the cap still holds at ten, greedy or not', () => {
-    expect(gather(apply(forage({ ...initial(), provisions: 9 }, 'shadow'),
-      { type: 'tick', secs: FORAGE_SECS }), 3, 3).provisions).toBe(10);
+  it('the cap still holds at the packs\' ceiling, greedy or not', () => {
+    // PROV_CAP now, not Ironsworn's 10 — the camp economy banks toward
+    // departures (2026-08-07).
+    expect(gather(apply(forage({ ...initial(), provisions: PROV_CAP - 1 }, 'shadow'),
+      { type: 'tick', secs: FORAGE_SECS }), 3, 3).provisions).toBe(PROV_CAP);
   });
 });
 
@@ -93,7 +98,7 @@ describe('★★ the trade is exclusive both ways round', () => {
   });
 
   it('full packs refuse the trip — time for nothing is not a trade', () => {
-    const full = { ...initial(), provisions: 10 };
+    const full = { ...initial(), provisions: PROV_CAP };
     expect(unforageable(full)).toBe('your packs are full');
     expect(forage(full).foraging).toBeNull();
   });
@@ -110,8 +115,10 @@ describe('★★ the trade is exclusive both ways round', () => {
 });
 
 describe('★★ the suited kit is stocked from the packs', () => {
+  // ⚠️ The fixture leg moved to the ungated road (crag), where the MULE is
+  // the suited kit — the cart tests below moved with it.
   it('★ +1 on every roll costs one provision to outfit', () => {
-    const g = apply({ ...initial(), mana: 999 }, { type: 'build', to, kit: 'cart' });
+    const g = apply({ ...initial(), mana: 999 }, { type: 'build', to, kit: 'mule' });
     expect(g.building).not.toBeNull();
     expect(g.provisions).toBe(5);
   });
@@ -124,7 +131,7 @@ describe('★★ the suited kit is stocked from the packs', () => {
 
   it('★★ empty packs refuse the suited kit outright', () => {
     const broke = { ...initial(), mana: 999, provisions: 0 };
-    const g = apply(broke, { type: 'build', to, kit: 'cart' });
+    const g = apply(broke, { type: 'build', to, kit: 'mule' });
     expect(g.building).toBeNull();
     expect(g.mana).toBe(999);
     // The light kit still goes.

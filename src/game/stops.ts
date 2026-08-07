@@ -187,6 +187,24 @@ export const STOP = new Map(STOPS.map((s) => [s.id, s]));
 export const nameOf = (id: number): string => STOP.get(id)?.name ?? '—';
 export const roadsFrom = (id: number): number[] => STOP.get(id)?.near ?? [];
 
+/** ★★ WHAT A ROAD DEMANDS OF THE CAMP, 2026-08-07 — the owner's sketch,
+ *  verbatim: *"these destinations must have conflicting resource
+ *  requirements — focus on one particular resource and you can proceed to
+ *  that destination but not the other… one destination might require all
+ *  three resources at a high point."* A road with a profile meets NO halts:
+ *  a properly provisioned crossing is a clean crossing — the preparation IS
+ *  the trouble, faced in advance. Tuned against CAMP_SLOTS 7, hunt +4,
+ *  gather +2: the two pure roads and the all-in road are pairwise
+ *  unaffordable from one camp — proven by enumeration in test/camp.test.ts. */
+export const NEEDS: Record<string, { provisions?: number; makings?: number }> = {
+  '0|11': { provisions: 18 },                 // the meat road — hunts only
+  '0|6': { makings: 12 },                     // the makings road — gathers only
+  '0|2': { provisions: 14, makings: 10 },     // all-in: the whole camp, spent
+  // ⚠️ 0|17 and 0|22 stay OPEN on purpose this slice: the old journey (halts,
+  // dice, scenes) still lives there, and the probe still exercises it. Whether
+  // every road everywhere gets a profile is the owner's rollout call.
+};
+
 /** ★ WHAT A ROAD COSTS: how far it runs, times how bad the ground is.
  *
  *  ⚠️ THIS IS THE NUMBER THAT MAKES THE GRAPH LOAD-BEARING. The engine this

@@ -117,10 +117,19 @@ const labelsNow = () => page.$$eval('.map .label', (ls) => ls.map((l) => l.textC
  *  deselect the very thing it is about to read, which has cost a run before. */
 async function pick(sel) {
   const el = page.locator(sel).first();
-  if (await el.count() && !(await el.getAttribute('class') ?? '').split(/\s+/).includes('on')) {
-    await el.click({ timeout: 3000 }).catch(() => {});
+  if (!(await el.count())) return;
+  if (((await el.getAttribute('class')) ?? '').split(/\s+/).includes('on')) return;
+  try {
+    await el.click({ timeout: 1500 });
     await page.waitForTimeout(250);
-  }
+    return;
+  } catch { /* under the dock */ }
+  // ★ THE KEYBOARD PATH, when the dock covers a low stop: every node takes
+  // Enter (Board.svelte's own accessibility handler), which is a real way a
+  // player can reach it — no force-clicks, no faked coordinates.
+  await el.focus();
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(250);
 }
 
 // ---------------------------------------------------------------- the tabs --
@@ -502,13 +511,19 @@ if (!/\+0\.4 a tap/.test(springSays)) {
 // it's very easy to accidentally lose progress."* One tap arms, says so on the
 // button, and disarms itself — the purse must survive the whole exchange.
 console.log('\nSTART OVER');
+// ★ The housekeeping lives behind the gear now — the owner: *"I don't need
+// buttons to copy save, load save, and start over in the main GUI."*
+if (!(await page.locator('.reset:not(.gear):not(.porter)').count())) {
+  await page.locator('.reset.gear').click({ timeout: 2000 }).catch(() => {});
+  await page.waitForTimeout(200);
+}
 const beforeArm = await purse();
-await page.locator('.reset:not(.porter)').click({ timeout: 3000 });
-const armed = await page.$eval('.reset:not(.porter)', (e) => e.textContent.trim());
+await page.locator('.reset:not(.porter):not(.gear)').click({ timeout: 3000 });
+const armed = await page.$eval('.reset:not(.porter):not(.gear)', (e) => e.textContent.trim());
 console.log('  armed   :', `"${armed}"`);
 if (!/Tap again/.test(armed)) misses.push(`one tap of Start over does not ask: "${armed}"`);
 await page.waitForTimeout(3400);
-const disarmed = await page.$eval('.reset:not(.porter)', (e) => e.textContent.trim());
+const disarmed = await page.$eval('.reset:not(.porter):not(.gear)', (e) => e.textContent.trim());
 const afterArm = await purse();
 console.log('  disarms :', `"${disarmed}", purse ${beforeArm} → ${afterArm}`);
 if (!/Start over/.test(disarmed)) misses.push(`the armed wipe never disarms: "${disarmed}"`);
@@ -521,6 +536,145 @@ const porters = await page.$$eval('.reset.porter', (bs) => bs.map((b) => b.textC
 console.log('  ports   :', porters.join(' · ') || '(none)');
 if (!porters.includes('Copy save') || !porters.includes('Load a save')) {
   misses.push('export/import buttons are missing from the header');
+}
+
+// -------------------------------------------------------------- the camp ----
+//
+// ★★ THE BASECAMP LOOP, 2026-08-07 — the owner's sketch: *"we must have
+// something to do at the stops in order to prepare for the expedition."*
+// On the fresh save: the camp offers its jobs, a gated road says plainly
+// what the camp is short of, gathering pays makings, a played hunt pays
+// provisions, and twelve makings later the same road stops calling the
+// camp short. Then the days run out, visibly.
+console.log('\nTHE CAMP');
+await page.locator('nav button', { hasText: 'Here' }).click();
+await page.waitForTimeout(300);
+await pick('.map .node.you');
+await page.waitForTimeout(200);
+const campDeeds = await page.$$eval('.deed', (es) => es
+  .map((e) => e.textContent.replace(/\s+/g, ' ').trim())
+  .filter((t) => /^(Hunt for the larder|Gather makings)/.test(t)));
+console.log('  offers  :', campDeeds.map((t) => `"${t.slice(0, 62)}"`).join('\n            ') || '(no camp work)');
+if (campDeeds.length !== 2) misses.push(`the camp offers ${campDeeds.length} jobs, wanted Hunt and Gather`);
+if (!campDeeds.some((t) => /\d+ left/.test(t))) misses.push('no camp deed says how many days are left');
+const gatedBefore = await deedOn('stop:6');
+console.log('  gated   :', gatedBefore ? `"${gatedBefore.text.slice(0, 70)}"${gatedBefore.off ? ' [shut]' : ''}` : '(no deed)');
+if (!gatedBefore || !/the camp is short — 12 makings/.test(gatedBefore.text)) {
+  misses.push(`the makings road does not say what the camp is short of: "${gatedBefore?.text.slice(0, 70)}"`);
+}
+const stores = async (i) => parseInt(
+  (await page.$$eval('.keep', (ks) => ks.map((k) => k.textContent)))[i] ?? 'x', 10);
+// Two gathered days: four makings, no dice, no scene.
+for (let i = 0; i < 2; i++) {
+  await pick('.map .node.you');
+  await page.locator('.deed', { hasText: 'Gather makings' }).click({ timeout: 2000 });
+  await page.waitForTimeout(150);
+}
+const mak2 = await stores(1);
+console.log('  gathered:', `${mak2} makings across two days`);
+if (mak2 !== 4) misses.push(`two gathers paid ${mak2} makings, wanted 4`);
+// One hunted day, PLAYED: the scene dock, stalked with a head.
+const prov0 = await stores(0);
+await pick('.map .node.you');
+await page.locator('.deed', { hasText: 'Hunt for the larder' }).click({ timeout: 2000 });
+await page.waitForTimeout(250);
+if (!/The hunt/.test(await panelText())) misses.push('the hunt did not open as a scene in the dock');
+await page.screenshot({ path: SHOT.replace(/\.png$/, '-camp.png') });
+for (let i = 0; i < 24 && /The hunt/.test(await panelText()); i++) {
+  const wary = parseInt(await page.$eval('[data-bar="wary"]', (e) => e.style.width)
+    .catch(() => '0'), 10);
+  const stalk = page.locator('.deed.face', { hasText: 'Stalk closer' });
+  if (wary > 45 || !(await stalk.count())) {
+    await page.locator('.deed.face', { hasText: 'Hold and wait' }).click({ timeout: 1200 }).catch(() => {});
+  } else {
+    await stalk.click({ timeout: 1200 }).catch(() => {});
+  }
+  await page.waitForTimeout(120);
+}
+const prov1 = await stores(0);
+console.log('  hunted  :', `provisions ${prov0} → ${prov1}`);
+if (!(prov1 > prov0)) misses.push(`a played hunt paid nothing: provisions ${prov0} → ${prov1}`);
+// Four more gathered days light the makings road's profile.
+for (let i = 0; i < 4; i++) {
+  await pick('.map .node.you');
+  await page.locator('.deed', { hasText: 'Gather makings' }).click({ timeout: 2000 });
+  await page.waitForTimeout(120);
+}
+const gatedAfter = await deedOn('stop:6');
+console.log('  earned  :', gatedAfter ? `"${gatedAfter.text.slice(0, 70)}"` : '(no deed)');
+if (gatedAfter && /the camp is short/.test(gatedAfter.text)) {
+  misses.push(`twelve makings in hand and the road still calls the camp short: "${gatedAfter.text.slice(0, 60)}"`);
+}
+// And the seventh day was the last: the ground is worked out, and says so.
+await pick('.map .node.you');
+await page.waitForTimeout(150);
+const workedOut = await page.$$eval('.deed', (es) => es
+  .map((e) => e.textContent.replace(/\s+/g, ' ').trim())
+  .filter((t) => /this ground is worked out/.test(t)));
+console.log('  spent   :', `${workedOut.length} jobs now refuse — the days are gone`);
+if (workedOut.length !== 2) misses.push('seven days spent and the camp does not say it is worked out');
+
+// ------------------------------------------------------------- scavenging ----
+//
+// ★★ THE TRADE: time at a stop for provisions, stat chosen going in, dice at
+// the end — the owner: *"so, like, scavenge for provisions."* The whole loop
+// must happen ON SCREEN: the deed says its stat and its price, the countdown
+// is visible, the reveal shows the arithmetic, and the header's provisions
+// count moves by exactly what the named tier pays.
+console.log('\nSCAVENGING');
+const keepCount = () => page.$eval('.purse .keep', (e) => Number(e.textContent.match(/\d+/)[0]));
+await pick('.map .node.you');
+await page.waitForTimeout(200);
+const packsBefore = await keepCount();
+const scav = page.locator('.deed', { hasText: 'Scavenge the open ground' });
+if (!await scav.count()) {
+  misses.push('standing idle at a stop offers no way to scavenge');
+} else {
+  const scavNote = (await scav.textContent()).replace(/\s+/g, ' ').trim();
+  console.log('  offers  :', `"${scavNote}"`);
+  if (!/wits \d+ · \d+s/.test(scavNote)) {
+    misses.push(`the scavenge deed does not say its stat and its price: "${scavNote}"`);
+  }
+  await scav.click({ timeout: 3000 });
+  await page.waitForTimeout(400);
+  const counting = await panelText();
+  console.log('  serving :', `"${counting.slice(0, 70)}"`);
+  if (!/Scavenging — \d+s left/.test(counting)) {
+    misses.push(`no countdown while the crew is out: "${counting.slice(0, 60)}"`);
+  }
+  // ⚠️ AND THE TIME IS A WALL, NOT A SUGGESTION: the reveal must not exist yet.
+  if (await page.locator('.deed.face', { hasText: 'See what the crew found' }).count()) {
+    misses.push('the reveal is offered before the time is served');
+  }
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-scavenge.png') });
+  let seen = false;
+  for (let i = 0; i < 25; i++) {
+    await page.waitForTimeout(1000);
+    if (await page.locator('.deed.face', { hasText: 'See what the crew found' }).count()) { seen = true; break; }
+  }
+  if (!seen) misses.push('the scavenge never came home — no reveal after the time was served');
+  else {
+    await page.locator('.deed.face', { hasText: 'See what the crew found' }).click({ timeout: 3000 });
+    await page.waitForTimeout(400);
+    const told = await panelText();
+    console.log('  found   :', `"${told.slice(0, 130)}"`);
+    // ⚠️ ANCHORED TO THE DICE SENTENCE. The shadow deed's own note says "a
+    // miss gets you caught", and an unanchored match read THAT as the tier.
+    const tier = (told.match(/against \d+ and \d+ — a (strong hit|weak hit|miss)/) ?? [])[1];
+    if (!/You rolled \d+ \+ wits \d+ = \d+, against \d+ and \d+/.test(told) || !tier) {
+      misses.push(`the reveal does not show its arithmetic: "${told.slice(0, 90)}"`);
+    } else {
+      const packsAfter = await keepCount();
+      const matched = /a strong hit\. \+3/.test(told);
+      // PROV_CAP is 24 since the camp economy — the old 10 was Ironsworn's.
+      const want = tier === 'strong hit' ? Math.min(24, packsBefore + (matched ? 3 : 2))
+        : tier === 'weak hit' ? Math.min(24, packsBefore + 1) : packsBefore;
+      console.log('  packs   :', `${packsBefore} → ${packsAfter} on ${tier}`);
+      if (packsAfter !== want) {
+        misses.push(`a ${tier} paid ${packsAfter - packsBefore} provisions — the header disagrees with the dice`);
+      }
+    }
+  }
 }
 
 // --------------------------------------------------------- laying a road ----
@@ -553,7 +707,18 @@ async function deedOn(id) {
 // button once it is live. The last version of this check compared two DIFFERENT
 // buttons, which differ in colour anyway, and stayed green with the bug put
 // back — a sabotage proved it vacuous. Same button, two states, or nothing.
-const target = neighbours[0];
+// ★ THE FIRST OPEN ROAD, not the first road: three roads out of the start
+// carry camp profiles now, and their deeds say "the camp is short" until
+// the camp is worked. The probe's main journey takes an ungated one; the
+// camp loop has its own section above.
+let target = neighbours[0];
+for (const n of neighbours) {
+  const d = await deedOn(n);
+  // A profiled road quotes provisions/makings in its deed (short OR met) —
+  // and profiled roads are CLEAN by design. The journey section needs its
+  // halts, so it takes the first road with no profile at all.
+  if (d && !/provisions|makings|camp is short/.test(d.text)) { target = n; break; }
+}
 const first = await deedOn(target);
 console.log('  offers  :', first ? `"${first.text}"${first.off ? ' [shut]' : ''}` : '(nothing)');
 if (!first) misses.push('tapping the stop beside you offers no deed at all');
@@ -634,7 +799,7 @@ if (!live || live.off) {
     misses.push(`the header does not count provisions: "${keep}"`);
   }
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-prepare.png') });
-  await page.locator('.deed', { hasText: 'Set off with the cart' }).click({ timeout: 3000 });
+  await page.locator('.deed', { hasText: 'Set off with the mule' }).click({ timeout: 3000 });
   await page.waitForTimeout(1600);
   const onTab = await page.$eval('nav button.on', (e) => e.textContent.trim());
   console.log('  lands on:', onTab);
@@ -850,7 +1015,9 @@ if (!live || live.off) {
     }
     // and return, so the widening section stands where it expects to.
     await deedOn(target);
-    await page.locator('.deed').first().click({ timeout: 3000 }).catch(() => {});
+    const ret = page.locator('.deed').first();
+    try { await ret.click({ timeout: 2000 }); }
+    catch { await ret.focus(); await page.keyboard.press('Enter'); }
     await page.waitForTimeout(400);
   } else {
     misses.push(`no way to walk back along the pipe: "${back?.text ?? 'no deed'}"`);
@@ -990,67 +1157,6 @@ if (!widen) {
   }
 }
 
-// ------------------------------------------------------------- scavenging ----
-//
-// ★★ THE TRADE: time at a stop for provisions, stat chosen going in, dice at
-// the end — the owner: *"so, like, scavenge for provisions."* The whole loop
-// must happen ON SCREEN: the deed says its stat and its price, the countdown
-// is visible, the reveal shows the arithmetic, and the header's provisions
-// count moves by exactly what the named tier pays.
-console.log('\nSCAVENGING');
-const keepCount = () => page.$eval('.purse .keep', (e) => Number(e.textContent.match(/\d+/)[0]));
-await pick('.map .node.you');
-await page.waitForTimeout(200);
-const packsBefore = await keepCount();
-const scav = page.locator('.deed', { hasText: 'Scavenge the open ground' });
-if (!await scav.count()) {
-  misses.push('standing idle at a stop offers no way to scavenge');
-} else {
-  const scavNote = (await scav.textContent()).replace(/\s+/g, ' ').trim();
-  console.log('  offers  :', `"${scavNote}"`);
-  if (!/wits \d+ · \d+s/.test(scavNote)) {
-    misses.push(`the scavenge deed does not say its stat and its price: "${scavNote}"`);
-  }
-  await scav.click({ timeout: 3000 });
-  await page.waitForTimeout(400);
-  const counting = await panelText();
-  console.log('  serving :', `"${counting.slice(0, 70)}"`);
-  if (!/Scavenging — \d+s left/.test(counting)) {
-    misses.push(`no countdown while the crew is out: "${counting.slice(0, 60)}"`);
-  }
-  // ⚠️ AND THE TIME IS A WALL, NOT A SUGGESTION: the reveal must not exist yet.
-  if (await page.locator('.deed.face', { hasText: 'See what the crew found' }).count()) {
-    misses.push('the reveal is offered before the time is served');
-  }
-  await page.screenshot({ path: SHOT.replace(/\.png$/, '-scavenge.png') });
-  let seen = false;
-  for (let i = 0; i < 25; i++) {
-    await page.waitForTimeout(1000);
-    if (await page.locator('.deed.face', { hasText: 'See what the crew found' }).count()) { seen = true; break; }
-  }
-  if (!seen) misses.push('the scavenge never came home — no reveal after the time was served');
-  else {
-    await page.locator('.deed.face', { hasText: 'See what the crew found' }).click({ timeout: 3000 });
-    await page.waitForTimeout(400);
-    const told = await panelText();
-    console.log('  found   :', `"${told.slice(0, 130)}"`);
-    // ⚠️ ANCHORED TO THE DICE SENTENCE. The shadow deed's own note says "a
-    // miss gets you caught", and an unanchored match read THAT as the tier.
-    const tier = (told.match(/against \d+ and \d+ — a (strong hit|weak hit|miss)/) ?? [])[1];
-    if (!/You rolled \d+ \+ wits \d+ = \d+, against \d+ and \d+/.test(told) || !tier) {
-      misses.push(`the reveal does not show its arithmetic: "${told.slice(0, 90)}"`);
-    } else {
-      const packsAfter = await keepCount();
-      const matched = /a strong hit\. \+3/.test(told);
-      const want = tier === 'strong hit' ? Math.min(10, packsBefore + (matched ? 3 : 2))
-        : tier === 'weak hit' ? Math.min(10, packsBefore + 1) : packsBefore;
-      console.log('  packs   :', `${packsBefore} → ${packsAfter} on ${tier}`);
-      if (packsAfter !== want) {
-        misses.push(`a ${tier} paid ${packsAfter - packsBefore} provisions — the header disagrees with the dice`);
-      }
-    }
-  }
-}
 
 // ------------------------------------------------------------- the fight ----
 //

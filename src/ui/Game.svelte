@@ -26,7 +26,7 @@
   import Board from './Board.svelte';
   import { TERRAIN_SHAPES } from '../game/terrain';
   import { INK, TOL } from '../game/ink';
-  import { apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
+  import { daysLeft, apply, initial, roadsOut, unbuildable, manaRate, fillOf, crossed,
     loadOf, roadKey, hopsFrom, kitAdd, legGround, KITS, START,
     unforageable, FORAGE_SECS, charted,
     type Game, type Action, type Kit } from '../game/engine';
@@ -60,6 +60,7 @@
   /** ★ START OVER ARMS FIRST. One stray tap wiped a run in the owner's
    *  play-test; now the first tap asks and disarms itself in 3s. */
   let wiping = $state(false);
+  let menu = $state(false);
   /** ★ EXPORT/IMPORT — the one save guarantee that survived every reversal:
    *  it is how the owner moves a run between devices. Flagged missing by
    *  the-redditor twice; here at last. */
@@ -381,6 +382,10 @@
    *  knowledge of the engine and a new deed is a case rather than a ternary. */
   function doDeed(d: { kind: string; to: number }): void {
     if (d.kind === 'go') { go(d.to); return; }
+    // ★ THE CAMP JOBS — a day each. The hunt opens as a scene in the dock;
+    // gathering is flat and instant.
+    if (d.kind === 'hunt') { act({ type: 'hunt' }); return; }
+    if (d.kind === 'make') { act({ type: 'make' }); return; }
     if (d.kind !== 'build') return;
     // ★ PREPARE IS FOR FRESH GROUND ONLY. A widen meets no hidden stops —
     // no rolls, so a kit choice there would be a question with no answer
@@ -445,7 +450,13 @@
            working it is zero, and that is the point of working. -->
       <span class="rate">+{manaRate(game).toFixed(2)} a second</span>
       <span class="keep">{game.provisions} provisions</span>
+      <span class="keep">{game.makings} makings</span>
       {#if crossed(game)}<span class="crossed">crossed</span>{/if}
+      <!-- ★ THE HOUSEKEEPING LIVES BEHIND A GEAR — the owner, 2026-08-07:
+           *"I don't need buttons to copy save, load save, and start over in
+           the main GUI."* One quiet toggle; the buttons keep their names. -->
+      <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
+      {#if menu}
       <button class="reset" class:armed={wiping}
         onclick={async () => {
           if (!wiping) {
@@ -464,6 +475,7 @@
       <button class="reset porter" onclick={pasteSave}>
         {ported === 'refused' ? 'That save was refused' : 'Load a save'}
       </button>
+      {/if}
     </div>
   </header>
 
@@ -595,10 +607,12 @@
         </button>
       {/if}
       {#if picked === `stop:${game.at}`}
-        <!-- ★ SCAVENGE — Ironsworn's Resupply, the owner's ask: *"so, like,
-             scavenge for provisions."* Stat chosen going in, dice at the end,
-             and the price is the time the crew is not laying pipe. -->
+        <!-- ★ SCAVENGE — Ironsworn's Resupply. Since the camp (2026-08-07)
+             it is the WORKED-OUT ground's fallback: while a camp has days,
+             the camp jobs ARE the food economy, and the dock stays short
+             enough that the board is not buried under buttons. -->
         {#if game.foraging === null}
+          {#if daysLeft(game) === 0}
           {@const cant = unforageable(game)}
           <button class="deed" disabled={cant !== null}
             onclick={() => { found = null; act({ type: 'forage', stat: 'wits' }); }}>
@@ -610,6 +624,7 @@
             Scavenge by shadow
             <em>{cant ?? `shadow ${game.stats.shadow} · ${FORAGE_SECS}s · greedy — bigger finds, a miss gets you caught`}</em>
           </button>
+          {/if}
         {:else if game.foraging.left > 0}
           <p class="note">Scavenging — {Math.ceil(game.foraging.left)}s left.</p>
         {:else}

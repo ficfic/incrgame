@@ -510,9 +510,13 @@ describe('★★ the content pass: the troubles become little games', () => {
         if ((v.mana ?? 0) > 0 || (v.provisions ?? 0) > 0) continue;
         let g = inScene(sc.id, botKey);
         for (let i = 0; i < 60 && g.facing; i++) g = verb(g, v.id);
-        const clearedFree = g.facing === null && g.building !== null
-          && g.provisions === initial().provisions;
-        expect(clearedFree, `${sc.id}: spamming "${v.id}" cleared the way for free`).toBe(false);
+        // A CAMP scene is won only if the haul landed; a road scene only if
+        // the halt fell without a single setback paid.
+        const won = sc.camp
+          ? g.provisions > initial().provisions
+          : g.facing === null && g.building !== null
+            && g.provisions === initial().provisions;
+        expect(won, `${sc.id}: spamming "${v.id}" cleared the way for free`).toBe(false);
       }
     }
   });

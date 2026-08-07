@@ -77,7 +77,15 @@ export function honour(b: Blob | null | undefined): { game: Game; savedAt: numbe
       && g.foraging.left <= g.foraging.secs
       && ['wits', 'shadow'].includes(g.foraging.stat))) return null;
     if (g.provisions !== undefined
-      && !(Number.isInteger(g.provisions) && g.provisions >= 0 && g.provisions <= 10)) return null;
+      && !(Number.isInteger(g.provisions) && g.provisions >= 0 && g.provisions <= 24)) return null;
+    if (g.makings !== undefined
+      && !(Number.isInteger(g.makings) && g.makings >= 0 && g.makings <= 999)) return null;
+    if (g.worked !== undefined) {
+      if (typeof g.worked !== 'object' || g.worked === null) return null;
+      for (const v of Object.values(g.worked)) {
+        if (!(Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 99)) return null;
+      }
+    }
     if (g.cleared !== undefined
       && !(Number.isInteger(g.cleared) && g.cleared >= 0)) return null;
     if (g.stats !== undefined) {

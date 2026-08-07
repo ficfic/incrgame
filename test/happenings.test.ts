@@ -12,9 +12,13 @@ import { judge, judgeBurned, burnHelps, legal, clampMomentum, STATS,
 import { HAPPENINGS, happeningsOn } from '../src/game/events';
 import { apply, initial, haltsFor, eventFor, buildSecs, roadKey, kitAdd, KITS,
   type Game, type Kit } from '../src/game/engine';
-import { STOP, START, GOING, type Ground } from '../src/game/stops';
+import { STOP, START, GOING, NEEDS, type Ground } from '../src/game/stops';
 
 const tick = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
+
+/** ★ The first UNGATED road out of the start. Camp-profiled roads meet no
+ *  halts by design — the trouble these tests exercise lives on open ones. */
+const OPEN_TO = STOP.get(START)!.near.find((n) => !NEEDS[roadKey(START, n)])!;
 
 /** A game standing at the start with the mana to lay the first pipe. */
 const flush = (): Game => ({ ...initial(), mana: 999 });
@@ -24,8 +28,9 @@ const flush = (): Game => ({ ...initial(), mana: 999 });
  *  as a FIGHT — different consequence table, its own test file. This file is
  *  about happenings and the dice, so the facing is set to a known one. */
 function intoTrouble(): Game {
-  const to = STOP.get(START)!.near[0]!;
-  let g = apply(flush(), { type: 'build', to, kit: 'cart' });
+  const to = OPEN_TO;
+  // The ungated leg is crag — the mule is the suited kit there.
+  let g = apply(flush(), { type: 'build', to, kit: 'mule' });
   // Pushed, not ticked: since 2026-08-07 the clock does not move the crew.
   for (let i = 0; i < 90 && !g.facing; i++) g = apply(g, { type: 'push' });
   if (g.facing) {
@@ -178,11 +183,12 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     expect(g.facing!.foe!.left).toBe(1);
     expect(g.provisions).toBe(keep - 1);
     expect(g.mana).toBe(purse);
+    const halts0 = g.building!.halts.length;
     g = apply(g, { type: 'face', choice: 0, roll: { a: 4, c1: 2, c2: 9 } });
     g = apply(g, { type: 'carry' });
     expect(g.facing).toBeNull();
     expect(g.provisions).toBe(keep - 2);
-    expect(g.building!.halts.length).toBeLessThan(2);
+    expect(g.building!.halts.length).toBe(halts0 - 1);
   });
 
   it('★★ MISSES ESCALATE: each one in the same encounter eats a provision more', () => {
@@ -223,8 +229,8 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     // ⚠️ REVERSED 2026-08-05 on chad-liquidity's books: with the arrival
     // refund, provisions were EV-positive and never bit. The suited kit's
     // provision is a real spend now.
-    const to = STOP.get(START)!.near[0]!;
-    let g = apply(flush(), { type: 'build', to, kit: 'cart' });
+    const to = OPEN_TO;
+    let g = apply(flush(), { type: 'build', to, kit: 'mule' });
     const play = (x: Game): Game => {
       // The same compressed policies test/roads.test.ts proves out.
       const st = x.facing!.scene!;
@@ -258,12 +264,12 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
   it('★ the kit rides every roll: suited +1 can turn a weak hit strong', () => {
     // Stat iron 3. Dice a:3 vs 6 and 5 → score 6: beats 5, ties 6 → weak.
     // With a suited kit's +1 the score is 7 → beats both → strong. Same dice.
-    const key = roadKey(START, STOP.get(START)!.near[0]!);
+    const key = roadKey(START, OPEN_TO);
     const suited = KITS.find((k) => kitAdd(k, key) === 1);
     const flat = KITS.find((k) => kitAdd(k, key) === 0);
     expect(suited, 'no kit suits the first leg — pick a different fixture').toBeDefined();
     const run = (kit: Kit): Game => {
-      const to = STOP.get(START)!.near[0]!;
+      const to = OPEN_TO;
       let g = apply(flush(), { type: 'build', to, kit });
       for (let i = 0; i < 90 && !g.facing; i++) g = apply(g, { type: 'push' });
       // Pinned to a happening, rebuilt whole — foes and scenes have their own files.
@@ -314,7 +320,7 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
   });
 
   it('widening meets no trouble — it was faced when the line went in', () => {
-    const to = STOP.get(START)!.near[0]!;
+    const to = OPEN_TO;
     let g: Game = { ...flush(), gauge: { [roadKey(START, to)]: 1 } };
     g = apply(g, { type: 'build', to, kit: 'cart' });
     expect(g.building!.halts).toEqual([]);

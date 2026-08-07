@@ -14,9 +14,12 @@ import { apply, initial, unbuildable, blocked, crossed, reached, roadKey,
   roadsOut, manaRate, buildSecs, waitFor, MANA_BASE, MAX_GAUGE, SPRING,
   priceOf, loadOf, TAP, type Game } from '../src/game/engine';
 import { STOPS, STOP, START, FINISH, roadCost, ROUTE_COUNT, GOING, BORE,
-  boreOf } from '../src/game/stops';
+  boreOf, NEEDS } from '../src/game/stops';
 
 const tick = (g: Game, secs: number): Game => apply(g, { type: 'tick', secs });
+
+/** The first ungated road out of the start, for fixtures that just need A road. */
+const OPEN_TO = STOP.get(START)!.near.find((n) => !NEEDS[roadKey(START, n)])!;
 
 /** One sensible tap in whatever scene is open — the same policies the scene
  *  tests prove out, compressed. This helper reaches states; it does not test
@@ -44,6 +47,27 @@ function playScene(g: Game): Game {
  *  not for testing the trouble; `test/happenings.test.ts` does that. */
 function lay(g: Game, to: number): Game {
   let out = g;
+  // ★ WORK THE CAMP FIRST where the road demands it (NEEDS): gathers for
+  // makings, played hunts for provisions. One road's profile always fits
+  // inside one camp's days — that is the tuning contract.
+  const need = NEEDS[roadKey(out.at, to)];
+  if (need && !((out.gauge[roadKey(out.at, to)] ?? 0) > 0)) {
+    for (let m = 0; m < 8 && (need.makings ?? 0) > out.makings; m++) {
+      out = apply(out, { type: 'make' });
+    }
+    for (let h = 0; h < 8 && (need.provisions ?? 0) > out.provisions; h++) {
+      out = apply(out, { type: 'hunt' });
+      for (let t = 0; t < 30 && out.facing?.scene; t++) {
+        const st = out.facing.scene;
+        out = apply(out, { type: 'scene',
+          verb: st.stage === 'spooked' || (st.gauges.wary ?? 0) >= 5 ? 'wait' : 'stalk' });
+      }
+    }
+  }
+  // ★ A camp that cannot meet the profile is the EXCLUSIVITY WORKING —
+  // bail without burning 900 ticks against a wall.
+  if (need && ((need.makings ?? 0) > out.makings || (need.provisions ?? 0) > out.provisions)
+    && !((out.gauge[roadKey(out.at, to)] ?? 0) > 0)) return out;
   for (let i = 0; i < 900 && unbuildable(out, to); i++) out = tick(out, 5);
   out = apply(out, { type: 'build', to, kit: 'cart' });
   for (let i = 0; i < 400 && out.building; i++) {
@@ -125,7 +149,7 @@ describe('★ mana only reaches along road you have built', () => {
   });
 
   it('grows one stop at a time as road goes in', () => {
-    const to = STOP.get(START)!.near[0]!;
+    const to = OPEN_TO;
     const g = lay(initial(), to);
     expect(g.gauge[roadKey(START, to)]).toBe(1);
     expect(reached(g).has(to)).toBe(true);
@@ -156,7 +180,7 @@ describe('★ the spring answers the thumb', () => {
   });
 
   it('touches nothing but the purse — the work and the trouble stand', () => {
-    const to = STOP.get(START)!.near[0]!;
+    const to = OPEN_TO;
     const working = apply({ ...initial(), mana: 999 },
       { type: 'build', to, kit: 'cart' });
     const tapped = tap(working, 3);
@@ -179,7 +203,7 @@ describe('★★ a road is a pipe', () => {
   it('★ delivers what the road can CARRY once you are standing on the far end', () => {
     // The whole change: income is no longer a count of what you own, it is what
     // this network gets to where you are.
-    const to = STOP.get(START)!.near[0]!;
+    const to = OPEN_TO;
     const g = lay(initial(), to);
     expect(g.at).toBe(to);
     expect(manaRate(g)).toBeCloseTo(boreOf(START, to), 6);
@@ -223,11 +247,11 @@ describe('★★ a road is a pipe', () => {
   });
 
   it('★ and widening the tight one is what raises it', () => {
-    const a = STOP.get(START)!.near[0]!;
+    const a = OPEN_TO;
     const one = { ...initial(), at: a, seen: [START, a], gauge: { [roadKey(START, a)]: 1 } };
     const two = { ...one, gauge: { [roadKey(START, a)]: 2 } };
     expect(manaRate(two)).toBeGreaterThan(manaRate(one));
-    expect(manaRate(two)).toBeCloseTo(2 * boreOf(START, a), 6);
+    expect(manaRate(two)).toBeCloseTo(Math.min(SPRING, 2 * boreOf(START, a)), 6);
   });
 
   it('★ cheap ground is NARROW ground, or the choice is theatre', () => {
@@ -254,7 +278,7 @@ describe('★★ a road is a pipe', () => {
   });
 
   it('never delivers more than the kingdom can push', () => {
-    const a = STOP.get(START)!.near[0]!;
+    const a = OPEN_TO;
     const fat = { ...initial(), at: a, seen: [START, a],
       gauge: { [roadKey(START, a)]: 99 } };
     expect(manaRate(fat)).toBeLessThanOrEqual(SPRING);
@@ -264,14 +288,14 @@ describe('★★ a road is a pipe', () => {
     // The argument I lost, kept as a check: a pipe economy the board cannot
     // draw is the spreadsheet that got scrapped wearing a better name. `loadOf`
     // is what the board draws, so it must say something.
-    const a = STOP.get(START)!.near[0]!;
+    const a = OPEN_TO;
     const g = { ...initial(), at: a, seen: [START, a], gauge: { [roadKey(START, a)]: 1 } };
     expect(loadOf(g).get(roadKey(START, a)), 'the only road carrying anything reads slack')
       .toBeCloseTo(1, 3);
   });
 
   it('widening costs more each time, and stops', () => {
-    const a = STOP.get(START)!.near[0]!;
+    const a = OPEN_TO;
     const at1 = { ...initial(), at: START, gauge: { [roadKey(START, a)]: 1 } };
     const at2 = { ...at1, gauge: { [roadKey(START, a)]: 2 } };
     expect(priceOf(at2, a)).toBeGreaterThan(priceOf(at1, a));
@@ -291,13 +315,13 @@ describe('★★ a road is a pipe', () => {
 describe('★ a road must be built before it can be walked', () => {
   it('refuses the walk, and says why', () => {
     const g = initial();
-    const to = STOP.get(START)!.near[0]!;
+    const to = OPEN_TO;
     expect(blocked(g, to)).toBe('no flow is open here yet');
     expect(apply(g, { type: 'go', to })).toBe(g);
   });
 
   it('and walking it afterwards is free, now and always', () => {
-    const to = STOP.get(START)!.near[0]!;
+    const to = OPEN_TO;
     const g = lay(initial(), to);
     const before = g.mana;
     const back = apply(apply(g, { type: 'go', to: START }), { type: 'go', to });
@@ -317,13 +341,18 @@ describe('★ the crossing', () => {
     // needs more than one route, this is where it shows.
     let g = initial();
     let guard = 0;
-    while (!crossed(g) && guard++ < 200) {
-      // Cheapest road onward that is not already built, preferring the finish.
-      const out = roadsOut(g).filter((r) => !r.built);
+    const barred = new Set<number>();
+    while (!crossed(g) && guard++ < 60) {
+      // Cheapest road onward that is not already built, preferring the
+      // finish — and routing AROUND roads whose camp profile this spent
+      // camp can no longer meet, which is the exclusivity design working.
+      const out = roadsOut(g).filter((r) => !r.built && !barred.has(r.to));
       const home = out.find((r) => r.to === FINISH);
       const next = home ?? out.sort((a, b) => a.cost - b.cost)[0];
       if (!next) break;
+      const before = Object.keys(g.gauge).length;
       g = lay(g, next.to);
+      if (Object.keys(g.gauge).length === before) barred.add(next.to);
     }
     expect(crossed(g), `not crossed after ${Object.keys(g.gauge).length} roads`).toBe(true);
     // ⚠️ AND IT IS A PATH, NOT THE WHOLE MAP. If crossing needed most of the

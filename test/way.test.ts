@@ -7,9 +7,11 @@ import { describe, it, expect } from 'vitest';
 import { apply, initial, roadKey, PUSH_SECS, type Game } from '../src/game/engine';
 import { theWay, DOING, stopId } from '../src/game/world';
 import { pathOf, lengthOf } from '../src/game/paths';
-import { STOP, START } from '../src/game/stops';
+import { STOP, START, NEEDS } from '../src/game/stops';
 
-const to = STOP.get(START)!.near[0]!;
+// The first UNGATED road out — profiled roads meet no halts, and this file
+// needs its halts.
+const to = STOP.get(START)!.near.find((n) => !NEEDS[roadKey(START, n)])!;
 const laying = (): Game =>
   apply({ ...initial(), mana: 999 }, { type: 'build', to, kit: 'cart' });
 

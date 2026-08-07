@@ -1056,6 +1056,25 @@ day.** What remains open for the owner: event prose passes (all ⟨draft⟩),
 what crossing the chapter means, stat renames, and whether choice-level risk
 profiles are wanted on happenings too.
 
+## ★★★ THE BASECAMP, 2026-08-07 — the salvage review's winner, first slice IN
+
+> The owner, at a loss: *"I do not see a game here. I think we lost identity…
+> what can we salvage?"* Thirteen agents answered: the game moved to the camps.
+> Identity to hold: **a map where every camp is a decision about which road
+> you've earned — prepare, choose, watch the line fill.**
+
+**Slice 1 shipped:** camps with 7 depleting days; Hunt (played scene) and
+Gather (flat); three profiled roads out of Start with ENUMERATED exclusivity
+(test/camp.test.ts); prepared roads are clean roads; gear menu.
+
+**Next, in order — each needs the owner's playtest verdict first:**
+1. Camp 2: arriving somewhere makes its camp DIFFERENT (ground changes what
+   pays — the wood gathers well, the moor hunts well) — mods exist, data thin.
+2. Profiles on every road + retire the free roads, or keep the mix.
+3. Chips ON the map (layout work), outcome grades, the mana job at camp.
+4. What dies for real once the loop proves out: dice encounters, kits,
+   tap-mana (the reviews' list — NOT yet deleted).
+
 ## ★★★ SCENES — 2026-08-05, the owner's design, the vertical slice is in
 
 > *"every event should be an extended branching CYOA with hidden HP states…

@@ -41,7 +41,7 @@
 //
 // Pure: `apply(state, action) => state`. No DOM, no clock, no RNG. Time arrives
 // as a `tick` carrying seconds.
-import { STOP, START, FINISH, nameOf, roadCost, roadsFrom, boreOf, GOING } from './stops';
+import { STOP, START, FINISH, nameOf, roadCost, roadsFrom, boreOf, GOING, NEEDS } from './stops';
 import { maxFlow, loads, type Pipe } from './flow';
 import { judge, judgeBurned, burnHelps, legal, clampMomentum, START_STATS, STATS,
   MOMENTUM_START, MOMENTUM_RESET, type Roll, type Stat } from './dice';
@@ -119,6 +119,14 @@ export interface Game {
    *  the whole leg. The other resource the owner asked for, and the one that
    *  makes an event mean something. */
   provisions: number;
+  /** ★★ MAKINGS — what a flow is physically laid from, 2026-08-07: the
+   *  owner's basecamp sketch's third resource ("gather some… something
+   *  else"). Gathered at camp, spent on departure. ⟨draft⟩ name. */
+  makings: number;
+  /** ★★ DAYS WORKED at each stop. A camp offers CAMP_SLOTS days of work;
+   *  every hunt or gather spends one, and a worked-out camp is worked out
+   *  forever — the depletion that makes focus a real choice. */
+  worked: Record<number, number>;
   /** ★ ENCOUNTERS CLEARED, lifetime — the compounding the reviews found
    *  missing. Every GROW_EVERY of these hardens the crew's weakest stat. */
   cleared: number;
@@ -180,6 +188,12 @@ export type Action =
   /** ★★ TAP A VERB IN A SCENE. The whole encounter loop: deterministic
    *  effects, costs, reveals — the dice stay out of it. */
   | { type: 'scene'; verb: string }
+  /** ★★ A DAY OF CAMP: open the hunt — a camp scene, played standing here.
+   *  The day is spent when the stalking starts, land the quarry or not. */
+  | { type: 'hunt' }
+  /** ★★ A DAY OF CAMP: gather makings — the flat, certain job. ('gather'
+   *  was taken: it ends a scavenge with dice. This one is camp work.) */
+  | { type: 'make' }
   /** ★ SEND THE CREW SCAVENGING, on wits (the open ground) or shadow (other
    *  people's stores). The stat is chosen going IN — the dice come at the end. */
   | { type: 'forage'; stat: 'wits' | 'shadow' }
@@ -243,7 +257,32 @@ export const FORAGE_SECS = 18;
 export function unforageable(g: Game): string | null {
   if (g.building) return 'the crew is out opening a flow';
   if (g.foraging) return 'already out scavenging';
-  if (g.provisions >= 10) return 'your packs are full';
+  if (g.provisions >= PROV_CAP) return 'your packs are full';
+  return null;
+}
+
+/** ★★ THE CAMP, 2026-08-07 — the owner: *"we must have something to do at
+ *  the stops in order to prepare for the expedition."* Every stop offers
+ *  this many days of work, forever: each hunt or gather spends one, and
+ *  when they are gone the ground is worked out. The budget is what makes
+ *  the destination profiles CONFLICT — see NEEDS in stops.ts. */
+export const CAMP_SLOTS = 7;
+/** What one day of gathering brings in. */
+export const GATHER_MAKINGS = 2;
+/** ⚠️ The packs' ceiling — raised from Ironsworn's 10 because the camp
+ *  economy banks toward departures now, not just through encounters. */
+export const PROV_CAP = 24;
+
+/** Days of camp work left where you stand. */
+export const daysLeft = (g: Game): number =>
+  Math.max(0, CAMP_SLOTS - (g.worked[g.at] ?? 0));
+
+/** Why the crew cannot work the camp right now, in plain words, or null. */
+export function campless(g: Game): string | null {
+  if (g.building) return 'the crew is out opening a flow';
+  if (g.foraging) return 'the crew is out scavenging';
+  if (g.facing) return 'something stands in the way first';
+  if (daysLeft(g) <= 0) return 'this ground is worked out';
   return null;
 }
 
@@ -375,9 +414,10 @@ export function sceneStart(sc: Scene): { stage: string; gauges: Record<string, n
  *  the trouble is still there — and with no provisions left it is the end of
  *  the leg, exactly like every other disaster in this game. */
 function judgeScene(g: Game): Game {
-  if (!g.facing?.scene || !g.building) return g;
+  if (!g.facing?.scene) return g;
   const sc = sceneById(g.facing.event);
   if (!sc) return g;
+  if (!g.building && !sc.camp) return g;
   const st = g.facing.scene;
   for (const r of sc.rules) {
     if (r.stages && !r.stages.includes(st.stage)) continue;
@@ -388,14 +428,30 @@ function judgeScene(g: Game): Game {
       return { ...g, facing: { ...g.facing, scene: { ...st, stage: r.goto } } };
     }
     if (r.end === 'cleared') {
+      // ★ A CAMP SCENE PAYS ITS HAUL and the day is done — no halts to
+      // consume, nobody on a road.
+      if (sc.camp) {
+        return harden({
+          ...g,
+          facing: null,
+          provisions: Math.min(PROV_CAP, g.provisions + (sc.haul?.provisions ?? 0)),
+          makings: g.makings + (sc.haul?.makings ?? 0),
+          mana: g.mana + (sc.haul?.mana ?? 0),
+        });
+      }
       return harden({
         ...g,
         momentum: clampMomentum(g.momentum + 1),
         facing: null,
-        building: { ...g.building, halts: g.building.halts.slice(1) },
+        building: { ...g.building!, halts: g.building!.halts.slice(1) },
       });
     }
     if (r.end === 'setback') {
+      // ★ A CAMP SETBACK IS A DAY LOST, full stop: the herd is gone, the
+      // scene does NOT reset, nothing is paid. The slot was spent going in.
+      if (sc.camp) {
+        return { ...g, facing: null };
+      }
       if (g.provisions <= 0) {
         return { ...g, momentum: clampMomentum(g.momentum - 2), building: null, facing: null };
       }
@@ -404,8 +460,8 @@ function judgeScene(g: Game): Game {
         provisions: Math.max(0, g.provisions - 1),
         momentum: clampMomentum(g.momentum - 1),
         building: {
-          ...g.building,
-          left: Math.min(g.building.secs, g.building.left + g.building.secs * 0.25),
+          ...g.building!,
+          left: Math.min(g.building!.secs, g.building!.left + g.building!.secs * 0.25),
         },
         // What you LEARNED survives the setback — their patience does not
         // re-hide because the water won a round.
@@ -419,10 +475,12 @@ function judgeScene(g: Game): Game {
 /** ★ THE WORLD'S TURN, taken once after each of your verbs and never on the
  *  clock. Ground multiplies it: the journey type is a modifier. */
 function worldTurn(g: Game): Game {
-  if (!g.facing?.scene || !g.building) return g;
+  if (!g.facing?.scene) return g;
   const sc = sceneById(g.facing.event);
   if (!sc) return g;
-  const ground = legGround(g.building.key) as keyof NonNullable<Scene['mods']>;
+  if (!g.building && !sc.camp) return g;
+  const ground = (g.building ? legGround(g.building.key)
+    : STOP.get(g.at)?.ground ?? 'moor') as keyof NonNullable<Scene['mods']>;
   const mods = sc.mods?.[ground] ?? {};
   const st = g.facing.scene;
   const gauges = { ...st.gauges };
@@ -507,6 +565,19 @@ export function unbuildable(g: Game, to: number): string | null {
   // ★ THE RULE THE OPENING IS FOR. Reported before the price, because you can
   // wait out a price and you cannot wait out being in the wrong place.
   if (!reached(g).has(g.at)) return 'no mana reaches here';
+  // ★★ THE DESTINATION'S PROFILE — the owner's sketch: conflicting
+  // requirements, met at camp before anyone sets off. Fresh lays only, and
+  // reported BEFORE the mana price: the camp work is the bigger ask, and a
+  // player tapping mana at a road the camp cannot afford is being lied to.
+  const need = NEEDS[roadKey(g.at, to)];
+  if (need && (g.gauge[roadKey(g.at, to)] ?? 0) === 0) {
+    if ((need.provisions ?? 0) > g.provisions) {
+      return `the camp is short — ${need.provisions} provisions to set out, you hold ${g.provisions}`;
+    }
+    if ((need.makings ?? 0) > g.makings) {
+      return `the camp is short — ${need.makings} makings to set out, you hold ${g.makings}`;
+    }
+  }
   const cost = priceOf(g, to);
   if (cost > g.mana) return `${cost} mana — you have ${g.mana}`;
   return null;
@@ -588,6 +659,8 @@ export function initial(): Game {
     stats: { ...START_STATS },
     momentum: MOMENTUM_START,
     provisions: 6,
+    makings: 0,
+    worked: {},
     cleared: 0,
     foraging: null,
     facing: null,
@@ -697,9 +770,10 @@ export function apply(g: Game, a: Action): Game {
     }
 
     case 'scene': {
-      if (!g.facing?.scene || !g.building) return g;
+      if (!g.facing?.scene) return g;
       const sc = sceneById(g.facing.event);
       if (!sc) return g;
+      if (!g.building && !sc.camp) return g;
       const st = g.facing.scene;
       const verb = sc.verbs.find((v) => v.id === a.verb);
       if (!verb) return g;
@@ -739,13 +813,18 @@ export function apply(g: Game, a: Action): Game {
       // COSTS something the rolls are protecting. No stock, no suited kit.
       const outfit = fresh && kitAdd(a.kit, key) === 1 ? 1 : 0;
       if (outfit > g.provisions) return g;
+      // ★★ A PROFILED ROAD IS A PREPARED ROAD: the makings are spent into
+      // the line, the provisions travel with the crew, and there are NO
+      // hidden halts — the preparation was the trouble, faced in advance.
+      const need = fresh ? NEEDS[key] : undefined;
       return {
         ...g,
         mana: g.mana - priceOf(g, a.to),
         provisions: g.provisions - outfit,
+        makings: g.makings - (need?.makings ?? 0),
         building: {
           key, from: g.at, left: secs, secs, to: (g.gauge[key] ?? 0) + 1,
-          halts: fresh ? haltsFor(key, priceOf(g, a.to), climbTo(g, a.to)) : [],
+          halts: fresh && !need ? haltsFor(key, priceOf(g, a.to), climbTo(g, a.to)) : [],
           kit: a.kit,
         },
       };
@@ -842,6 +921,30 @@ export function apply(g: Game, a: Action): Game {
       });
     }
 
+    case 'hunt': {
+      // ★★ A DAY OF CAMP, SPENT GOING IN — land the quarry or not, the day
+      // is stalking. The scene machinery takes it from here.
+      if (campless(g)) return g;
+      const sc = sceneById('hunt');
+      if (!sc) return g;
+      return {
+        ...g,
+        worked: { ...g.worked, [g.at]: (g.worked[g.at] ?? 0) + 1 },
+        facing: { key: `camp:${g.at}`, event: 'hunt', rolled: null,
+          scene: sceneStart(sc) },
+      };
+    }
+
+    case 'make': {
+      // The flat, certain day: makings in hand, no scene, no dice.
+      if (campless(g)) return g;
+      return {
+        ...g,
+        worked: { ...g.worked, [g.at]: (g.worked[g.at] ?? 0) + 1 },
+        makings: g.makings + GATHER_MAKINGS,
+      };
+    }
+
     case 'forage': {
       if (unforageable(g)) return g;
       if (a.stat !== 'wits' && a.stat !== 'shadow') return g;
@@ -861,11 +964,11 @@ export function apply(g: Game, a: Action): Game {
       const greedy = g.foraging.stat === 'shadow';
       if (out.tier === 'strong') {
         return { ...g, foraging: null,
-          provisions: Math.min(10, g.provisions + 1 + swing + (greedy ? 1 : 0)) };
+          provisions: Math.min(PROV_CAP, g.provisions + 1 + swing + (greedy ? 1 : 0)) };
       }
       if (out.tier === 'weak') {
         return { ...g, foraging: null,
-          provisions: Math.min(10, g.provisions + 1),
+          provisions: Math.min(PROV_CAP, g.provisions + 1),
           momentum: greedy ? clampMomentum(g.momentum - swing) : g.momentum };
       }
       return greedy
@@ -885,8 +988,11 @@ export function apply(g: Game, a: Action): Game {
         seen: first ? [...g.seen, a.to] : g.seen,
         // Walking a laid road is free, now and always. The mana went into
         // making it. ⚠️ Walking off ABANDONS a scavenge — the time is lost,
-        // said in the deed's note rather than silently.
+        // said in the deed's note rather than silently. A camp scene (a hunt
+        // with no crew on a road) is abandoned the same way: the day stays
+        // spent, the quarry stays wild.
         foraging: null,
+        facing: g.facing && !g.building ? null : g.facing,
       };
     }
   }

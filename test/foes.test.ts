@@ -6,9 +6,9 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, troubleFor, sceneFor, roadKey, FOE_ODDS, type Game } from '../src/game/engine';
 import { FOES, HAPPENINGS, isFoe, troubleById } from '../src/game/events';
-import { STOP, START, STOPS } from '../src/game/stops';
+import { STOP, START, STOPS, NEEDS } from '../src/game/stops';
 
-const to = STOP.get(START)!.near[0]!;
+const to = STOP.get(START)!.near.find((n) => !NEEDS[roadKey(START, n)])!;
 const key = roadKey(START, to);
 
 /** A fight in progress, crafted directly so the dice stay in our hands. */
