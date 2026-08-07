@@ -1056,7 +1056,26 @@ day.** What remains open for the owner: event prose passes (all ⟨draft⟩),
 what crossing the chapter means, stat renames, and whether choice-level risk
 profiles are wanted on happenings too.
 
-## ★★★ THE BASECAMP, 2026-08-07 — the salvage review's winner, first slice IN
+## ★★★★ THE CAMP BUILDER, 2026-08-07 (night) — the owner's pivot, slice IN
+
+> *"maybe we do a base building game here instead… it will all somehow be a
+> graph? connections between these would be very prominent. and we will drop
+> all prose entirely until we have a good idea of a gameplay. so it'd be
+> incremental wilderness camp builder!"*
+
+**Shipped:** src/camp/ engine + one-screen UI. Quarry/lumberworks/sawmill on
+fixed sites, paths as the game (nothing counts unconnected), logs→planks→camp
+levels, level 2 grows the map. Zero prose. Old game retired in place.
+
+**Next — each gated on the owner's playtest verdict, one per session:**
+1. More to level 2/3: farm+food chain? second currency? path UPGRADES
+   (wider paths = the old gauge idea, it is already drawn).
+2. Scarcity: sites deplete? seasons? something that forces rebuild/reroute —
+   right now the only pressure is cost.
+3. Away report (one line of numbers), site unlock choices (pick 1 of 2).
+4. Naming pass — owner's, when the loop proves out.
+
+## ★★★ THE BASECAMP, 2026-08-07 — superseded the same day by the camp builder
 
 > The owner, at a loss: *"I do not see a game here. I think we lost identity…
 > what can we salvage?"* Thirteen agents answered: the game moved to the camps.
