@@ -1084,10 +1084,13 @@ endings wired into the expedition loop.
    breath gates mashing. ⚠️ ALL scenes are turn-based now — the clock never
    moves a gauge; the world takes one `perTurn` step after each verb. Still
    to build from this list: convoy integrity ("keeping resources intact" —
-   a cargo gauge foes and terrain chip at), multi-objective scenes. OPEN
-   from the same playtest: *"tapped the button in the middle without
-   reading and it worked"* — wrong verbs still cost only tempo; making them
-   genuinely lose is a tuning conversation to have BEFORE more content.
+   a cargo gauge foes and terrain chip at), multi-objective scenes.
+   ✦ 2026-08-07, the spam review: WORK_PACE deleted (pushes are the only
+   travel; open ground on the way is a push button), dice misses ESCALATE
+   (1, 2, 3 provisions… within one encounter), scenes retuned until a
+   single-free-verb bot stalls or dies — guarded forever by the spam-bot
+   test. STILL OPEN, owner's call: prose that carries information
+   (telegraphed stat leans, per-choice risk) so READING buys a die step.
 3. **Outcome grades** — clear WITH margin pays extra (provisions, momentum,
    maybe loot); scraping through pays less. Makes play skill matter.
 4. **Graphs on top** — the owner: *"we'd need to somehow slap graphs on top,

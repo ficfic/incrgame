@@ -108,7 +108,7 @@ function doing(g: Game): Node {
       id: DOING, kind: 'doing',
       name: g.building.to > 1 ? 'Widening the flow' : 'Opening the flow',
       body: `Toward ${nameOf(far)}, by ${g.building.kit}. ${Math.ceil(g.building.left)}s `
-        + 'left. It keeps going while the game is closed.',
+        + 'of work left. Every tap drives it on — nothing moves without you.',
     };
   }
   const wait = waitFor(g);

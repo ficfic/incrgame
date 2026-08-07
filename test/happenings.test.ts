@@ -26,11 +26,14 @@ const flush = (): Game => ({ ...initial(), mana: 999 });
 function intoTrouble(): Game {
   const to = STOP.get(START)!.near[0]!;
   let g = apply(flush(), { type: 'build', to, kit: 'cart' });
-  for (let i = 0; i < 90 && !g.facing; i++) g = tick(g, 0.5);
+  // Pushed, not ticked: since 2026-08-07 the clock does not move the crew.
+  for (let i = 0; i < 90 && !g.facing; i++) g = apply(g, { type: 'push' });
   if (g.facing) {
     // Pinned to the washout WITH its live strength-2 track — every trouble
-    // is an encounter now, and these tests exercise the path the game takes.
-    g = { ...g, facing: { ...g.facing, event: 'washout', foe: { left: 2 } } };
+    // is an encounter now, and these tests exercise the DICE path. The pin
+    // is rebuilt whole so a scene armed by the map cannot leak in.
+    g = { ...g, facing: { key: g.facing.key, event: 'washout', rolled: null,
+      foe: { left: 2 } } };
   }
   return g;
 }
@@ -146,7 +149,7 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     g = apply(g, { type: 'carry' });
     expect(g.facing).toBeNull();
     expect(g.momentum).toBe(initial().momentum + 1);
-    g = tick(g, 1);
+    g = apply(g, { type: 'push' });
     expect(g.building!.left).toBeLessThan(leftAtHalt);
   });
 
@@ -182,6 +185,25 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     expect(g.building!.halts.length).toBeLessThan(2);
   });
 
+  it('★★ MISSES ESCALATE: each one in the same encounter eats a provision more', () => {
+    // The owner spammed the first option without reading and it completed.
+    // Now: miss one eats 1, miss two eats 2, miss three eats 3 — six
+    // provisions gone in three blind taps, and the fourth is the end.
+    let g = intoTrouble();
+    expect(g.provisions).toBe(5);   // six at the start, one to stock the cart
+    const miss = { a: 1, c1: 9, c2: 8 };
+    g = apply(apply(g, { type: 'face', choice: 0, roll: miss }), { type: 'carry' });
+    expect(g.provisions).toBe(4);
+    g = apply(apply(g, { type: 'face', choice: 0, roll: miss }), { type: 'carry' });
+    expect(g.provisions).toBe(2);
+    g = apply(apply(g, { type: 'face', choice: 0, roll: miss }), { type: 'carry' });
+    expect(g.provisions).toBe(0);
+    // Still standing, still hungry: the next miss fails the whole leg.
+    g = apply(apply(g, { type: 'face', choice: 0, roll: miss }), { type: 'carry' });
+    expect(g.building).toBeNull();
+    expect(g.facing).toBeNull();
+  });
+
   it('★★ a miss with no provisions left FAILS the leg outright', () => {
     let g = intoTrouble();
     g = { ...g, provisions: 0 };
@@ -203,10 +225,27 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     // provision is a real spend now.
     const to = STOP.get(START)!.near[0]!;
     let g = apply(flush(), { type: 'build', to, kit: 'cart' });
-    for (let i = 0; i < 80 && g.building; i++) {
-      g = tick(g, 2);
+    const play = (x: Game): Game => {
+      // The same compressed policies test/roads.test.ts proves out.
+      const st = x.facing!.scene!;
+      const id = x.facing!.event;
+      const pick =
+        id === 'washout' ? (st.stage === 'flooded' || (st.gauges.water ?? 0) > 6.5 ? 'bail' : 'dig')
+        : id === 'brigands' ? (st.stage === 'knives' ? 'stand' : 'talk')
+        : id === 'wights' ? (st.stage === 'inTrench' ? 'drive'
+          : (st.gauges.press ?? 0) >= 6.5 ? 'rally' : 'ring')
+        : id === 'watcher' ? (st.stage === 'over' ? 'stare'
+          : (st.gauges.near ?? 0) >= 7 ? 'back' : 'watch')
+        : id === 'oldstones' ? (st.stage === 'undermined' ? 'shore' : 'bare')
+        : id === 'nightwatch' ? (st.stage === 'shifts' ? 'steady'
+          : (st.gauges.dread ?? 0) >= 6 ? 'watch' : 'climb')
+        : (st.stage === 'blown' || (st.gauges.wind ?? 8) <= 2.5 ? 'rest' : 'press');
+      return apply(x, { type: 'scene', verb: pick });
+    };
+    for (let i = 0; i < 400 && g.building; i++) {
+      g = apply(g, { type: 'push' });
       if (g.facing?.scene) {
-        for (let j = 0; j < 20 && g.facing; j++) g = apply(g, { type: 'scene', verb: 'dig' });
+        for (let j = 0; j < 45 && g.facing?.scene; j++) g = play(g);
       } else if (g.facing) {
         g = apply(g, { type: 'face', choice: 0, roll: { a: 6, c1: 1, c2: 2 } });
         g = apply(g, { type: 'carry' });
@@ -226,10 +265,9 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     const run = (kit: Kit): Game => {
       const to = STOP.get(START)!.near[0]!;
       let g = apply(flush(), { type: 'build', to, kit });
-      for (let i = 0; i < 90 && !g.facing; i++) g = tick(g, 0.5);
-      // Pinned to a happening — foes have their own file.
-      const { foe: _, ...rest } = g.facing!;
-      g = { ...g, facing: { ...rest, event: 'washout' } };
+      for (let i = 0; i < 90 && !g.facing; i++) g = apply(g, { type: 'push' });
+      // Pinned to a happening, rebuilt whole — foes and scenes have their own files.
+      g = { ...g, facing: { key: g.facing!.key, event: 'washout', rolled: null } };
       const ev = HAPPENINGS.find((h) => h.id === g.facing!.event)!;
       const iron = ev.choices.findIndex((c) => c.stat === 'iron');
       const choice = iron >= 0 ? iron : 0;
@@ -280,8 +318,8 @@ describe('★★ a hidden stop blocks the work until it is faced', () => {
     let g: Game = { ...flush(), gauge: { [roadKey(START, to)]: 1 } };
     g = apply(g, { type: 'build', to, kit: 'cart' });
     expect(g.building!.halts).toEqual([]);
-    // 90 wall-seconds is 36 of work at WORK_PACE — enough for any widen.
-    for (let i = 0; i < 90 && g.building; i++) g = tick(g, 1);
+    // Pushed to the end: the clock has not moved a crew since 2026-08-07.
+    for (let i = 0; i < 90 && g.building; i++) g = apply(g, { type: 'push' });
     expect(g.facing).toBeNull();
     expect(g.gauge[roadKey(START, to)]).toBe(2);
   });

@@ -25,15 +25,17 @@ function playScene(g: Game): Game {
   const st = g.facing!.scene!;
   const id = g.facing!.event;
   const pick =
-    id === 'washout' ? ((st.gauges.water ?? 0) > 7 ? 'bail' : 'dig')
+    id === 'washout' ? (st.stage === 'flooded' || (st.gauges.water ?? 0) > 6.5 ? 'bail' : 'dig')
     : id === 'brigands' ? (st.stage === 'knives' ? 'stand' : 'talk')
     : id === 'wights' ? (st.stage === 'inTrench' ? 'drive'
       : (st.gauges.press ?? 0) >= 6.5 ? 'rally' : 'ring')
-    : id === 'watcher' ? (st.stage === 'over' ? 'stare' : 'watch')
+    : id === 'watcher' ? (st.stage === 'over' ? 'stare'
+      : (st.gauges.near ?? 0) >= 7 ? 'back' : 'watch')
     : id === 'oldstones' ? (st.stage === 'undermined' ? 'shore' : 'bare')
     : id === 'nightwatch' ? (st.stage === 'shifts' ? 'steady'
       : (st.gauges.dread ?? 0) >= 6 ? 'watch' : 'climb')
-    : (st.stage === 'blown' ? 'rest' : 'press');   // the last of the light
+    : (st.stage === 'blown' || (st.gauges.wind ?? 8) <= 2.5
+      ? 'rest' : 'press');   // the last of the light
   return apply(g, { type: 'scene', verb: pick });
 }
 
@@ -44,8 +46,8 @@ function lay(g: Game, to: number): Game {
   let out = g;
   for (let i = 0; i < 900 && unbuildable(out, to); i++) out = tick(out, 5);
   out = apply(out, { type: 'build', to, kit: 'cart' });
-  for (let i = 0; i < 60 && out.building; i++) {
-    out = tick(out, 2);
+  for (let i = 0; i < 400 && out.building; i++) {
+    out = apply(out, { type: 'push' });
     if (out.facing?.scene) {
       for (let t = 0; t < 45 && out.facing?.scene; t++) out = playScene(out);
     } else if (out.facing) {

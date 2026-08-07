@@ -101,13 +101,15 @@ export const SCENES: readonly Scene[] = [
     ],
     gauges: [
       { id: 'cut', label: 'The cut', start: 0, min: 0, max: 10 },
-      { id: 'water', label: 'The water', start: 3, min: 0, max: 12, perTurn: 0.7 },
+      { id: 'water', label: 'The water', start: 3, min: 0, max: 12, perTurn: 1.0 },
     ],
     verbs: [
+      // ⚠️ Dig is gated to the OPEN stage since the spam review: flooded
+      // means flooded — bail first, dig after. One button cannot win alone.
       { id: 'dig', label: 'Dig', note: 'iron speeds the spade',
-        stat: 'iron', effect: { cut: 0.6 }, perStat: { cut: 0.15 } },
-      { id: 'bail', label: 'Bail', note: 'push the water back a little',
-        effect: { water: -1.4 } },
+        stat: 'iron', effect: { cut: 0.6 }, perStat: { cut: 0.15 }, stages: ['open'] },
+      { id: 'bail', label: 'Bail', note: 'push the water back, properly',
+        effect: { water: -2.2 } },
       { id: 'channel', label: 'Spend mana to firm the bank', note: '3 mana — the water slows where it lands',
         mana: 3, effect: { water: -3.5 } },
     ],
@@ -133,8 +135,8 @@ export const SCENES: readonly Scene[] = [
     ],
     gauges: [
       // ★ HIDDEN HP — you cannot see their patience until you read them.
-      { id: 'patience', label: 'Their patience', start: 6, min: 0, max: 10, hidden: true },
-      { id: 'temper', label: 'Their temper', start: 2, min: 0, max: 10, perTurn: 0.4 },
+      { id: 'patience', label: 'Their patience', start: 8, min: 0, max: 10, hidden: true },
+      { id: 'temper', label: 'Their temper', start: 2, min: 0, max: 10, perTurn: 1.0 },
       // Their knives grind the crew's nerve every exchange — the setback is
       // REACHABLE, which a kinder number quietly stopped being true of.
       { id: 'nerve', label: 'The crew\'s nerve', start: 6, min: 0, max: 8,
@@ -225,7 +227,7 @@ export const SCENES: readonly Scene[] = [
     ],
     verbs: [
       { id: 'watch', label: 'Watch how it moves', note: 'wits — every move it makes is one you keep',
-        stat: 'wits', effect: { gait: 0.6, near: 0.4 }, perStat: { gait: 0.2 },
+        stat: 'wits', effect: { gait: 0.6, near: 0.8 }, perStat: { gait: 0.2 },
         reveals: ['gait'], stages: ['prowling'] },
       { id: 'back', label: 'Back the crew off', note: 'room to breathe, and the thread goes slack',
         effect: { near: -1.5, gait: -0.2 } },
@@ -258,15 +260,15 @@ export const SCENES: readonly Scene[] = [
     ],
     gauges: [
       { id: 'bared', label: 'The old line, bared', start: 0, min: 0, max: 10 },
-      { id: 'hollow', label: 'The hollow under', start: 0, min: 0, max: 10, perTurn: 0.5, hidden: true },
+      { id: 'hollow', label: 'The hollow under', start: 0, min: 0, max: 10, perTurn: 0.8, hidden: true },
     ],
     verbs: [
-      { id: 'bare', label: 'Bare them with care', note: 'wits — slow, and nothing falls in',
-        stat: 'wits', effect: { bared: 0.5 }, perStat: { bared: 0.15 } },
+      { id: 'bare', label: 'Bare them with care', note: 'wits — steady, while the ground holds',
+        stat: 'wits', effect: { bared: 0.8 }, perStat: { bared: 0.15 }, stages: ['open'] },
       { id: 'crack', label: 'Crack them and be quick', note: 'iron — fast, and the hollow under them grows',
         stat: 'iron', effect: { bared: 0.8, hollow: 1.0 }, perStat: { bared: 0.15 }, stages: ['open'] },
       { id: 'sound', label: 'Sound the ground', note: 'shadow hears the hollow places',
-        stat: 'shadow', effect: { hollow: -0.5 }, perStat: { hollow: -0.15 },
+        stat: 'shadow', effect: { hollow: -0.9 }, perStat: { hollow: -0.15 },
         reveals: ['hollow'] },
       { id: 'shore', label: 'Shore the trench wall', note: 'iron, and stout timber',
         stat: 'iron', effect: { hollow: -1.2 }, perStat: { hollow: -0.2 }, stages: ['undermined'] },
@@ -305,7 +307,7 @@ export const SCENES: readonly Scene[] = [
       { id: 'fires', label: 'Feed the fires', note: '2 mana — light is an argument',
         mana: 2, effect: { dread: -2.0 } },
       { id: 'tea', label: 'Send up tea and bread', note: '1 provision — whatever it is, it is cold up there',
-        provisions: 1, effect: { quiet: 2.2 }, stages: ['watching'] },
+        provisions: 1, effect: { quiet: 1.6 }, stages: ['watching'] },
       { id: 'steady', label: 'Walk the rounds together', note: 'heart, in twos',
         stat: 'heart', effect: { dread: -1.0 }, perStat: { dread: -0.2 }, stages: ['shifts'] },
     ],
@@ -340,10 +342,10 @@ export const SCENES: readonly Scene[] = [
     ],
     verbs: [
       { id: 'press', label: 'Press them on', note: 'heart drives tired legs',
-        stat: 'heart', effect: { home: 0.85, wind: -0.9 }, perStat: { home: 0.25 },
+        stat: 'heart', effect: { home: 0.85, wind: -1.2 }, perStat: { home: 0.25 },
         stages: ['strung'] },
       { id: 'rest', label: 'Let them breathe', note: 'the dark gains, the legs come back',
-        effect: { wind: 1.8 } },
+        effect: { wind: 2.2 } },
       { id: 'flare', label: 'Send up mana-light', note: '2 mana — the ground ahead shows itself',
         mana: 2, effect: { home: 1.4 } },
       { id: 'carry', label: 'Carry the spent ones', note: 'iron takes the weight',

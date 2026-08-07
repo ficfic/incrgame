@@ -483,6 +483,7 @@
          for exactly that. Everywhere else a dot is a diagram and nudging one
          is harmless. -->
     <Board {dots} {lines} box={laid.box} label={tab} onTap={tap}
+      onGround={() => { if (way) act({ type: 'push' }); }}
       decor={tab === 'chapter' || way ? TERRAIN_SHAPES : []}
       drag={tab !== 'chapter' && !way} {inset} feed={way ? null : feed}
       pulse={game.mana} {fog} />
@@ -622,8 +623,8 @@
       <!-- The Here tab carries the countdown on a dot of its own, so saying it
            again underneath would be the same number twice on one screen. -->
       {#if game.building && chosen.id !== DOING}
-        <p class="note">Opening the flow — {Math.ceil(game.building.left)}s left.
-          It keeps going while the game is closed.</p>
+        <p class="note">Opening the flow — {Math.ceil(game.building.left)}s of work left.
+          The crew moves when you tap them, or anywhere on the ground.</p>
       {/if}
       {#if !deeds.length && chosen.id.startsWith('stop:') && numOf(chosen.id) === game.at}
         <p class="note">You are here. Tap a stop beside you to open a flow.</p>

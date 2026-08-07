@@ -52,10 +52,11 @@
      *  that are not there. */
     pts?: Pt[] }
 
-  let { dots, lines, box, label, onTap, decor = [], drag = true, inset = 0,
+  let { dots, lines, box, label, onTap, onGround, decor = [], drag = true, inset = 0,
     feed = null, pulse = 0, fog = null }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
     onTap: (id: string) => void;
+    onGround?: () => void;
     /** ★ THE FOG OF WAR, or null for no fog. Uncharted parchment drawn OVER
      *  the terrain with soft holes cut around `spots` (stops stood at) and
      *  along `runs` (pipes, and the feed). The graph itself — dots, dotted
@@ -620,6 +621,10 @@
     // A tap is a press that did not travel. 7px of slop, because a thumb on a
     // phone never lands and lifts on the same pixel.
     if (was && slid < 7) onTap(was);
+    // ★ A tap on open ground reports too — on the way it IS the work button,
+    // because a crew mark can sit under the dock and a thumb needs a target
+    // bigger than one dot. The view decides what it means.
+    else if (!was && slid < 7) onGround?.();
     grabbed = null;
   }
 

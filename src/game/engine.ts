@@ -140,6 +140,10 @@ export interface Game {
      *  A foe takes ROUNDS — Ironsworn's progress-track fight. Absent for a
      *  happening, and absent on saves from before foes existed. */
     foe?: { left: number };
+    /** ★ MISSES TAKEN in this encounter. Each one eats a provision more
+     *  than the last — the escalation that makes blind mashing a spiral
+     *  instead of a wait. Absent on older saves and fresh encounters. */
+    sore?: number;
     /** ★★ A SCENE — the encounter as its own little incremental game (the
      *  owner's design, 2026-08-05; turn-based by decree, 2026-08-07). Verbs
      *  are your moves, the world answers one turn per verb, rules branch the
@@ -209,14 +213,17 @@ export const MANA_BASE = 0.12;
  *  grew with the network would make tapping the endgame instead of the start. */
 export const TAP = 0.4;
 
-/** ★ THE CREW DAWDLE WITHOUT YOU. Work advances at this fraction of real
- *  time on its own — the owner: *"we're still moving without me doing much."*
- *  Waiting still finishes a leg, slowly; pushing is what makes it move. */
-export const WORK_PACE = 0.4;
+/** ★★ THE CREW DO NOT MOVE WITHOUT YOU — the owner, 2026-08-07: *"we
+ *  started moving automatically without me doing anything. I feel like we
+ *  need to enter this mode immediately where we manage our travel."* The
+ *  clock never advances a leg; every step of the way is a push. This
+ *  finished the conversion the turn-based decree began: the clock touches
+ *  MANA and nothing that moves you toward the goal. (WORK_PACE 0.4, the
+ *  old dawdle, died here — it was the same idle-progress hole one layer up.) */
 
 /** ★ ONE PUSH OF THE CREW — the `push` action, worth this much work. The
- *  journey's own tap-tap-tap: roughly three pushes buy a second of wall
- *  clock back, and a halt still stops everything until it is faced. */
+ *  journey IS this button now: a 14s leg is a dozen deliberate pushes, and
+ *  a halt still stops everything until it is faced. */
 export const PUSH_SECS = 1.2;
 
 /** ★ WHAT THE KINGDOM CAN ACTUALLY PUSH DOWN THE LINE. A ceiling, and a
@@ -587,9 +594,9 @@ export function initial(): Game {
   };
 }
 
-/** ★ THE WORK ADVANCES — by the clock at WORK_PACE, or by a push. One
- *  function, so a halt, a completion and an arrival mean the same thing
- *  whichever way the work got there. */
+/** ★ THE WORK ADVANCES — by a push, and by nothing else since 2026-08-07.
+ *  One function still, so a halt, a completion and an arrival mean the
+ *  same thing however many pushes got the work there. */
 function advance(g: Game, work: number): Game {
   if (!g.building || g.facing || work <= 0) return g;
   let next = g;
@@ -679,10 +686,10 @@ export function apply(g: Game, a: Action): Game {
       // ★ THE TICK DOES NOT TOUCH A SCENE. Turn-based by decree: a scene
       // waits, however long you stare at it or leave it in a pocket.
 
-      // ⚠️ WORK MOVES SLOWER THAN THE CLOCK — WORK_PACE of it. The rest is
-      // the player's to push. Same advance the push action uses, so the two
-      // can never disagree about halts or arrival.
-      return advance(next, a.secs * WORK_PACE);
+      // ★ THE CLOCK DOES NOT MOVE THE CREW. Legs advance by `push` alone —
+      // the same decree that froze the scenes, applied to the journey. The
+      // tick pays mana and serves the scavenge timer; it carries nobody.
+      return next;
     }
 
     case 'push': {
@@ -791,14 +798,23 @@ export function apply(g: Game, a: Action): Game {
             facing: null,
           };
         }
+        // ★★ MISSES ESCALATE, 2026-08-07 — the owner: *"I just spammed the
+        // first option without reading anything, and it got complete."* The
+        // five-agent review agreed why: iteration guaranteed completion, so
+        // reading was worth nothing. Now each miss in the SAME encounter
+        // eats one provision more than the last (1, then 2, then 3…), and
+        // the knockback doubled — blind mashing is a provisions death
+        // spiral that ends at the fail state, which used to be unreachable.
+        const sore = next.facing!.sore ?? 0;
         next = {
           ...next,
-          provisions: Math.max(0, next.provisions - 1),
+          provisions: Math.max(0, next.provisions - (1 + sore)),
           momentum: clampMomentum(next.momentum - swing),
+          facing: { ...next.facing!, sore: sore + 1 },
           building: {
             ...next.building!,
             left: Math.min(next.building!.secs,
-              next.building!.left + next.building!.secs * 0.25 * swing),
+              next.building!.left + next.building!.secs * 0.5 * swing),
           },
         };
       }

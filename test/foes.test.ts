@@ -118,7 +118,7 @@ describe('★★ every halt is an encounter — the owner: "event has HP"', () =
     let g: Game = { ...initial(), mana: 999,
       building: { key: found!.key, from: a!, left: 14, secs: 14, to: 1,
         halts: [found!.h], kit: 'packs' } };
-    g = apply(g, { type: 'tick', secs: 100 });
+    for (let i = 0; i < 200 && !g.facing; i++) g = apply(g, { type: 'push' });
     expect(g.facing).not.toBeNull();
     expect(isFoe(troubleById(g.facing!.event))).toBe(false);
     expect(g.facing!.foe).toBeDefined();

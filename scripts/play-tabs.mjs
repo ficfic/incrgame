@@ -641,14 +641,12 @@ if (!live || live.off) {
   if (onTab !== 'Here') {
     misses.push(`setting off left the player on ${onTab} — no auto-switch to the way`);
   }
-  const laying = await panelText();
-  const fillMid = await ink('fill');
-  console.log('  says    :', `"${laying.slice(0, 90)}"`);
-  console.log('  filling :', `${fill0}px → ${fillMid}px of made road`);
-  if (!/\d+s left/.test(laying)) misses.push(`nothing says how long the road has left: "${laying.slice(0, 60)}"`);
-  // ⚠️ THE ROAD GOING IN IS DRAWN GOING IN. A build that only happens in the
-  // state is a timer with a number beside it, not a road being laid.
-  if (!(fillMid > fill0)) misses.push(`the road is not visibly filling: ${fill0}px then ${fillMid}px`);
+  // ★ PUSHED, NOT WAITED: since 2026-08-07 the clock does not move the crew,
+  // so the fill only grows because the probe works the crew. ONE push first —
+  // the from-your-end check below needs the fill still short enough to sit
+  // by the pin.
+  await page.locator('.map .node[data-id="doing"]').click({ timeout: 1500 }).catch(() => {});
+  await page.waitForTimeout(250);
 
   // ★★ AND IT FILLS FROM YOUR END. Reported broken twice: *"the line being
   // made solid starts from the wrong side."* Early in the build, the fill ink
@@ -656,6 +654,19 @@ if (!live || live.off) {
   // cannot see the difference, so this one counts in two windows.
   const nearMe = await inkNear('fill', '.map .node.you', 40);
   const nearFar = await inkNear('fill', `.map .node[data-id="${target}"]`, 40);
+
+  for (let t = 0; t < 3; t++) {
+    await page.locator('.map .node[data-id="doing"]').click({ timeout: 1500 }).catch(() => {});
+  }
+  await page.waitForTimeout(300);
+  const laying = await panelText();
+  const fillMid = await ink('fill');
+  console.log('  says    :', `"${laying.slice(0, 90)}"`);
+  console.log('  filling :', `${fill0}px → ${fillMid}px of made road`);
+  if (!/\d+s of work left|\d+s left/.test(laying)) misses.push(`nothing says how long the road has left: "${laying.slice(0, 60)}"`);
+  // ⚠️ THE ROAD GOING IN IS DRAWN GOING IN. A build that only happens in the
+  // state is a timer with a number beside it, not a road being laid.
+  if (!(fillMid > fill0)) misses.push(`the road is not visibly filling: ${fill0}px then ${fillMid}px`);
   console.log('  fills   :', `${nearMe}px by the pin, ${nearFar}px by the far stop`);
   if (nearMe >= 0 && nearFar >= 0 && nearMe <= nearFar) {
     misses.push(`the fill grows from the far side: ${nearMe}px by you, ${nearFar}px by ${target}`);
@@ -716,7 +727,7 @@ if (!live || live.off) {
   // and is REPORTED, not skipped — the old version mashed a button that was
   // not there and called the silence progress.
   const PLAYS = [
-    { name: /washout/i, win: 'Dig', bar: 'water', coolAt: 70, cool: 'Bail', alt: 'Bail' },
+    { name: /washout/i, win: 'Dig', bar: 'water', coolAt: 55, cool: 'Bail', alt: 'Bail' },
     { name: /brigands/i, win: 'Talk them down', alt: 'Stand together' },
     { name: /wights/i, win: 'Drive the iron ring', bar: 'press', coolAt: 55,
       cool: 'Rally the crew', alt: 'Drive them out' },
@@ -915,11 +926,15 @@ if (!widen) {
     if (!/carries [\d.]+ a second/.test(openText)) {
       misses.push(`the widen deed does not say what it would carry: "${openText}"`);
     }
+    // ★ TAP THE GROUND, NOT THE DOT: on a widen leg the crew mark can sit
+    // under the dock — which is exactly why open ground pushes now. The
+    // probe drums two corners the leg never reaches.
     for (let i = 0; i < 25 && (await rateNow()) <= rate0; i++) {
-      for (let t = 0; t < 4; t++) {
-        await page.locator('.map .node[data-id="doing"]').click({ timeout: 1000 }).catch(() => {});
+      for (let t = 0; t < 5; t++) {
+        await page.locator('.map canvas').click({
+          position: { x: t % 2 ? 34 : 352, y: 46 }, timeout: 1000 }).catch(() => {});
       }
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(400);
     }
     const rate1 = await rateNow();
     console.log('  widened :', `${rate0} → ${rate1} a second`);
@@ -1128,17 +1143,16 @@ else {
   console.log('  answers :', `one dig, the water ${w1} → ${w2}`);
   if (w2 === w1) misses.push('a dig bought no answer from the water — the world skipped its turn');
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-scene.png') });
-  // Dig it out. Iron 3 digs 1.05 a tap; twenty-four taps survives one setback.
+  // Dig it out — and bail when the water runs, because dig-mashing FLOODS
+  // the cut now (the spam review): the Dig button leaving the dock means
+  // flooded, not finished. Finished is the washout leaving the panel.
   let cleared = false;
   for (let i = 0; i < 30 && !cleared; i++) {
-    const dig = page.locator('.deed.face', { hasText: 'Dig' });
-    if (!(await dig.count())) { cleared = true; break; }
-    // ★ PLAYED, NOT MASHED: verbs cost time now, so the water races the
-    // spade — bail when it runs high. The tuning pass made Bail a real verb;
-    // this is it, earning its keep on screen.
+    if (!/The washout/.test(await panelText())) { cleared = true; break; }
     const water = parseInt(await page.$eval('[data-bar="water"]', (e) => e.style.width)
       .catch(() => '0'), 10);
-    if (water > 70) {
+    const dig = page.locator('.deed.face', { hasText: 'Dig' });
+    if (water > 55 || !(await dig.count())) {
       await page.locator('.deed.face', { hasText: 'Bail' }).click({ timeout: 1500 }).catch(() => {});
     } else {
       await dig.click({ timeout: 1500 }).catch(() => {});

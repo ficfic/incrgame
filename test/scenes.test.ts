@@ -67,7 +67,7 @@ describe('★ a halt can be a scene, and it starts where the data says', () => {
     const [a] = key!.split('|').map(Number);
     let g: Game = { ...initial(), mana: 999,
       building: { key: key!, from: a!, left: 14, secs: 14, to: 1, halts: [halt], kit: 'packs' } };
-    g = tick(g, 100);
+    for (let i = 0; i < 30 && !g.facing; i++) g = apply(g, { type: 'push' });
     expect(g.facing?.scene).toBeDefined();
     const sc = sceneById(g.facing!.event)!;
     expect(g.facing!.scene!.stage).toBe(sc.stages[0]!.id);
@@ -85,7 +85,7 @@ describe('★★ the washout, played', () => {
     const g0 = inWashout(key);
     expect(tick(g0, 4).facing!.scene!.gauges).toEqual(g0.facing!.scene!.gauges);
     // A dig is a turn, and the world answers it: +0.7 of water.
-    expect(verb(g0, 'dig').facing!.scene!.gauges.water!).toBeCloseTo(3.7, 6);
+    expect(verb(g0, 'dig').facing!.scene!.gauges.water!).toBeCloseTo(4.0, 6);
   });
 
   it('★ the journey type is a modifier: the same turn fills a bog faster than a moor', () => {
@@ -110,9 +110,9 @@ describe('★★ the washout, played', () => {
     expect(broke.facing!.scene!.gauges.water).toBe(3);
     const paid = verb(inWashout(key, { mana: 5 }), 'channel');
     expect(paid.mana).toBe(2);
-    // Railed to 0 by the payment, then the world takes its turn: +0.7 of
+    // Railed to 0 by the payment, then the world takes its turn: +1.0 of
     // water back in. Every tap buys the world a move.
-    expect(paid.facing!.scene!.gauges.water).toBeCloseTo(0.7, 6);
+    expect(paid.facing!.scene!.gauges.water).toBeCloseTo(1.0, 6);
   });
 
   it('★★ deep water BRANCHES the stage, bailing branches it back', () => {
@@ -125,9 +125,14 @@ describe('★★ the washout, played', () => {
     expect(g.facing!.scene!.stage).toBe('open');
   });
 
-  it('★★ digging the cut to ten CLEARS the way: halt consumed, momentum up', () => {
+  it('★★ played with a head — dig, bail when the water runs — the way CLEARS', () => {
+    // Dig-mashing floods the cut and locks the spade since the spam review;
+    // this is the line a player who reads actually walks.
     let g = inWashout(key);
-    for (let i = 0; i < 12 && g.facing; i++) g = verb(g, 'dig');
+    for (let i = 0; i < 25 && g.facing; i++) {
+      const st = g.facing.scene!;
+      g = verb(g, st.stage === 'flooded' || (st.gauges.water ?? 0) > 6.5 ? 'bail' : 'dig');
+    }
     expect(g.facing).toBeNull();
     expect(g.building!.halts).toEqual([]);
     expect(g.momentum).toBe(initial().momentum + 1);
@@ -178,9 +183,14 @@ describe('★★ the brigands: hidden HP, revealed by playing', () => {
     expect(g.facing!.scene!.gauges).toEqual(parley().facing!.scene!.gauges);
   });
 
-  it('★ wearing their patience to nothing clears the way', () => {
+  it('★ patience is worn down by TALKING AND PAYING — pure talk gets knives', () => {
+    // Talk-mashing hits the knives branch since the spam review; slipping
+    // mana when their temper runs is what keeps the parley a parley.
     let g = parley();
-    for (let i = 0; i < 12 && g.facing; i++) g = verb(g, 'talk');
+    for (let i = 0; i < 15 && g.facing; i++) {
+      const st = g.facing.scene!;
+      g = verb(g, (st.gauges.temper ?? 0) >= 6.5 && g.mana >= 2 ? 'coin' : 'talk');
+    }
     expect(g.facing).toBeNull();
     expect(g.momentum).toBe(initial().momentum + 1);
   });
@@ -231,7 +241,10 @@ describe('★★ the tuning pass, 2026-08-05 — the reviews made flesh', () => 
 
   it('★★ the crew HARDENS: every third encounter cleared raises the weakest stat', () => {
     let g = inWashout(key, { cleared: 2 });
-    for (let i = 0; i < 12 && g.facing; i++) g = verb(g, 'dig');
+    for (let i = 0; i < 25 && g.facing; i++) {
+      const st = g.facing.scene!;
+      g = verb(g, st.stage === 'flooded' || (st.gauges.water ?? 0) > 6.5 ? 'bail' : 'dig');
+    }
     expect(g.facing).toBeNull();
     expect(g.cleared).toBe(3);
     const before = Object.values(initial().stats).reduce((a, b) => a + b, 0);
@@ -245,7 +258,10 @@ describe('★★ the tuning pass, 2026-08-05 — the reviews made flesh', () => 
 
   it('two clears do not harden — the third does', () => {
     let g = inWashout(key, { cleared: 0 });
-    for (let i = 0; i < 12 && g.facing; i++) g = verb(g, 'dig');
+    for (let i = 0; i < 25 && g.facing; i++) {
+      const st = g.facing.scene!;
+      g = verb(g, st.stage === 'flooded' || (st.gauges.water ?? 0) > 6.5 ? 'bail' : 'dig');
+    }
     expect(g.cleared).toBe(1);
     expect(g.stats).toEqual(initial().stats);
   });
@@ -321,9 +337,14 @@ describe('★★ the content pass: the troubles become little games', () => {
       expect(g.facing!.scene!.gauges.near!).toBeGreaterThan(g0.facing!.scene!.gauges.near!);
     });
 
-    it('★★ eight patient watches learn its gait, and the line bends past it', () => {
+    it('★★ watched with a head — backing off before it stands over you — it clears', () => {
+      // Watch-mashing walks it right up to the trench since the spam review.
       let g = inScene('watcher', stoneKey);
-      for (let i = 0; i < 12 && g.facing; i++) g = verb(g, 'watch');
+      for (let i = 0; i < 20 && g.facing; i++) {
+        const st = g.facing.scene!;
+        g = verb(g, st.stage === 'over' ? 'stare'
+          : (st.gauges.near ?? 0) >= 7 ? 'back' : 'watch');
+      }
       expect(g.facing).toBeNull();
       expect(g.momentum).toBe(initial().momentum + 1);
     });
@@ -343,21 +364,21 @@ describe('★★ the content pass: the troubles become little games', () => {
       const g0 = inScene('oldstones', stoneKey);
       expect(tick(g0, 60).facing!.scene!.gauges).toEqual(g0.facing!.scene!.gauges);
       // One careful bare: the world still answers with 0.5 of hollow.
-      expect(verb(g0, 'bare').facing!.scene!.gauges.hollow!).toBeCloseTo(0.5, 6);
+      expect(verb(g0, 'bare').facing!.scene!.gauges.hollow!).toBeCloseTo(0.8, 6);
     });
 
     it('★ cracking is fast and feeds the HIDDEN hollow; sounding the ground shows it', () => {
       const g = verb(inScene('oldstones', stoneKey), 'crack');
-      // 1.0 from the crack, 0.5 from the world's turn — and still unseen.
-      expect(g.facing!.scene!.gauges.hollow!).toBeCloseTo(1.5, 6);
+      // 1.0 from the crack, 0.8 from the world's turn — and still unseen.
+      expect(g.facing!.scene!.gauges.hollow!).toBeCloseTo(1.8, 6);
       expect(g.facing!.scene!.shown).not.toContain('hollow');
       const heard = verb(g, 'sound');
       expect(heard.facing!.scene!.shown).toContain('hollow');
     });
 
-    it('★★ five cracks undermine the trench; shoring wins the stage back', () => {
+    it('★★ four cracks undermine the trench; shoring wins the stage back', () => {
       let g = inScene('oldstones', stoneKey);
-      for (let i = 0; i < 5; i++) g = verb(g, 'crack');
+      for (let i = 0; i < 4; i++) g = verb(g, 'crack');
       expect(g.facing!.scene!.stage).toBe('undermined');
       const stuck = verb(g, 'crack');
       expect(stuck.facing!.scene!.gauges).toEqual(g.facing!.scene!.gauges);
@@ -365,9 +386,13 @@ describe('★★ the content pass: the troubles become little games', () => {
       expect(g.facing!.scene!.stage).toBe('open');
     });
 
-    it('★ the careful hand clears it before the hollow ever matters', () => {
+    it('★ the careful hand shores when the ground says so, and clears', () => {
+      // Bare-mashing gets undermined since the spam review — the hollow
+      // works at the wall on its own now.
       let g = inScene('oldstones', stoneKey);
-      for (let i = 0; i < 15 && g.facing; i++) g = verb(g, 'bare');
+      for (let i = 0; i < 16 && g.facing; i++) {
+        g = verb(g, g.facing.scene!.stage === 'undermined' ? 'shore' : 'bare');
+      }
       expect(g.facing).toBeNull();
       expect(g.provisions).toBe(initial().provisions);
       expect(g.momentum).toBe(initial().momentum + 1);
@@ -378,7 +403,7 @@ describe('★★ the content pass: the troubles become little games', () => {
     it('a provision sent up the crag is the fastest word in the argument', () => {
       const g = verb(inScene('nightwatch', stoneKey), 'tea');
       expect(g.provisions).toBe(initial().provisions - 1);
-      expect(g.facing!.scene!.gauges.quiet!).toBeCloseTo(2.2, 6);
+      expect(g.facing!.scene!.gauges.quiet!).toBeCloseTo(1.6, 6);
     });
 
     it('★ the crag feeds the dread faster than open stone, turn for turn', () => {
@@ -436,12 +461,24 @@ describe('★★ the content pass: the troubles become little games', () => {
       expect(g.facing!.scene!.stage).toBe('strung');
     });
 
-    it('★★ ten clean presses bring them home ahead of the dark', () => {
+    it('★★ pressed home with real rests, ahead of the dark', () => {
+      // Press-mashing blows the crew since the spam review; a breather at
+      // the right moment is the whole skill of it.
       let g = inScene('longdark', wood);
-      for (let i = 0; i < 12 && g.facing; i++) g = verb(g, 'press');
+      for (let i = 0; i < 14 && g.facing; i++) {
+        const st = g.facing.scene!;
+        g = verb(g, st.stage === 'blown' || (st.gauges.wind ?? 8) <= 2.5 ? 'rest' : 'press');
+      }
       expect(g.facing).toBeNull();
       expect(g.momentum).toBe(initial().momentum + 1);
       expect(g.cleared).toBe(1);
+    });
+
+    it('★★ THE SPAM BOT: mashing press alone BLOWS the crew and wins nothing', () => {
+      let g = inScene('longdark', wood);
+      for (let i = 0; i < 60 && g.facing; i++) g = verb(g, 'press');
+      expect(g.facing, 'press-mashing cleared the race').not.toBeNull();
+      expect(g.facing!.scene!.stage).toBe('blown');
     });
   });
 
@@ -458,6 +495,24 @@ describe('★★ the content pass: the troubles become little games', () => {
           expect(sc.stages.some((x) => x.id === st), `${sc.id}:${v.id} gated on ${st}`).toBe(true);
         }
         for (const id of v.reveals ?? []) expect(ids.has(id), `${sc.id}:${v.id} reveals ${id}`).toBe(true);
+      }
+    }
+  });
+
+  it('★★ THE SPAM BOT LOSES EVERYWHERE: no free verb clears any scene alone, unpunished', () => {
+    // The owner, twice in two days: *"i just tapped the button… and it
+    // worked."* Never again: for EVERY scene, a bot that only ever taps one
+    // FREE verb either never clears the way or pays setbacks for it. Priced
+    // verbs are exempt — mana and provisions are their own gate.
+    for (const sc of SCENES) {
+      const botKey = legOn(sc.on[0]!) ?? stoneKey;
+      for (const v of sc.verbs) {
+        if ((v.mana ?? 0) > 0 || (v.provisions ?? 0) > 0) continue;
+        let g = inScene(sc.id, botKey);
+        for (let i = 0; i < 60 && g.facing; i++) g = verb(g, v.id);
+        const clearedFree = g.facing === null && g.building !== null
+          && g.provisions === initial().provisions;
+        expect(clearedFree, `${sc.id}: spamming "${v.id}" cleared the way for free`).toBe(false);
       }
     }
   });
