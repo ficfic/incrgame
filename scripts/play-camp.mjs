@@ -1,8 +1,8 @@
-// PLAYS THE CAMP BUILDER and reports what a player would actually see.
-// The pivot's probe, 2026-08-07 (night): boots the built app, chips stone by
-// thumb, raises a dead quarry, connects it, watches the rate appear; then
-// loads a rich save and drives the full chain — logs to planks to camp
-// level 2 — asserting the FLOW is drawn, not merely stated.
+// PLAYS THE CITY ON THE GRAPH and reports what a player would actually see.
+// Slice 2's probe, 2026-08-08: chips stone, stacks a quarry, connects it;
+// then drives the design's teeth — a ×4 quarry CHOKING a gauge-1 path, the
+// waste named on the label and the choke DRAWN amber, fixed by widening;
+// huts growing people; people growing the map.
 //
 // Exit 0 only when every check passed. `npm run play`.
 import { chromium } from 'playwright-core';
@@ -11,7 +11,7 @@ import { existsSync } from 'node:fs';
 const EXE = ['/opt/pw-browsers/chromium/chrome-linux/chrome',
              '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'].find((p) => existsSync(p));
 const URL = process.env.PLAY_URL ?? 'http://localhost:4173/';
-const SHOT = 'play-camp-builder.png';
+const SHOT = 'play-city.png';
 const misses = [];
 
 const b = await chromium.launch({ executablePath: EXE });
@@ -26,8 +26,7 @@ const panel = async () => (await page.locator('.panel').textContent())
   .replace(/\s+/g, ' ').trim();
 const stoneNow = async () => Number((await header()).match(/(\d+)\s*stone/)?.[1] ?? NaN);
 
-/** Count pixels of a named ink on the board — the palette read OFF THE PAGE,
- *  so the probe can only check what is really drawn. */
+/** Pixels of a named ink on the board, palette read OFF THE PAGE. */
 const inked = async (name) => page.evaluate(([name]) => {
   const INK = window.__INK ?? {};
   const TOL = window.__TOL ?? {};
@@ -48,132 +47,131 @@ const inked = async (name) => page.evaluate(([name]) => {
   return n;
 }, [name]);
 
+/** Inject a save BEFORE the app boots — its own flush clobbers live writes. */
+const seed = async (game) => {
+  await page.addInitScript((g) => {
+    localStorage.setItem('camp-save', JSON.stringify({ game: g, savedAt: Date.now() }));
+  }, game);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(700);
+};
+
 // ------------------------------------------------------------ fresh start --
-console.log('THE FRESH CAMP');
+console.log('THE FRESH GROUND');
 await page.evaluate(() => localStorage.removeItem('camp-save'));
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForTimeout(700);
 const h0 = await header();
 console.log('  header  :', `"${h0.slice(0, 80)}"`);
-if (!/0\s*stone/.test(h0) || !/Camp 1/.test(h0)) {
-  misses.push(`a fresh camp does not open at zero: "${h0.slice(0, 60)}"`);
+if (!/0\s*stone/.test(h0) || !/2\/2 people/.test(h0)) {
+  misses.push(`a fresh city does not open at two people and no stone: "${h0.slice(0, 60)}"`);
 }
 const sites0 = await page.$$eval('.map .node', (n) => n.length);
 console.log('  ground  :', `${sites0} sites on the board`);
-if (sites0 !== 4) misses.push(`${sites0} sites at camp level 1 — wanted 4`);
+if (sites0 !== 4) misses.push(`${sites0} sites at two people — wanted 4`);
 
-// ------------------------------------------------------------- the thumb ---
-console.log('\nTHE THUMB');
+// -------------------------------------------------- the first stack, dead --
+console.log('\nTHE FIRST QUARRY');
 for (let t = 0; t < 22; t++) await page.locator('.spring').click();
 await page.waitForTimeout(250);
-const chipped = await stoneNow();
-console.log('  chipped :', `${chipped} stone off 22 taps`);
-if (!(chipped >= 5)) misses.push(`22 taps chipped only ${chipped} stone`);
-
-// --------------------------------------------------- a dead quarry teaches --
-console.log('\nTHE DEAD QUARRY');
 await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
-await page.waitForTimeout(200);
-await page.locator('.deed', { hasText: 'Raise the quarry' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no deed raises the quarry'));
+await page.locator('.deed', { hasText: 'Quarry ×1' }).click({ timeout: 2000 })
+  .catch(() => misses.push('no deed stacks the first quarry'));
 await page.waitForTimeout(250);
 const dead = await panel();
 console.log('  says    :', `"${dead.slice(0, 70)}"`);
-if (!/makes 0/.test(dead)) {
-  misses.push(`an unconnected works does not say it makes nothing: "${dead.slice(0, 60)}"`);
+if (!/carries 0/.test(dead)) {
+  misses.push(`an unconnected works does not say it carries nothing: "${dead.slice(0, 60)}"`);
 }
-if (/\+0\.3/.test(await header())) {
-  misses.push('the header counts a quarry no path reaches');
-}
-
-// ------------------------------------------------- the connection IS the game
-console.log('\nTHE CONNECTION');
 for (let t = 0; t < 16; t++) await page.locator('.spring').click();
-await page.waitForTimeout(200);
 await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no deed lays the path to the camp'));
+  .catch(() => misses.push('no deed lays the path home'));
 await page.waitForTimeout(600);
 const flowing = await header();
 console.log('  header  :', `"${flowing.slice(0, 80)}"`);
 if (!/\+0\.3\/s/.test(flowing)) {
-  misses.push(`the path went in and the header shows no stone rate: "${flowing.slice(0, 70)}"`);
+  misses.push(`pathed quarry, no rate in the header: "${flowing.slice(0, 70)}"`);
 }
+// The label carries the count — RULE 1 on screen.
 const label1 = await page.locator('.map .node[data-id="site:1"]').textContent();
 console.log('  label   :', `"${label1.trim()}"`);
-if (!/0\.3\/s/.test(label1)) {
-  misses.push(`the quarry's own label does not carry its rate: "${label1.trim()}"`);
+if (!/Quarry ×1/.test(label1)) {
+  misses.push(`the label does not carry the count: "${label1.trim()}"`);
 }
-const stoneA = await stoneNow();
-await page.waitForTimeout(3200);
-const stoneB = await stoneNow();
-console.log('  idles   :', `${stoneA} → ${stoneB} stone across ~3 idle seconds`);
-if (!(stoneB > stoneA)) misses.push('connected stone does not accrue on the clock');
-await page.screenshot({ path: SHOT.replace(/\.png$/, '-first.png') });
 
-// -------------------------------------------- the full chain, from a save ---
-console.log('\nTHE CHAIN');
-// Injected BEFORE the app boots — the app's own pagehide flush would
-// clobber anything written into localStorage while it is still running.
-await page.addInitScript(() => {
-  const game = {
-    version: 1,
-    built: { 0: 'village', 1: 'quarry' },
-    paths: { '0|1': 1 },
-    stone: 40, logs: 0, planks: 0, progress: 0,
-  };
-  localStorage.setItem('camp-save', JSON.stringify({ game, savedAt: Date.now() }));
-});
-await page.reload({ waitUntil: 'networkidle' });
-await page.waitForTimeout(700);
-// Lumberworks at the pines, mill at the river, both pathed home.
-await page.locator('.map .node[data-id="site:2"]').click({ timeout: 2000 }).catch(() => {});
-await page.locator('.deed', { hasText: 'Raise the lumber' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no deed raises the lumberworks'));
-await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no path deed at the pines'));
-await page.locator('.map .node[data-id="site:3"]').click({ timeout: 2000 }).catch(() => {});
-await page.locator('.deed', { hasText: 'Raise the sawmill' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no deed raises the sawmill'));
-await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no path deed at the river'));
-await page.waitForTimeout(1200);
-const chain = await header();
-console.log('  header  :', `"${chain.slice(0, 90)}"`);
-if (!/planks \+0\.4\/s/.test(chain)) {
-  misses.push(`the chain is up but planks do not flow: "${chain.slice(0, 70)}"`);
+// ------------------------------------------------------- THE CHOKE, drawn --
+console.log('\nTHE CHOKE');
+await seed({ version: 2, stacks: { 1: 4 }, paths: { '0|1': 1 },
+  stone: 30, logs: 0, planks: 0, pop: 6, popPart: 0 });
+const chokedLabel = await page.locator('.map .node[data-id="site:1"]').textContent();
+console.log('  label   :', `"${chokedLabel.trim()}"`);
+if (!/makes 1\.2/.test(chokedLabel) || !/carries 1\.0/.test(chokedLabel)) {
+  misses.push(`a choked quarry does not tell the split: "${chokedLabel.trim()}"`);
 }
-// ★ THE FLOW IS DRAWN: the crawl ink must be on the pipes, and vanish for a
-// probe that only reads the header. Counted off the live palette.
-const crawlPx = await inked('flowing');
-console.log('  drawn   :', `${crawlPx}px of flow on the paths`);
-if (crawlPx < 40) misses.push(`only ${crawlPx}px of flow ink — the connections do not SHOW their carry`);
-// The camp eats toward level 2 on screen.
-const prog = async () => Number((await header()).match(/Camp \d · (\d+)\/\d+/)?.[1] ?? NaN);
-const p0 = await prog();
-await page.waitForTimeout(4200);
-const p1 = await prog();
-console.log('  eats    :', `${p0} → ${p1} planks toward the next level`);
-if (!(p1 > p0)) misses.push(`the camp is not eating: ${p0} → ${p1}`);
+const amber = await inked('shut');
+console.log('  drawn   :', `${amber}px of choke on the path`);
+if (amber < 60) misses.push(`only ${amber}px of choke ink — the waste is invisible`);
+await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
+const chokedPanel = await panel();
+console.log('  panel   :', `"${chokedPanel.slice(0, 80)}"`);
+if (!/wasted/.test(chokedPanel)) {
+  misses.push(`the panel does not name the waste: "${chokedPanel.slice(0, 60)}"`);
+}
+await page.screenshot({ path: SHOT.replace(/\.png$/, '-choked.png') });
 
-// ---------------------------------------------------- the level, unlocked ---
-console.log('\nTHE LEVEL');
-await page.addInitScript(() => {
-  const game = {
-    version: 1,
-    built: { 0: 'village', 1: 'quarry', 2: 'lumber', 3: 'sawmill' },
-    paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
-    stone: 20, logs: 0, planks: 2, progress: 14.5,
-  };
-  localStorage.setItem('camp-save', JSON.stringify({ game, savedAt: Date.now() }));
-});
-await page.reload({ waitUntil: 'networkidle' });
-await page.waitForTimeout(2600);
-const lvHeader = await header();
+// --------------------------------------------------------- WIDEN, the fix --
+console.log('\nTHE WIDENING');
+await page.locator('.deed', { hasText: 'Widen · The Camp' }).click({ timeout: 2000 })
+  .catch(() => misses.push('no deed widens the choked path'));
+await page.waitForTimeout(500);
+const fixedLabel = await page.locator('.map .node[data-id="site:1"]').textContent();
+const amberAfter = await inked('shut');
+console.log('  label   :', `"${fixedLabel.trim()}", choke ink ${amber} → ${amberAfter}px`);
+if (!/1\.2\/s/.test(fixedLabel)) {
+  misses.push(`widened and the quarry still splits its label: "${fixedLabel.trim()}"`);
+}
+if (!(amberAfter < amber / 2)) {
+  misses.push(`the choke ink did not clear on widening: ${amber} → ${amberAfter}px`);
+}
+
+// ----------------------------------------------------- PEOPLE, the ladder --
+console.log('\nTHE PEOPLE');
+await seed({ version: 2, stacks: { 1: 1, 2: 1, 3: 1 }, paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
+  stone: 10, logs: 0, planks: 20, pop: 2, popPart: 0 });
+const before = await header();
+console.log('  header  :', `"${before.slice(0, 90)}"`);
+if (!/2\/2 people/.test(before)) misses.push(`seeded city not at 2/2 people: "${before.slice(0, 60)}"`);
+// Three jobs, two people: the camp's own panel must say it is understaffed.
+// The camp is PRE-SELECTED on boot (a design point) — tapping it again
+// would toggle it off, so the probe just reads what is already open.
+const staffed = await panel();
+console.log('  camp    :', `"${staffed.slice(0, 80)}"`);
+if (!/% staffed/.test(staffed)) {
+  misses.push(`three jobs on two people and the camp does not say staffed-%: "${staffed.slice(0, 70)}"`);
+}
+await page.locator('.deed', { hasText: 'Hut ×1' }).click({ timeout: 2000 })
+  .catch(() => misses.push('no deed raises the first hut'));
+await page.waitForTimeout(400);
+if (!/\/4 people/.test(await header())) {
+  misses.push(`a hut went up and the cap did not: "${(await header()).slice(0, 60)}"`);
+}
+console.log('  grows   : waiting one growth beat…');
+await page.waitForTimeout(13000);
+const grown = await header();
+console.log('  header  :', `"${grown.slice(0, 90)}"`);
+if (!/3\/4 people/.test(grown)) {
+  misses.push(`nobody arrived after a growth beat: "${grown.slice(0, 60)}"`);
+}
+
+// -------------------------------------------------- the ground grows too --
+console.log('\nTHE LADDER');
+await seed({ version: 2, stacks: { 0: 4, 1: 1, 2: 1, 3: 1 },
+  paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
+  stone: 20, logs: 0, planks: 5, pop: 10, popPart: 0 });
 const sites2 = await page.$$eval('.map .node', (n) => n.length);
-console.log('  header  :', `"${lvHeader.slice(0, 80)}"`);
-console.log('  ground  :', `${sites2} sites after the level turned`);
-if (!/Camp 2/.test(lvHeader)) misses.push(`fifteen planks eaten and the camp is still: "${lvHeader.slice(0, 60)}"`);
-if (sites2 !== 6) misses.push(`camp level 2 shows ${sites2} sites — wanted 6, the ground did not grow`);
+console.log('  ground  :', `${sites2} sites at ten people`);
+if (sites2 !== 6) misses.push(`ten people show ${sites2} sites — wanted 6`);
 await page.screenshot({ path: SHOT });
 
 await b.close();
@@ -182,4 +180,4 @@ if (misses.length) {
   for (const m of misses) console.log('  ', m);
   process.exit(1);
 }
-console.log('\nall good — the camp builds, connects, flows and levels on screen');
+console.log('\nall good — counts stack, chokes draw, widening fixes, people grow the map');

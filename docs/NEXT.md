@@ -1056,7 +1056,21 @@ day.** What remains open for the owner: event prose passes (all ⟨draft⟩),
 what crossing the chapter means, stat renames, and whether choice-level risk
 profiles are wanted on happenings too.
 
-## ★★★★ THE CAMP BUILDER, 2026-08-07 (night) — the owner's pivot, slice IN
+## ★★★★ THE CITY ON THE GRAPH — docs/CITY.md is the design. Slice 2 IN.
+
+> Owner, 2026-08-08: *"like incremental city builders and stuff"* — designed
+> first at their ask, then built: counts on the 1.15^n curve, people as the
+> multiplier and the ladder, paths as throughput with drawn chokes.
+
+**Next, per the doc, one per session, each after the owner plays:**
+1. SLICE 3 — farms & food: meadow sites, people eat, starving halts
+   staffing. The first real failure pressure.
+2. The away line (one row of numbers on return) + growth pacing pass
+   (chad-liquidity on the 1.15 curve once there are two currencies).
+3. Second region at a pop gate — territory, the graph growing outward.
+4. Naming/prose pass — the owner's, only when the loop proves out.
+
+## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot
 
 > *"maybe we do a base building game here instead… it will all somehow be a
 > graph? connections between these would be very prominent. and we will drop

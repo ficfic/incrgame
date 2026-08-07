@@ -46,6 +46,9 @@
     /** ★ WHICH WAY THE MANA RUNS: +1 along a→b, -1 against it, 0 for a pipe
      *  carrying nothing. Drives the crawl of the flow dashes and nothing else. */
     dir?: number;
+    /** ★ OVER ITS CAP: the load underlay turns amber — the choke the city
+     *  design promises to DRAW, not just count. */
+    choked?: boolean;
     /** ★ THE BEND — the road's real course in world coordinates, first point at
      *  this line's `a` end. Absent off the chapter, where stops sit at solved
      *  rather than authored positions and a baked path would join two points
@@ -447,8 +450,8 @@
       // not be drawn from a count of what you own.
       const run = l.pts ?? [a, b];
       if (made && l.load > 0) {
-        paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
-          w: 3 + 6 * l.load, alpha: 0.55 }, sx, sy, 1);
+        paint(ctx, { s: 'path', pts: run, ink: l.choked ? 'shut' : 'flowing', curve: true,
+          w: 3 + 6 * l.load, alpha: l.choked ? 0.8 : 0.55 }, sx, sy, 1);
       }
       // ⚠️ DASHED UNTIL IT IS FINISHED, NOT UNTIL IT IS STARTED. With the strict
       // test a route lost its dashes the instant it began filling and drew solid

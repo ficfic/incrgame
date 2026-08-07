@@ -1,16 +1,16 @@
 <script lang="ts">
-  // THE CAMP BUILDER'S ONE SCREEN. Header of numbers, the board, a dock of
-  // deeds for whatever is tapped. NO PROSE by decree — nouns and numbers.
+  // THE CITY BUILDER'S ONE SCREEN — docs/CITY.md made flesh. Header of
+  // numbers, the board, a dock of deeds. NO PROSE: nouns and numbers.
   import { onMount } from 'svelte';
   import Board, { type Dot, type Line } from './Board.svelte';
   import { INK, TOL } from '../game/ink';
   import type { Box } from '../game/layout';
-  import { apply, initial, rates, level, levelOf, shown, component, pathKey,
-    unlayable, unraisable, SITE, LEVEL_AT, COST, RATE, TAP_STONE,
-    type Camp } from '../camp/engine';
+  import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
+    unlayable, unraisable, SITE, RATE, TAP_STONE, MAX_GAUGE,
+    type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
 
-  let game = $state<Camp>(initial());
+  let game = $state<City>(initial());
   let ready = $state(false);
   let picked = $state<number | null>(0);
   let menu = $state(false);
@@ -19,32 +19,40 @@
 
   const act = (a: Parameters<typeof apply>[1]): void => { game = apply(game, a); };
 
-  const r = $derived(rates(game));
-  const lv = $derived(level(game));
-  const nextAt = $derived(LEVEL_AT[lv - 1] ?? null);
+  const f = $derived(flow(game));
+  const cap = $derived(popCap(game));
+  /** Planks the mills can actually deliver right now: capacity, starved to
+   *  the log supply when the pile is dry. The header never overpromises. */
+  const planksNow = $derived(
+    game.logs > 0.05 ? f.planks : Math.min(f.planks, f.logs));
 
   const siteId = (n: number): string => `site:${n}`;
   const numOf = (id: string): number => Number(id.split(':')[1]);
+  const KIND_NAME = { hut: 'Hut', quarry: 'Quarry', lumber: 'Lumberworks', sawmill: 'Sawmill' } as const;
 
-  /** What stands where, as a label: a noun, and a number when it moves. */
+  /** A site's label: the count, and the truth about what its paths carry. */
   function nameOf(id: number): string {
     const s = SITE.get(id)!;
-    const k = game.built[id];
-    if (!k) return s.name;
-    if (k === 'village') return `Camp · ${lv}`;
-    const dead = !r.comp.has(id);
-    if (k === 'quarry') return dead ? 'Quarry · 0' : `Quarry · ${RATE.quarry}/s`;
-    if (k === 'lumber') return dead ? 'Lumberworks · 0' : `Lumberworks · ${RATE.lumber}/s`;
-    return dead ? 'Sawmill · 0' : `Sawmill · ${Math.min(RATE.sawmill, r.planks || RATE.sawmill)}/s`;
+    const n = game.stacks[id] ?? 0;
+    if (id === 0) return n > 0 ? `Camp · Hut ×${n}` : 'The Camp';
+    if (n <= 0) return s.name;
+    const made = f.made.get(id) ?? 0;
+    const carried = f.carried.get(id) ?? 0;
+    const kind = `${KIND_NAME[s.allows]} ×${n}`;
+    if (!f.comp.has(id)) return `${kind} · 0`;
+    if (carried < made - 1e-9) {
+      return `${kind} · makes ${made.toFixed(1)} · carries ${carried.toFixed(1)}`;
+    }
+    return `${kind} · ${made.toFixed(1)}/s`;
   }
 
   const dots = $derived<Dot[]>(shown(game).map((s) => ({
     id: siteId(s.id),
     name: nameOf(s.id),
-    kind: s.id === 0 ? 'carry' : game.built[s.id] ? 'fact' : 'stop',
+    kind: s.id === 0 ? 'carry' : (game.stacks[s.id] ?? 0) > 0 ? 'fact' : 'stop',
     wx: s.x, wy: s.y,
     place: true, you: false,
-    open: r.comp.has(s.id) && !!game.built[s.id],
+    open: f.comp.has(s.id) && (game.stacks[s.id] ?? 0) > 0,
     shut: false,
     known: true,
     on: picked === s.id,
@@ -54,22 +62,22 @@
   const lines = $derived<Line[]>((() => {
     const out: Line[] = [];
     const seen = new Set<string>();
-    const busy = r.stone + r.planks > 0;
     for (const s of shown(game)) {
       for (const n of s.near) {
         const key = pathKey(s.id, n);
-        if (seen.has(key) || (SITE.get(n)?.level ?? 9) > lv) continue;
+        if (seen.has(key) || (SITE.get(n)?.popAt ?? 99) > game.pop) continue;
         seen.add(key);
-        const laid = !!game.paths[key];
-        const carrying = laid && busy && r.comp.has(s.id) && r.comp.has(n);
+        const gauge = game.paths[key] ?? 0;
+        const choked = f.choked.has(key);
+        const busy = gauge > 0 && f.comp.has(s.id) && f.comp.has(n)
+          && (f.stone + planksNow + f.logs > 0.001);
         out.push({
           a: siteId(s.id), b: siteId(n), rel: 'road',
-          fill: laid ? 1 : 0,
-          load: carrying ? 0.7 : 0,
-          gauge: laid ? 1 : 0,
-          // The flow runs toward the camp: from the higher id end for want
-          // of a solved direction — the crawl only needs A direction.
-          dir: carrying ? (s.id === 0 || n > s.id ? -1 : 1) : 0,
+          fill: gauge > 0 ? 1 : 0,
+          load: choked ? 1 : busy ? 0.55 : 0,
+          gauge,
+          choked,
+          dir: busy || choked ? (n > s.id ? -1 : 1) : 0,
         });
       }
     }
@@ -91,40 +99,45 @@
     const s = SITE.get(picked);
     if (!s) return [];
     const out: Deed[] = [];
-    if (s.allows && !game.built[s.id]) {
-      const why = unraisable(game, s.id);
-      out.push({
-        label: `Raise the ${s.allows}`,
-        note: why ?? `${COST[s.allows]} stone`,
-        why,
-        go: () => act({ type: 'raise', id: s.id }),
-      });
-    }
+    const have = game.stacks[s.id] ?? 0;
+    const why = unraisable(game, s.id);
+    out.push({
+      label: `${KIND_NAME[s.allows]} ×${have + 1}`,
+      note: why ?? `${costOf(s.allows, have)} ${s.allows === 'hut' ? 'planks' : 'stone'}`,
+      why,
+      go: () => act({ type: 'raise', id: s.id }),
+    });
     for (const n of s.near) {
       const t = SITE.get(n);
-      if (!t || t.level > lv || game.paths[pathKey(s.id, n)]) continue;
-      const why = unlayable(game, s.id, n);
+      if (!t || t.popAt > game.pop) continue;
+      const gauge = game.paths[pathKey(s.id, n)] ?? 0;
+      if (gauge >= MAX_GAUGE) continue;
+      const w = unlayable(game, s.id, n);
       out.push({
-        label: `Path · ${t.name}`,
-        note: why ?? `${COST.path} stone`,
-        why,
+        label: gauge === 0 ? `Path · ${t.name}` : `Widen · ${t.name} (${gauge} of ${MAX_GAUGE})`,
+        note: w ?? `${pathCostOf(gauge)} stone · carries ${((gauge + 1)).toFixed(0)}/s`,
+        why: w,
         go: () => act({ type: 'lay', a: s.id, b: n }),
       });
     }
     return out;
   })());
 
-  /** The tapped site's one status line: numbers, not sentences. */
+  /** The tapped site's one status line — numbers, and only when they bite. */
   const status = $derived((() => {
     if (picked === null) return '';
-    const k = game.built[picked];
     if (picked === 0) {
-      return nextAt === null
-        ? `Camp ${lv} · ${Math.floor(game.progress)} planks taken`
-        : `Camp ${lv} · ${Math.floor(game.progress)} / ${nextAt} planks`;
+      return `${Math.floor(game.pop)} of ${cap} people`
+        + (f.staff < 1 ? ` · works ${Math.round(f.staff * 100)}% staffed` : '');
     }
-    if (!k) return SITE.get(picked)?.allows ? '' : '';
-    if (!r.comp.has(picked)) return 'no path to the camp · makes 0';
+    const n = game.stacks[picked] ?? 0;
+    if (n <= 0) return '';
+    if (!f.comp.has(picked)) return 'no path to the camp · carries 0';
+    const made = f.made.get(picked) ?? 0;
+    const carried = f.carried.get(picked) ?? 0;
+    if (carried < made - 1e-9) {
+      return `choked · ${(made - carried).toFixed(1)}/s wasted — widen the path`;
+    }
     return '';
   })());
 
@@ -195,11 +208,11 @@
   <header>
     <button class="spring" onclick={() => act({ type: 'tap' })}>
       <b>{Math.floor(game.stone)}</b><span>stone</span>
-      <em>+{TAP_STONE} a tap{r.stone > 0 ? ` · +${r.stone.toFixed(1)}/s` : ''}</em>
+      <em>+{TAP_STONE} a tap{f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}</em>
     </button>
     <span class="keep">{Math.floor(game.logs)} logs</span>
-    <span class="keep">{Math.floor(game.planks)} planks{r.planks > 0 ? ` +${r.planks.toFixed(1)}/s` : ''}</span>
-    <span class="keep lv">Camp {lv}{nextAt !== null ? ` · ${Math.floor(game.progress)}/${nextAt}` : ''}</span>
+    <span class="keep">{Math.floor(game.planks)} planks{planksNow > 0 ? ` +${planksNow.toFixed(1)}/s` : ''}</span>
+    <span class="keep lv">{Math.floor(game.pop)}/{cap} people</span>
     <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
     {#if menu}
       <button class="reset" class:armed={wiping}
@@ -220,7 +233,7 @@
 
   {#if ready}
     <div class="map">
-      <Board {dots} {lines} {box} label="camp" onTap={doTap} drag={false} />
+      <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false} />
     </div>
     <section class="panel">
       {#if picked !== null && SITE.has(picked)}
@@ -249,14 +262,13 @@
   .spring em { font-style: normal; font-size: 12px; color: #8a8172; }
   .keep { font-size: 14px; color: #6b5d3f; font-weight: 600; }
   .keep.lv { color: #1f6b3a; }
-  .reset { margin-left: auto; font: inherit; font-size: 13px; border: 1px solid #d8d0bf;
+  .reset { font: inherit; font-size: 13px; border: 1px solid #d8d0bf;
     border-radius: 10px; padding: 6px 10px; background: #efe9dc; color: #6b6353; }
-  .reset.porter, .reset:not(.gear) { margin-left: 0; }
   .reset.gear { margin-left: auto; }
   .reset.armed { background: #b3452f; color: #fff; }
   .map { flex: 1; min-height: 0; position: relative; margin: 10px; }
   .panel { padding: 8px 14px 16px; border-top: 1px solid #d8d0bf; background: #f7f2e7;
-    min-height: 132px; }
+    min-height: 148px; }
   .panel h2 { margin: 4px 0 6px; font-size: 18px; }
   .note { color: #8a8172; font-size: 14px; margin: 4px 0; }
   .deed { display: block; width: 100%; text-align: left; font: inherit; font-size: 16px;

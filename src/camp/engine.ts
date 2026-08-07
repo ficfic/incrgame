@@ -1,116 +1,117 @@
-// THE CAMP BUILDER. The whole engine.
+// THE CITY ON THE GRAPH. The whole engine.
 //
-// ★★ THE PIVOT, 2026-08-07 (night), the owner's words: *"i feel like we were
-// closer when we were doing like the pure graph shit… maybe we do a base
-// building game here instead? like we'd have like a place for a quarry and a
-// place for a sawmill and a place where lumberjacks would do stuff, and a
-// little village and so on, but it will all somehow be a graph? connections
-// between these would be very prominent… and we will drop all prose entirely
-// until we have a good idea of a gameplay. so it'd be incremental wilderness
-// camp builder!"*
+// ★★ THE DESIGN IS docs/CITY.md, 2026-08-08, from the owner's brief: *"not
+// civilization game literally… like incremental city builders and stuff."*
+// Five rules, all of them here:
 //
-// So: a fixed wilderness of SITES. Each site takes one kind of works. Nothing
-// a site makes counts until a PATH chain reaches the camp — the connections
-// ARE the game, exactly as asked. Resources flow on the clock (the idle
-// element); building and connecting are the decisions. NO PROSE: every label
-// is a noun and a number.
+//   1. BUILDINGS COME IN COUNTS — `Quarry ×3`, the n-th copy costs 1.15^n.
+//   2. PEOPLE ARE THE MULTIPLIER — huts raise the cap, the population
+//      staffs every works evenly (never babysat), and POP THRESHOLDS are
+//      the unlock ladder.
+//   3. THE GRAPH IS THE LOGISTICS LAYER — every path has a throughput cap
+//      (gauge × 1.0/s of anything). Production past the path is WASTED,
+//      and the choke is drawn. Widening is the infrastructure spend.
+//   4. THE UNLOCK CASCADE — stone → logs → planks → huts → people → more.
+//   5. NO PROSE — nouns and numbers until the loop earns better.
 //
-// Pure: `apply(state, action) => state`. No DOM, no clock, no RNG. Time
-// arrives as a `tick` carrying seconds. The old game's engine survives on
-// disk untouched (src/game/) with its 679 tests; nothing here imports it.
+// Pure: `apply(state, action) => state`. No DOM, no clock, no RNG. The old
+// road game survives untouched in src/game/; nothing here imports it.
 
-/** What can stand on a site. The village is the sink and the heart. */
-export type Kind = 'village' | 'quarry' | 'lumber' | 'sawmill';
+/** What can stand on a site, in numbers. Huts live only at the camp. */
+export type Kind = 'hut' | 'quarry' | 'lumber' | 'sawmill';
 
 export interface Site {
   id: number;
-  /** A noun. Never a sentence — prose is dropped by decree. */
+  /** A noun. Never a sentence. */
   name: string;
   x: number;
   y: number;
-  /** What can be raised here, or null for the village's own ground. */
-  allows: Exclude<Kind, 'village'> | null;
+  /** What this ground takes. The camp takes huts. */
+  allows: Kind;
   /** Which sites a path can join this one to. */
   near: number[];
-  /** The camp level at which this site appears at all. */
-  level: number;
+  /** People needed before this ground appears at all. */
+  popAt: number;
 }
 
-/** ★ THE WILDERNESS. Hand-placed, like the old map's stops — the board draws
- *  exactly these coordinates, no solver. Level-2 sites are the first carrot. */
+/** ★ THE WILDERNESS. Hand-placed; the board draws exactly these. The two
+ *  far grounds are the first pop-threshold carrots. */
 export const SITES: readonly Site[] = [
-  { id: 0, name: 'The Camp', x: 200, y: 205, allows: null, near: [1, 2, 3], level: 1 },
-  { id: 1, name: 'Rock Face', x: 118, y: 122, allows: 'quarry', near: [0, 2], level: 1 },
-  { id: 2, name: 'Tall Pines', x: 296, y: 118, allows: 'lumber', near: [0, 1, 3], level: 1 },
-  { id: 3, name: 'River Bend', x: 292, y: 296, allows: 'sawmill', near: [0, 2, 5], level: 1 },
-  { id: 4, name: 'Old Growth', x: 104, y: 292, allows: 'lumber', near: [0, 1], level: 2 },
-  { id: 5, name: 'Scree Slope', x: 388, y: 232, allows: 'quarry', near: [3], level: 2 },
+  { id: 0, name: 'The Camp', x: 200, y: 205, allows: 'hut', near: [1, 2, 3], popAt: 0 },
+  { id: 1, name: 'Rock Face', x: 118, y: 122, allows: 'quarry', near: [0, 2], popAt: 0 },
+  { id: 2, name: 'Tall Pines', x: 296, y: 118, allows: 'lumber', near: [0, 1, 3], popAt: 0 },
+  { id: 3, name: 'River Bend', x: 292, y: 296, allows: 'sawmill', near: [0, 2, 5], popAt: 0 },
+  { id: 4, name: 'Old Growth', x: 104, y: 292, allows: 'lumber', near: [0, 1], popAt: 6 },
+  { id: 5, name: 'Scree Slope', x: 388, y: 232, allows: 'quarry', near: [3], popAt: 10 },
 ];
 export const SITE = new Map(SITES.map((s) => [s.id, s]));
 
 export const pathKey = (a: number, b: number): string =>
   a < b ? `${a}|${b}` : `${b}|${a}`;
 
-export interface Camp {
+export interface City {
   version: number;
-  /** siteId → what stands there. The camp itself is pre-built at site 0. */
-  built: Record<number, Kind>;
-  /** ★ THE CONNECTIONS — `"a|b"` → 1. Prominent by decree: nothing counts
-   *  until a chain of these reaches the camp. */
+  /** ★ COUNTS, not booleans: siteId → how many stand there. */
+  stacks: Record<number, number>;
+  /** ★ THE CONNECTIONS — `"a|b"` → gauge 1..MAX_GAUGE. Throughput each. */
   paths: Record<string, number>;
   stone: number;
   logs: number;
   planks: number;
-  /** Planks the camp has consumed, lifetime — the level curve reads this. */
-  progress: number;
+  /** People. Grown, not bought — toward the huts' cap, slowly. */
+  pop: number;
+  /** Fractional growth toward the next person. Never shown. */
+  popPart: number;
 }
 
-export const CAMP_VERSION = 1;
+export const CITY_VERSION = 2;
 
-export const initial = (): Camp => ({
-  version: CAMP_VERSION,
-  built: { 0: 'village' },
+export const initial = (): City => ({
+  version: CITY_VERSION,
+  stacks: {},
   paths: {},
   stone: 0,
   logs: 0,
   planks: 0,
-  progress: 0,
+  // ★ Two people came with you. Zero people would be zero rates forever.
+  pop: 2,
+  popPart: 0,
 });
 
 /** One tap chips this much stone by hand — the bootstrap and the thumb. */
 export const TAP_STONE = 0.25;
 
-/** What things make or move, per second. */
-export const RATE = {
-  quarry: 0.3,    // stone out
-  lumber: 0.4,    // logs out
-  sawmill: 0.5,   // logs in → planks out, at most this
-  village: 0.4,   // planks eaten into progress, at most this
-} as const;
+/** Base output per copy per second, fully staffed. */
+export const RATE = { quarry: 0.3, lumber: 0.4, sawmill: 0.5 } as const;
 
-/** What things cost, in stone. One currency for the slice. */
-export const COST: Record<'path' | Exclude<Kind, 'village'>, number> = {
-  path: 3,
-  quarry: 5,
-  lumber: 10,
-  sawmill: 18,
-};
+/** What one path-gauge carries, per second, of everything put together. */
+export const CARRY = 1.0;
+export const MAX_GAUGE = 3;
 
-/** Planks consumed → camp level. Level 1 is free; each entry is a gate. */
-export const LEVEL_AT: readonly number[] = [15, 45];
+/** Each hut houses this many people. */
+export const HUT_ROOM = 2;
+/** Seconds to grow one person when there is room. */
+export const GROW_SECS = 12;
 
-export const levelOf = (progress: number): number =>
-  1 + LEVEL_AT.filter((t) => progress >= t).length;
+/** First copy's price. Huts price in PLANKS — the sink the mill feeds. */
+export const BASE: Record<Kind, number> = { hut: 6, quarry: 5, lumber: 10, sawmill: 18 };
+export const PATH_COST = 3;
 
-export const level = (g: Camp): number => levelOf(g.progress);
+/** ★ THE CURVE: the n-th copy (0-based count today) costs base × 1.15^n,
+ *  rounded up. The genre's compounding, one line long. */
+export const costOf = (kind: Kind, have: number): number =>
+  Math.ceil(BASE[kind] * Math.pow(1.15, have));
 
-/** Every site the current camp level lets you see. */
-export const shown = (g: Camp): Site[] =>
-  SITES.filter((s) => s.level <= level(g));
+/** Widening: the next gauge costs the path price over again, times gauge. */
+export const pathCostOf = (gauge: number): number => PATH_COST * (gauge + 1);
 
-/** ★ THE COMPONENT: every site a path chain joins to the camp. Production
- *  outside it runs dead — the rule that makes connections the game. */
-export function component(g: Camp): Set<number> {
+/** People needed → what the map shows. Pop IS the level now. */
+export const shown = (g: City): Site[] => SITES.filter((s) => s.popAt <= g.pop);
+
+export const popCap = (g: City): number => 2 + (g.stacks[0] ?? 0) * HUT_ROOM;
+
+/** ★ THE COMPONENT: every site a path chain joins to the camp. */
+export function component(g: City): Set<number> {
   const out = new Set<number>([0]);
   const queue = [0];
   for (let i = 0; i < queue.length; i++) {
@@ -124,51 +125,139 @@ export function component(g: Camp): Set<number> {
   return out;
 }
 
-/** What flows, right now: stone and planks INTO the camp, logs piling at the
- *  mills. Solved whole so the header, the board and the tick can never
- *  disagree. `eat` is what the camp is consuming toward its next level. */
-export function rates(g: Camp): {
-  stone: number; logs: number; planks: number; eat: number; comp: Set<number>;
-} {
-  const comp = component(g);
-  let stone = 0;
-  let logsMade = 0;
-  let mill = 0;
-  for (const id of comp) {
-    const k = g.built[id];
-    if (k === 'quarry') stone += RATE.quarry;
-    else if (k === 'lumber') logsMade += RATE.lumber;
-    else if (k === 'sawmill') mill += RATE.sawmill;
+/** The BFS tree toward the camp: siteId → the neighbour it ships through.
+ *  Deterministic (near-lists are ordered), so the same wilderness routes
+ *  the same way on every device. */
+export function routes(g: City): Map<number, number> {
+  const parent = new Map<number, number>();
+  const queue = [0];
+  const seen = new Set<number>([0]);
+  for (let i = 0; i < queue.length; i++) {
+    for (const n of SITE.get(queue[i]!)?.near ?? []) {
+      if (!seen.has(n) && g.paths[pathKey(queue[i]!, n)]) {
+        seen.add(n);
+        parent.set(n, queue[i]!);
+        queue.push(n);
+      }
+    }
   }
-  // The mills saw what the cutters bring plus what is already piled.
-  const planks = Math.min(mill, logsMade + (g.logs > 0 ? mill : 0));
-  const eat = g.planks > 0 || planks > 0 ? RATE.village : 0;
-  return { stone, logs: logsMade - planks, planks, eat, comp };
+  return parent;
 }
 
-/** Why a path a—b cannot be laid, in plain words, or null. */
-export function unlayable(g: Camp, a: number, b: number): string | null {
-  const A = SITE.get(a);
-  const B = SITE.get(b);
-  if (!A || !B || !A.near.includes(b)) return 'nothing joins these';
-  if (A.level > level(g) || B.level > level(g)) return `camp level ${Math.max(A.level, B.level)}`;
-  if (g.paths[pathKey(a, b)]) return 'already laid';
+export interface Flow {
+  /** Fully-staffed-and-carried rates INTO the stores, per second. */
+  stone: number;
+  logs: number;
+  planks: number;
+  /** Per site: what its works make, and what its paths actually carry. */
+  made: Map<number, number>;
+  carried: Map<number, number>;
+  /** Edges over their cap right now — the chokes the board draws. */
+  choked: Set<string>;
+  /** 0..1 — how staffed every works is. Under 1, people are the shortage. */
+  staff: number;
+  comp: Set<number>;
+}
+
+/** ★ THE WHOLE ECONOMY, SOLVED IN ONE PLACE — header, board, panel and tick
+ *  all read this, so no two surfaces can disagree.
+ *
+ *  ⚠️ SLICE SIMPLIFICATION, on the record: everything ships to the camp
+ *  depot along its BFS route; the mills saw from the depot's log pool and
+ *  ship planks back along their own route. An edge's load is the sum of
+ *  every producer routed over it; past its cap, every producer on it is
+ *  scaled down together and the difference is WASTE. Per-commodity routing
+ *  is a later slice, priced only when this one proves fun. */
+export function flow(g: City): Flow {
   const comp = component(g);
-  if (!comp.has(a) && !comp.has(b)) return 'no path reaches either end';
-  if (g.stone < COST.path) return `${COST.path} stone — you have ${Math.floor(g.stone)}`;
+  const parent = routes(g);
+  const made = new Map<number, number>();
+  let jobs = 0;
+  for (const id of comp) {
+    const s = SITE.get(id)!;
+    const n = g.stacks[id] ?? 0;
+    if (id === 0 || n <= 0) continue;
+    jobs += n;
+    const base = s.allows === 'quarry' ? RATE.quarry
+      : s.allows === 'lumber' ? RATE.lumber : RATE.sawmill;
+    made.set(id, n * base);
+  }
+  const staff = jobs > 0 ? Math.min(1, g.pop / jobs) : 1;
+  for (const [id, m] of made) made.set(id, m * staff);
+
+  // Load every edge with the producers routed over it, then scale each
+  // producer by its worst edge. One pass — a choke wastes, it does not
+  // reroute; rerouting is the PLAYER's move, with a wider or a second path.
+  const load = new Map<string, number>();
+  const walk = (id: number): string[] => {
+    const out: string[] = [];
+    for (let at = id; at !== 0; at = parent.get(at)!) {
+      if (!parent.has(at)) return out;
+      out.push(pathKey(at, parent.get(at)!));
+    }
+    return out;
+  };
+  for (const [id, m] of made) {
+    for (const e of walk(id)) load.set(e, (load.get(e) ?? 0) + m);
+  }
+  const choked = new Set<string>();
+  const carried = new Map<number, number>();
+  for (const [id, m] of made) {
+    let scale = 1;
+    for (const e of walk(id)) {
+      const cap = (g.paths[e] ?? 0) * CARRY;
+      const l = load.get(e) ?? 0;
+      if (l > cap + 1e-9) {
+        choked.add(e);
+        scale = Math.min(scale, cap / l);
+      }
+    }
+    carried.set(id, m * scale);
+  }
+
+  let stone = 0;
+  let logsIn = 0;
+  let mill = 0;
+  for (const [id, c] of carried) {
+    const k = SITE.get(id)!.allows;
+    if (k === 'quarry') stone += c;
+    else if (k === 'lumber') logsIn += c;
+    else if (k === 'sawmill') mill += c;
+  }
+  return { stone, logs: logsIn, planks: mill, made, carried, choked, staff, comp };
+}
+
+/** Why the next copy cannot be raised here, in plain words, or null. */
+export function unraisable(g: City, id: number): string | null {
+  const s = SITE.get(id);
+  if (!s) return 'no such ground';
+  if (s.popAt > g.pop) return `${s.popAt} people first`;
+  const have = g.stacks[id] ?? 0;
+  const price = costOf(s.allows, have);
+  if (s.allows === 'hut') {
+    if (g.planks < price) return `${price} planks — you have ${Math.floor(g.planks)}`;
+    return null;
+  }
+  if (g.stone < price) return `${price} stone — you have ${Math.floor(g.stone)}`;
   return null;
 }
 
-/** Why works cannot be raised on this site, in plain words, or null. */
-export function unraisable(g: Camp, id: number): string | null {
-  const s = SITE.get(id);
-  if (!s) return 'no such ground';
-  if (s.level > level(g)) return `camp level ${s.level}`;
-  if (!s.allows) return 'the camp stands here';
-  if (g.built[id]) return 'already standing';
-  if (g.stone < COST[s.allows]) {
-    return `${COST[s.allows]} stone — you have ${Math.floor(g.stone)}`;
+/** Why this path cannot be laid or widened, in plain words, or null. */
+export function unlayable(g: City, a: number, b: number): string | null {
+  const A = SITE.get(a);
+  const B = SITE.get(b);
+  if (!A || !B || !A.near.includes(b)) return 'nothing joins these';
+  if (A.popAt > g.pop || B.popAt > g.pop) {
+    return `${Math.max(A.popAt, B.popAt)} people first`;
   }
+  const gauge = g.paths[pathKey(a, b)] ?? 0;
+  if (gauge >= MAX_GAUGE) return 'as wide as it goes';
+  if (gauge === 0) {
+    const comp = component(g);
+    if (!comp.has(a) && !comp.has(b)) return 'no path reaches either end';
+  }
+  const price = pathCostOf(gauge);
+  if (g.stone < price) return `${price} stone — you have ${Math.floor(g.stone)}`;
   return null;
 }
 
@@ -176,38 +265,39 @@ export type Action =
   | { type: 'tick'; secs: number }
   /** Chip stone by hand — the thumb's own quarry, and the bootstrap. */
   | { type: 'tap' }
-  /** Lay the path between two neighbouring sites. */
+  /** Lay the path between neighbours, or widen it a gauge. */
   | { type: 'lay'; a: number; b: number }
-  /** Raise this site's works — the site itself says what goes there. */
+  /** Raise the NEXT copy of this site's works (a hut, at the camp). */
   | { type: 'raise'; id: number };
 
-export function apply(g: Camp, a: Action): Camp {
+export function apply(g: City, a: Action): City {
   switch (a.type) {
     case 'tick': {
       if (!(a.secs > 0)) return g;
-      // Integrated over the whole tick, so a 12-hour away-tick cannot saw
-      // planks out of a log pile that ran dry in its first minute.
       const s = a.secs;
-      const comp = component(g);
-      let stoneRate = 0;
-      let logsRate = 0;
-      let mill = 0;
-      for (const id of comp) {
-        const k = g.built[id];
-        if (k === 'quarry') stoneRate += RATE.quarry;
-        else if (k === 'lumber') logsRate += RATE.lumber;
-        else if (k === 'sawmill') mill += RATE.sawmill;
+      const f = flow(g);
+      // The mills saw what arrives plus what is piled — integrated over the
+      // tick, so an away-tick cannot saw planks from a pile that ran dry.
+      const cut = g.logs + f.logs * s;
+      const sawn = Math.min(f.planks * s, cut);
+      // People grow toward the huts' room, one at a time.
+      let pop = g.pop;
+      let popPart = g.popPart;
+      if (pop < popCap(g)) {
+        popPart += s / GROW_SECS;
+        const grown = Math.floor(popPart);
+        pop = Math.min(popCap(g), pop + grown);
+        popPart -= grown;
+      } else {
+        popPart = 0;
       }
-      const cut = g.logs + logsRate * s;              // logs on hand this tick
-      const sawn = Math.min(mill * s, cut);           // what the mills manage
-      const planks = g.planks + sawn;
-      const eaten = Math.min(planks, RATE.village * s);
       return {
         ...g,
-        stone: g.stone + stoneRate * s,
+        stone: g.stone + f.stone * s,
         logs: cut - sawn,
-        planks: planks - eaten,
-        progress: g.progress + eaten,
+        planks: g.planks + sawn,
+        pop,
+        popPart,
       };
     }
 
@@ -216,20 +306,25 @@ export function apply(g: Camp, a: Action): Camp {
 
     case 'lay': {
       if (unlayable(g, a.a, a.b)) return g;
+      const key = pathKey(a.a, a.b);
+      const gauge = g.paths[key] ?? 0;
       return {
         ...g,
-        stone: g.stone - COST.path,
-        paths: { ...g.paths, [pathKey(a.a, a.b)]: 1 },
+        stone: g.stone - pathCostOf(gauge),
+        paths: { ...g.paths, [key]: gauge + 1 },
       };
     }
 
     case 'raise': {
       if (unraisable(g, a.id)) return g;
-      const kind = SITE.get(a.id)!.allows!;
+      const s = SITE.get(a.id)!;
+      const have = g.stacks[a.id] ?? 0;
+      const price = costOf(s.allows, have);
       return {
         ...g,
-        stone: g.stone - COST[kind],
-        built: { ...g.built, [a.id]: kind },
+        stone: s.allows === 'hut' ? g.stone : g.stone - price,
+        planks: s.allows === 'hut' ? g.planks - price : g.planks,
+        stacks: { ...g.stacks, [a.id]: have + 1 },
       };
     }
   }
