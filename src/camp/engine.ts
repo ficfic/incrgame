@@ -18,7 +18,7 @@
 // road game survives untouched in src/game/; nothing here imports it.
 
 /** What can stand on a site, in numbers. Huts live only at the camp. */
-export type Kind = 'hut' | 'quarry' | 'lumber' | 'sawmill';
+export type Kind = 'hut' | 'quarry' | 'lumber' | 'sawmill' | 'farm';
 
 export interface Site {
   id: number;
@@ -39,7 +39,7 @@ export const SITES: readonly Site[] = [
   { id: 1, name: 'Rock Face', x: 118, y: 122, allows: 'quarry', near: [0, 2] },
   { id: 2, name: 'Tall Pines', x: 296, y: 118, allows: 'lumber', near: [0, 1, 3] },
   { id: 3, name: 'River Bend', x: 292, y: 296, allows: 'sawmill', near: [0, 2, 5] },
-  { id: 4, name: 'Old Growth', x: 104, y: 292, allows: 'lumber', near: [0, 1, 6] },
+  { id: 4, name: 'High Meadow', x: 104, y: 292, allows: 'farm', near: [0, 1, 6] },
   { id: 5, name: 'Scree Slope', x: 388, y: 232, allows: 'quarry', near: [3] },
   { id: 6, name: 'Goblin Knoll', x: 46, y: 380, allows: 'quarry', near: [4] },
 ];
@@ -55,6 +55,17 @@ export const GOBLINS: Record<number, { strength: number; bite: number }> = {
 };
 export const SITE = new Map(SITES.map((s) => [s.id, s]));
 
+// ★ NEIGHBOURING IS SYMMETRIC, enforced here so a hand-typed list can
+// never make a one-way path — the exact bug the old map fixed the same
+// way. (Site 4 listed the camp; the camp did not list site 4 back, and
+// the component walk from the camp never saw the meadow.)
+for (const s of SITES) {
+  for (const n of s.near) {
+    const t = SITE.get(n);
+    if (t && !t.near.includes(s.id)) t.near.push(s.id);
+  }
+}
+
 export const pathKey = (a: number, b: number): string =>
   a < b ? `${a}|${b}` : `${b}|${a}`;
 
@@ -67,6 +78,9 @@ export interface City {
   stone: number;
   logs: number;
   planks: number;
+  /** ★ FOOD — the wild feeds the first few; every settler past that eats
+   *  from the stock, and an empty larder HALTS every works but the farms. */
+  food: number;
   /** People. Grown, not bought — toward the huts' cap, slowly. */
   pop: number;
   /** Fractional growth toward the next person. Never shown. */
@@ -79,7 +93,7 @@ export interface City {
   fight: { site: number } | null;
 }
 
-export const CITY_VERSION = 3;
+export const CITY_VERSION = 4;
 
 export const initial = (): City => ({
   version: CITY_VERSION,
@@ -88,6 +102,7 @@ export const initial = (): City => ({
   stone: 0,
   logs: 0,
   planks: 0,
+  food: 0,
   // ★ Two people came with you. Zero people would be zero rates forever.
   pop: 2,
   popPart: 0,
@@ -113,7 +128,18 @@ export const armsCost = (have: number): { stone: number; planks: number } => ({
 export const TAP_STONE = 0.25;
 
 /** Base output per copy per second, fully staffed. */
-export const RATE = { quarry: 0.3, lumber: 0.4, sawmill: 0.5 } as const;
+export const RATE = { quarry: 0.3, lumber: 0.4, sawmill: 0.5, farm: 0.25 } as const;
+
+/** ★ The wild feeds this many for free — a town of six needs no fields.
+ *  The seventh settler eats, and so does every rescued captive. */
+export const WILD_FED = 6;
+/** What one person past the wild's table eats, per second. */
+export const EAT = 0.1;
+/** What the town is eating right now, per second. */
+export const hunger = (g: City): number => Math.max(0, g.pop - WILD_FED) * EAT;
+/** ★ Freed ground frees PEOPLE — Noobtown's actual spine: two captives
+ *  walk home from every liberation, hungry and ready to work. */
+export const CAPTIVES = 2;
 
 /** What one path-gauge carries, per second, of everything put together. */
 export const CARRY = 1.0;
@@ -125,7 +151,7 @@ export const HUT_ROOM = 2;
 export const GROW_SECS = 12;
 
 /** First copy's price. Huts price in PLANKS — the sink the mill feeds. */
-export const BASE: Record<Kind, number> = { hut: 6, quarry: 5, lumber: 10, sawmill: 18 };
+export const BASE: Record<Kind, number> = { hut: 6, quarry: 5, lumber: 10, sawmill: 18, farm: 12 };
 export const PATH_COST = 3;
 
 /** ★ THE CURVE: the n-th copy (0-based count today) costs base × 1.15^n,
@@ -181,6 +207,10 @@ export interface Flow {
   stone: number;
   logs: number;
   planks: number;
+  food: number;
+  /** ★ An empty larder with unmet hunger: every works but the farms
+   *  stands down until there is bread again. */
+  starving: boolean;
   /** Per site: what its works make, and what its paths actually carry. */
   made: Map<number, number>;
   carried: Map<number, number>;
@@ -211,11 +241,23 @@ export function flow(g: City): Flow {
     if (id === 0 || n <= 0) continue;
     jobs += n;
     const base = s.allows === 'quarry' ? RATE.quarry
-      : s.allows === 'lumber' ? RATE.lumber : RATE.sawmill;
+      : s.allows === 'lumber' ? RATE.lumber
+      : s.allows === 'farm' ? RATE.farm : RATE.sawmill;
     made.set(id, n * base);
   }
   const staff = jobs > 0 ? Math.min(1, g.pop / jobs) : 1;
-  for (const [id, m] of made) made.set(id, m * staff);
+  // ★ STARVING: the larder is empty and the fields alone cannot keep up.
+  // Everyone but the farmers stands down — and BECAUSE the farms keep
+  // their hands, a famine is always recoverable, never a spiral.
+  let farmRaw = 0;
+  for (const [id, m] of made) {
+    if (SITE.get(id)!.allows === 'farm') farmRaw += m * staff;
+  }
+  const starving = g.food <= 0.001 && hunger(g) > farmRaw + 1e-9;
+  for (const [id, m] of made) {
+    const isFarm = SITE.get(id)!.allows === 'farm';
+    made.set(id, m * staff * (starving && !isFarm ? 0 : 1));
+  }
 
   // Load every edge with the producers routed over it, then scale each
   // producer by its worst edge. One pass — a choke wastes, it does not
@@ -250,13 +292,16 @@ export function flow(g: City): Flow {
   let stone = 0;
   let logsIn = 0;
   let mill = 0;
+  let food = 0;
   for (const [id, c] of carried) {
     const k = SITE.get(id)!.allows;
     if (k === 'quarry') stone += c;
     else if (k === 'lumber') logsIn += c;
+    else if (k === 'farm') food += c;
     else if (k === 'sawmill') mill += c;
   }
-  return { stone, logs: logsIn, planks: mill, made, carried, choked, staff, comp };
+  return { stone, logs: logsIn, planks: mill, food, starving, made, carried,
+    choked, staff, comp };
 }
 
 /** Why the next copy cannot be raised here, in plain words, or null. */
@@ -328,10 +373,13 @@ export function apply(g: City, a: Action): City {
       // tick, so an away-tick cannot saw planks from a pile that ran dry.
       const cut = g.logs + f.logs * s;
       const sawn = Math.min(f.planks * s, cut);
-      // People grow toward the huts' room, one at a time.
+      // People grow toward the huts' room, one at a time — and only where
+      // there is bread: past the wild's table, settlers want a stocked
+      // larder before they move in. Captives are the exception (fights).
       let pop = g.pop;
       let popPart = g.popPart;
-      if (pop < popCap(g)) {
+      const fed = pop < WILD_FED || g.food > 1;
+      if (pop < popCap(g) && fed) {
         popPart += s / GROW_SECS;
         const grown = Math.floor(popPart);
         pop = Math.min(popCap(g), pop + grown);
@@ -353,6 +401,7 @@ export function apply(g: City, a: Action): City {
         stone: g.stone + f.stone * s,
         logs: cut - sawn,
         planks: g.planks + sawn,
+        food: Math.max(0, g.food + (f.food - hunger(g)) * s),
         pop,
         popPart,
         hero,
@@ -397,10 +446,11 @@ export function apply(g: City, a: Action): City {
       const site = g.fight.site;
       const left = (g.goblins[site] ?? 0) - heroHit(g);
       if (left <= 0) {
-        // ★ LIBERATED: the ground joins the town's map, hurt and all.
+        // ★ LIBERATED: the ground joins the town, hurt and all — and two
+        // captives walk home with the hero, hungry and ready to work.
         const goblins = { ...g.goblins };
         delete goblins[site];
-        return { ...g, goblins, fight: null };
+        return { ...g, goblins, fight: null, pop: g.pop + CAPTIVES };
       }
       const hp = g.hero.hp - (GOBLINS[site]?.bite ?? 2);
       if (hp <= 0) {

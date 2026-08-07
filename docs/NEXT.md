@@ -1065,12 +1065,15 @@ profiles are wanted on happenings too.
 **Shipped since:** the hero slice — goblin-held ground (12/18/30), turn-based
 liberation fights, Arms ×n from the town's own stores, territory = fights won.
 
+**Shipped since:** slice 3 — the meadow farms, the wild feeds six, hunger is
+priced on the header, STARVING halts all but the farms, and every
+liberation frees two hungry captives.
+
 **Next, one per session, each after the owner plays:**
-1. SLICE 3 — farms & food: meadow sites (liberated ground wants a reason
-   to matter), people eat, starving halts staffing. First failure pressure.
-2. A second region BEYOND the knoll — deeper goblins, the map growing
+1. A second region BEYOND the knoll — deeper goblins, the map growing
    outward; maybe the hero levels (hp, not just arms).
-3. The away line + pacing pass (chad-liquidity across stone/planks/arms).
+2. The away line + pacing pass (chad-liquidity across stone/planks/arms/food).
+3. Storage caps? gold? the next Kittens rung — owner's pick.
 4. Naming/prose pass — the owner's, only when the loop proves out.
 
 ## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot

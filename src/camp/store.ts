@@ -16,7 +16,7 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   if (!g || typeof g !== 'object') return null;
   if (g.version !== CITY_VERSION) return null;
   if (!num(b.savedAt, 0, 8.64e15)) return null;
-  for (const k of ['stone', 'logs', 'planks', 'pop', 'popPart'] as const) {
+  for (const k of ['stone', 'logs', 'planks', 'food', 'pop', 'popPart'] as const) {
     if (g[k] !== undefined && !num(g[k], 0, 1e9)) return null;
   }
   if (g.stacks !== undefined && (typeof g.stacks !== 'object' || g.stacks === null)) return null;

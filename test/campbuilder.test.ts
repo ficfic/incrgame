@@ -5,23 +5,25 @@
 // ---- PROVEN RED, 2026-08-08 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
-  unlayable, unraisable, unassailable, component, heroHit, armsCost,
+  unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
   TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS,
-  HERO_HP, HEAL_SECS, type City } from '../src/camp/engine';
+  HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
 
 /** A quarry chain: n copies at the rock face, pathed at the given gauge. */
+// Fixtures carry a stocked larder: 99 people un-fed would be a famine,
+// and these blocks are about rules 1-3, not rule starving.
 const quarried = (n: number, gauge = 1, pop = 99): City => ({
-  ...initial(), pop,
+  ...initial(), pop, food: 999,
   stacks: { 1: n },
   paths: { [pathKey(0, 1)]: gauge },
 });
 
 /** The full working chain, staffed rich. */
 const chain = (pop = 99): City => ({
-  ...initial(), pop,
+  ...initial(), pop, food: 999,
   stacks: { 1: 1, 2: 1, 3: 1 },
   paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 },
 });
@@ -114,7 +116,7 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
     // Quarry at the rock face routes 1—2—0 with the pines' lumber: both
     // over one gauge-1 edge 0|2, together 0.7/s — fine. Nine quarries are
     // not fine, and both producers feel it.
-    const g: City = { ...initial(), pop: 99,
+    const g: City = { ...initial(), pop: 99, food: 999,
       stacks: { 1: 9, 2: 1 },
       paths: { [pathKey(1, 2)]: 3, [pathKey(0, 2)]: 1 } };
     const f = flow(g);
@@ -132,7 +134,7 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
 describe('★★ RULE 4 — the cascade: logs to planks to huts to people', () => {
   it('the mill saws what arrives, the pile never goes phantom', () => {
     // One log banked, no cutters: an hour saws exactly one log.
-    const g: City = { ...initial(), pop: 99, logs: 1,
+    const g: City = { ...initial(), pop: 99, food: 9999, logs: 1,
       stacks: { 3: 1 }, paths: { [pathKey(0, 3)]: 1 } };
     const out = tick(g, 3600);
     expect(out.logs).toBe(0);
@@ -166,12 +168,57 @@ describe('★ honest refusals and the save', () => {
     expect(back).not.toBeNull();
     expect(back!.game).toEqual(g);
     expect(honour(null)).toBeNull();
-    expect(honour({ game: { version: 2 }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { version: 3 }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), pop: -1 }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), hero: { hp: -1, arms: 0, part: 0 } },
       savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), goblins: { 4: Infinity } },
       savedAt: 1 })).toBeNull();
+  });
+});
+
+describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town', () => {
+  /** A freed meadow, farmed and pathed. */
+  const farmed = (copies: number, pop: number, food = 999): City => ({
+    ...initial(), pop, food,
+    goblins: { 5: 18, 6: 30 },
+    stacks: { 4: copies },
+    paths: { [pathKey(0, 4)]: 1 },
+  });
+
+  it('a farm makes food, carried like everything else', () => {
+    expect(flow(farmed(2, 99)).food).toBeCloseTo(2 * RATE.farm, 9);
+  });
+
+  it('★ hunger starts past the wild\'s table', () => {
+    expect(hunger({ ...initial(), pop: WILD_FED })).toBe(0);
+    expect(hunger({ ...initial(), pop: WILD_FED + 3 })).toBeCloseTo(3 * EAT, 9);
+  });
+
+  it('★ the larder banks the surplus and pays the hunger', () => {
+    // 2 farms 0.5/s in, 8 people eat 0.2/s: +0.3/s net.
+    const g = tick(farmed(2, 8, 0), 10);
+    expect(g.food).toBeCloseTo(3, 6);
+  });
+
+  it('★★ STARVING halts every works but the farms — and so it recovers', () => {
+    // 9 eat 0.3/s, one farm makes 0.25/s, larder empty: starving.
+    const g: City = { ...farmed(1, 9, 0), stacks: { 1: 2, 4: 1 },
+      paths: { [pathKey(0, 1)]: 1, [pathKey(0, 4)]: 1 } };
+    const f = flow(g);
+    expect(f.starving).toBe(true);
+    expect(f.stone).toBe(0);                          // the quarry stands down
+    expect(f.food).toBeCloseTo(RATE.farm, 9);         // the farm does not
+    // Bread in the larder ends it.
+    const fed = flow({ ...g, food: 5 });
+    expect(fed.starving).toBe(false);
+    expect(fed.stone).toBeGreaterThan(0);
+  });
+
+  it('★ settlers refuse a bare larder past the wild\'s table', () => {
+    const full: City = { ...initial(), stacks: { 0: 9 }, pop: WILD_FED, food: 0 };
+    expect(tick(full, 3600).pop).toBe(WILD_FED);       // no bread, no growth
+    expect(tick({ ...full, food: 50 }, GROW_SECS * 2 + 1).pop).toBe(WILD_FED + 2);
   });
 });
 
@@ -195,15 +242,18 @@ describe('★★ THE HERO AND THE GOBLINS — Mayor of Noobtown, by the numbers'
     expect(unassailable(g, 4)).toMatch(/^the hero heals — 0 of 10/);
     g = tick(g, HEAL_SECS * HERO_HP + 1);
     expect(g.hero.hp).toBe(HERO_HP);
+    const popBefore = g.pop;
     g = apply(g, { type: 'assail', id: 4 });
     g = strike(g);
-    // ★ LIBERATED: the goblins are gone and the ground takes works again.
+    // ★ LIBERATED: the goblins are gone, the ground takes works again, and
+    // two captives walked home with the hero.
     expect(g.goblins[4]).toBeUndefined();
     expect(g.fight).toBeNull();
+    expect(g.pop).toBe(popBefore + CAPTIVES);
     expect(unraisable({ ...g, stone: 99 }, 4)).toBeNull();
   });
 
-  it('★★ arms turn the same fight: ×1 beats Old Growth whole', () => {
+  it('★★ arms turn the same fight: ×1 beats the meadow whole', () => {
     let g: City = { ...initial(), hero: { hp: 10, arms: 1, part: 0 } };
     g = apply(g, { type: 'assail', id: 4 });
     for (let i = 0; i < 4 && g.fight; i++) g = strike(g);

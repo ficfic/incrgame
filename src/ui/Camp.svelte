@@ -6,8 +6,8 @@
   import { INK, TOL } from '../game/ink';
   import type { Box } from '../game/layout';
   import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
-    unlayable, unraisable, unassailable, heroHit, armsCost, SITE, GOBLINS,
-    RATE, TAP_STONE, MAX_GAUGE, HERO_HP, type City } from '../camp/engine';
+    unlayable, unraisable, unassailable, heroHit, armsCost, hunger, SITE,
+    GOBLINS, RATE, TAP_STONE, MAX_GAUGE, HERO_HP, type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
 
   let game = $state<City>(initial());
@@ -28,7 +28,8 @@
 
   const siteId = (n: number): string => `site:${n}`;
   const numOf = (id: string): number => Number(id.split(':')[1]);
-  const KIND_NAME = { hut: 'Hut', quarry: 'Quarry', lumber: 'Lumberworks', sawmill: 'Sawmill' } as const;
+  const KIND_NAME = { hut: 'Hut', quarry: 'Quarry', lumber: 'Lumberworks',
+    sawmill: 'Sawmill', farm: 'Farm' } as const;
 
   /** A site's label: the count, and the truth about what its paths carry. */
   function nameOf(id: number): string {
@@ -235,6 +236,9 @@
     </button>
     <span class="keep">{Math.floor(game.logs)} logs</span>
     <span class="keep">{Math.floor(game.planks)} planks{planksNow > 0 ? ` +${planksNow.toFixed(1)}/s` : ''}</span>
+    <span class="keep" class:hurt={f.starving}>{Math.floor(game.food)} food{
+      f.starving ? ' · STARVING' : hunger(game) > 0 ? ` −${hunger(game).toFixed(1)}/s` : ''}{
+      f.food > 0 ? ` +${f.food.toFixed(1)}/s` : ''}</span>
     <span class="keep lv">{Math.floor(game.pop)}/{cap} people</span>
     <span class="keep">hero {game.hero.hp}/{HERO_HP} · arms {game.hero.arms}</span>
     <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
@@ -298,6 +302,7 @@
   .spring em { font-style: normal; font-size: 12px; color: #8a8172; }
   .keep { font-size: 14px; color: #6b5d3f; font-weight: 600; }
   .keep.lv { color: #1f6b3a; }
+  .keep.hurt { color: #b3452f; }
   .reset { font: inherit; font-size: 13px; border: 1px solid #d8d0bf;
     border-radius: 10px; padding: 6px 10px; background: #efe9dc; color: #6b6353; }
   .reset.gear { margin-left: auto; }
