@@ -1078,11 +1078,16 @@ endings wired into the expedition loop.
    verb feeds the loss gauge). The dice encounters were KEPT as the 40%
    fallback — same trouble, two faces; dice as a COMPONENT (a gamble verb)
    inside scenes stays open.
-2. **✦ THE PACED OBJECTIVE SHIPPED, 2026-08-06** — "The last of the light":
-   the A-to-B race, distance gauge with its own helpful drift vs a deadline
-   gauge, pressing spends breath. Still to build from this list: convoy
-   integrity ("keeping resources intact" — a cargo gauge foes and terrain
-   chip at), multi-objective scenes.
+2. **✦ THE A-TO-B RACE SHIPPED, 2026-08-06; REBUILT TURN-BASED 2026-08-07**
+   — "The last of the light": ground is gained ONLY by pressing (the owner:
+   *"no idle progress towards the goal"*), the dark answers every turn,
+   breath gates mashing. ⚠️ ALL scenes are turn-based now — the clock never
+   moves a gauge; the world takes one `perTurn` step after each verb. Still
+   to build from this list: convoy integrity ("keeping resources intact" —
+   a cargo gauge foes and terrain chip at), multi-objective scenes. OPEN
+   from the same playtest: *"tapped the button in the middle without
+   reading and it worked"* — wrong verbs still cost only tempo; making them
+   genuinely lose is a tuning conversation to have BEFORE more content.
 3. **Outcome grades** — clear WITH margin pays extra (provisions, momentum,
    maybe loot); scraping through pays less. Makes play skill matter.
 4. **Graphs on top** — the owner: *"we'd need to somehow slap graphs on top,

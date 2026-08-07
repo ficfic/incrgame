@@ -141,9 +141,10 @@ export interface Game {
      *  happening, and absent on saves from before foes existed. */
     foe?: { left: number };
     /** ★★ A SCENE — the encounter as its own little incremental game (the
-     *  owner's design, 2026-08-05). Gauges drift with the tick, verbs are
-     *  your taps, rules branch the stage or end it. When this is set the
-     *  dice stay in the drawer: a scene is played, not rolled. */
+     *  owner's design, 2026-08-05; turn-based by decree, 2026-08-07). Verbs
+     *  are your moves, the world answers one turn per verb, rules branch the
+     *  stage or end it — and the clock never touches it. When this is set
+     *  the dice stay in the drawer: a scene is played, not rolled. */
     scene?: { stage: string; gauges: Record<string, number>; shown: string[] };
   } | null;
 }
@@ -345,15 +346,14 @@ function harden(g: Game): Game {
   return next;
 }
 
-/** ★ EVERY VERB COSTS TIME. Tapping is not free any more: each use of a
- *  scene verb lets the world drift this many seconds — which is what makes
- *  Bail, the mana channel and the whole flooded stage reachable at all. */
-export const VERB_SECS = 1.5;
-
-/** ⚠️ A LONG TICK IS A KIND TICK. Scene drift per single tick is clamped, so
- *  coming back after an hour does not drown a scene you left open — an idle
- *  game must never punish putting the phone down. */
-export const DRIFT_CAP = 6;
+// ★★ SCENES ARE TURN-BASED — the owner, 2026-08-07: *"i don't think we
+// should have any idle progress towards the goal… the timer which goes down
+// is stupid and must not be there… it's turn based shit."* The clock NEVER
+// touches a scene: nothing moves while you read, an hour away changes
+// nothing, and there is no drift cap because there is no drift. Every verb
+// is your move; then the world takes exactly ONE turn. That answer is what
+// makes Bail, the mana channel and every branched stage reachable — and
+// what makes mashing one button a losing strategy.
 
 /** A fresh scene state, gauges at their starting marks, nothing revealed. */
 export function sceneStart(sc: Scene): { stage: string; gauges: Record<string, number>; shown: string[] } {
@@ -409,10 +409,10 @@ function judgeScene(g: Game): Game {
   return g;
 }
 
-/** ★ THE DRIFT, shared by the tick and by every verb's time cost. Ground
- *  multiplies it: the journey type is a modifier, the owner's sketch. */
-function driftScene(g: Game, secs: number): Game {
-  if (secs <= 0 || !g.facing?.scene || !g.building) return g;
+/** ★ THE WORLD'S TURN, taken once after each of your verbs and never on the
+ *  clock. Ground multiplies it: the journey type is a modifier. */
+function worldTurn(g: Game): Game {
+  if (!g.facing?.scene || !g.building) return g;
   const sc = sceneById(g.facing.event);
   if (!sc) return g;
   const ground = legGround(g.building.key) as keyof NonNullable<Scene['mods']>;
@@ -420,9 +420,9 @@ function driftScene(g: Game, secs: number): Game {
   const st = g.facing.scene;
   const gauges = { ...st.gauges };
   for (const spec of sc.gauges) {
-    if (!spec.drift) continue;
+    if (!spec.perTurn) continue;
     gauges[spec.id] = railed(sc, spec.id,
-      (gauges[spec.id] ?? spec.start) + spec.drift * (mods[spec.id] ?? 1) * secs);
+      (gauges[spec.id] ?? spec.start) + spec.perTurn * (mods[spec.id] ?? 1));
   }
   return judgeScene({ ...g, facing: { ...g.facing, scene: { ...st, gauges } } });
 }
@@ -676,10 +676,8 @@ export function apply(g: Game, a: Action): Game {
         };
       }
 
-      // ★★ A RUNNING SCENE DRIFTS — the incremental heartbeat of the
-      // encounter — CLAMPED per tick so a long absence is one gentle breath,
-      // not a drowning.
-      next = driftScene(next, Math.min(a.secs, DRIFT_CAP));
+      // ★ THE TICK DOES NOT TOUCH A SCENE. Turn-based by decree: a scene
+      // waits, however long you stare at it or leave it in a pocket.
 
       // ⚠️ WORK MOVES SLOWER THAN THE CLOCK — WORK_PACE of it. The rest is
       // the player's to push. Same advance the push action uses, so the two
@@ -716,11 +714,10 @@ export function apply(g: Game, a: Action): Game {
         facing: { ...g.facing, scene: { stage: st.stage, gauges, shown } },
       };
       next = judgeScene(next);
-      // ★ THE TAP COSTS TIME. If the scene still stands, the world takes its
-      // VERB_SECS of drift — mashing the free verb now races the water for
-      // real, which is what wakes Bail, the channel and the flooded stage.
+      // ★ THEN THE WORLD MOVES. If the scene still stands after your verb,
+      // it takes exactly one turn — the only time its gauges ever move.
       if (next.facing?.scene && next.facing.event === g.facing.event) {
-        next = driftScene(next, VERB_SECS);
+        next = worldTurn(next);
       }
       return next;
     }

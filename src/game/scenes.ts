@@ -7,20 +7,24 @@
 // components and combine them differently in various events."*
 //
 // So: a scene is assembled from COMPONENTS —
-//   GAUGES   meters with a floor and a ceiling. Some DRIFT with time (the
-//            incremental part: waiting is a real move with a real cost), and
-//            some are HIDDEN until a verb reveals them (the hidden HP).
+//   GAUGES   meters with a floor and a ceiling. Some move ONCE PER TURN as
+//            the world's answer to your tap — never with the clock; a scene
+//            waits while you read — and some are HIDDEN until a verb reveals
+//            them (the hidden HP).
 //   VERBS    tappable actions. Repeatable, scaled by a stat, priced in mana
 //            or provisions, and each one pushes gauges around.
 //   RULES    threshold triggers, checked in order: cross a line and the scene
 //            BRANCHES to a new stage (new text, new verbs), or ENDS — cleared,
 //            or a setback that costs you and leaves the trouble standing.
-//   MODS     the journey type's word: the same washout drifts faster in a bog
-//            than on a moor. Ground is a modifier, exactly as asked.
+//   MODS     the journey type's word: the same washout answers harder in a
+//            bog than on a moor. Ground is a modifier, exactly as asked.
 //
-// The engine runs these deterministically: drifts come from the tick, effects
-// from your taps, no dice anywhere in a scene. Variance between playthroughs
-// is variance in TERRAIN and in what you chose to tap — which is the genre.
+// ★★ TURN-BASED, BY DECREE — the owner, 2026-08-07: *"i don't think we
+// should have any idle progress towards the goal… the timer which goes down
+// is stupid and must not be there… it's turn based shit."* So: NOTHING moves
+// while you read. Every verb is your move; then the world takes exactly one
+// turn (`perTurn`, ground-modified). No dice anywhere in a scene. Variance
+// between playthroughs is TERRAIN and what you chose to tap — the genre.
 //
 // ⚠️ EVERY LINE OF PROSE IS ⟨draft⟩, as ever: machine-drafted, owner-edited.
 import type { Stat } from './dice';
@@ -32,8 +36,9 @@ export interface Gauge {
   start: number;
   min: number;
   max: number;
-  /** Per-second drift while the scene runs. The incremental heartbeat. */
-  drift?: number;
+  /** The world's answer, applied ONCE after each of your verbs. Never on
+   *  the clock — turn-based by decree. */
+  perTurn?: number;
   /** ★ HIDDEN HP: not shown until a verb with `reveals` names it. */
   hidden?: boolean;
 }
@@ -80,7 +85,7 @@ export interface Scene {
   verbs: readonly Verb[];
   /** Checked IN ORDER after every tick and every verb; first match wins. */
   rules: readonly Rule[];
-  /** ground → gaugeId → drift multiplier. The journey type talking. */
+  /** ground → gaugeId → perTurn multiplier. The journey type talking. */
   mods?: Partial<Record<Ground, Record<string, number>>>;
 }
 
@@ -96,7 +101,7 @@ export const SCENES: readonly Scene[] = [
     ],
     gauges: [
       { id: 'cut', label: 'The cut', start: 0, min: 0, max: 10 },
-      { id: 'water', label: 'The water', start: 3, min: 0, max: 12, drift: 0.45 },
+      { id: 'water', label: 'The water', start: 3, min: 0, max: 12, perTurn: 0.7 },
     ],
     verbs: [
       { id: 'dig', label: 'Dig', note: 'iron speeds the spade',
@@ -113,8 +118,8 @@ export const SCENES: readonly Scene[] = [
       { gauge: 'water', op: '<=', value: 6, goto: 'open', stages: ['flooded'] },
       { gauge: 'cut', op: '>=', value: 10, end: 'cleared' },
     ],
-    // ★ THE JOURNEY TYPE: a bog feeds the water half again as fast; open
-    // moor drains a touch on its own.
+    // ★ THE JOURNEY TYPE: a bog feeds the water half again as fast each
+    // turn; open moor drains a touch of it.
     mods: { bog: { water: 1.5 }, moor: { water: 0.8 } },
   },
   {
@@ -129,9 +134,11 @@ export const SCENES: readonly Scene[] = [
     gauges: [
       // ★ HIDDEN HP — you cannot see their patience until you read them.
       { id: 'patience', label: 'Their patience', start: 6, min: 0, max: 10, hidden: true },
-      { id: 'temper', label: 'Their temper', start: 2, min: 0, max: 10, drift: 0.25 },
+      { id: 'temper', label: 'Their temper', start: 2, min: 0, max: 10, perTurn: 0.4 },
+      // Their knives grind the crew's nerve every exchange — the setback is
+      // REACHABLE, which a kinder number quietly stopped being true of.
       { id: 'nerve', label: 'The crew\'s nerve', start: 6, min: 0, max: 8,
-        drift: -0.1, hidden: true },
+        perTurn: -0.5, hidden: true },
     ],
     verbs: [
       { id: 'read', label: 'Read them', note: 'wits — see what they are really after',
@@ -177,8 +184,8 @@ export const SCENES: readonly Scene[] = [
         + 'water like posts. Nobody is digging.' },
     ],
     gauges: [
-      { id: 'ward', label: 'The iron ring', start: 0, min: 0, max: 10, drift: -0.15 },
-      { id: 'press', label: 'Their press', start: 3, min: 0, max: 12, drift: 0.4 },
+      { id: 'ward', label: 'The iron ring', start: 0, min: 0, max: 10, perTurn: -0.25 },
+      { id: 'press', label: 'Their press', start: 3, min: 0, max: 12, perTurn: 0.6 },
     ],
     verbs: [
       { id: 'ring', label: 'Drive the iron ring', note: 'iron, hammered in — the ground swallows it slowly',
@@ -212,7 +219,7 @@ export const SCENES: readonly Scene[] = [
         + 'listening thing tilts. The crew will not turn their backs on it.' },
     ],
     gauges: [
-      { id: 'near', label: 'How near it stands', start: 2, min: 0, max: 12, drift: 0.3 },
+      { id: 'near', label: 'How near it stands', start: 2, min: 0, max: 12, perTurn: 0.45 },
       // ★ HIDDEN until the first watch: you cannot learn what you will not look at.
       { id: 'gait', label: 'Its gait, learned', start: 0, min: 0, max: 8, hidden: true },
     ],
@@ -236,8 +243,10 @@ export const SCENES: readonly Scene[] = [
     mods: { crag: { near: 1.25 } },
   },
   {
-    // ★ THE DEADLINE: a gauge that only FALLS. Two ways in — careful and slow,
-    // or fast and feeding a hidden hazard — against a day that is going.
+    // ★ TWO WAYS IN — careful and slow, or fast and feeding the hazard —
+    // against a hollow that works at the wall a little every turn whether
+    // you feed it or not. ⚠️ The falling daylight timer that used to be here
+    // was killed by decree with the rest of the clock.
     id: 'oldstones', name: 'Old stones',
     on: ['moor', 'stone', 'crag'],
     stages: [
@@ -249,8 +258,7 @@ export const SCENES: readonly Scene[] = [
     ],
     gauges: [
       { id: 'bared', label: 'The old line, bared', start: 0, min: 0, max: 10 },
-      { id: 'hollow', label: 'The hollow under', start: 0, min: 0, max: 10, hidden: true },
-      { id: 'daylight', label: 'The daylight', start: 10, min: 0, max: 10, drift: -0.25 },
+      { id: 'hollow', label: 'The hollow under', start: 0, min: 0, max: 10, perTurn: 0.5, hidden: true },
     ],
     verbs: [
       { id: 'bare', label: 'Bare them with care', note: 'wits — slow, and nothing falls in',
@@ -264,14 +272,13 @@ export const SCENES: readonly Scene[] = [
         stat: 'iron', effect: { hollow: -1.2 }, perStat: { hollow: -0.2 }, stages: ['undermined'] },
     ],
     rules: [
-      { gauge: 'daylight', op: '<=', value: 0, end: 'setback' },
       { gauge: 'hollow', op: '>=', value: 10, end: 'setback' },
       { gauge: 'hollow', op: '>=', value: 7, goto: 'undermined', stages: ['open'] },
       { gauge: 'hollow', op: '<=', value: 4, goto: 'open', stages: ['undermined'] },
       { gauge: 'bared', op: '>=', value: 10, end: 'cleared' },
     ],
-    // The crag's shadow eats the working day faster.
-    mods: { crag: { daylight: 1.3 } },
+    // Crag ground is half hollow already.
+    mods: { crag: { hollow: 1.2 } },
   },
   {
     // ★ THE VIGIL: the win verb feeds the loss gauge, and a provision spent
@@ -287,7 +294,7 @@ export const SCENES: readonly Scene[] = [
     ],
     gauges: [
       { id: 'quiet', label: 'An understanding', start: 0, min: 0, max: 8 },
-      { id: 'dread', label: 'The crew\'s dread', start: 2, min: 0, max: 10, drift: 0.35 },
+      { id: 'dread', label: 'The crew\'s dread', start: 2, min: 0, max: 10, perTurn: 0.5 },
     ],
     verbs: [
       { id: 'climb', label: 'Climb toward it', note: 'heart — somebody has to go up',
@@ -311,11 +318,12 @@ export const SCENES: readonly Scene[] = [
     mods: { crag: { dread: 1.2 } },
   },
   {
-    // ★★ THE RACE — the owner's paced A-to-B objective, verbatim: *"objectives
-    // to reach like you know going from point a to b (tapping to increase
-    // speed)."* The crew moves on their OWN (the first helpful drift in the
-    // game); tapping is the hurry-up; the deadline only ever climbs; and
-    // pressing spends their breath, which is what gates mashing.
+    // ★★ THE RACE — the owner's A-to-B objective, verbatim: *"going from
+    // point a to b (tapping to increase speed)"* — REBUILT turn-based on
+    // their second verdict: *"i don't think we should have any idle progress
+    // towards the goal."* Ground is gained ONLY by your verbs; the dark
+    // answers every turn; pressing spends breath, which is what gates
+    // mashing one button.
     id: 'longdark', name: 'The last of the light',
     on: ['wood', 'moor'],
     stages: [
@@ -326,13 +334,13 @@ export const SCENES: readonly Scene[] = [
         + 'knees. The dark does not stop to breathe.' },
     ],
     gauges: [
-      { id: 'home', label: 'The crew, home', start: 0, min: 0, max: 10, drift: 0.3 },
-      { id: 'dark', label: 'The dark coming', start: 0, min: 0, max: 12, drift: 0.5 },
-      { id: 'wind', label: 'Their breath', start: 8, min: 0, max: 8, drift: 0.15 },
+      { id: 'home', label: 'The crew, home', start: 0, min: 0, max: 10 },
+      { id: 'dark', label: 'The dark coming', start: 0, min: 0, max: 12, perTurn: 0.8 },
+      { id: 'wind', label: 'Their breath', start: 8, min: 0, max: 8, perTurn: 0.25 },
     ],
     verbs: [
       { id: 'press', label: 'Press them on', note: 'heart drives tired legs',
-        stat: 'heart', effect: { home: 0.85, wind: -1.1 }, perStat: { home: 0.25 },
+        stat: 'heart', effect: { home: 0.85, wind: -0.9 }, perStat: { home: 0.25 },
         stages: ['strung'] },
       { id: 'rest', label: 'Let them breathe', note: 'the dark gains, the legs come back',
         effect: { wind: 1.8 } },
@@ -347,8 +355,8 @@ export const SCENES: readonly Scene[] = [
       { gauge: 'wind', op: '>=', value: 4, goto: 'strung', stages: ['blown'] },
       { gauge: 'home', op: '>=', value: 10, end: 'cleared' },
     ],
-    // Under trees the dark comes early; on open moor they make better time.
-    mods: { wood: { dark: 1.25 }, moor: { home: 1.15 } },
+    // Under trees the dark comes early.
+    mods: { wood: { dark: 1.25 } },
   },
 ];
 

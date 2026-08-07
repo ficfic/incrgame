@@ -1114,12 +1114,19 @@ else {
   console.log('  dials   :', `${dials} meters on the dock`);
   if (!/The washout/.test(opening)) misses.push(`the dock does not name the scene: "${opening.slice(0, 60)}"`);
   if (dials < 2) misses.push(`only ${dials} meters — the gauges are not drawn`);
-  // ★ THE INCREMENTAL HEARTBEAT: the water moves with nobody touching it.
+  // ★ TURN-BASED, BY DECREE: the water holds STILL while you read — and
+  // answers the moment you dig. Both halves checked, because each is the
+  // other's vacuity: a frozen bar passes the first for free.
   const w0 = await page.$eval('[data-bar="water"]', (e) => e.style.width);
   await page.waitForTimeout(2600);
   const w1 = await page.$eval('[data-bar="water"]', (e) => e.style.width);
-  console.log('  drifts  :', `the water ${w0} → ${w1} across 2.6 idle seconds`);
-  if (w0 === w1) misses.push('the water does not drift — the scene is not incremental');
+  console.log('  waits   :', `the water ${w0} → ${w1} across 2.6 idle seconds`);
+  if (w0 !== w1) misses.push('the water moved on the clock — scenes are turn-based now');
+  await page.locator('.deed.face', { hasText: 'Dig' }).click({ timeout: 1500 }).catch(() => {});
+  await page.waitForTimeout(250);
+  const w2 = await page.$eval('[data-bar="water"]', (e) => e.style.width);
+  console.log('  answers :', `one dig, the water ${w1} → ${w2}`);
+  if (w2 === w1) misses.push('a dig bought no answer from the water — the world skipped its turn');
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-scene.png') });
   // Dig it out. Iron 3 digs 1.05 a tap; twenty-four taps survives one setback.
   let cleared = false;
@@ -1147,10 +1154,11 @@ else {
 
 // -------------------------------------------------------------- the race ----
 //
-// ★★ THE OWNER'S A-TO-B OBJECTIVE, verbatim: *"going from point a to b
-// (tapping to increase speed)."* Injected mid-leg so the odds cannot dodge
-// it: the crew must move ON THEIR OWN (the paced part), the dark must also
-// move (the deadline), and pressing must bring them home.
+// ★★ THE OWNER'S A-TO-B OBJECTIVE — *"going from point a to b (tapping to
+// increase speed)"* — TURN-BASED on their second verdict: no idle progress,
+// no clock. Injected mid-leg: nothing may move while the probe stares, one
+// press must buy ground AND draw the dark's answer, and pressing must bring
+// them home.
 console.log('\nTHE RACE');
 const tookRace = await loadSave(
   () => ({ v: 8, savedAt: Date.now(),
@@ -1165,14 +1173,21 @@ else {
   const pct = async (bar) => parseInt(
     await page.$eval(`[data-bar="${bar}"]`, (e) => e.style.width).catch(() => '-1'), 10);
   const h0 = await pct('home');
+  const d0 = await pct('dark');
   await page.waitForTimeout(2600);
   const h1 = await pct('home');
   const d1 = await pct('dark');
-  console.log('  paced   :', `the crew ${h0}% → ${h1}% home across 2.6 idle seconds, the dark at ${d1}%`);
-  if (!(h1 > h0)) misses.push('the crew do not move on their own — the objective is not paced');
-  if (!(d1 > 0)) misses.push('the dark does not come — there is no deadline in the race');
+  console.log('  waits   :', `home ${h0}% → ${h1}%, dark ${d0}% → ${d1}% across 2.6 idle seconds`);
+  if (h1 !== h0 || d1 !== d0) misses.push('the race moved on the clock — no idle progress, by decree');
+  await page.locator('.deed.face', { hasText: 'Press them on' }).click({ timeout: 1500 }).catch(() => {});
+  await page.waitForTimeout(250);
+  const h2 = await pct('home');
+  const d2 = await pct('dark');
+  console.log('  answers :', `one press, home → ${h2}%, dark → ${d2}%`);
+  if (!(h2 > h1)) misses.push('a press bought no ground — tapping is the only engine and it did nothing');
+  if (!(d2 > d1)) misses.push('the dark did not answer the turn — the race has no opponent');
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-race.png') });
-  // Press them home: seven taps beat the dark on paper, fourteen forgive lag.
+  // Press them home: ten clean presses on paper, fourteen forgive a branch.
   let home = false;
   for (let i = 0; i < 14 && !home; i++) {
     for (const btn of ['Press them on', 'Let them breathe']) {

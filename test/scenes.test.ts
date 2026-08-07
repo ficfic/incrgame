@@ -80,19 +80,21 @@ describe('★ a halt can be a scene, and it starts where the data says', () => {
 describe('★★ the washout, played', () => {
   const key = legOn('stone') ?? roadKey(START, STOP.get(START)!.near[0]!);
 
-  it('★ the water DRIFTS up with the clock — waiting is a move with a cost', () => {
+  it('★ TURN-BASED: the clock never moves the water — only your verbs do', () => {
+    // The owner, 2026-08-07: "it's turn based shit." Ticks change nothing.
     const g0 = inWashout(key);
-    const g1 = tick(g0, 4);
-    expect(g1.facing!.scene!.gauges.water!).toBeGreaterThan(g0.facing!.scene!.gauges.water!);
+    expect(tick(g0, 4).facing!.scene!.gauges).toEqual(g0.facing!.scene!.gauges);
+    // A dig is a turn, and the world answers it: +0.7 of water.
+    expect(verb(g0, 'dig').facing!.scene!.gauges.water!).toBeCloseTo(3.7, 6);
   });
 
-  it('★ the journey type is a modifier: the same rain fills a bog faster than a moor', () => {
+  it('★ the journey type is a modifier: the same turn fills a bog faster than a moor', () => {
     const bog = legOn('bog');
     const moor = legOn('moor');
     expect(bog, 'no bog leg on this map').not.toBeNull();
     expect(moor, 'no moor leg on this map').not.toBeNull();
-    const inBog = tick(inWashout(bog!), 4).facing!.scene!.gauges.water!;
-    const inMoor = tick(inWashout(moor!), 4).facing!.scene!.gauges.water!;
+    const inBog = verb(inWashout(bog!), 'dig').facing!.scene!.gauges.water!;
+    const inMoor = verb(inWashout(moor!), 'dig').facing!.scene!.gauges.water!;
     expect(inBog).toBeGreaterThan(inMoor);
   });
 
@@ -108,16 +110,16 @@ describe('★★ the washout, played', () => {
     expect(broke.facing!.scene!.gauges.water).toBe(3);
     const paid = verb(inWashout(key, { mana: 5 }), 'channel');
     expect(paid.mana).toBe(2);
-    // Railed to 0 by the payment, then the verb's own time cost drifts it:
-    // VERB_SECS 1.5 x 0.45 = 0.675 of water back in. Tapping costs time now.
-    expect(paid.facing!.scene!.gauges.water).toBeCloseTo(0.675, 6);
+    // Railed to 0 by the payment, then the world takes its turn: +0.7 of
+    // water back in. Every tap buys the world a move.
+    expect(paid.facing!.scene!.gauges.water).toBeCloseTo(0.7, 6);
   });
 
   it('★★ deep water BRANCHES the stage, bailing branches it back', () => {
     let g = inWashout(key);
     g = { ...g, facing: { ...g.facing!, scene: { ...g.facing!.scene!,
       gauges: { ...g.facing!.scene!.gauges, water: 7.9 } } } };
-    g = tick(g, 1);
+    g = verb(g, 'dig');   // the world's answer tips 7.9 over the line
     expect(g.facing!.scene!.stage).toBe('flooded');
     for (let i = 0; i < 3; i++) g = verb(g, 'bail');
     expect(g.facing!.scene!.stage).toBe('open');
@@ -136,7 +138,7 @@ describe('★★ the washout, played', () => {
     const left0 = g.building!.left;
     g = { ...g, facing: { ...g.facing!, scene: { ...g.facing!.scene!,
       gauges: { ...g.facing!.scene!.gauges, water: 11.9 } } } };
-    g = tick(g, 1);
+    g = verb(g, 'dig');   // your move stands; the world's answer hits the rail
     expect(g.provisions).toBe(initial().provisions - 1);
     expect(g.building!.left).toBeGreaterThan(left0);
     expect(g.facing!.scene!.gauges.water).toBe(washout.gauges.find((x) => x.id === 'water')!.start);
@@ -147,7 +149,7 @@ describe('★★ the washout, played', () => {
     let g = inWashout(key, { provisions: 0 });
     g = { ...g, facing: { ...g.facing!, scene: { ...g.facing!.scene!,
       gauges: { ...g.facing!.scene!.gauges, water: 11.9 } } } };
-    g = tick(g, 1);
+    g = verb(g, 'dig');
     expect(g.building).toBeNull();
     expect(g.facing).toBeNull();
   });
@@ -198,17 +200,17 @@ describe('★★ the brigands: hidden HP, revealed by playing', () => {
 describe('★★ the tuning pass, 2026-08-05 — the reviews made flesh', () => {
   const key = legOn('stone') ?? roadKey(START, STOP.get(START)!.near[0]!);
 
-  it('★★ tapping is not free: every verb lets VERB_SECS of world in', () => {
-    // Five free digs used to cost nothing; now they let ~3.4 of water rise.
+  it('★★ tapping is not free: the world answers every verb', () => {
+    // Five digs buy the world five turns: 3 + 5 x 0.7 = 6.5 of water.
     let g = inWashout(key);
     for (let i = 0; i < 5; i++) g = verb(g, 'dig');
     expect(g.facing!.scene!.gauges.water!).toBeGreaterThan(3 + 3);
   });
 
-  it('★ a long absence is ONE gentle breath, not a drowning', () => {
-    const g = tick(inWashout(key), 3600);
-    // Clamped to DRIFT_CAP seconds of drift: 3 + 6 x 0.45 = 5.7, no setback.
-    expect(g.facing!.scene!.gauges.water!).toBeLessThan(6);
+  it('★ a long absence changes NOTHING — the scene waits, turn-based', () => {
+    const g0 = inWashout(key);
+    const g = tick(g0, 3600);
+    expect(g.facing!.scene!.gauges).toEqual(g0.facing!.scene!.gauges);
     expect(g.provisions).toBe(initial().provisions);
   });
 
@@ -221,7 +223,8 @@ describe('★★ the tuning pass, 2026-08-05 — the reviews made flesh', () => 
         scene: { stage: 'knives', gauges: { patience: 4, temper: 8, nerve: 0.05 },
           shown: ['patience'] } } };
     void brigands;
-    g = tick(g, 1);
+    // Standing costs a turn; the knives grind the last of the nerve away.
+    g = verb(g, 'stand');
     expect(g.facing!.scene!.stage).toBe(sceneById('brigands')!.stages[0]!.id);
     expect(g.facing!.scene!.shown).toContain('patience');
   });
@@ -276,21 +279,22 @@ describe('★★ the content pass: the troubles become little games', () => {
   describe('★ the wights: a siege where progress ROTS', () => {
     const bog = legOn('bog')!;
 
-    it('the ward decays on its own — out-building the rot is the game', () => {
-      const g = tick(set(inScene('wights', bog), { ward: 5 }), 4);
+    it('the ward rots a little every turn — out-building the rot is the game', () => {
+      // Rallying does not touch the ward; the world's turn still eats 0.25.
+      const g = verb(set(inScene('wights', bog), { ward: 5 }), 'rally');
       expect(g.facing!.scene!.gauges.ward!).toBeLessThan(5);
     });
 
     it('★ open water eats the ward faster than the bog does', () => {
       const water = legOn('water');
       expect(water, 'no water leg on this map').not.toBeNull();
-      const onWater = tick(set(inScene('wights', water!), { ward: 5 }), 4);
-      const onBog = tick(set(inScene('wights', bog), { ward: 5 }), 4);
+      const onWater = verb(set(inScene('wights', water!), { ward: 5 }), 'rally');
+      const onBog = verb(set(inScene('wights', bog), { ward: 5 }), 'rally');
       expect(onWater.facing!.scene!.gauges.ward!).toBeLessThan(onBog.facing!.scene!.gauges.ward!);
     });
 
     it('★ their press branches them INTO the trench, and driving them out branches back', () => {
-      let g = tick(set(inScene('wights', bog), { press: 7.9 }), 0.2);
+      let g = verb(set(inScene('wights', bog), { press: 7.9 }), 'ring');
       expect(g.facing!.scene!.stage).toBe('inTrench');
       for (let i = 0; i < 5 && g.facing!.scene!.stage === 'inTrench'; i++) g = verb(g, 'drive');
       expect(g.facing!.scene!.stage).toBe('held');
@@ -325,7 +329,7 @@ describe('★★ the content pass: the troubles become little games', () => {
     });
 
     it('★ too near BRANCHES: no watching it from under it, only staring it back', () => {
-      let g = tick(set(inScene('watcher', stoneKey), { near: 9.5 }), 0.05);
+      let g = verb(set(inScene('watcher', stoneKey), { near: 9.5 }), 'watch');
       expect(g.facing!.scene!.stage).toBe('over');
       const stuck = verb(g, 'watch');
       expect(stuck.facing!.scene!.gauges).toEqual(g.facing!.scene!.gauges);
@@ -334,25 +338,26 @@ describe('★★ the content pass: the troubles become little games', () => {
     });
   });
 
-  describe('★ the old stones: a deadline that only falls', () => {
-    it('the daylight goes with the clock, and it going is the setback', () => {
-      const g = tick(inScene('oldstones', stoneKey), 4);
-      expect(g.facing!.scene!.gauges.daylight!).toBeCloseTo(9, 6);
-      const dusk = tick(set(inScene('oldstones', stoneKey), { daylight: 0.2 }), 1);
-      expect(dusk.provisions).toBe(initial().provisions - 1);
+  describe('★ the old stones: the hollow works at the wall every turn', () => {
+    it('★ the clock does nothing; each turn the hollow grows a little on its own', () => {
+      const g0 = inScene('oldstones', stoneKey);
+      expect(tick(g0, 60).facing!.scene!.gauges).toEqual(g0.facing!.scene!.gauges);
+      // One careful bare: the world still answers with 0.5 of hollow.
+      expect(verb(g0, 'bare').facing!.scene!.gauges.hollow!).toBeCloseTo(0.5, 6);
     });
 
-    it('★ cracking is fast and feeds a HIDDEN hollow; sounding the ground shows it', () => {
+    it('★ cracking is fast and feeds the HIDDEN hollow; sounding the ground shows it', () => {
       const g = verb(inScene('oldstones', stoneKey), 'crack');
-      expect(g.facing!.scene!.gauges.hollow!).toBeCloseTo(1, 6);
+      // 1.0 from the crack, 0.5 from the world's turn — and still unseen.
+      expect(g.facing!.scene!.gauges.hollow!).toBeCloseTo(1.5, 6);
       expect(g.facing!.scene!.shown).not.toContain('hollow');
       const heard = verb(g, 'sound');
       expect(heard.facing!.scene!.shown).toContain('hollow');
     });
 
-    it('★★ seven cracks undermine the trench; shoring wins the stage back', () => {
+    it('★★ five cracks undermine the trench; shoring wins the stage back', () => {
       let g = inScene('oldstones', stoneKey);
-      for (let i = 0; i < 7; i++) g = verb(g, 'crack');
+      for (let i = 0; i < 5; i++) g = verb(g, 'crack');
       expect(g.facing!.scene!.stage).toBe('undermined');
       const stuck = verb(g, 'crack');
       expect(stuck.facing!.scene!.gauges).toEqual(g.facing!.scene!.gauges);
@@ -360,7 +365,7 @@ describe('★★ the content pass: the troubles become little games', () => {
       expect(g.facing!.scene!.stage).toBe('open');
     });
 
-    it('★ the careful hand clears it inside the day, touching nothing dangerous', () => {
+    it('★ the careful hand clears it before the hollow ever matters', () => {
       let g = inScene('oldstones', stoneKey);
       for (let i = 0; i < 15 && g.facing; i++) g = verb(g, 'bare');
       expect(g.facing).toBeNull();
@@ -376,16 +381,16 @@ describe('★★ the content pass: the troubles become little games', () => {
       expect(g.facing!.scene!.gauges.quiet!).toBeCloseTo(2.2, 6);
     });
 
-    it('★ the crag feeds the dread faster than open stone', () => {
+    it('★ the crag feeds the dread faster than open stone, turn for turn', () => {
       const crag = legOn('crag');
       expect(crag, 'no crag leg on this map').not.toBeNull();
-      const up = tick(inScene('nightwatch', crag!), 4).facing!.scene!.gauges.dread!;
-      const flat = tick(inScene('nightwatch', stoneKey), 4).facing!.scene!.gauges.dread!;
+      const up = verb(inScene('nightwatch', crag!), 'watch').facing!.scene!.gauges.dread!;
+      const flat = verb(inScene('nightwatch', stoneKey), 'watch').facing!.scene!.gauges.dread!;
       expect(up).toBeGreaterThan(flat);
     });
 
     it('★★ dread branches to shifts — nobody climbs — and walking the rounds wins back the night', () => {
-      let g = tick(set(inScene('nightwatch', stoneKey), { dread: 7.2 }), 0.05);
+      let g = verb(set(inScene('nightwatch', stoneKey), { dread: 7.2 }), 'climb');
       expect(g.facing!.scene!.stage).toBe('shifts');
       const stuck = verb(g, 'climb');
       expect(stuck.facing!.scene!.gauges).toEqual(g.facing!.scene!.gauges);
@@ -408,27 +413,22 @@ describe('★★ the content pass: the troubles become little games', () => {
   describe('★★ the last of the light: the owner\'s A-to-B race, paced', () => {
     const wood = legOn('wood')!;
 
-    it('★ the crew moves on their OWN — the first helpful drift in the game', () => {
-      const g = tick(inScene('longdark', wood), 4);
-      expect(g.facing!.scene!.gauges.home!).toBeCloseTo(1.2, 6);
-      expect(g.facing!.scene!.gauges.dark!).toBeGreaterThan(0);
+    it('★ NO idle progress toward the goal — nothing moves until you move', () => {
+      // The owner, 2026-08-07: "i don't think we should have any idle
+      // progress towards the goal." An hour of clock changes nothing.
+      const g0 = inScene('longdark', wood);
+      expect(tick(g0, 3600).facing!.scene!.gauges).toEqual(g0.facing!.scene!.gauges);
     });
 
-    it('★★ but their own speed LOSES to the dark — tapping is not optional', () => {
-      let g = inScene('longdark', wood);
-      for (let i = 0; i < 30 && g.facing?.scene; i++) g = tick(g, 1);
-      // The dark reached twelve while the crew were still out: one setback.
-      expect(g.provisions).toBe(initial().provisions - 1);
-    });
-
-    it('pressing them spends their breath to buy ground', () => {
+    it('★★ a press buys ground, spends breath — and the dark answers the turn', () => {
       const g = verb(inScene('longdark', wood), 'press');
-      expect(g.facing!.scene!.gauges.home!).toBeCloseTo(1.55, 6);
+      expect(g.facing!.scene!.gauges.home!).toBeCloseTo(1.1, 6);
+      expect(g.facing!.scene!.gauges.dark!).toBeCloseTo(1.0, 6);
       expect(g.facing!.scene!.gauges.wind!).toBeLessThan(8);
     });
 
     it('★ blown branches the stage: no pressing the winded, only breathing them back', () => {
-      let g = tick(set(inScene('longdark', wood), { wind: 0.3 }), 0.05);
+      let g = verb(set(inScene('longdark', wood), { wind: 0.3 }), 'press');
       expect(g.facing!.scene!.stage).toBe('blown');
       const stuck = verb(g, 'press');
       expect(stuck.facing!.scene!.gauges).toEqual(g.facing!.scene!.gauges);
@@ -436,9 +436,9 @@ describe('★★ the content pass: the troubles become little games', () => {
       expect(g.facing!.scene!.stage).toBe('strung');
     });
 
-    it('★★ seven presses bring them home ahead of the dark', () => {
+    it('★★ ten clean presses bring them home ahead of the dark', () => {
       let g = inScene('longdark', wood);
-      for (let i = 0; i < 10 && g.facing; i++) g = verb(g, 'press');
+      for (let i = 0; i < 12 && g.facing; i++) g = verb(g, 'press');
       expect(g.facing).toBeNull();
       expect(g.momentum).toBe(initial().momentum + 1);
       expect(g.cleared).toBe(1);
