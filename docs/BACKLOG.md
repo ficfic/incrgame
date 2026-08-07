@@ -618,3 +618,5 @@ that a beat is reachable from where the player starts.
 - [ ] Self tab "a little bit ugly" (hub and spokes); Crossing tab "doesn't do anything" — reads dead at 3/26.
 - [ ] Route brown "a weird choice" of colour tone.
 - [ ] Momentum illegible: falls on a scavenge miss and the player doesn't know what it is or why.
+- 2026-08-07 owner: "I don't need buttons to copy save, load save, and start over in the main GUI" — move the porters + Start over off the header (a settings drawer or Self tab).
+- 2026-08-07 owner: push-to-travel is "completely not communicated… nothing at all is happening" — the way needs a loud first-run cue that tapping IS the travel (pulsing crew mark, arrow, anything); the dock note alone failed.
