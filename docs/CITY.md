@@ -46,6 +46,31 @@ assigns itself invisibly.
 5. **No prose, still.** Nouns and numbers until the loop proves out. The
    satire thesis waits for a game worth writing on.
 
+## The scale — a town, never a civilisation
+
+**2026-08-08, owner:** *"very few people kind of game… maybe low hundreds
+max."* People are countable and each one is felt: every person is a worker
+(staffing is per-head already), growth is one settler at a time, and the
+whole game ends somewhere around **~200 people** — a town you know, not a
+statistic. Curves are tuned to that ceiling; nothing ever shows "1.2M".
+
+## The hero and the goblins *(stolen from Mayor of Noobtown, on the owner's order)*
+
+The wilderness is not empty — most sites and whole regions start
+**goblin-held**. Held ground shows its strength (`Goblins · 14`) and takes
+no buildings and no paths. The town has ONE hero:
+
+- **Liberation gates territory.** The hero clears a held site; cleared
+  ground joins the buildable map. Expansion = the hero's reach, not a
+  pop threshold alone — the map ladder becomes *fights won*.
+- **The economy arms the hero.** Gear is bought with the town's own
+  outputs (stone → weapons? planks → shields? the smithy is a building),
+  so the build loop and the fight loop feed each other.
+- **The fight itself is player-driven** — no idle progress toward a goal,
+  by the standing decree. Exact battle form: owner's call (chips pending).
+- Farther ground is stronger; a beaten hero retreats to heal (time), never
+  dies. Goblins may someday raid a pathed edge — pressure, later slice.
+
 ## V1 content (two sessions of build, roughly)
 
 | Thing | Where | Makes / does | Notes |
