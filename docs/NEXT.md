@@ -1062,12 +1062,15 @@ profiles are wanted on happenings too.
 > first at their ask, then built: counts on the 1.15^n curve, people as the
 > multiplier and the ladder, paths as throughput with drawn chokes.
 
-**Next, per the doc, one per session, each after the owner plays:**
-1. SLICE 3 — farms & food: meadow sites, people eat, starving halts
-   staffing. The first real failure pressure.
-2. The away line (one row of numbers on return) + growth pacing pass
-   (chad-liquidity on the 1.15 curve once there are two currencies).
-3. Second region at a pop gate — territory, the graph growing outward.
+**Shipped since:** the hero slice — goblin-held ground (12/18/30), turn-based
+liberation fights, Arms ×n from the town's own stores, territory = fights won.
+
+**Next, one per session, each after the owner plays:**
+1. SLICE 3 — farms & food: meadow sites (liberated ground wants a reason
+   to matter), people eat, starving halts staffing. First failure pressure.
+2. A second region BEYOND the knoll — deeper goblins, the map growing
+   outward; maybe the hero levels (hp, not just arms).
+3. The away line + pacing pass (chad-liquidity across stone/planks/arms).
 4. Naming/prose pass — the owner's, only when the loop proves out.
 
 ## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot

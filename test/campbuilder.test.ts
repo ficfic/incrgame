@@ -5,8 +5,9 @@
 // ---- PROVEN RED, 2026-08-08 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
-  unlayable, unraisable, component, TAP_STONE, RATE, BASE, HUT_ROOM,
-  GROW_SECS, CARRY, SITES, type City } from '../src/camp/engine';
+  unlayable, unraisable, unassailable, component, heroHit, armsCost,
+  TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS,
+  HERO_HP, HEAL_SECS, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
@@ -71,10 +72,9 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     expect(g.planks).toBeCloseTo(9 - BASE.hut, 9);
   });
 
-  it('★ pop thresholds grow the ground — the level is people now', () => {
-    expect(shown(initial()).length).toBe(4);
-    expect(shown({ ...initial(), pop: 6 }).length).toBe(5);
-    expect(shown({ ...initial(), pop: 10 }).length).toBe(SITES.length);
+  it('★ the whole wilderness shows from the first frame — held ground is the carrot', () => {
+    expect(shown(initial()).length).toBe(SITES.length);
+    expect(initial().goblins).toEqual({ 4: 12, 5: 18, 6: 30 });
   });
 });
 
@@ -152,12 +152,12 @@ describe('★ honest refusals and the save', () => {
     expect(apply(initial(), { type: 'tap' }).stone).toBeCloseTo(TAP_STONE, 9);
   });
 
-  it('refusals say why: price, people, reach', () => {
+  it('refusals say why: price, goblins, reach', () => {
     expect(unraisable(initial(), 1)).toMatch(/^5 stone — you have 0/);
-    expect(unraisable(initial(), 4)).toBe('6 people first');
+    expect(unraisable(initial(), 4)).toMatch(/^goblins hold this ground — 12/);
     expect(unlayable(initial(), 1, 3)).toBe('nothing joins these');
     expect(unlayable({ ...initial(), stone: 99 }, 1, 2)).toBe('no path reaches either end');
-    expect(unlayable({ ...initial(), stone: 99, pop: 2 }, 3, 5)).toBe('10 people first');
+    expect(unlayable({ ...initial(), stone: 99 }, 3, 5)).toMatch(/^goblins hold this ground — 18/);
   });
 
   it('round-trips a real city and refuses the rest', () => {
@@ -166,7 +166,77 @@ describe('★ honest refusals and the save', () => {
     expect(back).not.toBeNull();
     expect(back!.game).toEqual(g);
     expect(honour(null)).toBeNull();
-    expect(honour({ game: { version: 1 }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { version: 2 }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), pop: -1 }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), hero: { hp: -1, arms: 0, part: 0 } },
+      savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), goblins: { 4: Infinity } },
+      savedAt: 1 })).toBeNull();
+  });
+});
+
+describe('★★ THE HERO AND THE GOBLINS — Mayor of Noobtown, by the numbers', () => {
+  const strike = (g: City): City => apply(g, { type: 'strike' });
+
+  it('★ bare hands lose to Old Growth: five strikes, beaten home, ground bled', () => {
+    let g = apply(initial(), { type: 'assail', id: 4 });
+    expect(g.fight).toEqual({ site: 4 });
+    for (let i = 0; i < 5; i++) g = strike(g);
+    // hit 2 five times: 12 → 2 left; four bites of 2 land, the fifth
+    // drops the hero to zero and the fight breaks off.
+    expect(g.fight).toBeNull();
+    expect(g.hero.hp).toBe(0);
+    expect(g.goblins[4]).toBe(2);
+  });
+
+  it('★ the hero heals on the clock, and a healed hero finishes the job', () => {
+    let g: City = { ...initial(), goblins: { ...initial().goblins, 4: 2 },
+      hero: { hp: 0, arms: 0, part: 0 } };
+    expect(unassailable(g, 4)).toMatch(/^the hero heals — 0 of 10/);
+    g = tick(g, HEAL_SECS * HERO_HP + 1);
+    expect(g.hero.hp).toBe(HERO_HP);
+    g = apply(g, { type: 'assail', id: 4 });
+    g = strike(g);
+    // ★ LIBERATED: the goblins are gone and the ground takes works again.
+    expect(g.goblins[4]).toBeUndefined();
+    expect(g.fight).toBeNull();
+    expect(unraisable({ ...g, stone: 99 }, 4)).toBeNull();
+  });
+
+  it('★★ arms turn the same fight: ×1 beats Old Growth whole', () => {
+    let g: City = { ...initial(), hero: { hp: 10, arms: 1, part: 0 } };
+    g = apply(g, { type: 'assail', id: 4 });
+    for (let i = 0; i < 4 && g.fight; i++) g = strike(g);
+    // hit 3: 12 → 0 in four strikes; three bites land, hp 4 stands.
+    expect(g.goblins[4]).toBeUndefined();
+    expect(g.hero.hp).toBe(4);
+  });
+
+  it('arms cost both currencies on a steeper curve, and arm() pays it', () => {
+    expect(armsCost(0)).toEqual({ stone: 8, planks: 4 });
+    expect(armsCost(3).stone).toBe(Math.ceil(8 * 1.25 ** 3));
+    const g = apply({ ...initial(), stone: 20, planks: 10 }, { type: 'arm' });
+    expect(g.hero.arms).toBe(1);
+    expect(g.stone).toBe(12);
+    expect(g.planks).toBe(6);
+    expect(heroHit(g)).toBe(3);
+    const broke = initial();
+    expect(apply(broke, { type: 'arm' })).toBe(broke);
+  });
+
+  it('the hero is refused where sense refuses: free ground, mid-fight, hurt', () => {
+    expect(unassailable(initial(), 1)).toBe('nothing to fight here');
+    const mid = apply(initial(), { type: 'assail', id: 4 });
+    expect(unassailable(mid, 5)).toBe('the hero is already fighting');
+    expect(apply(mid, { type: 'assail', id: 5 })).toBe(mid);
+    expect(apply(mid, { type: 'flee' }).fight).toBeNull();
+  });
+
+  it('no healing mid-fight — the wound is the fight\'s clock', () => {
+    let g = apply(initial(), { type: 'assail', id: 4 });
+    g = strike(g);
+    expect(g.hero.hp).toBe(8);
+    g = tick(g, 300);
+    expect(g.hero.hp).toBe(8);
   });
 });

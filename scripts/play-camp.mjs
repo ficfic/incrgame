@@ -68,7 +68,10 @@ if (!/0\s*stone/.test(h0) || !/2\/2 people/.test(h0)) {
 }
 const sites0 = await page.$$eval('.map .node', (n) => n.length);
 console.log('  ground  :', `${sites0} sites on the board`);
-if (sites0 !== 4) misses.push(`${sites0} sites at two people — wanted 4`);
+if (sites0 !== 7) misses.push(`${sites0} sites on the first frame — wanted 7, held ground included`);
+const held0 = await page.$$eval('.map .node[data-kind="foe"]', (n) => n.length);
+console.log('  held    :', `${held0} goblin-held grounds, drawn red`);
+if (held0 !== 3) misses.push(`${held0} held grounds drawn — wanted 3`);
 
 // -------------------------------------------------- the first stack, dead --
 console.log('\nTHE FIRST QUARRY');
@@ -101,18 +104,20 @@ if (!/Quarry ×1/.test(label1)) {
 
 // ------------------------------------------------------- THE CHOKE, drawn --
 console.log('\nTHE CHOKE');
-await seed({ version: 2, stacks: { 1: 4 }, paths: { '0|1': 1 },
+await seed({ version: 3, stacks: { 1: 4 }, paths: { '0|1': 1 },
   stone: 30, logs: 0, planks: 0, pop: 6, popPart: 0 });
-const chokedLabel = await page.locator('.map .node[data-id="site:1"]').textContent();
-console.log('  label   :', `"${chokedLabel.trim()}"`);
+// The board thins labels when the map is crowded, so the SPLIT is read
+// where it always stands: the site's own panel title.
+await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
+const chokedLabel = await page.locator('.panel h2').textContent();
+console.log('  title   :', `"${chokedLabel.trim()}"`);
 if (!/makes 1\.2/.test(chokedLabel) || !/carries 1\.0/.test(chokedLabel)) {
   misses.push(`a choked quarry does not tell the split: "${chokedLabel.trim()}"`);
 }
 const amber = await inked('shut');
 console.log('  drawn   :', `${amber}px of choke on the path`);
 if (amber < 60) misses.push(`only ${amber}px of choke ink — the waste is invisible`);
-await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
-await page.waitForTimeout(200);
 const chokedPanel = await panel();
 console.log('  panel   :', `"${chokedPanel.slice(0, 80)}"`);
 if (!/wasted/.test(chokedPanel)) {
@@ -125,9 +130,9 @@ console.log('\nTHE WIDENING');
 await page.locator('.deed', { hasText: 'Widen · The Camp' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed widens the choked path'));
 await page.waitForTimeout(500);
-const fixedLabel = await page.locator('.map .node[data-id="site:1"]').textContent();
+const fixedLabel = await page.locator('.panel h2').textContent();
 const amberAfter = await inked('shut');
-console.log('  label   :', `"${fixedLabel.trim()}", choke ink ${amber} → ${amberAfter}px`);
+console.log('  title   :', `"${fixedLabel.trim()}", choke ink ${amber} → ${amberAfter}px`);
 if (!/1\.2\/s/.test(fixedLabel)) {
   misses.push(`widened and the quarry still splits its label: "${fixedLabel.trim()}"`);
 }
@@ -137,7 +142,7 @@ if (!(amberAfter < amber / 2)) {
 
 // ----------------------------------------------------- PEOPLE, the ladder --
 console.log('\nTHE PEOPLE');
-await seed({ version: 2, stacks: { 1: 1, 2: 1, 3: 1 }, paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
+await seed({ version: 3, stacks: { 1: 1, 2: 1, 3: 1 }, paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
   stone: 10, logs: 0, planks: 20, pop: 2, popPart: 0 });
 const before = await header();
 console.log('  header  :', `"${before.slice(0, 90)}"`);
@@ -164,14 +169,66 @@ if (!/3\/4 people/.test(grown)) {
   misses.push(`nobody arrived after a growth beat: "${grown.slice(0, 60)}"`);
 }
 
-// -------------------------------------------------- the ground grows too --
-console.log('\nTHE LADDER');
-await seed({ version: 2, stacks: { 0: 4, 1: 1, 2: 1, 3: 1 },
-  paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
-  stone: 20, logs: 0, planks: 5, pop: 10, popPart: 0 });
-const sites2 = await page.$$eval('.map .node', (n) => n.length);
-console.log('  ground  :', `${sites2} sites at ten people`);
-if (sites2 !== 6) misses.push(`ten people show ${sites2} sites — wanted 6`);
+// ------------------------------------------- the hero, beaten then armed --
+console.log('\nTHE HERO');
+await seed({ version: 3, stacks: { 1: 1 }, paths: { '0|1': 1 },
+  stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0 });
+// Bare hands at Old Growth: five strikes, beaten home, the ground bled.
+await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
+const sendNote = await panel();
+console.log('  offers  :', `"${sendNote.slice(0, 70)}"`);
+if (!/strikes 2 · they bite 2/.test(sendNote)) {
+  misses.push(`the held ground does not quote the fight: "${sendNote.slice(0, 60)}"`);
+}
+await page.locator('.deed', { hasText: 'Send the hero' }).click({ timeout: 2000 })
+  .catch(() => misses.push('no deed sends the hero'));
+await page.waitForTimeout(250);
+await page.screenshot({ path: SHOT.replace(/\.png$/, '-fight.png') });
+for (let i = 0; i < 5; i++) {
+  await page.locator('.deed.face', { hasText: 'Strike' }).click({ timeout: 1500 }).catch(() => {});
+  await page.waitForTimeout(120);
+}
+const beaten = await header();
+console.log('  beaten  :', `"${beaten.slice(30, 110)}"`);
+if (!/hero 0\/10/.test(beaten)) {
+  misses.push(`five bare-handed strikes should beat the hero home: "${beaten.slice(0, 80)}"`);
+}
+const bled = await page.locator('.map .node[data-id="site:4"]').textContent();
+console.log('  bled    :', `"${bled.trim()}"`);
+if (!/Goblins · 2/.test(bled)) {
+  misses.push(`the ground did not keep its wounds: "${bled.trim()}"`);
+}
+// Armed and healed, the same fight turns: liberate, then BUILD there.
+await seed({ version: 3, stacks: { 1: 1 }, paths: { '0|1': 1 },
+  stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 30 }, hero: { hp: 10, arms: 1, part: 0 }, fight: null });
+await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
+await page.locator('.deed', { hasText: 'Send the hero' }).click({ timeout: 2000 }).catch(() => {});
+for (let i = 0; i < 4; i++) {
+  await page.locator('.deed.face', { hasText: 'Strike' }).click({ timeout: 1500 }).catch(() => {});
+  await page.waitForTimeout(120);
+}
+await page.waitForTimeout(300);
+const freed = await page.locator('.map .node[data-id="site:4"]').textContent();
+console.log('  freed   :', `"${freed.trim()}"`);
+if (!/Old Growth/.test(freed)) {
+  misses.push(`armed ×1, four strikes should liberate Old Growth: "${freed.trim()}"`);
+}
+const heldNow = await page.$$eval('.map .node[data-kind="foe"]', (n) => n.length);
+if (heldNow !== 2) misses.push(`${heldNow} held grounds after liberation — wanted 2`);
+// The freed ground takes works and paths like any other. It is STILL the
+// picked site from the fight — no second tap, that would toggle it off.
+await page.locator('.deed', { hasText: 'Lumberworks ×1' }).click({ timeout: 2000 })
+  .catch(() => misses.push('liberated ground refuses the works'));
+await page.locator('.deed', { hasText: 'Path · Rock Face' }).click({ timeout: 2000 })
+  .catch(() => misses.push('liberated ground refuses the path'));
+await page.waitForTimeout(600);
+const freedLabel = await page.locator('.map .node[data-id="site:4"]').textContent();
+console.log('  works   :', `"${freedLabel.trim()}"`);
+if (!/Lumberworks ×1/.test(freedLabel)) {
+  misses.push(`the freed ground does not carry its new works: "${freedLabel.trim()}"`);
+}
 await page.screenshot({ path: SHOT });
 
 await b.close();
@@ -180,4 +237,4 @@ if (misses.length) {
   for (const m of misses) console.log('  ', m);
   process.exit(1);
 }
-console.log('\nall good — counts stack, chokes draw, widening fixes, people grow the map');
+console.log('\nall good — counts stack, chokes draw, people grow, and the hero takes ground');

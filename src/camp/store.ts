@@ -21,6 +21,16 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   }
   if (g.stacks !== undefined && (typeof g.stacks !== 'object' || g.stacks === null)) return null;
   if (g.paths !== undefined && (typeof g.paths !== 'object' || g.paths === null)) return null;
+  if (g.goblins !== undefined) {
+    if (typeof g.goblins !== 'object' || g.goblins === null) return null;
+    for (const v of Object.values(g.goblins)) if (!num(v, 0, 9999)) return null;
+  }
+  if (g.hero !== undefined) {
+    if (typeof g.hero !== 'object' || g.hero === null) return null;
+    if (!num(g.hero.hp, 0, 99) || !num(g.hero.arms, 0, 99) || !num(g.hero.part, 0, 2)) return null;
+  }
+  if (g.fight !== undefined && g.fight !== null
+    && !(typeof g.fight === 'object' && Number.isInteger((g.fight as { site: number }).site))) return null;
   return { game: { ...initial(), ...g }, savedAt: b.savedAt };
 }
 

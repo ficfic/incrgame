@@ -6,8 +6,8 @@
   import { INK, TOL } from '../game/ink';
   import type { Box } from '../game/layout';
   import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
-    unlayable, unraisable, SITE, RATE, TAP_STONE, MAX_GAUGE,
-    type City } from '../camp/engine';
+    unlayable, unraisable, unassailable, heroHit, armsCost, SITE, GOBLINS,
+    RATE, TAP_STONE, MAX_GAUGE, HERO_HP, type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
 
   let game = $state<City>(initial());
@@ -33,6 +33,7 @@
   /** A site's label: the count, and the truth about what its paths carry. */
   function nameOf(id: number): string {
     const s = SITE.get(id)!;
+    if (game.goblins[id]) return `Goblins · ${game.goblins[id]}`;
     const n = game.stacks[id] ?? 0;
     if (id === 0) return n > 0 ? `Camp · Hut ×${n}` : 'The Camp';
     if (n <= 0) return s.name;
@@ -49,7 +50,8 @@
   const dots = $derived<Dot[]>(shown(game).map((s) => ({
     id: siteId(s.id),
     name: nameOf(s.id),
-    kind: s.id === 0 ? 'carry' : (game.stacks[s.id] ?? 0) > 0 ? 'fact' : 'stop',
+    kind: game.goblins[s.id] ? 'foe'
+      : s.id === 0 ? 'carry' : (game.stacks[s.id] ?? 0) > 0 ? 'fact' : 'stop',
     wx: s.x, wy: s.y,
     place: true, you: false,
     open: f.comp.has(s.id) && (game.stacks[s.id] ?? 0) > 0,
@@ -65,7 +67,7 @@
     for (const s of shown(game)) {
       for (const n of s.near) {
         const key = pathKey(s.id, n);
-        if (seen.has(key) || (SITE.get(n)?.popAt ?? 99) > game.pop) continue;
+        if (seen.has(key)) continue;
         seen.add(key);
         const gauge = game.paths[key] ?? 0;
         const choked = f.choked.has(key);
@@ -99,6 +101,17 @@
     const s = SITE.get(picked);
     if (!s) return [];
     const out: Deed[] = [];
+    // ★ HELD GROUND: the only deed is the hero. Everything else waits.
+    if (game.goblins[s.id]) {
+      const why = unassailable(game, s.id);
+      out.push({
+        label: 'Send the hero',
+        note: why ?? `strikes ${heroHit(game)} · they bite ${GOBLINS[s.id]?.bite ?? 2}`,
+        why,
+        go: () => act({ type: 'assail', id: s.id }),
+      });
+      return out;
+    }
     const have = game.stacks[s.id] ?? 0;
     const why = unraisable(game, s.id);
     out.push({
@@ -107,9 +120,19 @@
       why,
       go: () => act({ type: 'raise', id: s.id }),
     });
+    if (s.id === 0) {
+      const p = armsCost(game.hero.arms);
+      const short = game.stone < p.stone || game.planks < p.planks;
+      out.push({
+        label: `Arms ×${game.hero.arms + 1}`,
+        note: `${p.stone} stone · ${p.planks} planks — the hero strikes ${heroHit(game) + 1}`,
+        why: short ? `${p.stone} stone · ${p.planks} planks` : null,
+        go: () => act({ type: 'arm' }),
+      });
+    }
     for (const n of s.near) {
       const t = SITE.get(n);
-      if (!t || t.popAt > game.pop) continue;
+      if (!t) continue;
       const gauge = game.paths[pathKey(s.id, n)] ?? 0;
       if (gauge >= MAX_GAUGE) continue;
       const w = unlayable(game, s.id, n);
@@ -213,6 +236,7 @@
     <span class="keep">{Math.floor(game.logs)} logs</span>
     <span class="keep">{Math.floor(game.planks)} planks{planksNow > 0 ? ` +${planksNow.toFixed(1)}/s` : ''}</span>
     <span class="keep lv">{Math.floor(game.pop)}/{cap} people</span>
+    <span class="keep">hero {game.hero.hp}/{HERO_HP} · arms {game.hero.arms}</span>
     <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
     {#if menu}
       <button class="reset" class:armed={wiping}
@@ -236,7 +260,19 @@
       <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false} />
     </div>
     <section class="panel">
-      {#if picked !== null && SITE.has(picked)}
+      {#if game.fight}
+        {@const at = game.fight.site}
+        <h2>Goblins · {game.goblins[at] ?? 0}</h2>
+        <p class="note">hero {game.hero.hp}/{HERO_HP} · strikes {heroHit(game)} · they bite {GOBLINS[at]?.bite ?? 2}</p>
+        <button class="deed face" onclick={() => act({ type: 'strike' })}>
+          Strike
+          <em>{game.goblins[at]} − {heroHit(game)}</em>
+        </button>
+        <button class="deed" onclick={() => act({ type: 'flee' })}>
+          Fall back
+          <em>walk home and heal</em>
+        </button>
+      {:else if picked !== null && SITE.has(picked)}
         <h2>{nameOf(picked)}</h2>
         {#if status}<p class="note">{status}</p>{/if}
         {#each deeds as d (d.label)}

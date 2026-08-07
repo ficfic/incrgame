@@ -30,20 +30,29 @@ export interface Site {
   allows: Kind;
   /** Which sites a path can join this one to. */
   near: number[];
-  /** People needed before this ground appears at all. */
-  popAt: number;
 }
 
-/** ★ THE WILDERNESS. Hand-placed; the board draws exactly these. The two
- *  far grounds are the first pop-threshold carrots. */
+/** ★ THE WILDERNESS. Hand-placed; the board draws exactly these. Beyond
+ *  the starter ring the ground is GOBLIN-HELD — the hero's ladder. */
 export const SITES: readonly Site[] = [
-  { id: 0, name: 'The Camp', x: 200, y: 205, allows: 'hut', near: [1, 2, 3], popAt: 0 },
-  { id: 1, name: 'Rock Face', x: 118, y: 122, allows: 'quarry', near: [0, 2], popAt: 0 },
-  { id: 2, name: 'Tall Pines', x: 296, y: 118, allows: 'lumber', near: [0, 1, 3], popAt: 0 },
-  { id: 3, name: 'River Bend', x: 292, y: 296, allows: 'sawmill', near: [0, 2, 5], popAt: 0 },
-  { id: 4, name: 'Old Growth', x: 104, y: 292, allows: 'lumber', near: [0, 1], popAt: 6 },
-  { id: 5, name: 'Scree Slope', x: 388, y: 232, allows: 'quarry', near: [3], popAt: 10 },
+  { id: 0, name: 'The Camp', x: 200, y: 205, allows: 'hut', near: [1, 2, 3] },
+  { id: 1, name: 'Rock Face', x: 118, y: 122, allows: 'quarry', near: [0, 2] },
+  { id: 2, name: 'Tall Pines', x: 296, y: 118, allows: 'lumber', near: [0, 1, 3] },
+  { id: 3, name: 'River Bend', x: 292, y: 296, allows: 'sawmill', near: [0, 2, 5] },
+  { id: 4, name: 'Old Growth', x: 104, y: 292, allows: 'lumber', near: [0, 1, 6] },
+  { id: 5, name: 'Scree Slope', x: 388, y: 232, allows: 'quarry', near: [3] },
+  { id: 6, name: 'Goblin Knoll', x: 46, y: 380, allows: 'quarry', near: [4] },
 ];
+
+/** ★★ THE GOBLINS, stolen from Mayor of Noobtown on the owner's order:
+ *  held ground shows its strength, takes no works and no paths, and the
+ *  town's ONE hero clears it a fight at a time. Farther is stronger, and
+ *  stronger BITES harder. */
+export const GOBLINS: Record<number, { strength: number; bite: number }> = {
+  4: { strength: 12, bite: 2 },
+  5: { strength: 18, bite: 3 },
+  6: { strength: 30, bite: 4 },
+};
 export const SITE = new Map(SITES.map((s) => [s.id, s]));
 
 export const pathKey = (a: number, b: number): string =>
@@ -62,9 +71,15 @@ export interface City {
   pop: number;
   /** Fractional growth toward the next person. Never shown. */
   popPart: number;
+  /** ★ Held ground: siteId → goblin strength LEFT. Absent = liberated. */
+  goblins: Record<number, number>;
+  /** ★ THE HERO — one, the town's own. Arms come from the stores. */
+  hero: { hp: number; arms: number; part: number };
+  /** ★ A FIGHT IN PROGRESS, or null. Turn-based: every strike is yours. */
+  fight: { site: number } | null;
 }
 
-export const CITY_VERSION = 2;
+export const CITY_VERSION = 3;
 
 export const initial = (): City => ({
   version: CITY_VERSION,
@@ -76,6 +91,22 @@ export const initial = (): City => ({
   // ★ Two people came with you. Zero people would be zero rates forever.
   pop: 2,
   popPart: 0,
+  goblins: Object.fromEntries(
+    Object.entries(GOBLINS).map(([k, v]) => [k, v.strength])),
+  hero: { hp: 10, arms: 0, part: 0 },
+  fight: null,
+});
+
+/** The hero's full health, and the pace of getting it back. */
+export const HERO_HP = 10;
+export const HEAL_SECS = 15;
+/** What one strike lands: bare hands plus the armoury. */
+export const heroHit = (g: City): number => 2 + g.hero.arms;
+/** Arms price in BOTH currencies, on a steeper curve — the late fights
+ *  are meant to want the whole town's economy behind them. */
+export const armsCost = (have: number): { stone: number; planks: number } => ({
+  stone: Math.ceil(8 * Math.pow(1.25, have)),
+  planks: Math.ceil(4 * Math.pow(1.25, have)),
 });
 
 /** One tap chips this much stone by hand — the bootstrap and the thumb. */
@@ -105,8 +136,9 @@ export const costOf = (kind: Kind, have: number): number =>
 /** Widening: the next gauge costs the path price over again, times gauge. */
 export const pathCostOf = (gauge: number): number => PATH_COST * (gauge + 1);
 
-/** People needed → what the map shows. Pop IS the level now. */
-export const shown = (g: City): Site[] => SITES.filter((s) => s.popAt <= g.pop);
+/** The whole wilderness shows from the first frame — held ground drawn
+ *  red IS the carrot. Liberation, not population, grows the town's reach. */
+export const shown = (_g: City): Site[] => [...SITES];
 
 export const popCap = (g: City): number => 2 + (g.stacks[0] ?? 0) * HUT_ROOM;
 
@@ -231,7 +263,7 @@ export function flow(g: City): Flow {
 export function unraisable(g: City, id: number): string | null {
   const s = SITE.get(id);
   if (!s) return 'no such ground';
-  if (s.popAt > g.pop) return `${s.popAt} people first`;
+  if (g.goblins[id]) return `goblins hold this ground — ${g.goblins[id]} strong`;
   const have = g.stacks[id] ?? 0;
   const price = costOf(s.allows, have);
   if (s.allows === 'hut') {
@@ -247,8 +279,8 @@ export function unlayable(g: City, a: number, b: number): string | null {
   const A = SITE.get(a);
   const B = SITE.get(b);
   if (!A || !B || !A.near.includes(b)) return 'nothing joins these';
-  if (A.popAt > g.pop || B.popAt > g.pop) {
-    return `${Math.max(A.popAt, B.popAt)} people first`;
+  if (g.goblins[a] || g.goblins[b]) {
+    return `goblins hold this ground — ${g.goblins[a] ?? g.goblins[b]} strong`;
   }
   const gauge = g.paths[pathKey(a, b)] ?? 0;
   if (gauge >= MAX_GAUGE) return 'as wide as it goes';
@@ -261,6 +293,14 @@ export function unlayable(g: City, a: number, b: number): string | null {
   return null;
 }
 
+/** Why the hero cannot be sent at this ground, in plain words, or null. */
+export function unassailable(g: City, id: number): string | null {
+  if (!g.goblins[id]) return 'nothing to fight here';
+  if (g.fight) return 'the hero is already fighting';
+  if (g.hero.hp < HERO_HP) return `the hero heals — ${g.hero.hp} of ${HERO_HP}`;
+  return null;
+}
+
 export type Action =
   | { type: 'tick'; secs: number }
   /** Chip stone by hand — the thumb's own quarry, and the bootstrap. */
@@ -268,7 +308,15 @@ export type Action =
   /** Lay the path between neighbours, or widen it a gauge. */
   | { type: 'lay'; a: number; b: number }
   /** Raise the NEXT copy of this site's works (a hut, at the camp). */
-  | { type: 'raise'; id: number };
+  | { type: 'raise'; id: number }
+  /** Buy the next tier of the hero's arms, from the stores. */
+  | { type: 'arm' }
+  /** Send the hero at held ground — the fight opens. */
+  | { type: 'assail'; id: number }
+  /** One strike. The goblins answer. Turn-based to the bone. */
+  | { type: 'strike' }
+  /** Break off the fight and walk home to heal. */
+  | { type: 'flee' };
 
 export function apply(g: City, a: Action): City {
   switch (a.type) {
@@ -291,6 +339,15 @@ export function apply(g: City, a: Action): City {
       } else {
         popPart = 0;
       }
+      // The hero heals at home — never mid-fight.
+      let hero = g.hero;
+      if (!g.fight && hero.hp < HERO_HP) {
+        const part = hero.part + s / HEAL_SECS;
+        const up = Math.floor(part);
+        hero = { ...hero, hp: Math.min(HERO_HP, hero.hp + up), part: part - up };
+      } else if (hero.part !== 0 && hero.hp >= HERO_HP) {
+        hero = { ...hero, part: 0 };
+      }
       return {
         ...g,
         stone: g.stone + f.stone * s,
@@ -298,6 +355,7 @@ export function apply(g: City, a: Action): City {
         planks: g.planks + sawn,
         pop,
         popPart,
+        hero,
       };
     }
 
@@ -314,6 +372,49 @@ export function apply(g: City, a: Action): City {
         paths: { ...g.paths, [key]: gauge + 1 },
       };
     }
+
+    case 'arm': {
+      const price = armsCost(g.hero.arms);
+      if (g.stone < price.stone || g.planks < price.planks) return g;
+      return {
+        ...g,
+        stone: g.stone - price.stone,
+        planks: g.planks - price.planks,
+        hero: { ...g.hero, arms: g.hero.arms + 1 },
+      };
+    }
+
+    case 'assail': {
+      if (unassailable(g, a.id)) return g;
+      return { ...g, fight: { site: a.id } };
+    }
+
+    case 'strike': {
+      // ★★ THE WHOLE BATTLE, deterministic: your strike lands, and if any
+      // goblins stand they bite back. No dice — whether you can WIN was
+      // decided by the town that armed you, which is the design's point.
+      if (!g.fight) return g;
+      const site = g.fight.site;
+      const left = (g.goblins[site] ?? 0) - heroHit(g);
+      if (left <= 0) {
+        // ★ LIBERATED: the ground joins the town's map, hurt and all.
+        const goblins = { ...g.goblins };
+        delete goblins[site];
+        return { ...g, goblins, fight: null };
+      }
+      const hp = g.hero.hp - (GOBLINS[site]?.bite ?? 2);
+      if (hp <= 0) {
+        // Beaten home. The ground keeps what strength it has left —
+        // a second try starts where this one bled off.
+        return { ...g, goblins: { ...g.goblins, [site]: left },
+          hero: { ...g.hero, hp: 0 }, fight: null };
+      }
+      return { ...g, goblins: { ...g.goblins, [site]: left },
+        hero: { ...g.hero, hp } };
+    }
+
+    case 'flee':
+      return g.fight ? { ...g, fight: null } : g;
 
     case 'raise': {
       if (unraisable(g, a.id)) return g;
