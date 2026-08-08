@@ -159,6 +159,61 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
   });
 });
 
+describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
+  it('★ a pin moves the hands: posted site staffed whole, the rest split', () => {
+    // 2 people, quarry ×2 and lumber ×2: auto splits them half-and-half.
+    // Post both at the quarry and the pines stand empty — the player's call.
+    const g: City = { ...initial(), pop: 2, food: 999,
+      stacks: { 1: 2, 2: 2 },
+      paths: { [pathKey(0, 1)]: 3, [pathKey(0, 2)]: 3 } };
+    const auto = flow(g);
+    expect(auto.stone).toBeCloseTo(2 * RATE.quarry * 0.5, 9);
+    const pinnedG: City = { ...g, crew: { 1: 2 } };
+    const f = flow(pinnedG);
+    expect(f.hands.get(1)).toBeCloseTo(2, 9);
+    expect(f.hands.get(2)).toBeCloseTo(0, 9);
+    expect(f.stone).toBeCloseTo(2 * RATE.quarry, 9);
+  });
+
+  it('★ pins even beat farms-first — an explicit call wins the pool', () => {
+    const g: City = { ...initial(), pop: 2, food: 999, goblins: {},
+      stacks: { 1: 2, 4: 2 },
+      paths: { [pathKey(0, 1)]: 3, [pathKey(0, 4)]: 3 }, crew: { 1: 2 } };
+    const f = flow(g);
+    expect(f.food).toBe(0);
+    expect(f.stone).toBeCloseTo(2 * RATE.quarry, 9);
+  });
+
+  it('the pin action clamps to the works, the pool, and the floor', () => {
+    let g: City = { ...initial(), pop: 2, stacks: { 1: 3 },
+      paths: { [pathKey(0, 1)]: 1 } };
+    g = apply(g, { type: 'pin', id: 1, d: 1 });
+    g = apply(g, { type: 'pin', id: 1, d: 1 });
+    expect(g.crew[1]).toBe(2);
+    // Third pin: the pool is only two people.
+    expect(apply(g, { type: 'pin', id: 1, d: 1 })).toBe(g);
+    g = apply(g, { type: 'pin', id: 1, d: -1 });
+    expect(g.crew[1]).toBe(1);
+    const empty: City = { ...initial() };
+    expect(apply(empty, { type: 'pin', id: 1, d: -1 })).toBe(empty);
+  });
+
+  it('the starving law is not overridable by a pin', () => {
+    const g: City = { ...initial(), pop: 9, food: 0, goblins: {},
+      stacks: { 1: 2, 4: 1 }, crew: { 1: 2 },
+      paths: { [pathKey(0, 1)]: 1, [pathKey(0, 4)]: 1 } };
+    const f = flow(g);
+    expect(f.starving).toBe(true);
+    expect(f.stone).toBe(0);   // posted or not, the quarry stands down
+  });
+
+  it('pins survive the save and garbage is refused', () => {
+    const g: City = { ...initial(), crew: { 1: 2 } };
+    expect(honour({ game: g, savedAt: 1 })!.game.crew).toEqual({ 1: 2 });
+    expect(honour({ game: { ...initial(), crew: { 1: -1 } }, savedAt: 1 })).toBeNull();
+  });
+});
+
 describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', () => {
   // Same buildings both times: lumber ×3 at the pines, one mill at the
   // river, every path gauge 1. Only the WIRING differs.

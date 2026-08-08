@@ -314,6 +314,18 @@
       {:else if picked !== null && SITE.has(picked)}
         <h2>{nameOf(picked)}</h2>
         {#if status}<p class="note">{status}</p>{/if}
+        {#if picked !== 0 && (game.stacks[picked] ?? 0) > 0 && !game.goblins[picked]}
+          <!-- ★ POSTED HANDS — the owner's ask. Pins win the pool; freeing
+               them returns everyone to farms-first auto. -->
+          <div class="crew">
+            <button onclick={() => act({ type: 'pin', id: picked!, d: -1 })}
+              disabled={!(game.crew[picked] ?? 0)}>−</button>
+            <span>hands {(f.hands.get(picked) ?? 0).toFixed(1)} of {game.stacks[picked]}{
+              (game.crew[picked] ?? 0) > 0 ? ` · ${game.crew[picked]} posted` : ''}</span>
+            <button onclick={() => act({ type: 'pin', id: picked!, d: 1 })}
+              disabled={(game.crew[picked] ?? 0) >= (game.stacks[picked] ?? 0)}>+</button>
+          </div>
+        {/if}
         {#each deeds as d (d.label)}
           <button class="deed" disabled={d.why !== null} onclick={d.go}>
             {d.label}
@@ -353,4 +365,9 @@
     padding: 10px 12px; margin: 6px 0; }
   .deed:disabled { background: #e3ddd0; color: #8a8172; }
   .deed em { display: block; font-style: normal; font-size: 12.5px; color: #8a8172; }
+  .crew { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .crew span { font-size: 14px; color: #6b5d3f; }
+  .crew button { font: inherit; font-size: 18px; line-height: 1; width: 34px; height: 34px;
+    border: 1px solid #d8d0bf; border-radius: 10px; background: #fdfaf2; }
+  .crew button:disabled { color: #c9c1ae; }
 </style>

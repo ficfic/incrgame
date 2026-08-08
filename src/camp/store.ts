@@ -20,6 +20,10 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
     if (g[k] !== undefined && !num(g[k], 0, 1e9)) return null;
   }
   if (g.stacks !== undefined && (typeof g.stacks !== 'object' || g.stacks === null)) return null;
+  if (g.crew !== undefined) {
+    if (typeof g.crew !== 'object' || g.crew === null) return null;
+    for (const v of Object.values(g.crew)) if (!num(v, 0, 999)) return null;
+  }
   if (g.paths !== undefined && (typeof g.paths !== 'object' || g.paths === null)) return null;
   if (g.goblins !== undefined) {
     if (typeof g.goblins !== 'object' || g.goblins === null) return null;

@@ -196,6 +196,20 @@ await page.waitForTimeout(400);
 if (!/\/4 people/.test(await header())) {
   misses.push(`a hut went up and the cap did not: "${(await header()).slice(0, 60)}"`);
 }
+// ★ POSTED HANDS: open the rock face, post a hand, read it back.
+await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
+await page.locator('.crew button', { hasText: '+' }).click({ timeout: 2000 })
+  .catch(() => misses.push('no way to post a hand at a works'));
+await page.waitForTimeout(200);
+const posted = await panel();
+console.log('  posted  :', `"${posted.slice(0, 70)}"`);
+if (!/1 posted/.test(posted)) {
+  misses.push(`a posted hand does not read back: "${posted.slice(0, 60)}"`);
+}
+await page.locator('.crew button', { hasText: '−' }).click({ timeout: 2000 }).catch(() => {});
+await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
 console.log('  grows   : waiting one growth beat…');
 await page.waitForTimeout(13000);
 const grown = await header();

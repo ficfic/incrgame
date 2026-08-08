@@ -1074,10 +1074,13 @@ and MESH ROUTING — logs travel to the nearest mill, planks travel home
 over what is left, and a star ships 0 where a mesh ships full rate
 (proven by test, same buildings both times).
 
-**Next, one per session — the owner's playtest still drives the order:**
-1. Assign people to buildings by hand (the owner asked; auto stays the
-   default so nothing babysits).
-2. Second region past the knoll; the away line; pacing pass.
+**Shipped since:** POSTED HANDS — pin people to a works (− hands +), pins
+win the pool, auto stays the default.
+
+**Next, one per session:**
+1. Second region past the knoll — deeper goblins, the map growing.
+2. THE PACING PASS with chad-liquidity: per-worker rates and multi-hand
+   buildings (the second half of the assign ask), the away line, curves.
 3. Naming/prose pass — the owner's, only when the loop proves out.
 
 ## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot
