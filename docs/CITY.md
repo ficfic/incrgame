@@ -98,3 +98,51 @@ Counts with rising costs + huts/pop as the multiplier + path throughput with
 visible waste. Success = the screenshot shows `Quarry ×3` choking a gauge-1
 path and a wider path fixing it. Food and farms are slice 3; prestige is a
 season away and stays unwritten.
+
+
+---
+
+# PART 2 — THE ARC *(proposed 2026-08-08, owner's redline pending — nothing here is built)*
+
+> The owner: *"overall it seems like a game… we need to design more before
+> building."* So: where does it GO? Everything below is a proposal chip.
+
+## The shape of a whole run
+
+**Valley → frontier → the far country → THE LAST HOLDING.** Three or four
+regions, each gated by fights, each with its own personality — and the run
+ENDS. This is a small-town game (~200 people); it earns a finish, not an
+asymptote. The final holding is the goblins' seat: a multi-sortie siege the
+whole town economy has to be marshalled for.
+
+## What makes each region ITS OWN (pick per region, not all at once)
+
+- **Its own food artery** (chad's wall): a granary route, or a fishing
+  river, so growth doesn't drag one road forever.
+- **A new resource + one new works**: iron in region 3 (better arms need
+  it), stone gives way to ore chains. ONE new rung per region, Kittens-law.
+- **A new pressure**: winters (stores drain seasonally)? goblin raids on
+  paths (a reason for walls/watchtowers)? Pick ONE, late, or none.
+
+## The ending of a run (THE FORK — owner decides)
+
+- **A. THE TOWN STANDS (finite):** take the last holding, the game says
+  what you built (people fed, ground freed, days taken), done is done.
+  Honest, small, rare in the genre.
+- **B. LEGACY (soft prestige):** finishing founds the NEXT valley with a
+  keepsake (one veteran hero? a starting stockpile?) — classic incremental
+  retention, more systems to tune.
+- **C. ENDLESS REGIONS:** the map just keeps growing. Cheapest, but the
+  numbers eventually rot and the small-town identity dies at scale.
+
+## Standing rulings needed (from the playtests, queued in BACKLOG)
+
+1. Paths build instantly — keep (snappy) or give them a short build time?
+2. One-option fights: auto-resolve, or does turn-based stay sacred?
+3. Whole-people staffing (integer hands, pins that zero a works) — yes?
+4. Building icons on the map — worth a visual session?
+
+## Not designed here, on purpose
+
+Prose, names, the title — the owner's, when the ban lifts. The satire
+thesis — waits until there are words at all.
