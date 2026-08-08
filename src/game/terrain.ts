@@ -107,7 +107,9 @@ export interface Terrain {
 /** One scenery mark as the shapes that draw it. Four grounds, four gestures —
  *  and every one is an ordinary `Shape`, so the board needs no special case and
  *  this file needs no canvas. */
-function markShapes(m: Mark): Shape[] {
+/** ★ EXPORTED for the city builder's scenery — the parts shelf in action:
+ *  same trees, same crags, same rushes, drawn around different ground. */
+export function markShapes(m: Mark): Shape[] {
   const w = 1.1;
   if (m.g === 'wood') {
     return [{ s: 'path', ink: m.g, fill: true, close: true, pts: [

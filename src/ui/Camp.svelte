@@ -9,6 +9,7 @@
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
     SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, HERO_HP, type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
+  import { CAMP_SHAPES } from '../camp/scenery';
 
   let game = $state<City>(initial());
   let ready = $state(false);
@@ -30,6 +31,16 @@
    *  the log supply when the pile is dry. The header never overpromises. */
   const planksNow = $derived(
     game.logs > 0.05 ? f.planks : Math.min(f.planks, f.logs));
+
+  // ★ +1 POPS over the camp: one bump per whole stone landed, any source.
+  // The board itself throttles to one a second and clears them on a pan.
+  let pops = $state(0);
+  let lastWholeStone = 0;
+  $effect(() => {
+    const w = Math.floor(game.stone);
+    if (w > lastWholeStone) pops++;
+    lastWholeStone = w;
+  });
 
   const siteId = (n: number): string => `site:${n}`;
   const numOf = (id: string): number => Number(id.split(':')[1]);
@@ -92,6 +103,7 @@
           gauge,
           choked,
           dir: busy || choked ? (n > s.id ? -1 : 1) : 0,
+          carry: true,
         });
       }
     }
@@ -279,7 +291,8 @@
 
   {#if ready}
     <div class="map">
-      <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false} />
+      <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false}
+        decor={CAMP_SHAPES} pulse={pops} />
     </div>
     <section class="panel">
       {#if game.fight}

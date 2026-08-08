@@ -1069,11 +1069,11 @@ liberation fights, Arms ×n from the town's own stores, territory = fights won.
 priced on the header, STARVING halts all but the farms, and every
 liberation frees two hungry captives.
 
+**Shipped since:** THE LOOK — the valley painted from the old glyphs,
+carrier dots hauling (dash code kept), +1 pops over the camp.
+
 **Next, one per session — the owner's ten-point playtest drives the order:**
-1. ★ THE LOOK: the old map background returns (terrain decor into Camp's
-   Board), CARRIER DOTS hauling along paths instead of the mana dash
-   (keep the dash code on disk — owner's instruction), +1 pops on gains.
-2. ★ MESH ROUTING: logs travel to the MILL, not the abstract depot — a
+1. ★ MESH ROUTING: logs travel to the MILL, not the abstract depot — a
    real reason to connect site to site instead of star-to-camp.
 3. Assign people to buildings by hand (the owner asked; auto stays the
    default so nothing babysits).

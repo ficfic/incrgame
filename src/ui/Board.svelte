@@ -49,6 +49,10 @@
     /** ★ OVER ITS CAP: the load underlay turns amber — the choke the city
      *  design promises to DRAW, not just count. */
     choked?: boolean;
+    /** ★ CARRIER DOTS instead of the mana dash — the owner: *"maybe we
+     *  introduce the carrier dots which actually bring resources to camp."*
+     *  The dash code below stays; a line opts in. */
+    carry?: boolean;
     /** ★ THE BEND — the road's real course in world coordinates, first point at
      *  this line's `a` end. Absent off the chapter, where stops sit at solved
      *  rather than authored positions and a baked path would join two points
@@ -144,7 +148,8 @@
     // or a widen is running the income to zero anyway.
     const t = performance.now();
     if (t - lastPlusAt < 1000) return;
-    const you = dots.find((d) => d.you);
+    // The pin if there is one; the camp (kind 'carry') where there is not.
+    const you = dots.find((d) => d.you) ?? dots.find((d) => d.kind === 'carry');
     if (!you) return;
     const at = posOf.get(you.id);
     if (!at || plusses.length >= 4) return;
@@ -476,11 +481,27 @@
         // brown — so it stayed green. Order is the fix; the probe now samples
         // a pipe too.
         if (l.load > 0 && (l.dir ?? 0) !== 0) {
-          ctx.save();
-          ctx.lineDashOffset = -phase * (l.dir ?? 1);
-          paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
-            w: 2, dash: [5, 9], alpha: 0.95 }, sx, sy, 1);
-          ctx.restore();
+          if (l.carry) {
+            // ★ THE CARRIERS: little porters walking the path with the
+            // goods, spaced by how hard the path works. Same phase clock
+            // as the dash, so they stop when nothing flows.
+            const a0 = run[0]!;
+            const b0 = run[run.length - 1]!;
+            const n = 2 + Math.round(2 * Math.min(1, l.load));
+            for (let i = 0; i < n; i++) {
+              const t0 = (phase * 0.06 * (l.dir ?? 1) + i / n) % 1;
+              const t = t0 < 0 ? t0 + 1 : t0;
+              paint(ctx, { s: 'disc', x: a0.x + (b0.x - a0.x) * t,
+                y: a0.y + (b0.y - a0.y) * t, r: 2.6, ink: 'flowing',
+                ring: 'casing', rw: 0.8, alpha: 0.95 }, sx, sy, 1);
+            }
+          } else {
+            ctx.save();
+            ctx.lineDashOffset = -phase * (l.dir ?? 1);
+            paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
+              w: 2, dash: [5, 9], alpha: 0.95 }, sx, sy, 1);
+            ctx.restore();
+          }
         }
       } else {
         paint(ctx, made

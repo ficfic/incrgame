@@ -72,6 +72,13 @@ if (sites0 !== 7) misses.push(`${sites0} sites on the first frame — wanted 7, 
 const held0 = await page.$$eval('.map .node[data-kind="foe"]', (n) => n.length);
 console.log('  held    :', `${held0} goblin-held grounds, drawn red`);
 if (held0 !== 3) misses.push(`${held0} held grounds drawn — wanted 3`);
+// ★ THE VALLEY IS PAINTED — trees at the pines, the river through the
+// bend. Counted off the live palette, like every ink check.
+const trees = await inked('wood');
+const river = await inked('river');
+console.log('  painted :', `${trees}px of trees, ${river}px of river`);
+if (trees < 150) misses.push(`only ${trees}px of trees — the map background did not come back`);
+if (river < 150) misses.push(`only ${river}px of river — the bend has no water`);
 
 // -------------------------------------------------- the first stack, dead --
 console.log('\nTHE FIRST QUARRY');
@@ -102,6 +109,32 @@ const label1 = await page.locator('.map .node[data-id="site:1"]').textContent();
 console.log('  label   :', `"${label1.trim()}"`);
 if (!/Quarry ×1/.test(label1)) {
   misses.push(`the label does not carry the count: "${label1.trim()}"`);
+}
+// ★ THE CARRIERS ARE DRAWN AND THEY WALK: carrier ink on the path, and a
+// second look 700ms later finds its centre of mass MOVED. A buried crawl
+// once stayed green for weeks because nothing checked for motion.
+const snap = async () => page.evaluate(() => {
+  const INK = window.__INK ?? {}; const TOL = window.__TOL ?? {};
+  const hex = INK.flowing; const tol = TOL.flowing ?? 26;
+  const cv = document.querySelector('.map canvas');
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16),
+    bl = parseInt(hex.slice(5, 7), 16);
+  const d = cv.getContext('2d', { willReadFrequently: true })
+    .getImageData(0, 0, cv.width, cv.height).data;
+  let sx = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] > 40 && Math.abs(d[i] - r) <= tol && Math.abs(d[i + 1] - g) <= tol
+      && Math.abs(d[i + 2] - bl) <= tol) { sx += (i / 4) % cv.width; n++; }
+  }
+  return { n, cx: n ? sx / n : -1 };
+});
+const c0 = await snap();
+await page.waitForTimeout(700);
+const c1 = await snap();
+console.log('  carriers:', `${c0.n}px, centre ${c0.cx.toFixed(1)} → ${c1.cx.toFixed(1)}`);
+if (c0.n < 12) misses.push(`only ${c0.n}px of carrier ink — nobody hauls the stone`);
+if (c0.cx < 0 || Math.abs(c1.cx - c0.cx) < 0.4) {
+  misses.push(`the carriers do not walk: centre ${c0.cx} → ${c1.cx}`);
 }
 
 // ------------------------------------------------------- THE CHOKE, drawn --
