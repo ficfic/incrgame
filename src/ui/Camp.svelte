@@ -7,7 +7,7 @@
   import type { Box } from '../game/layout';
   import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
-    SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, HERO_HP, type City } from '../camp/engine';
+    heroMax, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
 
@@ -273,7 +273,7 @@
       f.starving ? ' · STARVING' : hunger(game) > 0 ? ` −${hunger(game).toFixed(1)}/s` : ''}{
       f.food > 0 ? ` +${f.food.toFixed(1)}/s` : ''}</span>
     <span class="keep lv">{Math.floor(game.pop)}/{cap} people</span>
-    <span class="keep">hero {game.hero.hp}/{HERO_HP} · arms {game.hero.arms}</span>
+    <span class="keep">hero {game.hero.hp}/{heroMax(game)} · arms {game.hero.arms}</span>
     <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
     {#if menu}
       <button class="reset" class:armed={wiping}
@@ -302,7 +302,7 @@
       {#if game.fight}
         {@const at = game.fight.site}
         <h2>Goblins · {game.goblins[at] ?? 0}</h2>
-        <p class="note">hero {game.hero.hp}/{HERO_HP} · strikes {heroHit(game)} · they bite {GOBLINS[at]?.bite ?? 2}</p>
+        <p class="note">hero {game.hero.hp}/{heroMax(game)} · strikes {heroHit(game)} · they bite {GOBLINS[at]?.bite ?? 2}</p>
         <button class="deed face" onclick={() => act({ type: 'strike' })}>
           Strike
           <em>{game.goblins[at]} − {heroHit(game)}</em>

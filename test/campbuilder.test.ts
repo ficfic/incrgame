@@ -4,7 +4,7 @@
 //
 // ---- PROVEN RED, 2026-08-08 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
-import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
+import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
   unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
   TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
@@ -102,9 +102,42 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     expect(unraisable({ ...initial(), planks: 99 }, 0)).toBeNull();
   });
 
-  it('★ the whole wilderness shows from the first frame — held ground is the carrot', () => {
-    expect(shown(initial()).length).toBe(SITES.length);
-    expect(initial().goblins).toEqual({ 4: 12, 5: 18, 6: 30 });
+  it('★ the first valley shows whole; the far country waits behind its holdings', () => {
+    expect(shown(initial()).length).toBe(7);
+    expect(initial().goblins).toEqual({ 4: 12, 5: 18, 6: 30, 7: 36, 8: 48, 9: 60 });
+  });
+
+  it('★★ liberating the knoll GROWS THE MAP — the fight\'s real prize', () => {
+    const { 6: _, ...rest } = initial().goblins;
+    const g: City = { ...initial(), goblins: rest };
+    const ids = shown(g).map((s) => s.id);
+    expect(ids).toContain(7);   // Dark Pines steps out of the mist
+    expect(ids).toContain(9);   // and the Green Vale behind them
+    expect(ids).not.toContain(8);   // the scree still hides the High Quarry
+  });
+
+  it('★ every liberation toughens the hero: +3 health per ground freed', () => {
+    expect(heroMax(initial())).toBe(HERO_HP);
+    const { 4: _a, 5: _b, ...rest } = initial().goblins;
+    const g: City = { ...initial(), goblins: rest };
+    expect(heroMax(g)).toBe(HERO_HP + 6);
+    // And the heal fills to the GROWN max.
+    const hurt: City = { ...g, hero: { hp: 0, arms: 0, part: 0 } };
+    expect(tick(hurt, HEAL_SECS * 40).hero.hp).toBe(HERO_HP + 6);
+  });
+
+  it('★ the deep country is winnable by the armed and the toughened', () => {
+    // Dark Pines (36 strong, bites 5) with all three first-valley fights
+    // won (hp 19) and Arms ×7 (strikes 9): four rounds, three bites, home
+    // at 4 health. The sim the strengths were priced against.
+    const start = { ...initial().goblins };
+    delete start[4]; delete start[5]; delete start[6];
+    let g: City = { ...initial(), goblins: start,
+      hero: { hp: 19, arms: 7, part: 0 } };
+    g = apply(g, { type: 'assail', id: 7 });
+    for (let i = 0; i < 4 && g.fight; i++) g = apply(g, { type: 'strike' });
+    expect(g.goblins[7]).toBeUndefined();
+    expect(g.hero.hp).toBe(4);
   });
 });
 
@@ -306,7 +339,7 @@ describe('★ honest refusals and the save', () => {
     expect(back).not.toBeNull();
     expect(back!.game).toEqual(g);
     expect(honour(null)).toBeNull();
-    expect(honour({ game: { version: 3 }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { version: 4 }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), pop: -1 }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), hero: { hp: -1, arms: 0, part: 0 } },
       savedAt: 1 })).toBeNull();

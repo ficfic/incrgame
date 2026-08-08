@@ -45,6 +45,9 @@ const CLUSTERS: Array<{ at: number; g: Mark['g']; n: number; r: number }> = [
   { at: 5, g: 'crag', n: 11, r: 28 },   // Scree Slope
   { at: 6, g: 'wood', n: 8, r: 30 },    // Goblin Knoll's dark trees…
   { at: 6, g: 'crag', n: 7, r: 26 },    // …over broken ground
+  { at: 7, g: 'wood', n: 16, r: 34 },   // Dark Pines, thick
+  { at: 8, g: 'crag', n: 12, r: 30 },   // High Quarry
+  { at: 9, g: 'moor', n: 14, r: 34 },   // Green Vale
 ];
 
 /** ★ THE RIVER, through River Bend — the site was named for it before it

@@ -1077,11 +1077,14 @@ over what is left, and a star ships 0 where a mesh ships full rate
 **Shipped since:** POSTED HANDS — pin people to a works (− hands +), pins
 win the pool, auto stays the default.
 
+**Shipped since:** THE SECOND REGION — three grounds behind the knoll and
+the scree, revealed by liberation; the hero toughens +3 health per ground
+freed, and the deep bites are priced against that ladder.
+
 **Next, one per session:**
-1. Second region past the knoll — deeper goblins, the map growing.
-2. THE PACING PASS with chad-liquidity: per-worker rates and multi-hand
+1. THE PACING PASS with chad-liquidity: per-worker rates and multi-hand
    buildings (the second half of the assign ask), the away line, curves.
-3. Naming/prose pass — the owner's, only when the loop proves out.
+2. Naming/prose pass — the owner's, only when the loop proves out.
 
 ## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot
 

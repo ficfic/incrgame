@@ -30,6 +30,9 @@ export interface Site {
   allows: Kind;
   /** Which sites a path can join this one to. */
   near: number[];
+  /** ★ THE MAP GROWS OUTWARD: this ground shows only once the named site
+   *  is liberated. The far country is the knoll fight's real prize. */
+  behind?: number;
 }
 
 /** ★ THE WILDERNESS. Hand-placed; the board draws exactly these. Beyond
@@ -42,6 +45,12 @@ export const SITES: readonly Site[] = [
   { id: 4, name: 'High Meadow', x: 104, y: 292, allows: 'farm', near: [0, 1, 6] },
   { id: 5, name: 'Scree Slope', x: 388, y: 232, allows: 'quarry', near: [3] },
   { id: 6, name: 'Goblin Knoll', x: 46, y: 380, allows: 'quarry', near: [4] },
+  // ★★ THE SECOND REGION, 2026-08-08 — behind the knoll and the scree,
+  // stronger holdings, longer hauls, and the farmland the growing town
+  // will need. Hidden until the ground in front of it falls.
+  { id: 7, name: 'Dark Pines', x: -34, y: 452, allows: 'lumber', near: [6], behind: 6 },
+  { id: 8, name: 'High Quarry', x: 474, y: 306, allows: 'quarry', near: [5], behind: 5 },
+  { id: 9, name: 'Green Vale', x: 78, y: 512, allows: 'farm', near: [7], behind: 6 },
 ];
 
 /** ★★ THE GOBLINS, stolen from Mayor of Noobtown on the owner's order:
@@ -52,6 +61,9 @@ export const GOBLINS: Record<number, { strength: number; bite: number }> = {
   4: { strength: 12, bite: 2 },
   5: { strength: 18, bite: 3 },
   6: { strength: 30, bite: 4 },
+  7: { strength: 36, bite: 5 },
+  8: { strength: 48, bite: 5 },
+  9: { strength: 60, bite: 6 },
 };
 export const SITE = new Map(SITES.map((s) => [s.id, s]));
 
@@ -98,7 +110,7 @@ export interface City {
   fight: { site: number } | null;
 }
 
-export const CITY_VERSION = 4;
+export const CITY_VERSION = 5;
 
 export const initial = (): City => ({
   version: CITY_VERSION,
@@ -118,9 +130,14 @@ export const initial = (): City => ({
   fight: null,
 });
 
-/** The hero's full health, and the pace of getting it back. */
+/** The hero's base health, and the pace of getting it back. */
 export const HERO_HP = 10;
 export const HEAL_SECS = 15;
+/** ★ EVERY LIBERATION TOUGHENS THE HERO: +3 health per ground freed.
+ *  The deep country's bites (5s and 6s) are priced against this — arms
+ *  buy the strike, the fights already won buy the surviving. */
+export const heroMax = (g: City): number =>
+  HERO_HP + 3 * (Object.keys(GOBLINS).length - Object.keys(g.goblins).length);
 /** What one strike lands: bare hands plus the armoury. */
 export const heroHit = (g: City): number => 2 + g.hero.arms;
 /** Arms price in BOTH currencies, on a steeper curve — the late fights
@@ -195,9 +212,11 @@ export const shortOf = (g: City, p: Price): string | null => {
 /** Widening: the next gauge costs the path price over again, times gauge. */
 export const pathCostOf = (gauge: number): number => PATH_COST * (gauge + 1);
 
-/** The whole wilderness shows from the first frame — held ground drawn
- *  red IS the carrot. Liberation, not population, grows the town's reach. */
-export const shown = (_g: City): Site[] => [...SITES];
+/** What the map shows: the first valley whole (held ground drawn red IS
+ *  the carrot), and the far country only once the ground in front of it
+ *  falls — the map grows outward, fight by fight. */
+export const shown = (g: City): Site[] =>
+  SITES.filter((s) => s.behind === undefined || !(s.behind in g.goblins));
 
 export const popCap = (g: City): number => 2 + (g.stacks[0] ?? 0) * HUT_ROOM;
 
@@ -465,7 +484,7 @@ export function unlayable(g: City, a: number, b: number): string | null {
 export function unassailable(g: City, id: number): string | null {
   if (!g.goblins[id]) return 'nothing to fight here';
   if (g.fight) return 'the hero is already fighting';
-  if (g.hero.hp < HERO_HP) return `the hero heals — ${g.hero.hp} of ${HERO_HP}`;
+  if (g.hero.hp < heroMax(g)) return `the hero heals — ${g.hero.hp} of ${heroMax(g)}`;
   return null;
 }
 
@@ -516,13 +535,15 @@ export function apply(g: City, a: Action): City {
       } else {
         popPart = 0;
       }
-      // The hero heals at home — never mid-fight.
+      // The hero heals at home — never mid-fight — toward the max the
+      // fights already won have earned.
       let hero = g.hero;
-      if (!g.fight && hero.hp < HERO_HP) {
+      const hpMax = heroMax(g);
+      if (!g.fight && hero.hp < hpMax) {
         const part = hero.part + s / HEAL_SECS;
         const up = Math.floor(part);
-        hero = { ...hero, hp: Math.min(HERO_HP, hero.hp + up), part: part - up };
-      } else if (hero.part !== 0 && hero.hp >= HERO_HP) {
+        hero = { ...hero, hp: Math.min(hpMax, hero.hp + up), part: part - up };
+      } else if (hero.part !== 0 && hero.hp >= hpMax) {
         hero = { ...hero, part: 0 };
       }
       return {
