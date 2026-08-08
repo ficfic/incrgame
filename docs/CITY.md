@@ -150,18 +150,24 @@ Prose, names, the title — the owner's, when the ban lifts. The satire
 thesis — waits until there are words at all.
 
 
-## The fight, JRPG-style *(proposed 2026-08-08 — owner picked "more options" over auto-resolve)*
+## The fight, JRPG-lite — ★ DESIGNED 2026-08-08, the owner's own screen
 
-Deterministic, no dice, readable — and mash loses to reading:
+> *"a square on the left and for goblins to have three squares on the
+> right. And we fight. We have attack, defense and stuff, and they poke
+> at us."*
 
-- **The goblins TELEGRAPH.** Every third answer is a WINDING-UP round —
-  the panel says so a round ahead — and the big bite lands double.
-- **Strike** — as today: 2+arms, they answer.
-- **Guard** — deal nothing, block this answer whole. The right call on a
-  wind-up, a wasted round otherwise. Reading IS the skill.
-- **Rations** — spend 3 food → +4 hero health, any round. The town's
-  larder marches with the hero; a fed town fights longer.
-- **Fall back** — unchanged, the ground keeps its wounds.
+**THE BATTLE STRIP** (in the dock): the hero's square LEFT, the holding
+split into THREE goblin squares RIGHT, each with its own strength. Tap a
+square to TARGET it. Deterministic, no dice, numbers on everything.
 
-Mash-strike eats every double bite and loses fights a reader wins; the
-ladders get re-simmed strike-by-strike before any number ships.
+- **Attack** — 2+arms into the targeted square. A dead square stops
+  poking: kill order is the first real decision.
+- **Defend** — deal nothing, block this answer whole.
+- **THE POKES**: every living square bites each answer — thinning the
+  line is how a fight gets survivable. Every third answer the squares
+  WIND UP (said a round ahead) and bite double: Defend's moment.
+- **Rations** — 3 food → +4 health, any round. The larder marches.
+- **Fall back** — unchanged; every square keeps its wounds.
+
+Mash-attack ignores targeting and telegraphs and eats every double poke;
+the ladder is re-simmed square-by-square before numbers ship.
