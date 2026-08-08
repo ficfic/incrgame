@@ -1086,12 +1086,25 @@ CREW=4 multi-hand works, per-worker rates, 1.35 works curve, huts 10
 planks housing 4, EAT halved (the food-artery wall), ladder smoothed to
 +2 arms per fight, goblins REGROUP while unengaged. Plus the away line.
 
-**Next, one per session:**
-1. Naming/prose pass — the owner's, when they call it.
-2. Chad's roadmap note: the NEXT region must bring its own food artery
-   (a second granary/route), or the town walls at ~55-65 people.
-3. Watch item from chad: farms-first can over-farm at low pop with
-   CREW 4 — pins pull it back; check in the owner's next playtest.
+**THE DESIGN PHASE CLOSED 2026-08-08** — the arc is in CITY.md part 2:
+runs end at the goblins' seat, finishing founds the next valley, the
+veteran hero is the only keepsake. All four standing rulings APPROVED.
+
+**The build queue, one per session, in order:**
+1. WHOLE-PEOPLE STAFFING — integer hands, pins that zero a works,
+   pulls announced. (Kills the 0.7-hands confusion cluster.)
+2. PATHS TAKE TIME — a short laying animation; nothing else changes.
+3. AUTO-RESOLVE LONE STRIKES — a fight offering only Strike plays
+   itself round by round (owner bent the no-idle decree for
+   zero-choice moments, on the record).
+4. VISUAL SESSION — building icons on the map, label clipping at the
+   edges, compact fight/deed layout.
+5. REGION 3 — its own food artery (chad's ~55-65 wall) + the iron rung.
+6. THE CROSSING — finish a valley at the goblins' seat, found the next
+   with the veteran hero. The legacy loop itself.
+7. Naming/prose pass — the owner's.
+
+Watch item (chad): farms-first can over-farm at low pop with CREW 4.
 
 ## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot
 
