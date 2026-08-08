@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
   unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
-  TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS,
+  TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
 
@@ -29,10 +29,11 @@ const chain = (pop = 99): City => ({
 });
 
 describe('★★ RULE 1 — buildings come in counts, on the compounding curve', () => {
-  it('the n-th copy costs base × 1.15^n, rounded up, in the RIGHT material', () => {
+  it('works climb 1.35^n; huts stay gentle at 1.15 — the plank sink', () => {
     expect(costOf('quarry', 0).stone).toBe(BASE.quarry.stone);
-    expect(costOf('quarry', 1).stone).toBe(Math.ceil(BASE.quarry.stone! * 1.15));
-    expect(costOf('quarry', 5).stone).toBe(Math.ceil(BASE.quarry.stone! * 1.15 ** 5));
+    expect(costOf('quarry', 1).stone).toBe(Math.ceil(BASE.quarry.stone! * 1.35));
+    expect(costOf('quarry', 5).stone).toBe(Math.ceil(BASE.quarry.stone! * 1.35 ** 5));
+    expect(costOf('hut', 5).planks).toBe(Math.ceil(BASE.hut.planks! * 1.15 ** 5));
     // The owner: "it's weird that i need stone to build lumberjack camp."
     expect(BASE.lumber.stone).toBeUndefined();
     expect(BASE.lumber.logs).toBeGreaterThan(0);
@@ -52,8 +53,11 @@ describe('★★ RULE 1 — buildings come in counts, on the compounding curve',
     expect(apply(initial(), { type: 'tap' }).stone).toBeCloseTo(TAP_STONE, 9);
   });
 
-  it('three copies make three times the stone', () => {
-    expect(flow(quarried(3, 3)).stone).toBeCloseTo(3 * RATE.quarry, 9);
+  it('★ a copy holds a CREW, and output is per worker', () => {
+    // Three copies, fully crewed: 12 hands at the per-worker rate.
+    expect(flow(quarried(3, 3)).stone).toBeCloseTo(3 * CREW * RATE.quarry, 9);
+    // Two hands on one copy is exactly the pre-rebase copy: 0.3/s.
+    expect(flow(quarried(1, 1, 2)).stone).toBeCloseTo(0.3, 9);
   });
 });
 
@@ -61,6 +65,7 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
   it('huts raise the cap; people grow toward it on the clock', () => {
     const g: City = { ...initial(), stacks: { 0: 2 } };
     expect(popCap(g)).toBe(2 + 2 * HUT_ROOM);
+    expect(HUT_ROOM).toBe(CREW);   // one hut houses one crew
     const grown = tick(g, GROW_SECS * 2 + 0.5);
     expect(grown.pop).toBe(4);
   });
@@ -69,30 +74,29 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     expect(tick(initial(), 3600).pop).toBe(2);
   });
 
-  it('★ understaffed works run at pop/jobs — evenly, never babysat', () => {
-    // 4 quarry jobs, 2 people: half rate.
+  it('★ understaffed works run at pop/slots — evenly, never babysat', () => {
+    // 16 slots, 2 people: an eighth of a crew everywhere, all rates honest.
     const g = quarried(4, 3, 2);
-    expect(flow(g).staff).toBeCloseTo(0.5, 9);
-    expect(flow(g).stone).toBeCloseTo(4 * RATE.quarry * 0.5, 9);
+    expect(flow(g).staff).toBeCloseTo(2 / 16, 9);
+    expect(flow(g).stone).toBeCloseTo(2 * RATE.quarry, 9);
   });
 
   it('★★ THE FIELDS EAT FIRST: hands fill the farms before anything else', () => {
-    // 3 people, 2 farm jobs + 4 quarry jobs: the farms run WHOLE (2 hands)
-    // and the quarries split the one that is left. Building another farm
-    // in a famine now always adds bread — the owner's exact complaint.
+    // 3 people, one farm (4 slots) + quarries: every hand goes to the
+    // fields first; the quarries get whoever is left — today, nobody.
     const g: City = { ...initial(), pop: 3, food: 999, goblins: {},
-      stacks: { 1: 4, 4: 2 },
+      stacks: { 1: 4, 4: 1 },
       paths: { [pathKey(0, 1)]: 3, [pathKey(0, 4)]: 3 } };
     const f = flow(g);
-    expect(f.food).toBeCloseTo(2 * RATE.farm, 9);
-    expect(f.stone).toBeCloseTo(4 * RATE.quarry * (1 / 4), 9);
+    expect(f.food).toBeCloseTo(3 * RATE.farm, 9);
+    expect(f.stone).toBeCloseTo(0, 9);
   });
 
   it('★ huts cost PLANKS — the mill chain is the sink', () => {
     expect(unraisable({ ...initial(), stone: 99 }, 0)).toMatch(/planks/);
-    const g = apply({ ...initial(), planks: 9 }, { type: 'raise', id: 0 });
+    const g = apply({ ...initial(), planks: 12 }, { type: 'raise', id: 0 });
     expect(g.stacks[0]).toBe(1);
-    expect(g.planks).toBeCloseTo(9 - BASE.hut.planks!, 9);
+    expect(g.planks).toBeCloseTo(12 - BASE.hut.planks!, 9);
   });
 
   it('★ no works before a path reaches the ground', () => {
@@ -104,7 +108,7 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
 
   it('★ the first valley shows whole; the far country waits behind its holdings', () => {
     expect(shown(initial()).length).toBe(7);
-    expect(initial().goblins).toEqual({ 4: 12, 5: 18, 6: 30, 7: 36, 8: 48, 9: 60 });
+    expect(initial().goblins).toEqual({ 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 });
   });
 
   it('★★ liberating the knoll GROWS THE MAP — the fight\'s real prize', () => {
@@ -126,14 +130,14 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     expect(tick(hurt, HEAL_SECS * 40).hero.hp).toBe(HERO_HP + 6);
   });
 
-  it('★ the deep country is winnable by the armed and the toughened', () => {
-    // Dark Pines (36 strong, bites 5) with all three first-valley fights
-    // won (hp 19) and Arms ×7 (strikes 9): four rounds, three bites, home
-    // at 4 health. The sim the strengths were priced against.
+  it('★ the deep country is winnable at the ladder: arms 6, home at 4', () => {
+    // Dark Pines (32 strong, bites 5) with the first valley won (hp 19)
+    // and Arms ×6 (strikes 8): four rounds, three bites, home at 4 — and
+    // Arms ×5 dies. Chad's +2-per-fight cadence, verified.
     const start = { ...initial().goblins };
     delete start[4]; delete start[5]; delete start[6];
     let g: City = { ...initial(), goblins: start,
-      hero: { hp: 19, arms: 7, part: 0 } };
+      hero: { hp: 19, arms: 6, part: 0 } };
     g = apply(g, { type: 'assail', id: 7 });
     for (let i = 0; i < 4 && g.fight; i++) g = apply(g, { type: 'strike' });
     expect(g.goblins[7]).toBeUndefined();
@@ -143,15 +147,15 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
 
 describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', () => {
   it('a gauge-1 path carries one per second, whole', () => {
-    // 3 quarries make 0.9/s < 1.0 cap: nothing wasted, no choke.
-    const f = flow(quarried(3, 1));
-    expect(f.stone).toBeCloseTo(0.9, 9);
+    // One crewed copy makes 0.6/s < 1.0 cap: nothing wasted, no choke.
+    const f = flow(quarried(1, 1));
+    expect(f.stone).toBeCloseTo(CREW * RATE.quarry, 9);
     expect(f.choked.size).toBe(0);
   });
 
   it('★★ production past the path CHOKES: capped, named, drawn', () => {
-    // 4 quarries make 1.2/s into a 1.0 path: 1.0 arrives, 0.2 wasted.
-    const f = flow(quarried(4, 1));
+    // Two crewed copies make 1.2/s into a 1.0 path: 1.0 arrives, 0.2 wasted.
+    const f = flow(quarried(2, 1));
     expect(f.made.get(1)).toBeCloseTo(1.2, 9);
     expect(f.carried.get(1)).toBeCloseTo(CARRY, 9);
     expect(f.stone).toBeCloseTo(CARRY, 9);
@@ -159,7 +163,7 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
   });
 
   it('★ widening the path is the fix', () => {
-    const f = flow(quarried(4, 2));
+    const f = flow(quarried(2, 2));
     expect(f.stone).toBeCloseTo(1.2, 9);
     expect(f.choked.size).toBe(0);
   });
@@ -174,11 +178,10 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
   });
 
   it('a shared edge chokes EVERYONE routed over it', () => {
-    // Quarry at the rock face routes 1—2—0 with the pines' lumber: both
-    // over one gauge-1 edge 0|2, together 0.7/s — fine. Nine quarries are
-    // not fine, and both producers feel it.
+    // The rock face's stone routes 1—2—0 alongside the pines' logs, both
+    // over one gauge-1 edge — and together they bury it, so both feel it.
     const g: City = { ...initial(), pop: 99, food: 999,
-      stacks: { 1: 9, 2: 1 },
+      stacks: { 1: 3, 2: 1 },
       paths: { [pathKey(1, 2)]: 3, [pathKey(0, 2)]: 1 } };
     const f = flow(g);
     expect(f.choked.has(pathKey(0, 2))).toBe(true);
@@ -188,6 +191,7 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
   it('nothing counts unconnected, exactly as before', () => {
     const g: City = { ...initial(), pop: 99, stacks: { 1: 3 } };
     expect(flow(g).stone).toBe(0);
+    expect(flow(g).hands.get(1)).toBeUndefined();
     expect(component(g).has(1)).toBe(false);
   });
 });
@@ -197,10 +201,10 @@ describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
     // 2 people, quarry ×2 and lumber ×2: auto splits them half-and-half.
     // Post both at the quarry and the pines stand empty — the player's call.
     const g: City = { ...initial(), pop: 2, food: 999,
-      stacks: { 1: 2, 2: 2 },
+      stacks: { 1: 1, 2: 1 },
       paths: { [pathKey(0, 1)]: 3, [pathKey(0, 2)]: 3 } };
     const auto = flow(g);
-    expect(auto.stone).toBeCloseTo(2 * RATE.quarry * 0.5, 9);
+    expect(auto.stone).toBeCloseTo(1 * RATE.quarry, 9);   // one hand each
     const pinnedG: City = { ...g, crew: { 1: 2 } };
     const f = flow(pinnedG);
     expect(f.hands.get(1)).toBeCloseTo(2, 9);
@@ -210,7 +214,7 @@ describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
 
   it('★ pins even beat farms-first — an explicit call wins the pool', () => {
     const g: City = { ...initial(), pop: 2, food: 999, goblins: {},
-      stacks: { 1: 2, 4: 2 },
+      stacks: { 1: 1, 4: 1 },
       paths: { [pathKey(0, 1)]: 3, [pathKey(0, 4)]: 3 }, crew: { 1: 2 } };
     const f = flow(g);
     expect(f.food).toBe(0);
@@ -218,7 +222,7 @@ describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
   });
 
   it('the pin action clamps to the works, the pool, and the floor', () => {
-    let g: City = { ...initial(), pop: 2, stacks: { 1: 3 },
+    let g: City = { ...initial(), pop: 2, stacks: { 1: 1 },
       paths: { [pathKey(0, 1)]: 1 } };
     g = apply(g, { type: 'pin', id: 1, d: 1 });
     g = apply(g, { type: 'pin', id: 1, d: 1 });
@@ -232,7 +236,9 @@ describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
   });
 
   it('the starving law is not overridable by a pin', () => {
-    const g: City = { ...initial(), pop: 9, food: 0, goblins: {},
+    // 25 mouths eat 0.95/s; one farm's whole crew brings 0.8/s: STARVING,
+    // and the posted quarry hands stand down with everyone else.
+    const g: City = { ...initial(), pop: 25, food: 0, goblins: {},
       stacks: { 1: 2, 4: 1 }, crew: { 1: 2 },
       paths: { [pathKey(0, 1)]: 1, [pathKey(0, 4)]: 1 } };
     const f = flow(g);
@@ -252,7 +258,7 @@ describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', (
   // river, every path gauge 1. Only the WIRING differs.
   const town = (paths: Record<string, number>): City => ({
     ...initial(), pop: 99, food: 999,
-    stacks: { 2: 3, 3: 1 },
+    stacks: { 2: 1, 3: 1 },
     paths,
   });
 
@@ -264,13 +270,17 @@ describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', (
     // carrying planks and nothing else.
     const mesh = flow(town({ [pathKey(2, 3)]: 1, [pathKey(0, 3)]: 1 }));
     expect(mesh.planks).toBeGreaterThan(star.planks);
-    expect(mesh.planks).toBeCloseTo(RATE.sawmill, 6);
-    expect(star.planks).toBeCloseTo(0, 6);
+    // 0.8/s of logs into a 1.0 mill: 0.8 of planks home on an empty road.
+    expect(mesh.planks).toBeCloseTo(CREW * RATE.lumber, 6);
+    // The star's logs leave 0.2 of room for 0.8 of planks.
+    expect(star.planks).toBeCloseTo(0.2, 6);
   });
 
   it('★ logs take the direct lane when both are wired', () => {
-    const f = flow(town({ [pathKey(0, 2)]: 1, [pathKey(2, 3)]: 1, [pathKey(0, 3)]: 1 }));
-    // 1.2/s of logs into a gauge-1 direct lane: that lane chokes, the
+    const heavy: City = { ...town({}), stacks: { 2: 2, 3: 1 },
+      paths: { [pathKey(0, 2)]: 1, [pathKey(2, 3)]: 1, [pathKey(0, 3)]: 1 } };
+    const f = flow(heavy);
+    // 1.6/s of logs into a gauge-1 direct lane: that lane chokes, the
     // camp's own edge does not — the logs never crossed it.
     expect(f.choked.has(pathKey(2, 3))).toBe(true);
     expect(f.choked.has(pathKey(0, 2))).toBe(false);
@@ -280,7 +290,7 @@ describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', (
   it('with no mill standing, logs still pile home at the camp', () => {
     const f = flow({ ...initial(), pop: 99, food: 999,
       stacks: { 2: 1 }, paths: { [pathKey(0, 2)]: 1 } });
-    expect(f.logsIn).toBeCloseTo(RATE.lumber, 9);
+    expect(f.logsIn).toBeCloseTo(CREW * RATE.lumber, 9);
     expect(f.planks).toBe(0);
   });
 
@@ -289,7 +299,7 @@ describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', (
     // saws at capacity but almost nothing ships, and the tick banks only
     // what shipped.
     const g: City = { ...initial(), pop: 99, food: 999, logs: 50,
-      stacks: { 3: 1, 5: 4 },
+      stacks: { 3: 1, 5: 2 },
       paths: { [pathKey(0, 3)]: 1, [pathKey(3, 5)]: 3 } };
     const f = flow(g);
     // Scree's 1.2/s of stone crosses 3→0 and fills the gauge-1 road.
@@ -312,8 +322,9 @@ describe('★★ RULE 4 — the cascade: logs to planks to huts to people', () =
   });
 
   it('★ the full chain banks planks on the clock', () => {
-    const g = tick(chain(), 10);
-    // lumber 0.4 in, mill cap 0.5 → 4 planks in 10s; stone 3.
+    // Six settlers over twelve slots: half-crews everywhere — the same
+    // honest 0.4 of logs and 0.3 of stone the old chain made.
+    const g = tick(chain(6), 10);
     expect(g.planks).toBeCloseTo(4, 6);
     expect(g.stone).toBeCloseTo(3, 6);
   });
@@ -358,7 +369,7 @@ describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town'
   });
 
   it('a farm makes food, carried like everything else', () => {
-    expect(flow(farmed(2, 99)).food).toBeCloseTo(2 * RATE.farm, 9);
+    expect(flow(farmed(1, 99)).food).toBeCloseTo(CREW * RATE.farm, 9);
   });
 
   it('★ hunger starts past the wild\'s table', () => {
@@ -367,19 +378,19 @@ describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town'
   });
 
   it('★ the larder banks the surplus and pays the hunger', () => {
-    // 2 farms 0.5/s in, 8 people eat 0.2/s: +0.3/s net.
-    const g = tick(farmed(2, 8, 0), 10);
-    expect(g.food).toBeCloseTo(3, 6);
+    // A crewed farm brings 0.8/s; eight people eat 0.1/s: +0.7/s net.
+    const g = tick(farmed(1, 8, 0), 10);
+    expect(g.food).toBeCloseTo(7, 6);
   });
 
   it('★★ STARVING halts every works but the farms — and so it recovers', () => {
-    // 9 eat 0.3/s, one farm makes 0.25/s, larder empty: starving.
-    const g: City = { ...farmed(1, 9, 0), stacks: { 1: 2, 4: 1 },
+    // 25 mouths eat 0.95/s, one crewed farm brings 0.8/s, larder empty.
+    const g: City = { ...farmed(1, 25, 0), stacks: { 1: 2, 4: 1 },
       paths: { [pathKey(0, 1)]: 1, [pathKey(0, 4)]: 1 } };
     const f = flow(g);
     expect(f.starving).toBe(true);
     expect(f.stone).toBe(0);                          // the quarry stands down
-    expect(f.food).toBeCloseTo(RATE.farm, 9);         // the farm does not
+    expect(f.food).toBeCloseTo(CREW * RATE.farm, 9);  // the farm does not
     // Bread in the larder ends it.
     const fed = flow({ ...g, food: 5 });
     expect(fed.starving).toBe(false);
@@ -407,24 +418,35 @@ describe('★★ THE HERO AND THE GOBLINS — Mayor of Noobtown, by the numbers'
     expect(g.goblins[4]).toBe(2);
   });
 
-  it('★ the hero heals on the clock, and a healed hero finishes the job', () => {
+  it('★ the two-sortie tutorial survives the regroup: heal, return, finish', () => {
+    // Beaten off the meadow at 2-strong, the hero heals for 150s — and the
+    // goblins REGROUP to 9.5 in that time. Five bare strikes still land 10:
+    // fight one stays winnable with no arms at all, by design.
     let g: City = { ...initial(), goblins: { ...initial().goblins, 4: 2 },
       hero: { hp: 0, arms: 0, part: 0 } };
     expect(unassailable(g, 4)).toMatch(/^the hero heals — 0 of 10/);
     g = tick(g, HEAL_SECS * HERO_HP + 1);
     expect(g.hero.hp).toBe(HERO_HP);
+    expect(g.goblins[4]).toBeCloseTo(2 + GOBLIN_REGEN * (HEAL_SECS * HERO_HP + 1), 6);
     const popBefore = g.pop;
     g = apply(g, { type: 'assail', id: 4 });
-    g = strike(g);
+    for (let i = 0; i < 5 && g.fight; i++) g = strike(g);
     // ★ LIBERATED: the goblins are gone, the ground takes works again, and
     // two captives walked home with the hero.
     expect(g.goblins[4]).toBeUndefined();
     expect(g.fight).toBeNull();
     expect(g.pop).toBe(popBefore + CAPTIVES);
-    // The goblins are gone: what stands between the meadow and a farm now
-    // is only the ordinary path rule.
+    expect(g.hero.hp).toBe(2);
     expect(unraisable({ ...g, stone: 99 }, 4)).toBe('no path reaches here');
     expect(unraisable({ ...g, stone: 99, paths: { [pathKey(0, 4)]: 1 } }, 4)).toBeNull();
+  });
+
+  it('★ goblins regroup while unengaged — never mid-fight, never past spawn', () => {
+    const bled: City = { ...initial(), goblins: { ...initial().goblins, 4: 2 } };
+    expect(tick(bled, 100).goblins[4]).toBeCloseTo(7, 6);
+    expect(tick(bled, 9999).goblins[4]).toBe(12);          // capped at spawn
+    const fighting: City = { ...bled, fight: { site: 4 } };
+    expect(tick(fighting, 100).goblins[4]).toBe(2);        // pinned by the fight
   });
 
   it('★★ arms turn the same fight: ×1 beats the meadow whole', () => {
@@ -438,7 +460,7 @@ describe('★★ THE HERO AND THE GOBLINS — Mayor of Noobtown, by the numbers'
 
   it('arms cost both currencies on a steeper curve, and arm() pays it', () => {
     expect(armsCost(0)).toEqual({ stone: 8, planks: 4 });
-    expect(armsCost(3).stone).toBe(Math.ceil(8 * 1.25 ** 3));
+    expect(armsCost(3).stone).toBe(Math.ceil(8 * 1.3 ** 3));
     const g = apply({ ...initial(), stone: 20, planks: 10 }, { type: 'arm' });
     expect(g.hero.arms).toBe(1);
     expect(g.stone).toBe(12);

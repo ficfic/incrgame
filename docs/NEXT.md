@@ -1081,10 +1081,17 @@ win the pool, auto stays the default.
 the scree, revealed by liberation; the hero toughens +3 health per ground
 freed, and the deep bites are priced against that ladder.
 
+**Shipped since:** THE PACING PASS — chad's thirteen constants whole:
+CREW=4 multi-hand works, per-worker rates, 1.35 works curve, huts 10
+planks housing 4, EAT halved (the food-artery wall), ladder smoothed to
++2 arms per fight, goblins REGROUP while unengaged. Plus the away line.
+
 **Next, one per session:**
-1. THE PACING PASS with chad-liquidity: per-worker rates and multi-hand
-   buildings (the second half of the assign ask), the away line, curves.
-2. Naming/prose pass — the owner's, only when the loop proves out.
+1. Naming/prose pass — the owner's, when they call it.
+2. Chad's roadmap note: the NEXT region must bring its own food artery
+   (a second granary/route), or the town walls at ~55-65 people.
+3. Watch item from chad: farms-first can over-farm at low pop with
+   CREW 4 — pins pull it back; check in the owner's next playtest.
 
 ## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot
 

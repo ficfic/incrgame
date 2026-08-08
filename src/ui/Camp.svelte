@@ -7,7 +7,8 @@
   import type { Box } from '../game/layout';
   import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
-    heroMax, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, type City } from '../camp/engine';
+    heroMax, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW,
+    type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
 
@@ -183,7 +184,7 @@
         + (f.staff < 1 && !f.starving ? ` · works ${Math.round(f.staff * 100)}% staffed` : '');
     }
     if (game.goblins[picked]) {
-      return `dangerous — goblins, ${game.goblins[picked]} strong`;
+      return `dangerous — goblins, ${Math.ceil(game.goblins[picked] ?? 0)} strong`;
     }
     const n = game.stacks[picked] ?? 0;
     if (n <= 0) return '';
@@ -324,11 +325,11 @@
       {/if}
       {#if game.fight}
         {@const at = game.fight.site}
-        <h2>Goblins · {game.goblins[at] ?? 0}</h2>
+        <h2>Goblins · {Math.ceil(game.goblins[at] ?? 0)}</h2>
         <p class="note">hero {game.hero.hp}/{heroMax(game)} · strikes {heroHit(game)} · they bite {GOBLINS[at]?.bite ?? 2}</p>
         <button class="deed face" onclick={() => act({ type: 'strike' })}>
           Strike
-          <em>{game.goblins[at]} − {heroHit(game)}</em>
+          <em>{Math.ceil(game.goblins[at] ?? 0)} − {heroHit(game)}</em>
         </button>
         <button class="deed" onclick={() => act({ type: 'flee' })}>
           Fall back
@@ -343,10 +344,10 @@
           <div class="crew">
             <button onclick={() => act({ type: 'pin', id: picked!, d: -1 })}
               disabled={!(game.crew[picked] ?? 0)}>−</button>
-            <span>hands {(f.hands.get(picked) ?? 0).toFixed(1)} of {game.stacks[picked]}{
+            <span>hands {(f.hands.get(picked) ?? 0).toFixed(1)} of {(game.stacks[picked] ?? 0) * CREW}{
               (game.crew[picked] ?? 0) > 0 ? ` · ${game.crew[picked]} posted` : ''}</span>
             <button onclick={() => act({ type: 'pin', id: picked!, d: 1 })}
-              disabled={(game.crew[picked] ?? 0) >= (game.stacks[picked] ?? 0)}>+</button>
+              disabled={(game.crew[picked] ?? 0) >= (game.stacks[picked] ?? 0) * CREW}>+</button>
           </div>
         {/if}
         {#each deeds as d (d.label)}

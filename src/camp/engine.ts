@@ -58,13 +58,23 @@ export const SITES: readonly Site[] = [
  *  town's ONE hero clears it a fight at a time. Farther is stronger, and
  *  stronger BITES harder. */
 export const GOBLINS: Record<number, { strength: number; bite: number }> = {
+  // ⚠️ RETUNED 2026-08-08 (chad-liquidity): the knoll was a 4-tier arms
+  // cliff wearing +67% strength; 24 and 32 make the ladder a clean +2 of
+  // arms per fight — 1/2/4/6/8/10, each one-sortie at tier, dead at
+  // tier-minus-one, verified strike by strike.
   4: { strength: 12, bite: 2 },
   5: { strength: 18, bite: 3 },
-  6: { strength: 30, bite: 4 },
-  7: { strength: 36, bite: 5 },
+  6: { strength: 24, bite: 4 },
+  7: { strength: 32, bite: 5 },
   8: { strength: 48, bite: 5 },
   9: { strength: 60, bite: 6 },
 };
+
+/** ★ GOBLINS REGROUP: a bled, unengaged holding regains this much
+ *  strength a second, back up to its spawn. Kills the never-arm exploit —
+ *  chip, flee, heal free, repeat — everywhere except fight one, which
+ *  stays the two-sortie bare-hands tutorial on purpose. */
+export const GOBLIN_REGEN = 0.05;
 export const SITE = new Map(SITES.map((s) => [s.id, s]));
 
 // ★ NEIGHBOURING IS SYMMETRIC, enforced here so a hand-typed list can
@@ -143,21 +153,32 @@ export const heroHit = (g: City): number => 2 + g.hero.arms;
 /** Arms price in BOTH currencies, on a steeper curve — the late fights
  *  are meant to want the whole town's economy behind them. */
 export const armsCost = (have: number): { stone: number; planks: number } => ({
-  stone: Math.ceil(8 * Math.pow(1.25, have)),
-  planks: Math.ceil(4 * Math.pow(1.25, have)),
+  // 1.30, not 1.25: at the old curve the last sword cost less than the
+  // heal it saved. Arms compete with hut planks now — real, not a week.
+  stone: Math.ceil(8 * Math.pow(1.3, have)),
+  planks: Math.ceil(4 * Math.pow(1.3, have)),
 });
 
 /** One tap chips this much stone by hand — the bootstrap and the thumb. */
 export const TAP_STONE = 0.25;
 
-/** Base output per copy per second, fully staffed. */
-export const RATE = { quarry: 0.3, lumber: 0.4, sawmill: 0.5, farm: 0.25 } as const;
+/** ★★ MULTI-HAND WORKS, 2026-08-08 (the pacing pass): every copy holds
+ *  CREW hands, and output is PER WORKER — people carry growth, buildings
+ *  are capacity. Two hands on quarry #1 is exactly the old copy, so
+ *  minute zero is untouched; a full crew is twice it. */
+export const CREW = 4;
+
+/** Output per WORKER per second. */
+export const RATE = { quarry: 0.15, lumber: 0.2, sawmill: 0.25, farm: 0.2 } as const;
 
 /** ★ The wild feeds this many for free — a town of six needs no fields.
  *  The seventh settler eats, and so does every rescued captive. */
 export const WILD_FED = 6;
-/** What one person past the wild's table eats, per second. */
-export const EAT = 0.1;
+/** What one person past the wild's table eats, per second. ⚠️ 0.05, not
+ *  0.1: all southern food crosses one artery, and at 0.1 the map walled
+ *  silently at ~36 people (chad's find). Future regions must bring their
+ *  own arteries — that is a roadmap note, not a number. */
+export const EAT = 0.05;
 /** What the town is eating right now, per second. */
 export const hunger = (g: City): number => Math.max(0, g.pop - WILD_FED) * EAT;
 /** ★ Freed ground frees PEOPLE — Noobtown's actual spine: two captives
@@ -168,8 +189,9 @@ export const CAPTIVES = 2;
 export const CARRY = 1.0;
 export const MAX_GAUGE = 3;
 
-/** Each hut houses this many people. */
-export const HUT_ROOM = 2;
+/** Each hut houses this many people — one hut per crew, ~50 lifetime.
+ *  (At 2, hut #99 cost five million planks. Nobody was living there.) */
+export const HUT_ROOM = 4;
 /** Seconds to grow one person when there is room. */
 export const GROW_SECS = 12;
 
@@ -179,7 +201,7 @@ export const GROW_SECS = 12;
  *  follows the tapped site), the mill is both, fields are stone walls. */
 export type Price = { stone?: number; logs?: number; planks?: number };
 export const BASE: Record<Kind, Price> = {
-  hut: { planks: 6 },
+  hut: { planks: 10 },
   quarry: { stone: 5 },
   lumber: { logs: 8 },
   sawmill: { stone: 8, logs: 12 },
@@ -187,12 +209,16 @@ export const BASE: Record<Kind, Price> = {
 };
 export const PATH_COST = 3;
 
-/** ★ THE CURVE: the n-th copy costs base × 1.15^n, every part, rounded
- *  up. The genre's compounding, one line long. */
+/** ★ THE CURVES: a works copy is a four-hand unit bought a handful of
+ *  times per site — 1.35^n bites by the third copy. Huts are the one
+ *  repeated purchase and the plank sink, so they stay on gentle 1.15. */
+export const CURVE: Record<Kind, number> = {
+  hut: 1.15, quarry: 1.35, lumber: 1.35, sawmill: 1.35, farm: 1.35,
+};
 export const costOf = (kind: Kind, have: number): Price => {
   const out: Price = {};
   for (const [k, v] of Object.entries(BASE[kind]) as [keyof Price, number][]) {
-    out[k] = Math.ceil(v * Math.pow(1.15, have));
+    out[k] = Math.ceil(v * Math.pow(CURVE[kind], have));
   }
   return out;
 };
@@ -303,18 +329,18 @@ export function flow(g: City): Flow {
   // is not overridable; the wasted posted hands are drawn, not hidden).
   const worked = [...comp].filter((id) => id !== 0 && (g.stacks[id] ?? 0) > 0)
     .sort((a, b) => a - b);
+  const capOf = (id: number): number => (g.stacks[id] ?? 0) * CREW;
   const pinned = new Map<number, number>();
   let pinSum = 0;
   for (const id of worked) {
-    const p = Math.min(g.crew[id] ?? 0, g.stacks[id] ?? 0,
-      Math.max(0, g.pop - pinSum));
+    const p = Math.min(g.crew[id] ?? 0, capOf(id), Math.max(0, g.pop - pinSum));
     pinned.set(id, p);
     pinSum += p;
   }
   let farmRem = 0;
   let otherRem = 0;
   for (const id of worked) {
-    const remCap = (g.stacks[id] ?? 0) - (pinned.get(id) ?? 0);
+    const remCap = capOf(id) - (pinned.get(id) ?? 0);
     if (SITE.get(id)!.allows === 'farm') farmRem += remCap;
     else otherRem += remCap;
   }
@@ -329,7 +355,7 @@ export function flow(g: City): Flow {
   for (const id of worked) {
     const st = SITE.get(id)!;
     const isFarm = st.allows === 'farm';
-    const remCap = (g.stacks[id] ?? 0) - (pinned.get(id) ?? 0);
+    const remCap = capOf(id) - (pinned.get(id) ?? 0);
     const w = (pinned.get(id) ?? 0) + remCap * (isFarm ? farmFrac : staff);
     hands.set(id, w);
     const base = st.allows === 'quarry' ? RATE.quarry
@@ -453,7 +479,7 @@ export function flow(g: City): Flow {
 export function unraisable(g: City, id: number): string | null {
   const s = SITE.get(id);
   if (!s) return 'no such ground';
-  if (g.goblins[id]) return `dangerous — goblins, ${g.goblins[id]} strong`;
+  if (g.goblins[id]) return `dangerous — goblins, ${Math.ceil(g.goblins[id])} strong`;
   // ★ THE PATH COMES FIRST — the owner: *"it's weird that i can build
   // something before there's a path to that spot."* No works on ground
   // the town cannot reach.
@@ -467,7 +493,7 @@ export function unlayable(g: City, a: number, b: number): string | null {
   const B = SITE.get(b);
   if (!A || !B || !A.near.includes(b)) return 'nothing joins these';
   if (g.goblins[a] || g.goblins[b]) {
-    return `dangerous — goblins, ${g.goblins[a] ?? g.goblins[b]} strong`;
+    return `dangerous — goblins, ${Math.ceil(g.goblins[a] ?? g.goblins[b]!)} strong`;
   }
   const gauge = g.paths[pathKey(a, b)] ?? 0;
   if (gauge >= MAX_GAUGE) return 'as wide as it goes';
@@ -546,6 +572,16 @@ export function apply(g: City, a: Action): City {
       } else if (hero.part !== 0 && hero.hp >= hpMax) {
         hero = { ...hero, part: 0 };
       }
+      // ★ Goblins regroup while nobody is on their ground — a bled holding
+      // climbs back toward its spawn. Chip-flee-heal-repeat is dead.
+      let goblins = g.goblins;
+      for (const [idStr, left] of Object.entries(g.goblins)) {
+        const id = Number(idStr);
+        const spawn = GOBLINS[id]?.strength ?? left;
+        if (g.fight?.site === id || left >= spawn) continue;
+        if (goblins === g.goblins) goblins = { ...g.goblins };
+        goblins[id] = Math.min(spawn, left + GOBLIN_REGEN * s);
+      }
       return {
         ...g,
         stone: g.stone + f.stone * s,
@@ -555,6 +591,7 @@ export function apply(g: City, a: Action): City {
         pop,
         popPart,
         hero,
+        goblins,
       };
     }
 
@@ -576,7 +613,7 @@ export function apply(g: City, a: Action): City {
 
     case 'pin': {
       const have = g.crew[a.id] ?? 0;
-      const cap = g.stacks[a.id] ?? 0;
+      const cap = (g.stacks[a.id] ?? 0) * CREW;
       let pinSum = 0;
       for (const v of Object.values(g.crew)) pinSum += v;
       const next = a.d > 0

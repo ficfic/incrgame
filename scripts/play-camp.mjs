@@ -140,14 +140,14 @@ if (c0.cx < 0 || Math.abs(c1.cx - c0.cx) < 0.4) {
 // ------------------------------------------------------- THE CHOKE, drawn --
 console.log('\nTHE CHOKE');
 await seed({ version: 5, stacks: { 1: 4 }, paths: { '0|1': 1 },
-  stone: 30, logs: 0, planks: 0, pop: 6, popPart: 0 });
+  stone: 30, logs: 0, planks: 0, food: 500, pop: 12, popPart: 0 });
 // The board thins labels when the map is crowded, so the SPLIT is read
 // where it always stands: the site's own panel title.
 await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(200);
 const chokedLabel = await page.locator('.panel h2').textContent();
 console.log('  title   :', `"${chokedLabel.trim()}"`);
-if (!/makes 1\.2/.test(chokedLabel) || !/carries 1\.0/.test(chokedLabel)) {
+if (!/makes 1\.8/.test(chokedLabel) || !/carries 1\.0/.test(chokedLabel)) {
   misses.push(`a choked quarry does not tell the split: "${chokedLabel.trim()}"`);
 }
 const amber = await inked('shut');
@@ -168,7 +168,7 @@ await page.waitForTimeout(500);
 const fixedLabel = await page.locator('.panel h2').textContent();
 const amberAfter = await inked('shut');
 console.log('  title   :', `"${fixedLabel.trim()}", choke ink ${amber} → ${amberAfter}px`);
-if (!/1\.2\/s/.test(fixedLabel)) {
+if (!/1\.8\/s/.test(fixedLabel)) {
   misses.push(`widened and the quarry still splits its label: "${fixedLabel.trim()}"`);
 }
 if (!(amberAfter < amber / 2)) {
@@ -193,7 +193,7 @@ if (!/% staffed/.test(staffed)) {
 await page.locator('.deed', { hasText: 'Hut ×1' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed raises the first hut'));
 await page.waitForTimeout(400);
-if (!/\/4 people/.test(await header())) {
+if (!/\/6 people/.test(await header())) {
   misses.push(`a hut went up and the cap did not: "${(await header()).slice(0, 60)}"`);
 }
 // ★ POSTED HANDS: open the rock face, post a hand, read it back.
@@ -214,7 +214,7 @@ console.log('  grows   : waiting one growth beat…');
 await page.waitForTimeout(13000);
 const grown = await header();
 console.log('  header  :', `"${grown.slice(0, 90)}"`);
-if (!/3\/4 people/.test(grown)) {
+if (!/3\/6 people/.test(grown)) {
   misses.push(`nobody arrived after a growth beat: "${grown.slice(0, 60)}"`);
 }
 
@@ -246,7 +246,7 @@ if (!/hero 0\/10/.test(beaten)) {
 // site:4 is STILL picked from the assail — no second tap, that toggles.
 const bled = await panel();
 console.log('  bled    :', `"${bled.slice(0, 60)}"`);
-if (!/goblins, 2 strong/.test(bled)) {
+if (!/goblins, \d strong/.test(bled)) {
   misses.push(`the ground did not keep its wounds: "${bled.slice(0, 60)}"`);
 }
 const namedStill = await page.locator('.map .node[data-id="site:4"]').textContent();
@@ -256,11 +256,14 @@ if (!/High Meadow/.test(namedStill)) {
 // Armed and healed, the same fight turns: liberate, then BUILD there.
 await seed({ version: 5, stacks: { 1: 1 }, paths: { '0|1': 1 },
   stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0,
-  goblins: { 4: 12, 5: 18, 6: 30, 7: 36, 8: 48, 9: 60 }, hero: { hp: 10, arms: 1, part: 0 }, fight: null });
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 }, hero: { hp: 10, arms: 1, part: 0 }, fight: null });
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
 await page.locator('.deed', { hasText: 'Send the hero' }).click({ timeout: 2000 }).catch(() => {});
-for (let i = 0; i < 4; i++) {
-  await page.locator('.deed.face', { hasText: 'Strike' }).click({ timeout: 1500 }).catch(() => {});
+// The goblins regroup a sliver between taps now — strike until done.
+for (let i = 0; i < 7; i++) {
+  const bt = page.locator('.deed.face', { hasText: 'Strike' });
+  if (!(await bt.count())) break;
+  await bt.click({ timeout: 1500 }).catch(() => {});
   await page.waitForTimeout(120);
 }
 await page.waitForTimeout(300);
@@ -290,10 +293,10 @@ if (!/Farm ×1/.test(freedTitle)) {
 console.log('\nTHE TABLE');
 // Nine mouths, one farm, empty larder: STARVING says so, and only the
 // farm keeps its hands. Bread on hand ends it.
-await seed({ version: 5, stacks: { 0: 4, 1: 2, 4: 1 },
-  paths: { '0|1': 1, '0|4': 1 }, goblins: { 5: 18, 6: 30, 7: 36, 8: 48, 9: 60 },
-  stone: 10, logs: 0, planks: 0, food: 0, pop: 9, popPart: 0,
-  hero: { hp: 10, arms: 1, part: 0 }, fight: null });
+await seed({ version: 5, stacks: { 0: 6, 1: 2, 4: 1 },
+  paths: { '0|1': 1, '0|4': 1 }, goblins: { 5: 18, 7: 32, 8: 48, 9: 60 },
+  stone: 10, logs: 0, planks: 0, food: 0, pop: 24, popPart: 0,
+  hero: { hp: 13, arms: 1, part: 0 }, fight: null });
 const starving = await header();
 console.log('  header  :', `"${starving.slice(0, 100)}"`);
 if (!/STARVING/.test(starving)) {
@@ -302,16 +305,16 @@ if (!/STARVING/.test(starving)) {
 if (/stone.*\+0\.\d\/s/.test(starving.split('logs')[0])) {
   misses.push(`the quarry still counts while the town starves: "${starving.slice(0, 60)}"`);
 }
-await seed({ version: 5, stacks: { 0: 4, 1: 2, 4: 2 },
-  paths: { '0|1': 1, '0|4': 1 }, goblins: { 5: 18, 6: 30, 7: 36, 8: 48, 9: 60 },
-  stone: 10, logs: 0, planks: 0, food: 8, pop: 9, popPart: 0,
-  hero: { hp: 10, arms: 1, part: 0 }, fight: null });
+await seed({ version: 5, stacks: { 0: 6, 1: 2, 4: 2 },
+  paths: { '0|1': 1, '0|4': 1 }, goblins: { 5: 18, 7: 32, 8: 48, 9: 60 },
+  stone: 10, logs: 0, planks: 0, food: 8, pop: 24, popPart: 0,
+  hero: { hp: 13, arms: 1, part: 0 }, fight: null });
 const fed = await header();
 console.log('  fed     :', `"${fed.slice(0, 100)}"`);
 if (!/food/.test(fed) || /STARVING/.test(fed)) {
   misses.push(`a stocked larder still reads hungry: "${fed.slice(0, 80)}"`);
 }
-if (!/−0\.3\/s/.test(fed)) {
+if (!/−0\.9\/s/.test(fed)) {
   misses.push(`nine mouths and the hunger is not priced on the header: "${fed.slice(0, 80)}"`);
 }
 // ------------------------------------------------- the frontier opens ----
@@ -319,7 +322,7 @@ console.log('\nTHE FRONTIER');
 // The knoll has fallen: the far country steps out — Dark Pines and the
 // Green Vale show, the High Quarry still hides behind the scree.
 await seed({ version: 5, stacks: { 0: 4, 1: 2, 4: 2 },
-  paths: { '0|1': 1, '0|4': 1 }, goblins: { 5: 18, 7: 36, 8: 48, 9: 60 },
+  paths: { '0|1': 1, '0|4': 1 }, goblins: { 5: 18, 7: 32, 8: 48, 9: 60 },
   stone: 40, logs: 0, planks: 10, food: 8, pop: 9, popPart: 0,
   hero: { hp: 16, arms: 4, part: 0 }, fight: null });
 const sitesFar = await page.$$eval('.map .node', (n) => n.length);
@@ -329,7 +332,7 @@ await page.locator('.map .node[data-id="site:7"]').click({ timeout: 2000 }).catc
 await page.waitForTimeout(200);
 const far = await panel();
 console.log('  deep    :', `"${far.slice(0, 70)}"`);
-if (!/goblins, 36 strong/.test(far)) {
+if (!/goblins, 32 strong/.test(far)) {
   misses.push(`the deep country does not price its danger: "${far.slice(0, 60)}"`);
 }
 const heroLine = await header();
