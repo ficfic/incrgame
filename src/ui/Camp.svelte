@@ -85,6 +85,9 @@
     name: nameOf(s.id),
     kind: game.goblins[s.id] ? 'foe'
       : s.id === 0 ? 'carry' : (game.stacks[s.id] ?? 0) > 0 ? 'fact' : 'stop',
+    // ★ What stands here, said from the map (the visual pass).
+    icon: !game.goblins[s.id] && (game.stacks[s.id] ?? 0) > 0
+      ? s.allows : undefined,
     wx: s.x, wy: s.y,
     place: true, you: false,
     open: f.comp.has(s.id) && (game.stacks[s.id] ?? 0) > 0,
@@ -419,23 +422,27 @@
         <p class="note" class:windnote={wind}>{wind
           ? 'they WIND UP — this answer bites double'
           : `their answer: ${fi.sq.reduce((n, q) => n + (q.hp > 0 ? q.poke : 0), 0)}${windup(fi.round + 1) ? ' · wind-up next' : ''}`}</p>
-        <button class="deed" onclick={() => act({ type: 'strike' })}>
-          Attack
-          <em>{heroHit(game)} into the {fi.sq[aimedAt]?.kind ?? 'line'} — then they answer</em>
-        </button>
-        <button class="deed" onclick={() => act({ type: 'guard' })}>
-          Guard
-          <em>block their whole answer, deal nothing</em>
-        </button>
-        <button class="deed" disabled={fi.packs <= 0 || game.food < RATION_FOOD}
-          onclick={() => act({ type: 'ration' })}>
-          Rations ×{fi.packs}
-          <em>{RATION_FOOD} food → +{RATION_HP} hero — they still answer</em>
-        </button>
-        <button class="deed" onclick={() => act({ type: 'flee' })}>
-          Fall back
-          <em>walk home and heal — the ground keeps its wounds</em>
-        </button>
+        <!-- ★ COMPACT VERBS, 2×2 — four stacked full-width deeds pushed the
+             strip off small screens (the visual pass). -->
+        <div class="verbs">
+          <button class="deed" onclick={() => act({ type: 'strike' })}>
+            Attack
+            <em>{heroHit(game)} into the {fi.sq[aimedAt]?.kind ?? 'line'}</em>
+          </button>
+          <button class="deed" onclick={() => act({ type: 'guard' })}>
+            Guard
+            <em>block their whole answer</em>
+          </button>
+          <button class="deed" disabled={fi.packs <= 0 || game.food < RATION_FOOD}
+            onclick={() => act({ type: 'ration' })}>
+            Rations ×{fi.packs}
+            <em>{RATION_FOOD} food → +{RATION_HP} hero</em>
+          </button>
+          <button class="deed" onclick={() => act({ type: 'flee' })}>
+            Fall back
+            <em>home — the ground keeps its wounds</em>
+          </button>
+        </div>
       {:else if picked !== null && SITE.has(picked)}
         <h2>{nameOf(picked)}</h2>
         {#if status}<p class="note">{status}</p>{/if}
@@ -529,4 +536,7 @@
   .vs { font-size: 13px; color: #8a8172; flex: 1; text-align: center; }
   .vs.hurt { color: #b3452f; font-size: 18px; }
   .windnote { color: #b3452f; font-weight: 600; }
+  .verbs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .verbs .deed { margin: 0; padding: 8px 10px; }
+  .verbs .deed em { font-size: 11px; }
 </style>

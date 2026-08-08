@@ -1100,8 +1100,8 @@ veteran hero is the only keepsake. All four standing rulings APPROVED.
    one hero square vs wall + two runts, Attack/Guard/Rations/Fall back,
    free aim, wind-up every third answer, solver-verified ladder
    (win at arms tier, lose at −1, mash loses).
-4. VISUAL SESSION — building icons on the map, label clipping at the
-   edges, compact fight/deed layout.
+4. ~~VISUAL SESSION~~ ✔ shipped: building icons over their dots,
+   edge labels slide inward, fight verbs 2×2.
 5. REGION 3 — its own food artery (chad's ~55-65 wall) + the iron rung.
 6. THE CROSSING — finish a valley at the goblins' seat, found the next
    with the veteran hero. The legacy loop itself.

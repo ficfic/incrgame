@@ -36,6 +36,9 @@
     known: boolean; on: boolean; barred: boolean;
     /** A radius the node insists on — health, for anything that has any. */
     r?: number;
+    /** ★ A LITTLE BUILDING over the dot — what stands here, visible from
+     *  the map (owner's visual pass). A key into ICONS; absent = bare dot. */
+    icon?: string;
   }
   export interface Line { a: string; b: string; rel: string; fill: number;
     /** How much of its limit this road is carrying, 0 to 1. See `flow.ts`. */
@@ -58,6 +61,18 @@
      *  rather than authored positions and a baked path would join two points
      *  that are not there. */
     pts?: Pt[] }
+
+  /** ★ THE BUILDING GLYPHS, 14×14 silhouettes in the site's own ink. DOM
+   *  (inline SVG), not canvas — they scale crisp and never eat a tap. */
+  const ICONS: Record<string, string> = {
+    hut: 'M7 1.2 12.8 6.4 11.4 6.4 11.4 12.5 2.6 12.5 2.6 6.4 1.2 6.4 Z',
+    quarry: 'M1 12.5 5.4 3 8.4 8.6 10.4 5.6 13 12.5 Z',
+    lumber: 'M7 .8 10.6 5.8 8.9 5.8 12.2 10.4 8 10.4 8 13 6 13 6 10.4 '
+      + '1.8 10.4 5.1 5.8 3.4 5.8 Z',
+    sawmill: 'M2.5 3.5h10v2.4h-10Z M1.5 6.9h10v2.4h-10Z M3 10.3h10v2.4H3Z',
+    farm: 'M6.4 13 6.4 8.2 C4 8 2.2 6.3 2 3.6 4.8 3.8 6.6 5.5 6.9 7.9 '
+      + 'C7.3 6 8.9 4.7 11.9 4.5 11.7 7 10 8.6 7.6 8.8 L7.6 13 Z',
+  };
 
   let { dots, lines, box, label, onTap, onGround, decor = [], drag = true, inset = 0,
     feed = null, pulse = 0, fog = null }: {
@@ -680,6 +695,11 @@
        is the first thing to go blurry the moment anybody zooms. -->
   {#each dots as d (d.id)}
     {@const p = posOf.get(d.id)!}
+    <!-- ★ LABELS STAY ON THE BOARD — a name near the edge slides inward
+         instead of clipping off it (the owner's visual pass). -->
+    {@const half = d.name.length * 3.2 + 4}
+    {@const nudge = Math.round(Math.max(0, half + 3 - sx(p.x))
+      + Math.min(0, cssW - 3 - sx(p.x) - half))}
     <button class="node" class:you={d.you} class:open={d.open} class:shut={d.shut}
       class:known={d.known} class:on={d.on} data-kind={d.kind} data-id={d.id}
       style="left:{sx(p.x)}px; top:{sy(p.y)}px"
@@ -687,7 +707,15 @@
       style:--label={INK[d.you ? 'ring' : d.barred ? 'barred' : d.open ? 'open' : d.known
         ? (LOOK[d.kind]?.label ?? 'known') : 'dot']}
       onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onTap(d.id); } }}>
-      {#if d.name && !unlabelled.has(d.id)}<span class="label">{d.name}</span>{/if}
+      {#if d.icon && ICONS[d.icon]}
+        <svg class="icon" viewBox="0 0 14 14" aria-hidden="true">
+          <path d={ICONS[d.icon]} />
+        </svg>
+      {/if}
+      {#if d.name && !unlabelled.has(d.id)}
+        <span class="label"
+          style:transform={nudge ? `translateX(${nudge}px)` : undefined}>{d.name}</span>
+      {/if}
     </button>
   {/each}
   {#each plusses as p (p.id)}
@@ -721,6 +749,10 @@
      five `.node[data-kind='…']` rules here plus five branches in the script —
      the same decision written twice, in two languages, with nothing checking
      they agreed. */
+  /* ★ The little building, sat just over its dot, in the dot's own ink. */
+  .icon { position: absolute; top: 1px; width: 14px; height: 14px;
+    fill: var(--label, #6a6154); opacity: 0.85; pointer-events: none;
+    filter: drop-shadow(0 0 2px #f6f1e6); }
   .label { position: absolute; top: 24px; white-space: nowrap;
     font: 11px/1 ui-sans-serif, system-ui, sans-serif; color: var(--label, #6a6154);
     pointer-events: none;

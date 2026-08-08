@@ -228,9 +228,15 @@ console.log('  camp    :', `"${staffed.slice(0, 80)}"`);
 if (!/% staffed/.test(staffed)) {
   misses.push(`three jobs on two people and the camp does not say staffed-%: "${staffed.slice(0, 70)}"`);
 }
+// ★ THE VISUAL PASS: every built works wears its little building on the map.
+const icons = await page.$$eval('.map .node .icon', (n) => n.length);
+console.log('  icons   :', `${icons} buildings drawn on the map`);
+if (icons !== 3) misses.push(`three works stand and the map draws ${icons} icons`);
 await page.locator('.deed', { hasText: 'Hut ×1' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed raises the first hut'));
 await page.waitForTimeout(400);
+const hutIcon = await page.$$eval('.map .node .icon', (n) => n.length);
+if (hutIcon !== 4) misses.push(`the hut went up and the map draws ${hutIcon} icons — wanted 4`);
 if (!/\/6 people/.test(await header())) {
   misses.push(`a hut went up and the cap did not: "${(await header()).slice(0, 60)}"`);
 }
