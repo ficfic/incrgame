@@ -1069,16 +1069,16 @@ liberation fights, Arms ×n from the town's own stores, territory = fights won.
 priced on the header, STARVING halts all but the farms, and every
 liberation frees two hungry captives.
 
-**Shipped since:** THE LOOK — the valley painted from the old glyphs,
-carrier dots hauling (dash code kept), +1 pops over the camp.
+**Shipped since:** THE LOOK (valley painted, carriers hauling, +1 pops)
+and MESH ROUTING — logs travel to the nearest mill, planks travel home
+over what is left, and a star ships 0 where a mesh ships full rate
+(proven by test, same buildings both times).
 
-**Next, one per session — the owner's ten-point playtest drives the order:**
-1. ★ MESH ROUTING: logs travel to the MILL, not the abstract depot — a
-   real reason to connect site to site instead of star-to-camp.
-3. Assign people to buildings by hand (the owner asked; auto stays the
+**Next, one per session — the owner's playtest still drives the order:**
+1. Assign people to buildings by hand (the owner asked; auto stays the
    default so nothing babysits).
-4. Second region past the knoll; the away line; pacing pass.
-5. Naming/prose pass — the owner's, only when the loop proves out.
+2. Second region past the knoll; the away line; pacing pass.
+3. Naming/prose pass — the owner's, only when the loop proves out.
 
 ## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot
 
