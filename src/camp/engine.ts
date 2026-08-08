@@ -150,14 +150,41 @@ export const HUT_ROOM = 2;
 /** Seconds to grow one person when there is room. */
 export const GROW_SECS = 12;
 
-/** First copy's price. Huts price in PLANKS — the sink the mill feeds. */
-export const BASE: Record<Kind, number> = { hut: 6, quarry: 5, lumber: 10, sawmill: 18, farm: 12 };
+/** ★ First copy's price, IN THE MATERIAL THAT MAKES SENSE — the owner:
+ *  *"it's weird that i need stone to build lumberjack camp."* Huts are
+ *  planks, a lumber camp is logs (chop the first by hand — the tap
+ *  follows the tapped site), the mill is both, fields are stone walls. */
+export type Price = { stone?: number; logs?: number; planks?: number };
+export const BASE: Record<Kind, Price> = {
+  hut: { planks: 6 },
+  quarry: { stone: 5 },
+  lumber: { logs: 8 },
+  sawmill: { stone: 8, logs: 12 },
+  farm: { stone: 12 },
+};
 export const PATH_COST = 3;
 
-/** ★ THE CURVE: the n-th copy (0-based count today) costs base × 1.15^n,
- *  rounded up. The genre's compounding, one line long. */
-export const costOf = (kind: Kind, have: number): number =>
-  Math.ceil(BASE[kind] * Math.pow(1.15, have));
+/** ★ THE CURVE: the n-th copy costs base × 1.15^n, every part, rounded
+ *  up. The genre's compounding, one line long. */
+export const costOf = (kind: Kind, have: number): Price => {
+  const out: Price = {};
+  for (const [k, v] of Object.entries(BASE[kind]) as [keyof Price, number][]) {
+    out[k] = Math.ceil(v * Math.pow(1.15, have));
+  }
+  return out;
+};
+
+/** A price as one honest string: "8 stone · 12 logs". */
+export const priceLine = (p: Price): string =>
+  (Object.entries(p) as [string, number][]).map(([k, v]) => `${v} ${k}`).join(' · ');
+
+/** What the price finds short, or null when it is covered. */
+export const shortOf = (g: City, p: Price): string | null => {
+  for (const [k, v] of Object.entries(p) as [keyof Price, number][]) {
+    if ((g[k] ?? 0) < v!) return `${v} ${k} — you have ${Math.floor(g[k])}`;
+  }
+  return null;
+};
 
 /** Widening: the next gauge costs the path price over again, times gauge. */
 export const pathCostOf = (gauge: number): number => PATH_COST * (gauge + 1);
@@ -245,18 +272,30 @@ export function flow(g: City): Flow {
       : s.allows === 'farm' ? RATE.farm : RATE.sawmill;
     made.set(id, n * base);
   }
-  const staff = jobs > 0 ? Math.min(1, g.pop / jobs) : 1;
+  // ★★ THE FIELDS EAT FIRST — staffing priority, 2026-08-08, from the
+  // owner's playtest: *"i reached starving state… building more farms
+  // didn't help."* It didn't, because every idle quarry job was diluting
+  // the farm's share of hands. Now people fill the FARMS first, whole,
+  // and whatever is left staffs the rest — so another farm always means
+  // more bread, exactly what a player reaches for in a famine.
+  let farmJobs = 0;
+  for (const id of comp) {
+    if (SITE.get(id)!.allows === 'farm') farmJobs += g.stacks[id] ?? 0;
+  }
+  const farmStaff = farmJobs > 0 ? Math.min(1, g.pop / farmJobs) : 1;
+  const rest = jobs - farmJobs;
+  const staff = rest > 0 ? Math.min(1, Math.max(0, g.pop - farmJobs) / rest) : 1;
+  let farmRaw = 0;
+  for (const [id, m] of made) {
+    if (SITE.get(id)!.allows === 'farm') farmRaw += m * farmStaff;
+  }
   // ★ STARVING: the larder is empty and the fields alone cannot keep up.
   // Everyone but the farmers stands down — and BECAUSE the farms keep
   // their hands, a famine is always recoverable, never a spiral.
-  let farmRaw = 0;
-  for (const [id, m] of made) {
-    if (SITE.get(id)!.allows === 'farm') farmRaw += m * staff;
-  }
   const starving = g.food <= 0.001 && hunger(g) > farmRaw + 1e-9;
   for (const [id, m] of made) {
     const isFarm = SITE.get(id)!.allows === 'farm';
-    made.set(id, m * staff * (starving && !isFarm ? 0 : 1));
+    made.set(id, isFarm ? m * farmStaff : m * staff * (starving ? 0 : 1));
   }
 
   // Load every edge with the producers routed over it, then scale each
@@ -308,15 +347,12 @@ export function flow(g: City): Flow {
 export function unraisable(g: City, id: number): string | null {
   const s = SITE.get(id);
   if (!s) return 'no such ground';
-  if (g.goblins[id]) return `goblins hold this ground — ${g.goblins[id]} strong`;
-  const have = g.stacks[id] ?? 0;
-  const price = costOf(s.allows, have);
-  if (s.allows === 'hut') {
-    if (g.planks < price) return `${price} planks — you have ${Math.floor(g.planks)}`;
-    return null;
-  }
-  if (g.stone < price) return `${price} stone — you have ${Math.floor(g.stone)}`;
-  return null;
+  if (g.goblins[id]) return `dangerous — goblins, ${g.goblins[id]} strong`;
+  // ★ THE PATH COMES FIRST — the owner: *"it's weird that i can build
+  // something before there's a path to that spot."* No works on ground
+  // the town cannot reach.
+  if (id !== 0 && !component(g).has(id)) return 'no path reaches here';
+  return shortOf(g, costOf(s.allows, g.stacks[id] ?? 0));
 }
 
 /** Why this path cannot be laid or widened, in plain words, or null. */
@@ -325,7 +361,7 @@ export function unlayable(g: City, a: number, b: number): string | null {
   const B = SITE.get(b);
   if (!A || !B || !A.near.includes(b)) return 'nothing joins these';
   if (g.goblins[a] || g.goblins[b]) {
-    return `goblins hold this ground — ${g.goblins[a] ?? g.goblins[b]} strong`;
+    return `dangerous — goblins, ${g.goblins[a] ?? g.goblins[b]} strong`;
   }
   const gauge = g.paths[pathKey(a, b)] ?? 0;
   if (gauge >= MAX_GAUGE) return 'as wide as it goes';
@@ -348,8 +384,9 @@ export function unassailable(g: City, id: number): string | null {
 
 export type Action =
   | { type: 'tick'; secs: number }
-  /** Chip stone by hand — the thumb's own quarry, and the bootstrap. */
-  | { type: 'tap' }
+  /** Work by hand where you stand looking — stone off the rocks, logs off
+   *  the pines. The thumb follows the tapped site; the shell says which. */
+  | { type: 'tap'; kind?: 'stone' | 'logs' }
   /** Lay the path between neighbours, or widen it a gauge. */
   | { type: 'lay'; a: number; b: number }
   /** Raise the NEXT copy of this site's works (a hut, at the camp). */
@@ -409,7 +446,9 @@ export function apply(g: City, a: Action): City {
     }
 
     case 'tap':
-      return { ...g, stone: g.stone + TAP_STONE };
+      return a.kind === 'logs'
+        ? { ...g, logs: g.logs + TAP_STONE }
+        : { ...g, stone: g.stone + TAP_STONE };
 
     case 'lay': {
       if (unlayable(g, a.a, a.b)) return g;
@@ -473,8 +512,9 @@ export function apply(g: City, a: Action): City {
       const price = costOf(s.allows, have);
       return {
         ...g,
-        stone: s.allows === 'hut' ? g.stone : g.stone - price,
-        planks: s.allows === 'hut' ? g.planks - price : g.planks,
+        stone: g.stone - (price.stone ?? 0),
+        logs: g.logs - (price.logs ?? 0),
+        planks: g.planks - (price.planks ?? 0),
         stacks: { ...g.stacks, [a.id]: have + 1 },
       };
     }

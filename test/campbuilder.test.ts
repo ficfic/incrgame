@@ -29,18 +29,27 @@ const chain = (pop = 99): City => ({
 });
 
 describe('★★ RULE 1 — buildings come in counts, on the compounding curve', () => {
-  it('the n-th copy costs base × 1.15^n, rounded up', () => {
-    expect(costOf('quarry', 0)).toBe(BASE.quarry);
-    expect(costOf('quarry', 1)).toBe(Math.ceil(BASE.quarry * 1.15));
-    expect(costOf('quarry', 5)).toBe(Math.ceil(BASE.quarry * 1.15 ** 5));
+  it('the n-th copy costs base × 1.15^n, rounded up, in the RIGHT material', () => {
+    expect(costOf('quarry', 0).stone).toBe(BASE.quarry.stone);
+    expect(costOf('quarry', 1).stone).toBe(Math.ceil(BASE.quarry.stone! * 1.15));
+    expect(costOf('quarry', 5).stone).toBe(Math.ceil(BASE.quarry.stone! * 1.15 ** 5));
+    // The owner: "it's weird that i need stone to build lumberjack camp."
+    expect(BASE.lumber.stone).toBeUndefined();
+    expect(BASE.lumber.logs).toBeGreaterThan(0);
+    expect(BASE.hut.planks).toBeGreaterThan(0);
   });
 
-  it('raising stacks the count and pays the curve', () => {
-    let g: City = { ...initial(), stone: 99 };
+  it('raising stacks the count and pays every part of the curve', () => {
+    let g: City = { ...initial(), stone: 99, paths: { [pathKey(0, 1)]: 1 } };
     g = apply(g, { type: 'raise', id: 1 });
     g = apply(g, { type: 'raise', id: 1 });
     expect(g.stacks[1]).toBe(2);
-    expect(g.stone).toBeCloseTo(99 - costOf('quarry', 0) - costOf('quarry', 1), 9);
+    expect(g.stone).toBeCloseTo(99 - costOf('quarry', 0).stone! - costOf('quarry', 1).stone!, 9);
+  });
+
+  it('★ hand-taps follow the ground: logs off the pines', () => {
+    expect(apply(initial(), { type: 'tap', kind: 'logs' }).logs).toBeCloseTo(TAP_STONE, 9);
+    expect(apply(initial(), { type: 'tap' }).stone).toBeCloseTo(TAP_STONE, 9);
   });
 
   it('three copies make three times the stone', () => {
@@ -67,11 +76,30 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     expect(flow(g).stone).toBeCloseTo(4 * RATE.quarry * 0.5, 9);
   });
 
+  it('★★ THE FIELDS EAT FIRST: hands fill the farms before anything else', () => {
+    // 3 people, 2 farm jobs + 4 quarry jobs: the farms run WHOLE (2 hands)
+    // and the quarries split the one that is left. Building another farm
+    // in a famine now always adds bread — the owner's exact complaint.
+    const g: City = { ...initial(), pop: 3, food: 999, goblins: {},
+      stacks: { 1: 4, 4: 2 },
+      paths: { [pathKey(0, 1)]: 3, [pathKey(0, 4)]: 3 } };
+    const f = flow(g);
+    expect(f.food).toBeCloseTo(2 * RATE.farm, 9);
+    expect(f.stone).toBeCloseTo(4 * RATE.quarry * (1 / 4), 9);
+  });
+
   it('★ huts cost PLANKS — the mill chain is the sink', () => {
     expect(unraisable({ ...initial(), stone: 99 }, 0)).toMatch(/planks/);
     const g = apply({ ...initial(), planks: 9 }, { type: 'raise', id: 0 });
     expect(g.stacks[0]).toBe(1);
-    expect(g.planks).toBeCloseTo(9 - BASE.hut, 9);
+    expect(g.planks).toBeCloseTo(9 - BASE.hut.planks!, 9);
+  });
+
+  it('★ no works before a path reaches the ground', () => {
+    // The owner: "it's weird that i can build something before there's a
+    // path to that spot." The camp itself is the one exception.
+    expect(unraisable({ ...initial(), stone: 99 }, 1)).toBe('no path reaches here');
+    expect(unraisable({ ...initial(), planks: 99 }, 0)).toBeNull();
   });
 
   it('★ the whole wilderness shows from the first frame — held ground is the carrot', () => {
@@ -154,12 +182,13 @@ describe('★ honest refusals and the save', () => {
     expect(apply(initial(), { type: 'tap' }).stone).toBeCloseTo(TAP_STONE, 9);
   });
 
-  it('refusals say why: price, goblins, reach', () => {
-    expect(unraisable(initial(), 1)).toMatch(/^5 stone — you have 0/);
-    expect(unraisable(initial(), 4)).toMatch(/^goblins hold this ground — 12/);
+  it('refusals say why: price, danger, reach', () => {
+    expect(unraisable({ ...initial(), paths: { [pathKey(0, 1)]: 1 } }, 1))
+      .toMatch(/^5 stone — you have 0/);
+    expect(unraisable(initial(), 4)).toMatch(/^dangerous — goblins, 12 strong/);
     expect(unlayable(initial(), 1, 3)).toBe('nothing joins these');
     expect(unlayable({ ...initial(), stone: 99 }, 1, 2)).toBe('no path reaches either end');
-    expect(unlayable({ ...initial(), stone: 99 }, 3, 5)).toMatch(/^goblins hold this ground — 18/);
+    expect(unlayable({ ...initial(), stone: 99 }, 3, 5)).toMatch(/^dangerous — goblins, 18 strong/);
   });
 
   it('round-trips a real city and refuses the rest', () => {
@@ -250,7 +279,10 @@ describe('★★ THE HERO AND THE GOBLINS — Mayor of Noobtown, by the numbers'
     expect(g.goblins[4]).toBeUndefined();
     expect(g.fight).toBeNull();
     expect(g.pop).toBe(popBefore + CAPTIVES);
-    expect(unraisable({ ...g, stone: 99 }, 4)).toBeNull();
+    // The goblins are gone: what stands between the meadow and a farm now
+    // is only the ordinary path rule.
+    expect(unraisable({ ...g, stone: 99 }, 4)).toBe('no path reaches here');
+    expect(unraisable({ ...g, stone: 99, paths: { [pathKey(0, 4)]: 1 } }, 4)).toBeNull();
   });
 
   it('★★ arms turn the same fight: ×1 beats the meadow whole', () => {

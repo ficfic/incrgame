@@ -75,20 +75,22 @@ if (held0 !== 3) misses.push(`${held0} held grounds drawn — wanted 3`);
 
 // -------------------------------------------------- the first stack, dead --
 console.log('\nTHE FIRST QUARRY');
-for (let t = 0; t < 22; t++) await page.locator('.spring').click();
+for (let t = 0; t < 14; t++) await page.locator('.spring').click();
 await page.waitForTimeout(250);
 await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
-await page.locator('.deed', { hasText: 'Quarry ×1' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no deed stacks the first quarry'));
-await page.waitForTimeout(250);
-const dead = await panel();
-console.log('  says    :', `"${dead.slice(0, 70)}"`);
-if (!/carries 0/.test(dead)) {
-  misses.push(`an unconnected works does not say it carries nothing: "${dead.slice(0, 60)}"`);
+await page.waitForTimeout(200);
+// ★ The path comes FIRST now — building on unreached ground is refused,
+// and the refusal is on the deed.
+const unreached = await panel();
+console.log('  refuses :', `"${unreached.slice(0, 70)}"`);
+if (!/no path reaches here/.test(unreached)) {
+  misses.push(`unreached ground does not refuse the works: "${unreached.slice(0, 60)}"`);
 }
-for (let t = 0; t < 16; t++) await page.locator('.spring').click();
 await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed lays the path home'));
+for (let t = 0; t < 22; t++) await page.locator('.spring').click();
+await page.locator('.deed', { hasText: 'Quarry ×1' }).click({ timeout: 2000 })
+  .catch(() => misses.push('no deed stacks the first quarry'));
 await page.waitForTimeout(600);
 const flowing = await header();
 console.log('  header  :', `"${flowing.slice(0, 80)}"`);
@@ -143,7 +145,7 @@ if (!(amberAfter < amber / 2)) {
 // ----------------------------------------------------- PEOPLE, the ladder --
 console.log('\nTHE PEOPLE');
 await seed({ version: 4, stacks: { 1: 1, 2: 1, 3: 1 }, paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
-  stone: 10, logs: 0, planks: 20, pop: 2, popPart: 0 });
+  stone: 10, logs: 6, planks: 20, pop: 2, popPart: 0 });
 const before = await header();
 console.log('  header  :', `"${before.slice(0, 90)}"`);
 if (!/2\/2 people/.test(before)) misses.push(`seeded city not at 2/2 people: "${before.slice(0, 60)}"`);
@@ -194,10 +196,15 @@ console.log('  beaten  :', `"${beaten.slice(30, 110)}"`);
 if (!/hero 0\/10/.test(beaten)) {
   misses.push(`five bare-handed strikes should beat the hero home: "${beaten.slice(0, 80)}"`);
 }
-const bled = await page.locator('.map .node[data-id="site:4"]').textContent();
-console.log('  bled    :', `"${bled.trim()}"`);
-if (!/Goblins · 2/.test(bled)) {
-  misses.push(`the ground did not keep its wounds: "${bled.trim()}"`);
+// site:4 is STILL picked from the assail — no second tap, that toggles.
+const bled = await panel();
+console.log('  bled    :', `"${bled.slice(0, 60)}"`);
+if (!/goblins, 2 strong/.test(bled)) {
+  misses.push(`the ground did not keep its wounds: "${bled.slice(0, 60)}"`);
+}
+const namedStill = await page.locator('.map .node[data-id="site:4"]').textContent();
+if (!/High Meadow/.test(namedStill)) {
+  misses.push(`held ground lost its NAME to the goblins: "${namedStill.trim()}"`);
 }
 // Armed and healed, the same fight turns: liberate, then BUILD there.
 await seed({ version: 4, stacks: { 1: 1 }, paths: { '0|1': 1 },
@@ -210,12 +217,8 @@ for (let i = 0; i < 4; i++) {
   await page.waitForTimeout(120);
 }
 await page.waitForTimeout(300);
-const freed = await page.locator('.map .node[data-id="site:4"]').textContent();
-console.log('  freed   :', `"${freed.trim()}"`);
-if (!/High Meadow/.test(freed)) {
-  misses.push(`armed ×1, four strikes should liberate the meadow: "${freed.trim()}"`);
-}
 const heldNow = await page.$$eval('.map .node[data-kind="foe"]', (n) => n.length);
+console.log('  freed   :', `${heldNow} holdings left after the rematch`);
 if (heldNow !== 2) misses.push(`${heldNow} held grounds after liberation — wanted 2`);
 // ★ CAPTIVES: two walked home with the hero — the header says so.
 const rescued = await header();
@@ -225,10 +228,10 @@ if (!/6\/\d+ people/.test(rescued)) {
 }
 // The freed ground takes works and paths like any other. It is STILL the
 // picked site from the fight — no second tap, that would toggle it off.
-await page.locator('.deed', { hasText: 'Farm ×1' }).click({ timeout: 2000 })
-  .catch(() => misses.push('liberated ground refuses the works'));
 await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
   .catch(() => misses.push('liberated ground refuses the path'));
+await page.locator('.deed', { hasText: 'Farm ×1' }).click({ timeout: 2000 })
+  .catch(() => misses.push('liberated ground refuses the works'));
 await page.waitForTimeout(600);
 const freedTitle = await page.locator('.panel h2').textContent();
 console.log('  works   :', `"${freedTitle.trim()}"`);

@@ -1069,12 +1069,16 @@ liberation fights, Arms ×n from the town's own stores, territory = fights won.
 priced on the header, STARVING halts all but the farms, and every
 liberation frees two hungry captives.
 
-**Next, one per session, each after the owner plays:**
-1. A second region BEYOND the knoll — deeper goblins, the map growing
-   outward; maybe the hero levels (hp, not just arms).
-2. The away line + pacing pass (chad-liquidity across stone/planks/arms/food).
-3. Storage caps? gold? the next Kittens rung — owner's pick.
-4. Naming/prose pass — the owner's, only when the loop proves out.
+**Next, one per session — the owner's ten-point playtest drives the order:**
+1. ★ THE LOOK: the old map background returns (terrain decor into Camp's
+   Board), CARRIER DOTS hauling along paths instead of the mana dash
+   (keep the dash code on disk — owner's instruction), +1 pops on gains.
+2. ★ MESH ROUTING: logs travel to the MILL, not the abstract depot — a
+   real reason to connect site to site instead of star-to-camp.
+3. Assign people to buildings by hand (the owner asked; auto stays the
+   default so nothing babysits).
+4. Second region past the knoll; the away line; pacing pass.
+5. Naming/prose pass — the owner's, only when the loop proves out.
 
 ## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot
 

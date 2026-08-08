@@ -6,8 +6,8 @@
   import { INK, TOL } from '../game/ink';
   import type { Box } from '../game/layout';
   import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
-    unlayable, unraisable, unassailable, heroHit, armsCost, hunger, SITE,
-    GOBLINS, RATE, TAP_STONE, MAX_GAUGE, HERO_HP, type City } from '../camp/engine';
+    priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
+    SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, HERO_HP, type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
 
   let game = $state<City>(initial());
@@ -20,6 +20,11 @@
   const act = (a: Parameters<typeof apply>[1]): void => { game = apply(game, a); };
 
   const f = $derived(flow(game));
+  /** ★ The thumb works what you are looking at: pines chop logs by hand,
+   *  everything else chips stone — the bootstrap for the logs-priced camp. */
+  const tapKind = $derived<'stone' | 'logs'>(
+    picked !== null && !game.goblins[picked]
+      && SITE.get(picked)?.allows === 'lumber' ? 'logs' : 'stone');
   const cap = $derived(popCap(game));
   /** Planks the mills can actually deliver right now: capacity, starved to
    *  the log supply when the pile is dry. The header never overpromises. */
@@ -34,7 +39,10 @@
   /** A site's label: the count, and the truth about what its paths carry. */
   function nameOf(id: number): string {
     const s = SITE.get(id)!;
-    if (game.goblins[id]) return `Goblins · ${game.goblins[id]}`;
+    // ★ Held ground keeps its NAME — the owner: *"this must be some
+    // location with a note that it's dangerous, not flat out goblins."*
+    // The red mark carries the danger; the panel carries the number.
+    if (game.goblins[id]) return s.name;
     const n = game.stacks[id] ?? 0;
     if (id === 0) return n > 0 ? `Camp · Hut ×${n}` : 'The Camp';
     if (n <= 0) return s.name;
@@ -60,6 +68,9 @@
     known: true,
     on: picked === s.id,
     barred: false,
+    // ★ The picked site is unmissable — the owner could not tell what
+    // was selected. Half again the size is a statement, not a hint.
+    r: picked === s.id ? 8 : undefined,
   })));
 
   const lines = $derived<Line[]>((() => {
@@ -117,7 +128,7 @@
     const why = unraisable(game, s.id);
     out.push({
       label: `${KIND_NAME[s.allows]} ×${have + 1}`,
-      note: why ?? `${costOf(s.allows, have)} ${s.allows === 'hut' ? 'planks' : 'stone'}`,
+      note: why ?? priceLine(costOf(s.allows, have)),
       why,
       go: () => act({ type: 'raise', id: s.id }),
     });
@@ -152,7 +163,13 @@
     if (picked === null) return '';
     if (picked === 0) {
       return `${Math.floor(game.pop)} of ${cap} people`
-        + (f.staff < 1 ? ` · works ${Math.round(f.staff * 100)}% staffed` : '');
+        + (hunger(game) > 0
+          ? ` · eats ${hunger(game).toFixed(1)}/s · fields bring ${f.food.toFixed(1)}/s` : '')
+        + (f.starving ? ' — raise or connect farms' : '')
+        + (f.staff < 1 && !f.starving ? ` · works ${Math.round(f.staff * 100)}% staffed` : '');
+    }
+    if (game.goblins[picked]) {
+      return `dangerous — goblins, ${game.goblins[picked]} strong`;
     }
     const n = game.stacks[picked] ?? 0;
     if (n <= 0) return '';
@@ -230,9 +247,9 @@
 
 <main>
   <header>
-    <button class="spring" onclick={() => act({ type: 'tap' })}>
+    <button class="spring" onclick={() => act({ type: 'tap', kind: tapKind })}>
       <b>{Math.floor(game.stone)}</b><span>stone</span>
-      <em>+{TAP_STONE} a tap{f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}</em>
+      <em>+{TAP_STONE} {tapKind} a tap{f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}</em>
     </button>
     <span class="keep">{Math.floor(game.logs)} logs</span>
     <span class="keep">{Math.floor(game.planks)} planks{planksNow > 0 ? ` +${planksNow.toFixed(1)}/s` : ''}</span>
