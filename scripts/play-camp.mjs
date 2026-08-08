@@ -336,6 +336,28 @@ const heroLine = await header();
 if (!/hero 16\/16/.test(heroLine)) {
   misses.push(`two liberations should read hero 16/16: "${heroLine.slice(30, 90)}"`);
 }
+// ---------------------------------------------------- the pocket time ----
+console.log('\nTHE AWAY LINE');
+await page.addInitScript(() => {
+  const game = {
+    version: 5, stacks: { 0: 2, 1: 2 }, paths: { '0|1': 2 },
+    stone: 5, logs: 0, planks: 0, food: 0, pop: 4, popPart: 0,
+  };
+  localStorage.setItem('camp-save',
+    JSON.stringify({ game, savedAt: Date.now() - 2 * 3600 * 1000 }));
+});
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(700);
+const away = await panel();
+console.log('  says    :', `"${away.slice(0, 80)}"`);
+if (!/Away 2\.0 hours — \+\d+ stone/.test(away)) {
+  misses.push(`two pocket hours and no away line: "${away.slice(0, 70)}"`);
+}
+await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
+if (/Away 2\.0 hours/.test(await panel())) {
+  misses.push('the away line does not clear on a tap');
+}
 await page.screenshot({ path: SHOT });
 
 await b.close();

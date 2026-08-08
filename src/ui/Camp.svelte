@@ -13,6 +13,8 @@
 
   let game = $state<City>(initial());
   let ready = $state(false);
+  /** One row of numbers about the pocket time, or null. Any tap clears it. */
+  let awayLine = $state<string | null>(null);
   let picked = $state<number | null>(0);
   let menu = $state(false);
   let wiping = $state(false);
@@ -199,6 +201,7 @@
   })());
 
   function doTap(id: string): void {
+    awayLine = null;
     const n = numOf(id);
     picked = picked === n ? null : n;
   }
@@ -223,6 +226,23 @@
     if (back) {
       const secs = Math.min(elapsedSince(back.savedAt), 12 * 3600);
       game = secs > 1 ? apply(back.game, { type: 'tick', secs }) : back.game;
+      // ★ THE AWAY LINE — what the pocket time brought, one row of numbers.
+      if (secs > 90) {
+        const d = (a: number, b: number): number => Math.floor(a) - Math.floor(b);
+        const parts = [
+          [d(game.stone, back.game.stone), 'stone'],
+          [d(game.logs, back.game.logs), 'logs'],
+          [d(game.planks, back.game.planks), 'planks'],
+          [d(game.food, back.game.food), 'food'],
+          [game.pop - back.game.pop, 'settlers'],
+        ].filter(([n]) => (n as number) > 0)
+          .map(([n, w]) => `+${n} ${w}`);
+        if (parts.length) {
+          const h = secs / 3600;
+          awayLine = `Away ${h >= 1 ? `${h.toFixed(1)} hours` : `${Math.round(secs / 60)} minutes`}`
+            + ` — ${parts.join(' · ')}`;
+        }
+      }
     }
     ready = true;
     (window as unknown as { __INK: typeof INK }).__INK = INK;
@@ -299,6 +319,9 @@
         decor={CAMP_SHAPES} pulse={pops} />
     </div>
     <section class="panel">
+      {#if awayLine}
+        <p class="away">{awayLine}</p>
+      {/if}
       {#if game.fight}
         {@const at = game.fight.site}
         <h2>Goblins · {game.goblins[at] ?? 0}</h2>
@@ -379,4 +402,6 @@
   .crew button { font: inherit; font-size: 18px; line-height: 1; width: 34px; height: 34px;
     border: 1px solid #d8d0bf; border-radius: 10px; background: #fdfaf2; }
   .crew button:disabled { color: #c9c1ae; }
+  .away { margin: 4px 0 8px; font-size: 14px; font-weight: 600; color: #1f6b3a;
+    border: 1px solid #cfe2cd; background: #eef5ec; border-radius: 10px; padding: 8px 10px; }
 </style>
