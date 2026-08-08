@@ -129,9 +129,13 @@ whole town economy has to be marshalled for.
 The owner: *"i want to do it kind of like there would be a reason to move
 on and build again."* Finishing a valley FOUNDS THE NEXT ONE. The next
 valley is a new map (new site layout, new holdings), harder, and the
-keepsake that crosses over is the retention curve — its exact shape is
-the next design chip. A finite run inside an infinite game: the town
-stays small, the LINE of towns is what grows.
+keepsake is ★ DECIDED: **THE VETERAN HERO.** Arms and toughness cross the
+valleys; the town starts cold every time. All prestige flows THROUGH the
+hero — a stronger hero opens ground and frees captives sooner, which is
+the felt acceleration, with no % multipliers to rot. Valley 2's ladder is
+tuned against the hero valley 1 hands over (hp ~28, arms ~10), and the
+climb continues from there. A finite run inside an infinite game: the
+town stays small, the LINE of towns is what grows.
 
 ## Standing rulings needed (from the playtests, queued in BACKLOG)
 
