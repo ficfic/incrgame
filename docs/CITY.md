@@ -124,16 +124,14 @@ whole town economy has to be marshalled for.
 - **A new pressure**: winters (stores drain seasonally)? goblin raids on
   paths (a reason for walls/watchtowers)? Pick ONE, late, or none.
 
-## The ending of a run (THE FORK — owner decides)
+## The ending of a run — ★ DECIDED 2026-08-08: LEGACY
 
-- **A. THE TOWN STANDS (finite):** take the last holding, the game says
-  what you built (people fed, ground freed, days taken), done is done.
-  Honest, small, rare in the genre.
-- **B. LEGACY (soft prestige):** finishing founds the NEXT valley with a
-  keepsake (one veteran hero? a starting stockpile?) — classic incremental
-  retention, more systems to tune.
-- **C. ENDLESS REGIONS:** the map just keeps growing. Cheapest, but the
-  numbers eventually rot and the small-town identity dies at scale.
+The owner: *"i want to do it kind of like there would be a reason to move
+on and build again."* Finishing a valley FOUNDS THE NEXT ONE. The next
+valley is a new map (new site layout, new holdings), harder, and the
+keepsake that crosses over is the retention curve — its exact shape is
+the next design chip. A finite run inside an infinite game: the town
+stays small, the LINE of towns is what grows.
 
 ## Standing rulings needed (from the playtests, queued in BACKLOG)
 
