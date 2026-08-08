@@ -7,7 +7,7 @@
   import type { Box } from '../game/layout';
   import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
-    heroMax, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW,
+    heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
@@ -16,6 +16,19 @@
   let ready = $state(false);
   /** One row of numbers about the pocket time, or null. Any tap clears it. */
   let awayLine = $state<string | null>(null);
+  /** ★ THE WIN, said out loud — the owner: *"I think I won, but it wasn't
+   *  clear."* Set when a holding falls, cleared by the next tap. */
+  let won = $state<string | null>(null);
+  let heldBefore = new Set<string>();
+  $effect(() => {
+    const now = new Set(Object.keys(game.goblins));
+    for (const id of heldBefore) {
+      if (!now.has(id)) {
+        won = `${SITE.get(Number(id))?.name ?? 'The ground'} is TAKEN — +2 settlers`;
+      }
+    }
+    heldBefore = now;
+  });
   let picked = $state<number | null>(0);
   let menu = $state(false);
   let wiping = $state(false);
@@ -93,12 +106,15 @@
         seen.add(key);
         const gauge = game.paths[key] ?? 0;
         const choked = f.choked.has(key);
-        const busy = gauge > 0 && f.comp.has(s.id) && f.comp.has(n)
-          && (f.stone + planksNow + f.logs > 0.001);
+        // ★ The carriers tell the truth per path: an idle path in a busy
+        // town shows nobody, a laden one crowds — density from the real
+        // carried rate against this path's own capacity.
+        const carrying = f.loads.get(key) ?? 0;
+        const busy = gauge > 0 && carrying > 0.005;
         out.push({
           a: siteId(s.id), b: siteId(n), rel: 'road',
           fill: gauge > 0 ? 1 : 0,
-          load: choked ? 1 : busy ? 0.55 : 0,
+          load: choked ? 1 : busy ? Math.min(1, carrying / (gauge || 1)) : 0,
           gauge,
           choked,
           dir: busy || choked ? (n > s.id ? -1 : 1) : 0,
@@ -142,7 +158,7 @@
     if (s.allows === 'lumber') {
       out.push({
         label: 'Chop logs by hand',
-        note: `+${TAP_STONE} logs a tap`,
+        note: `+${TAP_STONE} a tap · ${Math.floor(game.logs)} held`,
         why: null,
         go: () => act({ type: 'tap', kind: 'logs' }),
       });
@@ -151,7 +167,8 @@
     const why = unraisable(game, s.id);
     out.push({
       label: `${KIND_NAME[s.allows]} ×${have + 1}`,
-      note: why ?? priceLine(costOf(s.allows, have)),
+      note: (why ?? priceLine(costOf(s.allows, have)))
+        + (have > 0 ? ` · ${have} standing` : ''),
       why,
       go: () => act({ type: 'raise', id: s.id }),
     });
@@ -160,7 +177,8 @@
       const short = game.stone < p.stone || game.planks < p.planks;
       out.push({
         label: `Arms ×${game.hero.arms + 1}`,
-        note: `${p.stone} stone · ${p.planks} planks — the hero strikes ${heroHit(game) + 1}`,
+        note: `${p.stone} stone · ${p.planks} planks → strikes ${heroHit(game) + 1}`
+          + (game.hero.arms > 0 ? ` · ${game.hero.arms} carried` : ''),
         why: short ? `${p.stone} stone · ${p.planks} planks` : null,
         go: () => act({ type: 'arm' }),
       });
@@ -187,7 +205,8 @@
     if (picked === 0) {
       return `${Math.floor(game.pop)} of ${cap} people`
         + (hunger(game) > 0
-          ? ` · eats ${hunger(game).toFixed(1)}/s · fields bring ${f.food.toFixed(1)}/s` : '')
+          ? ` · eats ${hunger(game).toFixed(1)}/s · fields bring ${f.food.toFixed(1)}/s`
+          : ` · the wild feeds ${WILD_FED}`)
         + (f.starving ? ' — raise or connect farms' : '')
         + (f.staff < 1 && !f.starving ? ` · works ${Math.round(f.staff * 100)}% staffed` : '');
     }
@@ -211,6 +230,7 @@
 
   function doTap(id: string): void {
     awayLine = null;
+    won = null;
     const n = numOf(id);
     picked = picked === n ? null : n;
   }
@@ -294,17 +314,20 @@
   <header>
     <button class="spring" onclick={() => act({ type: 'tap' })}>
       <b>{Math.floor(game.stone)}</b><span>stone</span>
-      <em>+{TAP_STONE} a tap{f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}</em>
+      <em>+{TAP_STONE}{f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}</em>
     </button>
     <span class="keep">{Math.floor(game.logs)} logs</span>
     <span class="keep">{Math.floor(game.planks)} planks{planksNow > 0 ? ` +${planksNow.toFixed(1)}/s` : ''}</span>
     <span class="keep" class:hurt={f.starving}>{Math.floor(game.food)} food{
       f.starving ? ' · STARVING' : hunger(game) > 0 ? ` −${hunger(game).toFixed(1)}/s` : ''}{
       f.food > 0 ? ` +${f.food.toFixed(1)}/s` : ''}</span>
-    <span class="keep lv">{Math.floor(game.pop)}/{cap} people</span>
+    <span class="keep lv">{game.pop > cap
+      ? `${Math.floor(game.pop)} people · huts full`
+      : `${Math.floor(game.pop)}/${cap} people`}</span>
     <span class="keep">hero {game.hero.hp}/{heroMax(game)} · arms {game.hero.arms}</span>
     <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
     {#if menu}
+    <div class="menurow">
       <button class="reset" class:armed={wiping}
         onclick={() => {
           if (!wiping) { wiping = true; setTimeout(() => (wiping = false), 3000); return; }
@@ -319,6 +342,7 @@
         {ported === 'refused' ? 'That save was refused' : 'Load a save'}
       </button>
       <span class="keep build">{__BUILD_ID__}</span>
+    </div>
     {/if}
   </header>
 
@@ -330,6 +354,9 @@
     <section class="panel">
       {#if awayLine}
         <p class="away">{awayLine}</p>
+      {/if}
+      {#if won}
+        <p class="away">{won}</p>
       {/if}
       {#if game.fight}
         {@const at = game.fight.site}
@@ -398,7 +425,8 @@
   .reset.armed { background: #b3452f; color: #fff; }
   .map { flex: 1; min-height: 0; position: relative; margin: 10px; }
   .panel { padding: 8px 14px 16px; border-top: 1px solid #d8d0bf; background: #f7f2e7;
-    min-height: 148px; }
+    min-height: 148px; max-height: 44dvh; overflow-y: auto; }
+  .menurow { flex-basis: 100%; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .panel h2 { margin: 4px 0 6px; font-size: 18px; }
   .note { color: #8a8172; font-size: 14px; margin: 4px 0; }
   .deed { display: block; width: 100%; text-align: left; font: inherit; font-size: 16px;

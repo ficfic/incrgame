@@ -302,8 +302,13 @@ if (heldNow !== 2) misses.push(`${heldNow} held grounds after liberation — wan
 // ★ CAPTIVES: two walked home with the hero — the header says so.
 const rescued = await header();
 console.log('  rescued :', `"${rescued.slice(30, 100)}"`);
-if (!/6\/\d+ people/.test(rescued)) {
+if (!/6 people · huts full/.test(rescued)) {
   misses.push(`no captives came home from the liberation: "${rescued.slice(0, 80)}"`);
+}
+const cheer = await panel();
+console.log('  cheer   :', `"${cheer.slice(0, 60)}"`);
+if (!/TAKEN — \+2 settlers/.test(cheer)) {
+  misses.push(`the win said nothing: "${cheer.slice(0, 60)}"`);
 }
 // The freed ground takes works and paths like any other. It is STILL the
 // picked site from the fight — no second tap, that would toggle it off.

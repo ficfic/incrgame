@@ -306,6 +306,11 @@ export interface Flow {
   carried: Map<number, number>;
   /** Edges over their cap right now — the chokes the board draws. */
   choked: Set<string>;
+  /** ★ What each path is ACTUALLY carrying, per second — the owner: *"the
+   *  dots going through the paths should correspond to the resources
+   *  flowing there."* The board draws carriers from this, so an idle path
+   *  in a busy component shows nobody. */
+  loads: Map<string, number>;
   /** 0..1 — how staffed every works is. Under 1, people are the shortage. */
   staff: number;
   comp: Set<number>;
@@ -415,6 +420,7 @@ export function flow(g: City): Flow {
   }
   const choked = new Set<string>();
   const carried = new Map<number, number>();
+  const loads = new Map<string, number>();
   let stone = 0;
   let food = 0;
   let logsIn = 0;
@@ -429,6 +435,7 @@ export function flow(g: City): Flow {
       }
     }
     const got = f.rate * scale;
+    for (const e of f.legs) loads.set(e, (loads.get(e) ?? 0) + got);
     carried.set(f.id, got);
     if (f.kind === 'quarry') stone += got;
     else if (f.kind === 'farm') food += got;
@@ -466,13 +473,14 @@ export function flow(g: City): Flow {
         }
       }
       const got = share * scale;
+      for (const e of legsOf.get(id)!) loads.set(e, (loads.get(e) ?? 0) + got);
       carried.set(id, got);
       planks += got;
     }
   }
 
   return { stone, logs: logsIn, planks, food, starving, logsIn, millCap,
-    sawing, hands, made, carried, choked, staff, comp };
+    sawing, hands, made, carried, choked, loads, staff, comp };
 }
 
 /** Why the next copy cannot be raised here, in plain words, or null. */
