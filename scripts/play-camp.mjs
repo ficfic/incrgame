@@ -225,19 +225,31 @@ await page.waitForTimeout(400);
 if (!/\/6 people/.test(await header())) {
   misses.push(`a hut went up and the cap did not: "${(await header()).slice(0, 60)}"`);
 }
-// ★ POSTED HANDS: open the rock face, post a hand, read it back.
-await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+// ★ HANDS, WHOLE AND SPOKEN: take over the mill by hand, watch the pull
+// get NAMED, then give it back to auto.
+await page.locator('.map .node[data-id="site:3"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(200);
 await page.locator('.crew button', { hasText: '+' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no way to post a hand at a works'));
-await page.waitForTimeout(200);
+  .catch(() => misses.push('no way to set hands at a works'));
+await page.waitForTimeout(250);
 const posted = await panel();
-console.log('  posted  :', `"${posted.slice(0, 70)}"`);
-if (!/1 posted/.test(posted)) {
-  misses.push(`a posted hand does not read back: "${posted.slice(0, 60)}"`);
+console.log('  posted  :', `"${posted.slice(0, 90)}"`);
+if (!/set by hand/.test(posted)) {
+  misses.push(`a hand-set works does not say so: "${posted.slice(0, 60)}"`);
 }
-await page.locator('.crew button', { hasText: '−' }).click({ timeout: 2000 }).catch(() => {});
-await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+if (!/hands \d of \d/.test(posted)) {
+  misses.push(`hands are not whole numbers on screen: "${posted.slice(0, 60)}"`);
+}
+if (!/a hand left /.test(posted)) {
+  misses.push(`the pull was silent again: "${posted.slice(0, 60)}"`);
+}
+await page.locator('.crew .autoback').click({ timeout: 2000 })
+  .catch(() => misses.push('no way back to auto staffing'));
+await page.waitForTimeout(200);
+if (/set by hand/.test(await panel())) {
+  misses.push('auto did not take the works back');
+}
+await page.locator('.map .node[data-id="site:3"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(200);
 console.log('  grows   : waiting one growth beat…');
 await page.waitForTimeout(13000);

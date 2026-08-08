@@ -1091,8 +1091,8 @@ runs end at the goblins' seat, finishing founds the next valley, the
 veteran hero is the only keepsake. All four standing rulings APPROVED.
 
 **The build queue, one per session, in order:**
-1. WHOLE-PEOPLE STAFFING — integer hands, pins that zero a works,
-   pulls announced. (Kills the 0.7-hands confusion cluster.)
+1. ~~WHOLE-PEOPLE STAFFING~~ ✔ shipped: integer hands, held works,
+   named pulls, auto-back.
 2. PATHS TAKE TIME — a short laying animation; nothing else changes.
 3. AUTO-RESOLVE LONE STRIKES — a fight offering only Strike plays
    itself round by round (owner bent the no-idle decree for

@@ -228,6 +228,21 @@
     return '';
   })());
 
+  /** Set hands ±1 and SAY where the person came from — the owner: the
+   *  pull used to happen silently and it read as a bug. */
+  function pinAt(id: number, d: 1 | -1): void {
+    const before = new Map(f.hands);
+    act({ type: 'pin', id, d });
+    if (d > 0) {
+      for (const [sid, w] of flow(game).hands) {
+        if (sid !== id && w < (before.get(sid) ?? 0) - 1e-9) {
+          won = `a hand left ${SITE.get(sid)?.name}`;
+          break;
+        }
+      }
+    }
+  }
+
   function doTap(id: string): void {
     awayLine = null;
     won = null;
@@ -377,12 +392,15 @@
           <!-- ★ POSTED HANDS — the owner's ask. Pins win the pool; freeing
                them returns everyone to farms-first auto. -->
           <div class="crew">
-            <button onclick={() => act({ type: 'pin', id: picked!, d: -1 })}
-              disabled={!(game.crew[picked] ?? 0)}>−</button>
-            <span>hands {(f.hands.get(picked) ?? 0).toFixed(1)} of {(game.stacks[picked] ?? 0) * CREW}{
-              (game.crew[picked] ?? 0) > 0 ? ` · ${game.crew[picked]} posted` : ''}</span>
-            <button onclick={() => act({ type: 'pin', id: picked!, d: 1 })}
-              disabled={(game.crew[picked] ?? 0) >= (game.stacks[picked] ?? 0) * CREW}>+</button>
+            <button onclick={() => pinAt(picked!, -1)}
+              disabled={(f.hands.get(picked) ?? 0) <= 0 && game.crew[picked] !== undefined}>−</button>
+            <span>hands {f.hands.get(picked) ?? 0} of {(game.stacks[picked] ?? 0) * CREW}{
+              game.crew[picked] !== undefined ? ' · set by hand' : ''}</span>
+            <button onclick={() => pinAt(picked!, 1)}
+              disabled={(game.crew[picked] ?? Math.round(f.hands.get(picked) ?? 0)) >= (game.stacks[picked] ?? 0) * CREW}>+</button>
+            {#if game.crew[picked] !== undefined}
+              <button class="autoback" onclick={() => act({ type: 'free', id: picked! })}>auto</button>
+            {/if}
           </div>
         {/if}
         {#each deeds as d (d.label)}
@@ -439,6 +457,7 @@
   .crew button { font: inherit; font-size: 18px; line-height: 1; width: 34px; height: 34px;
     border: 1px solid #d8d0bf; border-radius: 10px; background: #fdfaf2; }
   .crew button:disabled { color: #c9c1ae; }
+  .crew .autoback { width: auto; font-size: 13px; padding: 0 10px; color: #6b6353; }
   .away { margin: 4px 0 8px; font-size: 14px; font-weight: 600; color: #1f6b3a;
     border: 1px solid #cfe2cd; background: #eef5ec; border-radius: 10px; padding: 8px 10px; }
 </style>

@@ -221,18 +221,38 @@ describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
     expect(f.stone).toBeCloseTo(2 * RATE.quarry, 9);
   });
 
-  it('the pin action clamps to the works, the pool, and the floor', () => {
+  it('★ the first touch takes over from auto at TODAY\'S hands', () => {
+    // Auto gives the lone quarry both people; one '−' takes over at 2 and
+    // steps to 1 — no surprise jumps from zero.
     let g: City = { ...initial(), pop: 2, stacks: { 1: 1 },
       paths: { [pathKey(0, 1)]: 1 } };
-    g = apply(g, { type: 'pin', id: 1, d: 1 });
-    g = apply(g, { type: 'pin', id: 1, d: 1 });
-    expect(g.crew[1]).toBe(2);
-    // Third pin: the pool is only two people.
-    expect(apply(g, { type: 'pin', id: 1, d: 1 })).toBe(g);
+    expect(flow(g).hands.get(1)).toBe(2);
     g = apply(g, { type: 'pin', id: 1, d: -1 });
     expect(g.crew[1]).toBe(1);
-    const empty: City = { ...initial() };
-    expect(apply(empty, { type: 'pin', id: 1, d: -1 })).toBe(empty);
+    expect(flow(g).hands.get(1)).toBe(1);
+    // Down to a HELD works: zero hands, zero output, and it stays there.
+    g = apply(g, { type: 'pin', id: 1, d: -1 });
+    expect(g.crew[1]).toBe(0);
+    expect(flow(g).stone).toBe(0);
+    expect(apply(g, { type: 'pin', id: 1, d: -1 })).toBe(g);   // floor
+    // The ceiling is the works' own slots.
+    for (let i = 0; i < 9; i++) g = apply(g, { type: 'pin', id: 1, d: 1 });
+    expect(g.crew[1]).toBe(CREW);
+    // And 'free' hands it back to auto whole.
+    g = apply(g, { type: 'free', id: 1 });
+    expect(g.crew[1]).toBeUndefined();
+    expect(flow(g).hands.get(1)).toBe(2);
+  });
+
+  it('★ every hand is a whole person, placed round-robin after the farms', () => {
+    // Five people over two quarry sites: 3 and 2, site order, no halves.
+    const g: City = { ...initial(), pop: 5, food: 999, goblins: {},
+      stacks: { 1: 1, 5: 1 },
+      paths: { [pathKey(0, 1)]: 3, [pathKey(0, 3)]: 3, [pathKey(3, 5)]: 3 } };
+    const f = flow(g);
+    expect(f.hands.get(1)).toBe(3);
+    expect(f.hands.get(5)).toBe(2);
+    for (const w of f.hands.values()) expect(Number.isInteger(w)).toBe(true);
   });
 
   it('the starving law is not overridable by a pin', () => {

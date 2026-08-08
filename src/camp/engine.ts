@@ -107,10 +107,10 @@ export interface City {
   pop: number;
   /** Fractional growth toward the next person. Never shown. */
   popPart: number;
-  /** ★ POSTED HANDS — siteId → people the player has pinned there. The
-   *  owner: *"you should be able to assign people to a building."* Pins
-   *  are filled FIRST; everyone unpinned auto-staffs farms-first, so the
-   *  default remains zero babysitting. Absent = nothing posted. */
+  /** ★ SET BY HAND — siteId → EXACTLY this many hands (0 allowed: a held
+   *  works). Absent = auto. The owner's whole-people ruling: people are
+   *  integers, a works can be emptied, and auto never touches a site you
+   *  set yourself. */
   crew: Record<number, number>;
   /** ★ Held ground: siteId → goblin strength LEFT. Absent = liberated. */
   goblins: Record<number, number>;
@@ -328,46 +328,63 @@ export interface Flow {
 export function flow(g: City): Flow {
   const comp = component(g);
 
-  // ★★ STAFFING: POSTED HANDS FIRST, then farms-first for everyone else.
-  // A pin is the player's explicit call and it wins the pool — even into
-  // a famine, where a pinned quarry still stands down (the starving law
-  // is not overridable; the wasted posted hands are drawn, not hidden).
+  // ★★ STAFFING IN WHOLE PEOPLE — the owner's ruling. Hand-set sites take
+  // EXACTLY their number first (0 is a held works); everyone left is
+  // placed one person at a time: the farms fill first, then the rest
+  // round-robin in site order. Integers everywhere, deterministic
+  // everywhere, and auto never touches a site you set yourself.
   const worked = [...comp].filter((id) => id !== 0 && (g.stacks[id] ?? 0) > 0)
     .sort((a, b) => a - b);
   const capOf = (id: number): number => (g.stacks[id] ?? 0) * CREW;
-  const pinned = new Map<number, number>();
-  let pinSum = 0;
-  for (const id of worked) {
-    const p = Math.min(g.crew[id] ?? 0, capOf(id), Math.max(0, g.pop - pinSum));
-    pinned.set(id, p);
-    pinSum += p;
-  }
-  let farmRem = 0;
-  let otherRem = 0;
-  for (const id of worked) {
-    const remCap = capOf(id) - (pinned.get(id) ?? 0);
-    if (SITE.get(id)!.allows === 'farm') farmRem += remCap;
-    else otherRem += remCap;
-  }
-  const remPop = Math.max(0, g.pop - pinSum);
-  const farmFrac = farmRem > 0 ? Math.min(1, remPop / farmRem) : 1;
-  const afterFarms = Math.max(0, remPop - farmRem);
-  const staff = otherRem > 0 ? Math.min(1, afterFarms / otherRem) : 1;
-
   const hands = new Map<number, number>();
+  let pool = Math.floor(g.pop);
+  const autos: number[] = [];
+  for (const id of worked) {
+    if (g.crew[id] !== undefined) {
+      const w = Math.min(g.crew[id]!, capOf(id), pool);
+      hands.set(id, w);
+      pool -= w;
+    } else {
+      hands.set(id, 0);
+      autos.push(id);
+    }
+  }
+  for (const id of autos) {                          // the fields eat first
+    if (SITE.get(id)!.allows !== 'farm') continue;
+    const take = Math.min(capOf(id) - hands.get(id)!, pool);
+    hands.set(id, hands.get(id)! + take);
+    pool -= take;
+  }
+  const rest = autos.filter((id) => SITE.get(id)!.allows !== 'farm');
+  let placed = true;
+  while (pool > 0 && placed) {                       // one person at a time
+    placed = false;
+    for (const id of rest) {
+      if (pool <= 0) break;
+      if (hands.get(id)! < capOf(id)) {
+        hands.set(id, hands.get(id)! + 1);
+        pool -= 1;
+        placed = true;
+      }
+    }
+  }
+  let otherSlots = 0;
+  let otherHands = 0;
+  for (const id of rest) {
+    otherSlots += capOf(id);
+    otherHands += hands.get(id)!;
+  }
+  const staff = otherSlots > 0 ? otherHands / otherSlots : 1;
+
   const made = new Map<number, number>();
   let farmRaw = 0;
   for (const id of worked) {
     const st = SITE.get(id)!;
-    const isFarm = st.allows === 'farm';
-    const remCap = capOf(id) - (pinned.get(id) ?? 0);
-    const w = (pinned.get(id) ?? 0) + remCap * (isFarm ? farmFrac : staff);
-    hands.set(id, w);
     const base = st.allows === 'quarry' ? RATE.quarry
       : st.allows === 'lumber' ? RATE.lumber
       : st.allows === 'farm' ? RATE.farm : RATE.sawmill;
-    made.set(id, w * base);
-    if (isFarm) farmRaw += w * base;
+    made.set(id, hands.get(id)! * base);
+    if (st.allows === 'farm') farmRaw += hands.get(id)! * base;
   }
   const starving = g.food <= 0.001 && hunger(g) > farmRaw + 1e-9;
   if (starving) {
@@ -531,8 +548,10 @@ export type Action =
   | { type: 'lay'; a: number; b: number }
   /** Raise the NEXT copy of this site's works (a hut, at the camp). */
   | { type: 'raise'; id: number }
-  /** Post a hand at a works (+1) or free one (−1). Pins win the pool. */
+  /** Set a works' hands by ±1 — the first touch takes over from auto. */
   | { type: 'pin'; id: number; d: 1 | -1 }
+  /** Give a hand-set works back to the auto staffing. */
+  | { type: 'free'; id: number }
   /** Buy the next tier of the hero's arms, from the stores. */
   | { type: 'arm' }
   /** Send the hero at held ground — the fight opens. */
@@ -620,15 +639,20 @@ export function apply(g: City, a: Action): City {
     }
 
     case 'pin': {
-      const have = g.crew[a.id] ?? 0;
+      // From auto, the first touch takes over at TODAY'S hands and steps
+      // from there; a held works can go all the way to zero.
       const cap = (g.stacks[a.id] ?? 0) * CREW;
-      let pinSum = 0;
-      for (const v of Object.values(g.crew)) pinSum += v;
-      const next = a.d > 0
-        ? Math.min(have + 1, cap, have + Math.max(0, g.pop - pinSum))
-        : Math.max(0, have - 1);
-      if (next === have) return g;
+      const now = g.crew[a.id] ?? Math.round(flow(g).hands.get(a.id) ?? 0);
+      const next = Math.max(0, Math.min(cap, now + a.d));
+      if (g.crew[a.id] !== undefined && next === now) return g;
       return { ...g, crew: { ...g.crew, [a.id]: next } };
+    }
+
+    case 'free': {
+      if (g.crew[a.id] === undefined) return g;
+      const crew = { ...g.crew };
+      delete crew[a.id];
+      return { ...g, crew };
     }
 
     case 'arm': {
