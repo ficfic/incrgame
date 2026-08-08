@@ -137,6 +137,35 @@ if (c0.cx < 0 || Math.abs(c1.cx - c0.cx) < 0.4) {
   misses.push(`the carriers do not walk: centre ${c0.cx} → ${c1.cx}`);
 }
 
+// -------------------------------------------- the pines, chopped by hand --
+console.log('\nTHE CHOP');
+// The soft-lock check: from a fresh-ish town, the FIRST lumberworks must
+// be reachable on screen — path to the pines, chop eight logs by hand,
+// raise. If the chop deed ever leaves the pines' panel, this goes red.
+for (let t = 0; t < 14; t++) await page.locator('.spring').click();
+await page.locator('.map .node[data-id="site:2"]').click({ timeout: 2000 }).catch(() => {});
+await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
+  .catch(() => misses.push('no path deed at the pines'));
+await page.waitForTimeout(200);
+const chopDeed = page.locator('.deed', { hasText: 'Chop logs by hand' });
+if (!(await chopDeed.count())) {
+  misses.push('the pines offer no hand-chop — the lumberworks is soft-locked again');
+} else {
+  for (let t = 0; t < 33; t++) await chopDeed.click({ timeout: 800 }).catch(() => {});
+  await page.waitForTimeout(250);
+  const logsNow = Number((await header()).match(/(\d+)\s*logs/)?.[1] ?? NaN);
+  console.log('  chopped :', `${logsNow} logs by hand`);
+  if (!(logsNow >= 8)) misses.push(`33 chops left only ${logsNow} logs`);
+  await page.locator('.deed', { hasText: 'Lumberworks ×1' }).click({ timeout: 2000 })
+    .catch(() => misses.push('eight logs in hand and the lumberworks still refuses'));
+  await page.waitForTimeout(250);
+  const raised = await page.locator('.panel h2').textContent();
+  console.log('  raised  :', `"${raised.trim()}"`);
+  if (!/Lumberworks ×1/.test(raised)) {
+    misses.push(`the first lumberworks did not stand: "${raised.trim()}"`);
+  }
+}
+
 // ------------------------------------------------------- THE CHOKE, drawn --
 console.log('\nTHE CHOKE');
 await seed({ version: 5, stacks: { 1: 4 }, paths: { '0|1': 1 },

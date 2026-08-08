@@ -24,11 +24,7 @@
   const act = (a: Parameters<typeof apply>[1]): void => { game = apply(game, a); };
 
   const f = $derived(flow(game));
-  /** ★ The thumb works what you are looking at: pines chop logs by hand,
-   *  everything else chips stone — the bootstrap for the logs-priced camp. */
-  const tapKind = $derived<'stone' | 'logs'>(
-    picked !== null && !game.goblins[picked]
-      && SITE.get(picked)?.allows === 'lumber' ? 'logs' : 'stone');
+
   const cap = $derived(popCap(game));
   /** Planks the mills can actually deliver right now: capacity, starved to
    *  the log supply when the pile is dry. The header never overpromises. */
@@ -138,6 +134,18 @@
         go: () => act({ type: 'assail', id: s.id }),
       });
       return out;
+    }
+    // ★ HAND WORK AT THE TREES — the owner: *"lumberworks is soft locked…
+    // there's no way to get the lumber needed."* There was, and nobody
+    // could find it (the header button quietly changed meaning). Now the
+    // chop is a deed ON the pines, where a person would look for it.
+    if (s.allows === 'lumber') {
+      out.push({
+        label: 'Chop logs by hand',
+        note: `+${TAP_STONE} logs a tap`,
+        why: null,
+        go: () => act({ type: 'tap', kind: 'logs' }),
+      });
     }
     const have = game.stacks[s.id] ?? 0;
     const why = unraisable(game, s.id);
@@ -284,9 +292,9 @@
 
 <main>
   <header>
-    <button class="spring" onclick={() => act({ type: 'tap', kind: tapKind })}>
+    <button class="spring" onclick={() => act({ type: 'tap' })}>
       <b>{Math.floor(game.stone)}</b><span>stone</span>
-      <em>+{TAP_STONE} {tapKind} a tap{f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}</em>
+      <em>+{TAP_STONE} a tap{f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}</em>
     </button>
     <span class="keep">{Math.floor(game.logs)} logs</span>
     <span class="keep">{Math.floor(game.planks)} planks{planksNow > 0 ? ` +${planksNow.toFixed(1)}/s` : ''}</span>
