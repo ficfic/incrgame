@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
   unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
   TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
+  PATH_COST, PATH_SECS,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
 
@@ -168,12 +169,32 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
     expect(f.choked.size).toBe(0);
   });
 
-  it('widening pays the gauge curve and stops at the widest', () => {
+  it('★ a path takes TIME: paid up front, filling on the tick, carrying nothing yet', () => {
+    let g: City = { ...initial(), stone: 99, pop: 9, food: 999,
+      stacks: { 1: 2 } };
+    g = apply(g, { type: 'lay', a: 0, b: 1 });
+    expect(g.stone).toBeCloseTo(99 - PATH_COST, 9);
+    expect(g.paths[pathKey(0, 1)]).toBeUndefined();
+    expect(g.laying[pathKey(0, 1)]).toEqual({ left: PATH_SECS, secs: PATH_SECS });
+    expect(flow(g).stone).toBe(0);                       // not carrying yet
+    expect(unlayable(g, 0, 1)).toBe('already laying');   // no double spades
+    g = tick(g, PATH_SECS / 2);
+    expect(g.laying[pathKey(0, 1)]!.left).toBeCloseTo(PATH_SECS / 2, 6);
+    g = tick(g, PATH_SECS);
+    expect(g.paths[pathKey(0, 1)]).toBe(1);              // done mid-tick
+    expect(g.laying[pathKey(0, 1)]).toBeUndefined();
+    expect(flow(g).stone).toBeGreaterThan(0);
+  });
+
+  it('widening pays the gauge curve, takes longer, and stops at the widest', () => {
     let g: City = { ...initial(), stone: 99, paths: { [pathKey(0, 1)]: 1 } };
     g = apply(g, { type: 'lay', a: 0, b: 1 });
-    expect(g.paths[pathKey(0, 1)]).toBe(2);
     expect(g.stone).toBeCloseTo(99 - pathCostOf(1), 9);
+    expect(g.laying[pathKey(0, 1)]!.secs).toBe(PATH_SECS * 2);
+    g = tick(g, PATH_SECS * 2 + 1);
+    expect(g.paths[pathKey(0, 1)]).toBe(2);
     g = apply(g, { type: 'lay', a: 0, b: 1 });
+    g = tick(g, PATH_SECS * 3 + 1);
     expect(unlayable(g, 0, 1)).toBe('as wide as it goes');
   });
 

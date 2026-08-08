@@ -1093,7 +1093,8 @@ veteran hero is the only keepsake. All four standing rulings APPROVED.
 **The build queue, one per session, in order:**
 1. ~~WHOLE-PEOPLE STAFFING~~ ✔ shipped: integer hands, held works,
    named pulls, auto-back.
-2. PATHS TAKE TIME — a short laying animation; nothing else changes.
+2. ~~PATHS TAKE TIME~~ ✔ shipped: 6s a gauge, the line fills, carries
+   nothing till done.
 3. AUTO-RESOLVE LONE STRIKES — a fight offering only Strike plays
    itself round by round (owner bent the no-idle decree for
    zero-choice moments, on the record).

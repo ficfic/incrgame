@@ -20,6 +20,13 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
     if (g[k] !== undefined && !num(g[k], 0, 1e9)) return null;
   }
   if (g.stacks !== undefined && (typeof g.stacks !== 'object' || g.stacks === null)) return null;
+  if (g.laying !== undefined) {
+    if (typeof g.laying !== 'object' || g.laying === null) return null;
+    for (const v of Object.values(g.laying)) {
+      const job = v as { left: number; secs: number };
+      if (!num(job?.left, 0, 1e6) || !num(job?.secs, 0, 1e6)) return null;
+    }
+  }
   if (g.crew !== undefined) {
     if (typeof g.crew !== 'object' || g.crew === null) return null;
     for (const v of Object.values(g.crew)) if (!num(v, 0, 999)) return null;

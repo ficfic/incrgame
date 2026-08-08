@@ -95,7 +95,15 @@ if (!/no path reaches here/.test(unreached)) {
 }
 await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed lays the path home'));
+// ★ Paths take time now: the deed flips to 'Laying ·' and the line fills.
+await page.waitForTimeout(400);
+const laying = await panel();
+console.log('  laying  :', `"${laying.slice(0, 60)}"`);
+if (!/Laying · The Camp/.test(laying)) {
+  misses.push(`the spade went in silently: "${laying.slice(0, 60)}"`);
+}
 for (let t = 0; t < 22; t++) await page.locator('.spring').click();
+await page.waitForTimeout(6800);
 await page.locator('.deed', { hasText: 'Quarry ×1' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed stacks the first quarry'));
 await page.waitForTimeout(600);
@@ -148,11 +156,12 @@ await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 20
   .catch(() => misses.push('no path deed at the pines'));
 await page.waitForTimeout(200);
 const chopDeed = page.locator('.deed', { hasText: 'Chop logs by hand' });
+// The chopping itself outlasts the lay — no idle wait needed here.
 if (!(await chopDeed.count())) {
   misses.push('the pines offer no hand-chop — the lumberworks is soft-locked again');
 } else {
   for (let t = 0; t < 33; t++) await chopDeed.click({ timeout: 800 }).catch(() => {});
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(4500);
   const logsNow = Number((await header()).match(/(\d+)\s*logs/)?.[1] ?? NaN);
   console.log('  chopped :', `${logsNow} logs by hand`);
   if (!(logsNow >= 8)) misses.push(`33 chops left only ${logsNow} logs`);
@@ -193,7 +202,7 @@ await page.screenshot({ path: SHOT.replace(/\.png$/, '-choked.png') });
 console.log('\nTHE WIDENING');
 await page.locator('.deed', { hasText: 'Widen · The Camp' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed widens the choked path'));
-await page.waitForTimeout(500);
+await page.waitForTimeout(13000);
 const fixedLabel = await page.locator('.panel h2').textContent();
 const amberAfter = await inked('shut');
 console.log('  title   :', `"${fixedLabel.trim()}", choke ink ${amber} → ${amberAfter}px`);
@@ -326,6 +335,7 @@ if (!/TAKEN — \+2 settlers/.test(cheer)) {
 // picked site from the fight — no second tap, that would toggle it off.
 await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
   .catch(() => misses.push('liberated ground refuses the path'));
+await page.waitForTimeout(6800);
 await page.locator('.deed', { hasText: 'Farm ×1' }).click({ timeout: 2000 })
   .catch(() => misses.push('liberated ground refuses the works'));
 await page.waitForTimeout(600);

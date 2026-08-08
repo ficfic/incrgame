@@ -7,7 +7,7 @@
   import type { Box } from '../game/layout';
   import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
-    heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW,
+    heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW, PATH_SECS,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
@@ -105,6 +105,7 @@
         if (seen.has(key)) continue;
         seen.add(key);
         const gauge = game.paths[key] ?? 0;
+        const job = game.laying[key];
         const choked = f.choked.has(key);
         // ★ The carriers tell the truth per path: an idle path in a busy
         // town shows nobody, a laden one crowds — density from the real
@@ -113,7 +114,9 @@
         const busy = gauge > 0 && carrying > 0.005;
         out.push({
           a: siteId(s.id), b: siteId(n), rel: 'road',
-          fill: gauge > 0 ? 1 : 0,
+          // A path going in FILLS from nothing; a widen keeps carrying at
+          // its old gauge while the spades work beside it.
+          fill: gauge > 0 ? 1 : job ? 1 - job.left / job.secs : 0,
           load: choked ? 1 : busy ? Math.min(1, carrying / (gauge || 1)) : 0,
           gauge,
           choked,
@@ -186,12 +189,23 @@
     for (const n of s.near) {
       const t = SITE.get(n);
       if (!t) continue;
-      const gauge = game.paths[pathKey(s.id, n)] ?? 0;
+      const key = pathKey(s.id, n);
+      const job = game.laying[key];
+      if (job) {
+        out.push({
+          label: `Laying · ${t.name}`,
+          note: `${Math.ceil(job.left)}s`,
+          why: `${Math.ceil(job.left)}s`,
+          go: () => {},
+        });
+        continue;
+      }
+      const gauge = game.paths[key] ?? 0;
       if (gauge >= MAX_GAUGE) continue;
       const w = unlayable(game, s.id, n);
       out.push({
         label: gauge === 0 ? `Path · ${t.name}` : `Widen · ${t.name} (${gauge} of ${MAX_GAUGE})`,
-        note: w ?? `${pathCostOf(gauge)} stone · carries ${((gauge + 1)).toFixed(0)}/s`,
+        note: w ?? `${pathCostOf(gauge)} stone · ${PATH_SECS * (gauge + 1)}s · carries ${((gauge + 1)).toFixed(0)}/s`,
         why: w,
         go: () => act({ type: 'lay', a: s.id, b: n }),
       });

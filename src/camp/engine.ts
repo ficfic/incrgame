@@ -97,6 +97,10 @@ export interface City {
   stacks: Record<number, number>;
   /** ★ THE CONNECTIONS — `"a|b"` → gauge 1..MAX_GAUGE. Throughput each. */
   paths: Record<string, number>;
+  /** ★ PATHS UNDER THE SPADE — key → seconds left and the whole job.
+   *  A path is LAID now, not conjured (owner's ruling): it fills on the
+   *  board over a few seconds and carries nothing until it is done. */
+  laying: Record<string, { left: number; secs: number }>;
   stone: number;
   logs: number;
   planks: number;
@@ -126,6 +130,7 @@ export const initial = (): City => ({
   version: CITY_VERSION,
   stacks: {},
   paths: {},
+  laying: {},
   stone: 0,
   logs: 0,
   planks: 0,
@@ -208,6 +213,9 @@ export const BASE: Record<Kind, Price> = {
   farm: { stone: 12 },
 };
 export const PATH_COST = 3;
+/** Seconds to lay toward each gauge: 6, then 12, then 18. Short — the
+ *  point is a path GOING IN, not a wait. */
+export const PATH_SECS = 6;
 
 /** ★ THE CURVES: a works copy is a four-hand unit bought a handful of
  *  times per site — 1.35^n bites by the third copy. Huts are the one
@@ -520,6 +528,7 @@ export function unlayable(g: City, a: number, b: number): string | null {
   if (g.goblins[a] || g.goblins[b]) {
     return `dangerous — goblins, ${Math.ceil(g.goblins[a] ?? g.goblins[b]!)} strong`;
   }
+  if (g.laying[pathKey(a, b)]) return 'already laying';
   const gauge = g.paths[pathKey(a, b)] ?? 0;
   if (gauge >= MAX_GAUGE) return 'as wide as it goes';
   if (gauge === 0) {
@@ -599,6 +608,21 @@ export function apply(g: City, a: Action): City {
       } else if (hero.part !== 0 && hero.hp >= hpMax) {
         hero = { ...hero, part: 0 };
       }
+      // ★ The spades work: every path being laid comes on by so much, and
+      // a finished one joins the network mid-tick.
+      let paths = g.paths;
+      let laying = g.laying;
+      for (const [key, job] of Object.entries(g.laying)) {
+        const left = job.left - s;
+        if (laying === g.laying) { laying = { ...g.laying }; paths = { ...g.paths }; }
+        if (left <= 0) {
+          paths[key] = (paths[key] ?? 0) + 1;
+          delete laying[key];
+        } else {
+          laying[key] = { left, secs: job.secs };
+        }
+      }
+
       // ★ Goblins regroup while nobody is on their ground — a bled holding
       // climbs back toward its spawn. Chip-flee-heal-repeat is dead.
       let goblins = g.goblins;
@@ -619,6 +643,8 @@ export function apply(g: City, a: Action): City {
         popPart,
         hero,
         goblins,
+        paths,
+        laying,
       };
     }
 
@@ -631,10 +657,11 @@ export function apply(g: City, a: Action): City {
       if (unlayable(g, a.a, a.b)) return g;
       const key = pathKey(a.a, a.b);
       const gauge = g.paths[key] ?? 0;
+      const secs = PATH_SECS * (gauge + 1);
       return {
         ...g,
         stone: g.stone - pathCostOf(gauge),
-        paths: { ...g.paths, [key]: gauge + 1 },
+        laying: { ...g.laying, [key]: { left: secs, secs } },
       };
     }
 
