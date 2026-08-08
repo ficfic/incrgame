@@ -210,13 +210,14 @@ export function component(g: City): Set<number> {
   return out;
 }
 
-/** The BFS tree toward the camp: siteId → the neighbour it ships through.
- *  Deterministic (near-lists are ordered), so the same wilderness routes
- *  the same way on every device. */
-export function routes(g: City): Map<number, number> {
+/** The BFS tree toward the given ROOTS: siteId → the neighbour it ships
+ *  through. Deterministic (near-lists and root order are ordered), so the
+ *  same wilderness routes the same way on every device. Multi-root, so
+ *  "the nearest mill" is one walk, not a distance table. */
+export function routes(g: City, roots: number[] = [0]): Map<number, number> {
   const parent = new Map<number, number>();
-  const queue = [0];
-  const seen = new Set<number>([0]);
+  const queue = [...roots];
+  const seen = new Set<number>(roots);
   for (let i = 0; i < queue.length; i++) {
     for (const n of SITE.get(queue[i]!)?.near ?? []) {
       if (!seen.has(n) && g.paths[pathKey(queue[i]!, n)]) {
@@ -238,6 +239,15 @@ export interface Flow {
   /** ★ An empty larder with unmet hunger: every works but the farms
    *  stands down until there is bread again. */
   starving: boolean;
+  /** Logs actually ARRIVING at the mills, per second — what they can saw. */
+  logsIn: number;
+  /** The mills' sawing capacity, staffed. The panel explains a starved
+   *  mill with these two numbers side by side. */
+  millCap: number;
+  /** What the mills are SAWING per second (pile included) — before the
+   *  planks meet their own path home. Shipping past it is stage 2's job;
+   *  the tick drains the pile by this. */
+  sawing: number;
   /** Per site: what its works make, and what its paths actually carry. */
   made: Map<number, number>;
   carried: Map<number, number>;
@@ -259,25 +269,20 @@ export interface Flow {
  *  is a later slice, priced only when this one proves fun. */
 export function flow(g: City): Flow {
   const comp = component(g);
-  const parent = routes(g);
+
+  // Staffing: farm-first, then the rest — see THE FIELDS EAT FIRST above.
   const made = new Map<number, number>();
   let jobs = 0;
   for (const id of comp) {
-    const s = SITE.get(id)!;
+    const st = SITE.get(id)!;
     const n = g.stacks[id] ?? 0;
     if (id === 0 || n <= 0) continue;
     jobs += n;
-    const base = s.allows === 'quarry' ? RATE.quarry
-      : s.allows === 'lumber' ? RATE.lumber
-      : s.allows === 'farm' ? RATE.farm : RATE.sawmill;
+    const base = st.allows === 'quarry' ? RATE.quarry
+      : st.allows === 'lumber' ? RATE.lumber
+      : st.allows === 'farm' ? RATE.farm : RATE.sawmill;
     made.set(id, n * base);
   }
-  // ★★ THE FIELDS EAT FIRST — staffing priority, 2026-08-08, from the
-  // owner's playtest: *"i reached starving state… building more farms
-  // didn't help."* It didn't, because every idle quarry job was diluting
-  // the farm's share of hands. Now people fill the FARMS first, whole,
-  // and whatever is left staffs the rest — so another farm always means
-  // more bread, exactly what a player reaches for in a famine.
   let farmJobs = 0;
   for (const id of comp) {
     if (SITE.get(id)!.allows === 'farm') farmJobs += g.stacks[id] ?? 0;
@@ -289,58 +294,113 @@ export function flow(g: City): Flow {
   for (const [id, m] of made) {
     if (SITE.get(id)!.allows === 'farm') farmRaw += m * farmStaff;
   }
-  // ★ STARVING: the larder is empty and the fields alone cannot keep up.
-  // Everyone but the farmers stands down — and BECAUSE the farms keep
-  // their hands, a famine is always recoverable, never a spiral.
   const starving = g.food <= 0.001 && hunger(g) > farmRaw + 1e-9;
   for (const [id, m] of made) {
     const isFarm = SITE.get(id)!.allows === 'farm';
     made.set(id, isFarm ? m * farmStaff : m * staff * (starving ? 0 : 1));
   }
 
-  // Load every edge with the producers routed over it, then scale each
-  // producer by its worst edge. One pass — a choke wastes, it does not
-  // reroute; rerouting is the PLAYER's move, with a wider or a second path.
-  const load = new Map<string, number>();
-  const walk = (id: number): string[] => {
+  // ★★ MESH ROUTING, 2026-08-08 — the owner: *"there should be a reason to
+  // connect stuff to each other as opposed to just center."* There is now:
+  // LOGS travel to the NEAREST MILL, planks travel mill → camp, everything
+  // else travels → camp — each along its own shortest chain, all sharing
+  // every path\'s capacity. Pines wired straight to the river ship without
+  // touching the camp\'s own edges; a star pays for the detour in chokes.
+  const mills = [...comp].filter((id) =>
+    SITE.get(id)!.allows === 'sawmill' && (g.stacks[id] ?? 0) > 0).sort((a, b) => a - b);
+  const toCamp = routes(g);
+  const toMill = mills.length ? routes(g, mills) : toCamp;
+  const walk = (from: number, parent: Map<number, number>, roots: Set<number>): string[] => {
     const out: string[] = [];
-    for (let at = id; at !== 0; at = parent.get(at)!) {
-      if (!parent.has(at)) return out;
-      out.push(pathKey(at, parent.get(at)!));
+    for (let at = from; !roots.has(at);) {
+      const next = parent.get(at);
+      if (next === undefined) return out;
+      out.push(pathKey(at, next));
+      at = next;
     }
     return out;
   };
+  const campRoot = new Set([0]);
+  const millRoot = new Set(mills.length ? mills : [0]);
+
+  // STAGE 1 — the raw goods: stone and food to the camp, logs to the mills
+  // (or to the camp pile while no mill stands). Shared edges load together;
+  // an over-cap edge scales every flow across it and the rest is WASTE.
+  const flows: Array<{ id: number; rate: number; legs: string[]; kind: Kind }> = [];
   for (const [id, m] of made) {
-    for (const e of walk(id)) load.set(e, (load.get(e) ?? 0) + m);
+    const k = SITE.get(id)!.allows;
+    if (k === 'sawmill' || m <= 0) continue;
+    flows.push({
+      id, rate: m, kind: k,
+      legs: k === 'lumber' && mills.length
+        ? walk(id, toMill, millRoot)
+        : walk(id, toCamp, campRoot),
+    });
+  }
+  const load1 = new Map<string, number>();
+  for (const f of flows) {
+    for (const e of f.legs) load1.set(e, (load1.get(e) ?? 0) + f.rate);
   }
   const choked = new Set<string>();
   const carried = new Map<number, number>();
-  for (const [id, m] of made) {
+  let stone = 0;
+  let food = 0;
+  let logsIn = 0;
+  for (const f of flows) {
     let scale = 1;
-    for (const e of walk(id)) {
+    for (const e of f.legs) {
       const cap = (g.paths[e] ?? 0) * CARRY;
-      const l = load.get(e) ?? 0;
+      const l = load1.get(e) ?? 0;
       if (l > cap + 1e-9) {
         choked.add(e);
         scale = Math.min(scale, cap / l);
       }
     }
-    carried.set(id, m * scale);
+    const got = f.rate * scale;
+    carried.set(f.id, got);
+    if (f.kind === 'quarry') stone += got;
+    else if (f.kind === 'farm') food += got;
+    else logsIn += got;
   }
 
-  let stone = 0;
-  let logsIn = 0;
-  let mill = 0;
-  let food = 0;
-  for (const [id, c] of carried) {
-    const k = SITE.get(id)!.allows;
-    if (k === 'quarry') stone += c;
-    else if (k === 'lumber') logsIn += c;
-    else if (k === 'farm') food += c;
-    else if (k === 'sawmill') mill += c;
+  // STAGE 2 — the planks, mill → camp, over whatever the raw goods left of
+  // each path. Sawing is not limited by shipping; planks that cannot ship
+  // are waste, the same rule as everything else, and the choke is drawn.
+  let millCap = 0;
+  for (const id of mills) millCap += made.get(id) ?? 0;
+  const sawing = mills.length
+    ? Math.min(millCap, logsIn + (g.logs > 0.001 ? millCap : 0))
+    : 0;
+  let planks = 0;
+  if (sawing > 0) {
+    const load2 = new Map<string, number>();
+    const legsOf = new Map<number, string[]>();
+    for (const id of mills) {
+      const share = sawing * ((made.get(id) ?? 0) / millCap);
+      const legs = walk(id, toCamp, campRoot);
+      legsOf.set(id, legs);
+      for (const e of legs) load2.set(e, (load2.get(e) ?? 0) + share);
+    }
+    for (const id of mills) {
+      const share = sawing * ((made.get(id) ?? 0) / millCap);
+      let scale = 1;
+      for (const e of legsOf.get(id)!) {
+        const cap = (g.paths[e] ?? 0) * CARRY;
+        const room = Math.max(0, cap - (load1.get(e) ?? 0));
+        const want = load2.get(e) ?? 0;
+        if (want > room + 1e-9) {
+          choked.add(e);
+          scale = Math.min(scale, room / want);
+        }
+      }
+      const got = share * scale;
+      carried.set(id, got);
+      planks += got;
+    }
   }
-  return { stone, logs: logsIn, planks: mill, food, starving, made, carried,
-    choked, staff, comp };
+
+  return { stone, logs: logsIn, planks, food, starving, logsIn, millCap,
+    sawing, made, carried, choked, staff, comp };
 }
 
 /** Why the next copy cannot be raised here, in plain words, or null. */
@@ -408,8 +468,11 @@ export function apply(g: City, a: Action): City {
       const f = flow(g);
       // The mills saw what arrives plus what is piled — integrated over the
       // tick, so an away-tick cannot saw planks from a pile that ran dry.
-      const cut = g.logs + f.logs * s;
-      const sawn = Math.min(f.planks * s, cut);
+      // What ships home is the SAWN amount at stage 2's ratio; the rest of
+      // a choked mill's output is waste, same rule as everything else.
+      const cut = g.logs + f.logsIn * s;
+      const sawn = Math.min((f.millCap || 0) * s, cut);
+      const shipped = f.sawing > 1e-9 ? sawn * (f.planks / f.sawing) : 0;
       // People grow toward the huts' room, one at a time — and only where
       // there is bread: past the wild's table, settlers want a stocked
       // larder before they move in. Captives are the exception (fights).
@@ -437,7 +500,7 @@ export function apply(g: City, a: Action): City {
         ...g,
         stone: g.stone + f.stone * s,
         logs: cut - sawn,
-        planks: g.planks + sawn,
+        planks: g.planks + shipped,
         food: Math.max(0, g.food + (f.food - hunger(g)) * s),
         pop,
         popPart,

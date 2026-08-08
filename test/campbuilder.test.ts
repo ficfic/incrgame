@@ -159,6 +159,60 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
   });
 });
 
+describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', () => {
+  // Same buildings both times: lumber ×3 at the pines, one mill at the
+  // river, every path gauge 1. Only the WIRING differs.
+  const town = (paths: Record<string, number>): City => ({
+    ...initial(), pop: 99, food: 999,
+    stacks: { 2: 3, 3: 1 },
+    paths,
+  });
+
+  it('★★ THE PAYOFF: a meshed town outships a star with the same buildings', () => {
+    // STAR: logs must cross the camp and then share the mill's own road —
+    // which they saturate, so the planks have no room home.
+    const star = flow(town({ [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 }));
+    // MESH: pines wired straight to the river; the mill's road home is
+    // carrying planks and nothing else.
+    const mesh = flow(town({ [pathKey(2, 3)]: 1, [pathKey(0, 3)]: 1 }));
+    expect(mesh.planks).toBeGreaterThan(star.planks);
+    expect(mesh.planks).toBeCloseTo(RATE.sawmill, 6);
+    expect(star.planks).toBeCloseTo(0, 6);
+  });
+
+  it('★ logs take the direct lane when both are wired', () => {
+    const f = flow(town({ [pathKey(0, 2)]: 1, [pathKey(2, 3)]: 1, [pathKey(0, 3)]: 1 }));
+    // 1.2/s of logs into a gauge-1 direct lane: that lane chokes, the
+    // camp's own edge does not — the logs never crossed it.
+    expect(f.choked.has(pathKey(2, 3))).toBe(true);
+    expect(f.choked.has(pathKey(0, 2))).toBe(false);
+    expect(f.choked.has(pathKey(0, 3))).toBe(false);
+  });
+
+  it('with no mill standing, logs still pile home at the camp', () => {
+    const f = flow({ ...initial(), pop: 99, food: 999,
+      stacks: { 2: 1 }, paths: { [pathKey(0, 2)]: 1 } });
+    expect(f.logsIn).toBeCloseTo(RATE.lumber, 9);
+    expect(f.planks).toBe(0);
+  });
+
+  it('★ a choked plank road wastes sawn planks — never mints them', () => {
+    // Mill fed from a pile, its road home already full of stone: the mill
+    // saws at capacity but almost nothing ships, and the tick banks only
+    // what shipped.
+    const g: City = { ...initial(), pop: 99, food: 999, logs: 50,
+      stacks: { 3: 1, 5: 4 },
+      paths: { [pathKey(0, 3)]: 1, [pathKey(3, 5)]: 3 } };
+    const f = flow(g);
+    // Scree's 1.2/s of stone crosses 3→0 and fills the gauge-1 road.
+    expect(f.choked.has(pathKey(0, 3))).toBe(true);
+    expect(f.planks).toBeLessThan(f.sawing - 1e-9);
+    const after = apply(g, { type: 'tick', secs: 10 });
+    expect(after.planks).toBeCloseTo(f.planks * 10, 4);
+    expect(after.logs).toBeCloseTo(50 - f.sawing * 10 + f.logsIn * 10, 4);
+  });
+});
+
 describe('★★ RULE 4 — the cascade: logs to planks to huts to people', () => {
   it('the mill saws what arrives, the pile never goes phantom', () => {
     // One log banked, no cutters: an hour saws exactly one log.

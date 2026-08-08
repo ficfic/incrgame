@@ -186,6 +186,10 @@
     const n = game.stacks[picked] ?? 0;
     if (n <= 0) return '';
     if (!f.comp.has(picked)) return 'no path to the camp · carries 0';
+    if (SITE.get(picked)?.allows === 'sawmill' && f.millCap > 0
+      && f.logsIn + (game.logs > 0.05 ? 1 : 0) < f.millCap - 1e-9) {
+      return `logs in ${f.logsIn.toFixed(1)}/s of ${f.millCap.toFixed(1)}/s — wire the pines closer`;
+    }
     const made = f.made.get(picked) ?? 0;
     const carried = f.carried.get(picked) ?? 0;
     if (carried < made - 1e-9) {
