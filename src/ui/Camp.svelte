@@ -317,6 +317,17 @@
     return () => cancelAnimationFrame(raf);
   });
 
+  // ★ THE FIGHT TURNS ITS OWN CRANK — the owner's ruling: *"if there is
+  // only one option, then it should be automatic."* A fight offers no
+  // real choice but Fall back, so the strikes land one a second while
+  // the panel is up. The engine stays turn-based; the shell just taps.
+  // Falling back remains YOURS, any round.
+  $effect(() => {
+    if (!ready || !game.fight) return;
+    const id = setInterval(() => act({ type: 'strike' }), 950);
+    return () => clearInterval(id);
+  });
+
   let lastSaved = '';
   $effect(() => {
     if (!ready) return;
@@ -391,13 +402,10 @@
         {@const at = game.fight.site}
         <h2>Goblins · {Math.ceil(game.goblins[at] ?? 0)}</h2>
         <p class="note">hero {game.hero.hp}/{heroMax(game)} · strikes {heroHit(game)} · they bite {GOBLINS[at]?.bite ?? 2}</p>
-        <button class="deed face" onclick={() => act({ type: 'strike' })}>
-          Strike
-          <em>{Math.ceil(game.goblins[at] ?? 0)} − {heroHit(game)}</em>
-        </button>
+        <p class="note">striking — {Math.ceil(game.goblins[at] ?? 0)} − {heroHit(game)} a round</p>
         <button class="deed" onclick={() => act({ type: 'flee' })}>
           Fall back
-          <em>walk home and heal</em>
+          <em>walk home and heal — the ground keeps its wounds</em>
         </button>
       {:else if picked !== null && SITE.has(picked)}
         <h2>{nameOf(picked)}</h2>

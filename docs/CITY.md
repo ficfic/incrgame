@@ -148,3 +148,20 @@ town stays small, the LINE of towns is what grows.
 
 Prose, names, the title — the owner's, when the ban lifts. The satire
 thesis — waits until there are words at all.
+
+
+## The fight, JRPG-style *(proposed 2026-08-08 — owner picked "more options" over auto-resolve)*
+
+Deterministic, no dice, readable — and mash loses to reading:
+
+- **The goblins TELEGRAPH.** Every third answer is a WINDING-UP round —
+  the panel says so a round ahead — and the big bite lands double.
+- **Strike** — as today: 2+arms, they answer.
+- **Guard** — deal nothing, block this answer whole. The right call on a
+  wind-up, a wasted round otherwise. Reading IS the skill.
+- **Rations** — spend 3 food → +4 hero health, any round. The town's
+  larder marches with the hero; a fed town fights longer.
+- **Fall back** — unchanged, the ground keeps its wounds.
+
+Mash-strike eats every double bite and loses fights a reader wins; the
+ladders get re-simmed strike-by-strike before any number ships.
