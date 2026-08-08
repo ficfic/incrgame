@@ -7,7 +7,8 @@ import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
   unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
   TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
-  PATH_COST, PATH_SECS,
+  PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY,
+  RATION_FOOD, RATION_HP, RATION_PACK,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
 
@@ -131,18 +132,20 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     expect(tick(hurt, HEAL_SECS * 40).hero.hp).toBe(HERO_HP + 6);
   });
 
-  it('★ the deep country is winnable at the ladder: arms 6, home at 4', () => {
+  it('★ the deep country is winnable at the ladder: arms 6, read the line', () => {
     // Dark Pines (32 strong, bites 5) with the first valley won (hp 19)
-    // and Arms ×6 (strikes 8): four rounds, three bites, home at 4 — and
-    // Arms ×5 dies. Chad's +2-per-fight cadence, verified.
+    // and Arms ×6 (hit 8): thin both runts, then two blows on the wall —
+    // home at 10. Chad's +2-per-fight cadence, on the strip.
     const start = { ...initial().goblins };
     delete start[4]; delete start[5]; delete start[6];
     let g: City = { ...initial(), goblins: start,
       hero: { hp: 19, arms: 6, part: 0 } };
     g = apply(g, { type: 'assail', id: 7 });
-    for (let i = 0; i < 4 && g.fight; i++) g = apply(g, { type: 'strike' });
+    for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
+      { type: 'aim', at: 2 }, { type: 'strike' },
+      { type: 'strike' }, { type: 'strike' }] as const) g = apply(g, a);
     expect(g.goblins[7]).toBeUndefined();
-    expect(g.hero.hp).toBe(4);
+    expect(g.hero.hp).toBe(10);
   });
 });
 
@@ -398,6 +401,19 @@ describe('★ honest refusals and the save', () => {
     expect(honour({ game: { ...initial(), goblins: { 4: Infinity } },
       savedAt: 1 })).toBeNull();
   });
+
+  it('★ a mid-fight save round-trips; an old-shape fight drops, the town stays', () => {
+    const mid = apply({ ...initial(), hero: { hp: 10, arms: 1, part: 0 } },
+      { type: 'assail', id: 4 });
+    expect(honour({ game: mid, savedAt: 1 })!.game.fight).toEqual(mid.fight);
+    // The pre-strip shape ({site} alone) is not a fight any more — the
+    // save survives, the sortie is simply over.
+    const old = honour({
+      game: { ...initial(), fight: { site: 4 } as never }, savedAt: 1 });
+    expect(old).not.toBeNull();
+    expect(old!.game.fight).toBeNull();
+    expect(old!.game.pop).toBe(initial().pop);
+  });
 });
 
 describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town', () => {
@@ -445,58 +461,152 @@ describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town'
   });
 });
 
-describe('★★ THE HERO AND THE GOBLINS — Mayor of Noobtown, by the numbers', () => {
+describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', () => {
   const strike = (g: City): City => apply(g, { type: 'strike' });
+  const aim = (g: City, at: number): City => apply(g, { type: 'aim', at });
+  const armed = (arms: number, extra: Partial<City> = {}): City =>
+    apply({ ...initial(), hero: { hp: 10, arms, part: 0 }, ...extra },
+      { type: 'assail', id: 4 });
 
-  it('★ bare hands lose to Old Growth: five strikes, beaten home, ground bled', () => {
-    let g = apply(initial(), { type: 'assail', id: 4 });
-    expect(g.fight).toEqual({ site: 4 });
-    for (let i = 0; i < 5; i++) g = strike(g);
-    // hit 2 five times: 12 → 2 left; four bites of 2 land, the fifth
-    // drops the hero to zero and the fight breaks off.
-    expect(g.fight).toBeNull();
-    expect(g.hero.hp).toBe(0);
-    expect(g.goblins[4]).toBe(2);
+  it('★ assail fields THE LINE: a wall up front, two biters behind', () => {
+    const g = armed(1);
+    expect(g.fight).toEqual({ site: 4, target: 0, round: 0, packs: RATION_PACK,
+      sq: [{ hp: 6, poke: 1, kind: 'brute' },
+        { hp: 3, poke: 2, kind: 'runt' }, { hp: 3, poke: 2, kind: 'runt' }] });
+    // The squares carry the whole strength; bled ground fields less wall.
+    expect(lineOf(12, 2, 3).reduce((n, q) => n + q.hp, 0)).toBe(12);
+    expect(lineOf(5, 2, 3)).toEqual([
+      { hp: 1, poke: 1, kind: 'brute' },
+      { hp: 2, poke: 2, kind: 'runt' }, { hp: 2, poke: 2, kind: 'runt' }]);
+    expect(lineOf(1, 2, 3)[1]!.poke).toBe(0);   // no runts, no bite
   });
 
-  it('★ the two-sortie tutorial survives the regroup: heal, return, finish', () => {
-    // Beaten off the meadow at 2-strong, the hero heals for 150s — and the
-    // goblins REGROUP to 9.5 in that time. Five bare strikes still land 10:
-    // fight one stays winnable with no arms at all, by design.
-    let g: City = { ...initial(), goblins: { ...initial().goblins, 4: 2 },
-      hero: { hp: 0, arms: 0, part: 0 } };
-    expect(unassailable(g, 4)).toMatch(/^the hero heals — 0 of 10/);
-    g = tick(g, HEAL_SECS * HERO_HP + 1);
-    expect(g.hero.hp).toBe(HERO_HP);
-    expect(g.goblins[4]).toBeCloseTo(2 + GOBLIN_REGEN * (HEAL_SECS * HERO_HP + 1), 6);
-    const popBefore = g.pop;
-    g = apply(g, { type: 'assail', id: 4 });
-    for (let i = 0; i < 5 && g.fight; i++) g = strike(g);
-    // ★ LIBERATED: the goblins are gone, the ground takes works again, and
-    // two captives walked home with the hero.
+  it('★ aim is free — pick a square, no answer comes', () => {
+    const g = aim(armed(1), 1);
+    expect(g.fight!.target).toBe(1);
+    expect(g.fight!.round).toBe(0);
+    expect(g.hero.hp).toBe(10);
+    expect(aim(g, 1)).toBe(g);              // same square: no-op
+    expect(aim(g, 9)).toBe(g);              // no such square
+    const thinned = strike(aim(armed(1), 1));
+    expect(aim(thinned, 1)).toBe(thinned);  // dead square: refused
+  });
+
+  it('★★ a strike lands on the TARGET and every living square answers', () => {
+    let g = aim(armed(1), 1);
+    g = strike(g);                    // hit 3 kills the 3-hp runt whole
+    expect(g.fight!.sq[1]!.hp).toBe(0);
+    expect(g.hero.hp).toBe(10 - (1 + 2));   // wall pokes 1, live runt 2
+    g = strike(aim(g, 2));                  // second runt down
+    expect(g.hero.hp).toBe(7 - 1);          // only the wall still pokes
+  });
+
+  it('★ a dead target passes the blow to the first square standing', () => {
+    let g = strike(aim(armed(1), 1));
+    g = strike(g);                    // target 1 is dead: the wall takes it
+    expect(g.fight!.sq[0]!.hp).toBe(3);
+    expect(g.fight!.target).toBe(0);
+  });
+
+  it('★★ every third answer is a WIND-UP: double bite, said a round ahead', () => {
+    expect(windup(0)).toBe(false);
+    expect(windup(WINDUP_EVERY - 1)).toBe(true);
+    let g = strike(aim(armed(1), 1));         // answer 1: 3
+    g = strike(aim(g, 2));                    // answer 2: 1
+    expect(windup(g.fight!.round)).toBe(true);
+    g = strike(g);                            // answer 3: wall 1, DOUBLED
+    expect(g.hero.hp).toBe(10 - 3 - 1 - 2);
+  });
+
+  it('★ guard blocks the answer whole and spends the round', () => {
+    let g = strike(aim(armed(1), 1));
+    g = strike(aim(g, 2));
+    const before = g.hero.hp;
+    g = apply(g, { type: 'guard' });          // the wind-up hits a shield
+    expect(g.hero.hp).toBe(before);
+    expect(g.fight!.round).toBe(3);
+    expect(g.fight!.sq[0]!.hp).toBe(6);       // and dealt nothing
+  });
+
+  it('★ rations: 3 food for 4 health, from a pack — capped, answered, finite', () => {
+    const mid: City = { ...initial(), food: 99,
+      hero: { hp: 8, arms: 1, part: 0 },
+      fight: { site: 4, sq: lineOf(12, 2, 3), target: 0, round: 0, packs: 1 } };
+    const g = apply(mid, { type: 'ration' });
+    expect(g.food).toBe(99 - RATION_FOOD);
+    // 8+4 caps at the max of 10 — then the full answer of 5 lands.
+    expect(g.hero.hp).toBe(10 - 5);
+    expect(g.fight!.packs).toBe(0);
+    expect(apply(g, { type: 'ration' })).toBe(g);          // pack empty
+    const broke: City = { ...mid, food: 1 };
+    expect(apply(broke, { type: 'ration' })).toBe(broke);  // larder empty
+    expect(armed(1).fight!.packs).toBe(RATION_PACK);       // stocked at the gate
+  });
+
+  it('★★ FIGHT ONE, played readably at Arms ×1: thin the runts, win at 4', () => {
+    let g = armed(1);
+    for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
+      { type: 'aim', at: 2 }, { type: 'strike' },
+      { type: 'strike' }, { type: 'strike' }] as const) g = apply(g, a);
+    // ★ LIBERATED: goblins gone, captives home, the ground takes works.
     expect(g.goblins[4]).toBeUndefined();
     expect(g.fight).toBeNull();
-    expect(g.pop).toBe(popBefore + CAPTIVES);
-    expect(g.hero.hp).toBe(2);
+    expect(g.pop).toBe(initial().pop + CAPTIVES);
+    expect(g.hero.hp).toBe(4);
     expect(unraisable({ ...g, stone: 99 }, 4)).toBe('no path reaches here');
     expect(unraisable({ ...g, stone: 99, paths: { [pathKey(0, 4)]: 1 } }, 4)).toBeNull();
+  });
+
+  it('★★ MASH-ATTACK loses the same fight: wail on the wall, the runts eat you', () => {
+    let g = armed(1);
+    for (let i = 0; i < 9 && g.fight; i++) g = strike(g);
+    // Wall first (2 strikes, full pokes), then one runt — and the third
+    // answer is the wind-up: 4 through a hero on 1. Beaten home.
+    expect(g.fight).toBeNull();
+    expect(g.hero.hp).toBe(0);
+    expect(g.goblins[4]).toBe(3);             // the ground keeps its wounds
+  });
+
+  it('★ bare hands lose even played well — Arms ×1 is fight one\'s gate', () => {
+    let g = armed(0);
+    for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
+      { type: 'strike' }, { type: 'guard' },
+      { type: 'aim', at: 2 }, { type: 'strike' }] as const) g = apply(g, a);
+    expect(g.fight).toBeNull();               // the fourth answer ends it
+    expect(g.hero.hp).toBe(0);
+    expect(g.goblins[4]).toBe(6 + 1);         // wall whole, runt bled
+  });
+
+  it('★ FIGHT TWO holds the +2 cadence: Arms ×2 wins the slope read right', () => {
+    const { 4: _, ...rest } = initial().goblins;
+    let g: City = { ...initial(), goblins: rest,
+      hero: { hp: 13, arms: 2, part: 0 } };
+    g = apply(g, { type: 'assail', id: 5 });
+    expect(g.fight!.sq).toEqual([{ hp: 10, poke: 1, kind: 'brute' },
+      { hp: 4, poke: 3, kind: 'runt' }, { hp: 4, poke: 3, kind: 'runt' }]);
+    for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
+      { type: 'aim', at: 2 }, { type: 'strike' }, { type: 'strike' },
+      { type: 'strike' }, { type: 'strike' }] as const) g = apply(g, a);
+    expect(g.goblins[5]).toBeUndefined();
+    expect(g.hero.hp).toBe(5);
+  });
+
+  it('★ beaten home and fall back both leave the squares\' wounds on the ground', () => {
+    let g = strike(aim(armed(1), 1));         // runt 1 dead, hp 7
+    g = strike(g);                            // wall 6 → 3, hp 7-3=4
+    const fled = apply(g, { type: 'flee' });
+    expect(fled.fight).toBeNull();
+    expect(fled.goblins[4]).toBe(3 + 0 + 3);  // wall 3, runts 0 and 3
+    expect(fled.hero.hp).toBe(4);             // wounds walk home too
   });
 
   it('★ goblins regroup while unengaged — never mid-fight, never past spawn', () => {
     const bled: City = { ...initial(), goblins: { ...initial().goblins, 4: 2 } };
     expect(tick(bled, 100).goblins[4]).toBeCloseTo(7, 6);
     expect(tick(bled, 9999).goblins[4]).toBe(12);          // capped at spawn
-    const fighting: City = { ...bled, fight: { site: 4 } };
+    const fighting = apply({ ...bled, goblins: { ...bled.goblins, 4: 2 } },
+      { type: 'assail', id: 4 });
     expect(tick(fighting, 100).goblins[4]).toBe(2);        // pinned by the fight
-  });
-
-  it('★★ arms turn the same fight: ×1 beats the meadow whole', () => {
-    let g: City = { ...initial(), hero: { hp: 10, arms: 1, part: 0 } };
-    g = apply(g, { type: 'assail', id: 4 });
-    for (let i = 0; i < 4 && g.fight; i++) g = strike(g);
-    // hit 3: 12 → 0 in four strikes; three bites land, hp 4 stands.
-    expect(g.goblins[4]).toBeUndefined();
-    expect(g.hero.hp).toBe(4);
   });
 
   it('arms cost both currencies on a steeper curve, and arm() pays it', () => {
@@ -516,14 +626,14 @@ describe('★★ THE HERO AND THE GOBLINS — Mayor of Noobtown, by the numbers'
     const mid = apply(initial(), { type: 'assail', id: 4 });
     expect(unassailable(mid, 5)).toBe('the hero is already fighting');
     expect(apply(mid, { type: 'assail', id: 5 })).toBe(mid);
-    expect(apply(mid, { type: 'flee' }).fight).toBeNull();
+    const hurt: City = { ...initial(), hero: { hp: 3, arms: 0, part: 0 } };
+    expect(unassailable(hurt, 4)).toMatch(/^the hero heals — 3 of 10/);
   });
 
   it('no healing mid-fight — the wound is the fight\'s clock', () => {
-    let g = apply(initial(), { type: 'assail', id: 4 });
-    g = strike(g);
-    expect(g.hero.hp).toBe(8);
+    let g = strike(armed(1));
+    expect(g.hero.hp).toBe(5);        // full line answers a wall-strike
     g = tick(g, 300);
-    expect(g.hero.hp).toBe(8);
+    expect(g.hero.hp).toBe(5);
   });
 });

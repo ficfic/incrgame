@@ -1095,9 +1095,11 @@ veteran hero is the only keepsake. All four standing rulings APPROVED.
    named pulls, auto-back.
 2. ~~PATHS TAKE TIME~~ ✔ shipped: 6s a gauge, the line fills, carries
    nothing till done.
-3. AUTO-RESOLVE LONE STRIKES — a fight offering only Strike plays
-   itself round by round (owner bent the no-idle decree for
-   zero-choice moments, on the record).
+3. ~~AUTO-RESOLVE LONE STRIKES~~ VOIDED by the owner mid-queue ("jrpg
+   style or something"), replaced by → ~~THE BATTLE STRIP~~ ✔ shipped:
+   one hero square vs wall + two runts, Attack/Guard/Rations/Fall back,
+   free aim, wind-up every third answer, solver-verified ladder
+   (win at arms tier, lose at −1, mash loses).
 4. VISUAL SESSION — building icons on the map, label clipping at the
    edges, compact fight/deed layout.
 5. REGION 3 — its own food artery (chad's ~55-65 wall) + the iron rung.

@@ -272,26 +272,36 @@ if (!/3\/6 people/.test(grown)) {
 console.log('\nTHE HERO');
 await seed({ version: 5, stacks: { 1: 1 }, paths: { '0|1': 1 },
   stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0 });
-// Bare hands at Old Growth: five strikes, beaten home, the ground bled.
+// The battle strip: one square left, three right — and MASH LOSES.
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(200);
 const sendNote = await panel();
 console.log('  offers  :', `"${sendNote.slice(0, 70)}"`);
-if (!/strikes 2 · they bite 2/.test(sendNote)) {
+if (!/hits 2 · their runts bite 2/.test(sendNote)) {
   misses.push(`the held ground does not quote the fight: "${sendNote.slice(0, 60)}"`);
 }
 await page.locator('.deed', { hasText: 'Send the hero' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed sends the hero'));
 await page.waitForTimeout(250);
+const squares = await page.$$eval('.strip .sq', (n) => n.length);
+console.log('  strip   :', `${squares} squares on the strip`);
+if (squares !== 4) misses.push(`the strip fields ${squares} squares — wanted 1 + 3`);
+const rationBtn = page.locator('.deed', { hasText: 'Rations' });
+if (!(await rationBtn.isDisabled().catch(() => false))) {
+  misses.push('an empty larder still offers rations');
+}
 await page.screenshot({ path: SHOT.replace(/\.png$/, '-fight.png') });
-for (let i = 0; i < 5; i++) {
-  await page.locator('.deed.face', { hasText: 'Strike' }).click({ timeout: 1500 }).catch(() => {});
+// Bare hands, Attack-Attack-Attack into the wall: the runts eat you.
+for (let i = 0; i < 4; i++) {
+  const bt = page.locator('.deed', { hasText: 'Attack' });
+  if (!(await bt.count())) break;
+  await bt.click({ timeout: 1500 }).catch(() => {});
   await page.waitForTimeout(120);
 }
 const beaten = await header();
-console.log('  beaten  :', `"${beaten.slice(30, 110)}"`);
+console.log('  mashed  :', `"${beaten.slice(30, 110)}"`);
 if (!/hero 0\/10/.test(beaten)) {
-  misses.push(`five bare-handed strikes should beat the hero home: "${beaten.slice(0, 80)}"`);
+  misses.push(`mash-attacking bare-handed should beat the hero home: "${beaten.slice(0, 80)}"`);
 }
 // site:4 is STILL picked from the assail — no second tap, that toggles.
 const bled = await panel();
@@ -303,17 +313,29 @@ const namedStill = await page.locator('.map .node[data-id="site:4"]').textConten
 if (!/High Meadow/.test(namedStill)) {
   misses.push(`held ground lost its NAME to the goblins: "${namedStill.trim()}"`);
 }
-// Armed and healed, the same fight turns: liberate, then BUILD there.
+// Armed and READ RIGHT, the same fight turns: aim past the wall, thin the
+// runts, take the wind-up on the wall alone — liberate, then BUILD there.
 await seed({ version: 5, stacks: { 1: 1 }, paths: { '0|1': 1 },
   stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 }, hero: { hp: 10, arms: 1, part: 0 }, fight: null });
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
 await page.locator('.deed', { hasText: 'Send the hero' }).click({ timeout: 2000 }).catch(() => {});
-// The goblins regroup a sliver between taps now — strike until done.
-for (let i = 0; i < 7; i++) {
-  const bt = page.locator('.deed.face', { hasText: 'Strike' });
-  if (!(await bt.count())) break;
-  await bt.click({ timeout: 1500 }).catch(() => {});
+await page.waitForTimeout(200);
+const attack = page.locator('.deed', { hasText: 'Attack' });
+for (const at of [1, 2]) {
+  await page.locator(`.strip .sq.them >> nth=${at}`).click({ timeout: 1500 }).catch(() => {});
+  await page.waitForTimeout(120);
+  await attack.click({ timeout: 1500 }).catch(() => {});
+  await page.waitForTimeout(120);
+}
+// Both runts down; the third answer is the wind-up — the strip says so.
+const warn = await panel();
+console.log('  warns   :', `"${warn.slice(0, 80).replace(/\s+/g, ' ')}"`);
+if (!/WIND UP/.test(warn)) {
+  misses.push(`the wind-up is not said a round ahead: "${warn.slice(0, 80)}"`);
+}
+for (let i = 0; i < 2; i++) {
+  await attack.click({ timeout: 1500 }).catch(() => {});
   await page.waitForTimeout(120);
 }
 await page.waitForTimeout(300);

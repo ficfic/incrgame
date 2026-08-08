@@ -40,8 +40,19 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
     if (typeof g.hero !== 'object' || g.hero === null) return null;
     if (!num(g.hero.hp, 0, 99) || !num(g.hero.arms, 0, 99) || !num(g.hero.part, 0, 2)) return null;
   }
-  if (g.fight !== undefined && g.fight !== null
-    && !(typeof g.fight === 'object' && Number.isInteger((g.fight as { site: number }).site))) return null;
+  if (g.fight !== undefined && g.fight !== null) {
+    // The battle strip's whole shape, or no fight at all: an old-shape or
+    // mangled fight drops to null (fights are transient), the town stays.
+    const f = g.fight as Partial<NonNullable<City['fight']>>;
+    const sound = typeof f === 'object'
+      && Number.isInteger(f.site)
+      && Array.isArray(f.sq) && f.sq.length === 3
+      && f.sq.every(q => q && num(q.hp, 0, 9999) && num(q.poke, 0, 99)
+        && (q.kind === 'brute' || q.kind === 'runt'))
+      && Number.isInteger(f.target) && num(f.target, 0, 2)
+      && num(f.round, 0, 1e6);
+    if (!sound) g.fight = null;
+  }
   return { game: { ...initial(), ...g }, savedAt: b.savedAt };
 }
 

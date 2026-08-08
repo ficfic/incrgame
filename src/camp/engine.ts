@@ -57,23 +57,27 @@ export const SITES: readonly Site[] = [
  *  held ground shows its strength, takes no works and no paths, and the
  *  town's ONE hero clears it a fight at a time. Farther is stronger, and
  *  stronger BITES harder. */
-export const GOBLINS: Record<number, { strength: number; bite: number }> = {
-  // ⚠️ RETUNED 2026-08-08 (chad-liquidity): the knoll was a 4-tier arms
-  // cliff wearing +67% strength; 24 and 32 make the ladder a clean +2 of
-  // arms per fight — 1/2/4/6/8/10, each one-sortie at tier, dead at
-  // tier-minus-one, verified strike by strike.
-  4: { strength: 12, bite: 2 },
-  5: { strength: 18, bite: 3 },
-  6: { strength: 24, bite: 4 },
-  7: { strength: 32, bite: 5 },
-  8: { strength: 48, bite: 5 },
-  9: { strength: 60, bite: 6 },
+export const GOBLINS: Record<number,
+  { strength: number; bite: number; runt: number }> = {
+  // ⚠️ RETUNED 2026-08-08 (chad-liquidity): 24 and 32 make the ladder a
+  // clean +2 of arms per fight — 1/2/4/6/8/10.
+  // ⚠️ RETUNED AGAIN 2026-08-08 (the battle strip): `runt` is each rear
+  // square's health, pegged to the ladder's hit (2+arms) — ONE aimed
+  // strike drops a runt at tier, TWO at tier-minus-one, and those two
+  // extra full-line answers are the whole gate. Re-simmed to optimal
+  // play square by square (test: "the ladder holds").
+  4: { strength: 12, bite: 2, runt: 3 },
+  5: { strength: 18, bite: 3, runt: 4 },
+  6: { strength: 24, bite: 4, runt: 6 },
+  7: { strength: 32, bite: 5, runt: 8 },
+  8: { strength: 48, bite: 5, runt: 10 },
+  9: { strength: 60, bite: 6, runt: 12 },
 };
 
 /** ★ GOBLINS REGROUP: a bled, unengaged holding regains this much
  *  strength a second, back up to its spawn. Kills the never-arm exploit —
- *  chip, flee, heal free, repeat — everywhere except fight one, which
- *  stays the two-sortie bare-hands tutorial on purpose. */
+ *  chip, flee, heal free, repeat. (The old bare-hands two-sortie tutorial
+ *  is void: the strip gates fight one at Arms ×1, which teaches arming.) */
 export const GOBLIN_REGEN = 0.05;
 export const SITE = new Map(SITES.map((s) => [s.id, s]));
 
@@ -120,8 +124,19 @@ export interface City {
   goblins: Record<number, number>;
   /** ★ THE HERO — one, the town's own. Arms come from the stores. */
   hero: { hp: number; arms: number; part: number };
-  /** ★ A FIGHT IN PROGRESS, or null. Turn-based: every strike is yours. */
-  fight: { site: number } | null;
+  /** ★ A FIGHT IN PROGRESS, or null — the owner's own screen: our square
+   *  left, three goblin squares right. Turn-based: every round is yours.
+   *  `sq` is the line — a BRUTE up front (the mash trap) and two RUNTS
+   *  behind; `target` is which square the next attack lands on; `round`
+   *  counts their answers, and every third one is a WIND-UP. */
+  fight: {
+    site: number;
+    sq: Array<{ hp: number; poke: number; kind: 'brute' | 'runt' }>;
+    target: number;
+    round: number;
+    /** Rations left in the pack this sortie. */
+    packs: number;
+  } | null;
 }
 
 export const CITY_VERSION = 5;
@@ -148,6 +163,38 @@ export const initial = (): City => ({
 /** The hero's base health, and the pace of getting it back. */
 export const HERO_HP = 10;
 export const HEAL_SECS = 15;
+/** Every third answer, the whole line winds up and bites double. */
+export const WINDUP_EVERY = 3;
+/** Rations, mid-fight: the hero carries a PACK of them — two a sortie,
+ *  3 food each, +4 health. Limited so a stocked larder cannot out-sit a
+ *  fight the arms have not earned. */
+export const RATION_FOOD = 3;
+export const RATION_HP = 4;
+export const RATION_PACK = 2;
+
+/** ★ THE LINE a holding fields: a BRUTE up front — a wall of muscle,
+ *  most of the strength, but it only pokes 1 — and two RUNTS behind with
+ *  the site's real bite each. The brute is the default target and the
+ *  mash trap: wail on the wall and the runts eat you. A reader aims past
+ *  it, thins the runts, and guards the wind-ups. Rebuilt from CURRENT
+ *  strength, so bled ground fields less — the runts fill first. */
+export function lineOf(strength: number, bite: number, runt: number):
+  Array<{ hp: number; poke: number; kind: 'brute' | 'runt' }> {
+  const s = Math.max(1, Math.ceil(strength));
+  const r = Math.max(0, Math.min(runt, Math.floor((s - 1) / 2)));
+  return [
+    { hp: s - 2 * r, poke: 1, kind: 'brute' },
+    { hp: r, poke: r > 0 ? bite : 0, kind: 'runt' },
+    { hp: r, poke: r > 0 ? bite : 0, kind: 'runt' },
+  ];
+}
+
+/** Whether the NEXT answer is the wind-up — said a round ahead, so the
+ *  strip can warn and Defend can mean something. `round` counts answers
+ *  already taken. */
+export const windup = (round: number): boolean =>
+  (round + 1) % WINDUP_EVERY === 0;
+
 /** ★ EVERY LIBERATION TOUGHENS THE HERO: +3 health per ground freed.
  *  The deep country's bites (5s and 6s) are priced against this — arms
  *  buy the strike, the fights already won buy the surviving. */
@@ -563,12 +610,36 @@ export type Action =
   | { type: 'free'; id: number }
   /** Buy the next tier of the hero's arms, from the stores. */
   | { type: 'arm' }
-  /** Send the hero at held ground — the fight opens. */
+  /** Send the hero at held ground — the battle strip opens. */
   | { type: 'assail'; id: number }
-  /** One strike. The goblins answer. Turn-based to the bone. */
+  /** Attack the targeted square. The line answers. */
   | { type: 'strike' }
+  /** Deal nothing, block this answer whole — the wind-up's counter. */
+  | { type: 'guard' }
+  /** 3 food → +4 health, and the line still answers. */
+  | { type: 'ration' }
+  /** Pick which square the next attack lands on. Free — no round. */
+  | { type: 'aim'; at: number }
   /** Break off the fight and walk home to heal. */
   | { type: 'flee' };
+
+/** ★ THE LINE ANSWERS: every living square pokes (double on the wind-up),
+ *  unless the hero blocked. A hero poked to nothing is beaten home and the
+ *  ground keeps its wounds — a second try starts where this one bled off. */
+function answered(g: City, f: NonNullable<City['fight']>,
+  blocked: boolean): City {
+  const bite = blocked ? 0
+    : f.sq.reduce((n, q) => n + (q.hp > 0 ? q.poke : 0), 0)
+      * (windup(f.round) ? 2 : 1);
+  const hp = g.hero.hp - bite;
+  if (hp <= 0) {
+    const left = f.sq.reduce((n, q) => n + Math.max(0, q.hp), 0);
+    return { ...g, goblins: { ...g.goblins, [f.site]: left },
+      hero: { ...g.hero, hp: 0 }, fight: null };
+  }
+  return { ...g, hero: { ...g.hero, hp },
+    fight: { ...f, round: f.round + 1 } };
+}
 
 export function apply(g: City, a: Action): City {
   switch (a.type) {
@@ -695,36 +766,65 @@ export function apply(g: City, a: Action): City {
 
     case 'assail': {
       if (unassailable(g, a.id)) return g;
-      return { ...g, fight: { site: a.id } };
+      const spec = GOBLINS[a.id];
+      return { ...g, fight: {
+        site: a.id,
+        sq: lineOf(g.goblins[a.id] ?? 0, spec?.bite ?? 2, spec?.runt ?? 0),
+        target: 0,
+        round: 0,
+        packs: RATION_PACK,
+      } };
     }
 
     case 'strike': {
-      // ★★ THE WHOLE BATTLE, deterministic: your strike lands, and if any
-      // goblins stand they bite back. No dice — whether you can WIN was
-      // decided by the town that armed you, which is the design's point.
+      // ★★ Your blow falls on the TARGET (or the first square standing,
+      // if the target already fell). Deterministic — no dice; whether you
+      // can win was decided by the town that armed you.
       if (!g.fight) return g;
-      const site = g.fight.site;
-      const left = (g.goblins[site] ?? 0) - heroHit(g);
-      if (left <= 0) {
+      const f = g.fight;
+      const at = (f.sq[f.target]?.hp ?? 0) > 0
+        ? f.target : f.sq.findIndex(q => q.hp > 0);
+      if (at < 0) return g;
+      const sq = f.sq.map((q, i) =>
+        i === at ? { ...q, hp: Math.max(0, q.hp - heroHit(g)) } : q);
+      if (sq.every(q => q.hp <= 0)) {
         // ★ LIBERATED: the ground joins the town, hurt and all — and two
         // captives walk home with the hero, hungry and ready to work.
         const goblins = { ...g.goblins };
-        delete goblins[site];
+        delete goblins[f.site];
         return { ...g, goblins, fight: null, pop: g.pop + CAPTIVES };
       }
-      const hp = g.hero.hp - (GOBLINS[site]?.bite ?? 2);
-      if (hp <= 0) {
-        // Beaten home. The ground keeps what strength it has left —
-        // a second try starts where this one bled off.
-        return { ...g, goblins: { ...g.goblins, [site]: left },
-          hero: { ...g.hero, hp: 0 }, fight: null };
-      }
-      return { ...g, goblins: { ...g.goblins, [site]: left },
-        hero: { ...g.hero, hp } };
+      return answered(g, { ...f, sq, target: at }, false);
     }
 
-    case 'flee':
-      return g.fight ? { ...g, fight: null } : g;
+    case 'guard':
+      // Deal nothing, take nothing — the wind-up's counter, at the price
+      // of a round the line spends closing back up.
+      return g.fight ? answered(g, g.fight, true) : g;
+
+    case 'ration': {
+      if (!g.fight || g.fight.packs <= 0 || g.food < RATION_FOOD) return g;
+      const fed = { ...g, food: g.food - RATION_FOOD,
+        hero: { ...g.hero,
+          hp: Math.min(heroMax(g), g.hero.hp + RATION_HP) } };
+      return answered(fed, { ...g.fight, packs: g.fight.packs - 1 }, false);
+    }
+
+    case 'aim': {
+      // Free — picking a square costs no round; reading is rewarded.
+      if (!g.fight) return g;
+      const q = g.fight.sq[a.at];
+      if (!q || q.hp <= 0 || g.fight.target === a.at) return g;
+      return { ...g, fight: { ...g.fight, target: a.at } };
+    }
+
+    case 'flee': {
+      if (!g.fight) return g;
+      // Every square keeps its wounds — the ground regroups from here.
+      const left = g.fight.sq.reduce((n, q) => n + Math.max(0, q.hp), 0);
+      return { ...g, goblins: { ...g.goblins, [g.fight.site]: left },
+        fight: null };
+    }
 
     case 'raise': {
       if (unraisable(g, a.id)) return g;

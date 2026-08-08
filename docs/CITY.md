@@ -171,3 +171,16 @@ square to TARGET it. Deterministic, no dice, numbers on everything.
 
 Mash-attack ignores targeting and telegraphs and eats every double poke;
 the ladder is re-simmed square-by-square before numbers ship.
+
+**★ BUILT 2026-08-08, retuned in the sim.** The as-designed line (big
+brute biting hard up front) made brute-first the RIGHT play — mash won
+four fights of six under an exhaustive-play solver. Shipped shape: the
+front square is a WALL (most of the strength, pokes 1), the two runts
+behind carry the site's full bite, and each runt's health is pegged to
+the ladder's hit (`runt` in GOBLINS) — one aimed strike drops it at
+tier, two at tier-minus-one, and those two extra full-line answers are
+the whole gate. Rations became a pack of TWO a sortie (a stocked larder
+was out-sitting under-armed fights). Solver verdict, every rung: WIN at
+ladder arms, LOSE at −1 and −2, mash LOSES. Fight one now gates at
+Arms ×1 — the bare-hands two-sortie tutorial is void (regen outruns it),
+and the first lesson is arming, aiming past the wall, and the wind-up.

@@ -8,6 +8,7 @@
   import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW, PATH_SECS,
+    windup, RATION_FOOD, RATION_HP,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
@@ -148,7 +149,7 @@
       const why = unassailable(game, s.id);
       out.push({
         label: 'Send the hero',
-        note: why ?? `strikes ${heroHit(game)} · they bite ${GOBLINS[s.id]?.bite ?? 2}`,
+        note: why ?? `hits ${heroHit(game)} · their runts bite ${GOBLINS[s.id]?.bite ?? 2}`,
         why,
         go: () => act({ type: 'assail', id: s.id }),
       });
@@ -180,7 +181,7 @@
       const short = game.stone < p.stone || game.planks < p.planks;
       out.push({
         label: `Arms ×${game.hero.arms + 1}`,
-        note: `${p.stone} stone · ${p.planks} planks → strikes ${heroHit(game) + 1}`
+        note: `${p.stone} stone · ${p.planks} planks → hits ${heroHit(game) + 1}`
           + (game.hero.arms > 0 ? ` · ${game.hero.arms} carried` : ''),
         why: short ? `${p.stone} stone · ${p.planks} planks` : null,
         go: () => act({ type: 'arm' }),
@@ -317,16 +318,8 @@
     return () => cancelAnimationFrame(raf);
   });
 
-  // ★ THE FIGHT TURNS ITS OWN CRANK — the owner's ruling: *"if there is
-  // only one option, then it should be automatic."* A fight offers no
-  // real choice but Fall back, so the strikes land one a second while
-  // the panel is up. The engine stays turn-based; the shell just taps.
-  // Falling back remains YOURS, any round.
-  $effect(() => {
-    if (!ready || !game.fight) return;
-    const id = setInterval(() => act({ type: 'strike' }), 950);
-    return () => clearInterval(id);
-  });
+  // (The auto-strike crank is gone — the owner's reversal, 2026-08-08:
+  // the strip has real verbs now, so every round is a tap on purpose.)
 
   let lastSaved = '';
   $effect(() => {
@@ -399,10 +392,46 @@
         <p class="away">{won}</p>
       {/if}
       {#if game.fight}
-        {@const at = game.fight.site}
-        <h2>Goblins · {Math.ceil(game.goblins[at] ?? 0)}</h2>
-        <p class="note">hero {game.hero.hp}/{heroMax(game)} · strikes {heroHit(game)} · they bite {GOBLINS[at]?.bite ?? 2}</p>
-        <p class="note">striking — {Math.ceil(game.goblins[at] ?? 0)} − {heroHit(game)} a round</p>
+        {@const fi = game.fight}
+        {@const wind = windup(fi.round)}
+        {@const aimedAt = (fi.sq[fi.target]?.hp ?? 0) > 0
+          ? fi.target : fi.sq.findIndex((q) => q.hp > 0)}
+        <!-- ★ THE BATTLE STRIP — the owner's own screen: our square left,
+             their three right. Tap a square to aim; every verb is a round. -->
+        <h2>{nameOf(fi.site)} · goblins</h2>
+        <div class="strip">
+          <div class="sq us" class:low={game.hero.hp <= 3}>
+            <b>{game.hero.hp}</b>
+            <span>hero</span>
+            <em>hits {heroHit(game)}</em>
+          </div>
+          <span class="vs" class:hurt={wind}>{wind ? '⚡' : 'vs'}</span>
+          {#each fi.sq as q, i (i)}
+            <button class="sq them" class:down={q.hp <= 0}
+              class:aimed={aimedAt === i}
+              disabled={q.hp <= 0} onclick={() => act({ type: 'aim', at: i })}>
+              <b>{Math.ceil(q.hp)}</b>
+              <span>{q.kind}</span>
+              <em>{q.hp > 0 ? `pokes ${q.poke * (wind ? 2 : 1)}` : 'down'}</em>
+            </button>
+          {/each}
+        </div>
+        <p class="note" class:windnote={wind}>{wind
+          ? 'they WIND UP — this answer bites double'
+          : `their answer: ${fi.sq.reduce((n, q) => n + (q.hp > 0 ? q.poke : 0), 0)}${windup(fi.round + 1) ? ' · wind-up next' : ''}`}</p>
+        <button class="deed" onclick={() => act({ type: 'strike' })}>
+          Attack
+          <em>{heroHit(game)} into the {fi.sq[aimedAt]?.kind ?? 'line'} — then they answer</em>
+        </button>
+        <button class="deed" onclick={() => act({ type: 'guard' })}>
+          Guard
+          <em>block their whole answer, deal nothing</em>
+        </button>
+        <button class="deed" disabled={fi.packs <= 0 || game.food < RATION_FOOD}
+          onclick={() => act({ type: 'ration' })}>
+          Rations ×{fi.packs}
+          <em>{RATION_FOOD} food → +{RATION_HP} hero — they still answer</em>
+        </button>
         <button class="deed" onclick={() => act({ type: 'flee' })}>
           Fall back
           <em>walk home and heal — the ground keeps its wounds</em>
@@ -482,4 +511,22 @@
   .crew .autoback { width: auto; font-size: 13px; padding: 0 10px; color: #6b6353; }
   .away { margin: 4px 0 8px; font-size: 14px; font-weight: 600; color: #1f6b3a;
     border: 1px solid #cfe2cd; background: #eef5ec; border-radius: 10px; padding: 8px 10px; }
+  /* ★ THE BATTLE STRIP — one square left, three right. */
+  .strip { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; }
+  .sq { width: 68px; aspect-ratio: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1px; font: inherit;
+    border-radius: 12px; border: 1px solid #d8d0bf; background: #fdfaf2; }
+  .sq b { font-size: 20px; line-height: 1.1; }
+  .sq span { font-size: 11.5px; color: #6b5d3f; font-weight: 600; }
+  .sq em { font-style: normal; font-size: 10.5px; color: #8a8172; }
+  .sq.us { border-color: #1f6b3a; background: #eef5ec; }
+  .sq.us b { color: #1f6b3a; }
+  .sq.us.low { border-color: #b3452f; background: #f7e9e5; }
+  .sq.us.low b { color: #b3452f; }
+  .sq.them b { color: #7a4a2f; }
+  .sq.them.aimed { border: 2px solid #7a4a2f; background: #f4ead9; }
+  .sq.them.down { opacity: 0.35; }
+  .vs { font-size: 13px; color: #8a8172; flex: 1; text-align: center; }
+  .vs.hurt { color: #b3452f; font-size: 18px; }
+  .windnote { color: #b3452f; font-weight: 600; }
 </style>
