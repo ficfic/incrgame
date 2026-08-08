@@ -256,6 +256,7 @@
       <button class="reset porter" onclick={pasteSave}>
         {ported === 'refused' ? 'That save was refused' : 'Load a save'}
       </button>
+      <span class="keep build">{__BUILD_ID__}</span>
     {/if}
   </header>
 
@@ -303,6 +304,7 @@
   .keep { font-size: 14px; color: #6b5d3f; font-weight: 600; }
   .keep.lv { color: #1f6b3a; }
   .keep.hurt { color: #b3452f; }
+  .keep.build { color: #b0a892; font-weight: 400; font-size: 12px; }
   .reset { font: inherit; font-size: 13px; border: 1px solid #d8d0bf;
     border-radius: 10px; padding: 6px 10px; background: #efe9dc; color: #6b6353; }
   .reset.gear { margin-left: auto; }
