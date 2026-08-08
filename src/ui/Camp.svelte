@@ -340,7 +340,16 @@
 </main>
 
 <style>
-  main { display: flex; flex-direction: column; height: 100dvh; background: #efe9dc; }
+  /* ★ ONE COLUMN EVERYWHERE — the owner, off a desktop screenshot: "it's
+     very weird on desktop." The game is a phone column; a wide window gets
+     the same column, centred, not a map squeezed over furniture-sized
+     buttons. */
+  main { display: flex; flex-direction: column; height: 100dvh; background: #efe9dc;
+    max-width: 520px; margin: 0 auto; }
+  @media (min-width: 560px) {
+    main { border-inline: 1px solid #d8d0bf; box-shadow: 0 0 42px #0002; }
+    :global(body) { background: #e3dccb; }
+  }
   header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
     padding: 10px 14px; border-bottom: 1px solid #d8d0bf; }
   .spring { display: flex; align-items: baseline; gap: 6px; border: 1px solid #d8d0bf;
