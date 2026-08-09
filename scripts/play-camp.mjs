@@ -436,6 +436,40 @@ const heroLine = await header();
 if (!/hero 16\/16/.test(heroLine)) {
   misses.push(`two liberations should read hero 16/16: "${heroLine.slice(30, 90)}"`);
 }
+// -------------------------------------------------- the hand ------------
+console.log('\nTHE HAND AT A FULL STORE');
+// The leak the coherence review found: the tap obeyed no gate. Spam it at
+// a full store and the whole storehouse ladder is skippable.
+await seed({ version: 5, stacks: { 0: 1 }, paths: {},
+  stone: 60, logs: 0, planks: 0, food: 90, pop: 4, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 0, carts: 0 });
+const tapFrom = await stoneNow();
+for (let i = 0; i < 30; i++) {
+  await page.locator('header button.spring').click({ timeout: 1500 }).catch(() => {});
+}
+await page.waitForTimeout(300);
+const tapTo = await stoneNow();
+console.log('  30 taps :', `${tapFrom} → ${tapTo}`);
+if (tapTo > tapFrom) {
+  misses.push(`the hand taps past a full store: ${tapFrom} → ${tapTo} in 30 taps`);
+}
+// ...and the same hand still works the moment there is room.
+await seed({ version: 5, stacks: { 0: 1 }, paths: {},
+  stone: 60, logs: 0, planks: 0, food: 90, pop: 4, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 1, carts: 0 });
+const roomFrom = await stoneNow();
+for (let i = 0; i < 8; i++) {
+  await page.locator('header button.spring').click({ timeout: 1500 }).catch(() => {});
+}
+await page.waitForTimeout(300);
+const roomTo = await stoneNow();
+console.log('  with room:', `${roomFrom} → ${roomTo}`);
+if (!(roomTo > roomFrom)) {
+  misses.push(`the hand is dead even with room to spare: ${roomFrom} → ${roomTo}`);
+}
+
 // -------------------------------------------------- the cartwright ------
 console.log('\nTHE CARTWRIGHT');
 // A town whose paths are eating its work: the deed must be OFFERED, must

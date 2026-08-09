@@ -277,6 +277,15 @@ export const STORE_ROOM = 60;
 /** How much of each good the town can hold. */
 export const roomOf = (g: City): number =>
   STORE_BASE + STORE_ROOM * g.store;
+/** ★ PUT GOODS IN THE STORE. The ONE place a stock grows, so the hand and
+ *  the carts can never disagree about what a full store means. A stock
+ *  already over the ceiling is held rather than confiscated: it cannot
+ *  grow, it does not vanish. */
+export const stow = (g: City, was: number, now: number): number => {
+  const room = roomOf(g);
+  return now <= room ? now : Math.max(was, room);
+};
+
 /** The next storehouse's price — stone AND planks, so it competes with
  *  huts for the mill's output rather than being bought out of spare. */
 export const storeCost = (have: number): { stone: number; planks: number } => ({
@@ -869,9 +878,7 @@ export function apply(g: City, a: Action): City {
       // law the paths obey. A stock already over the cap (the store was
       // just the only thing holding it) is left alone rather than
       // confiscated; it simply cannot grow.
-      const room = roomOf(g);
-      const hold = (was: number, now: number): number =>
-        now <= room ? now : Math.max(was, room);
+      const hold = (was: number, now: number): number => stow(g, was, now);
       return {
         ...g,
         stone: hold(g.stone, g.stone + f.stone * s),
@@ -887,10 +894,27 @@ export function apply(g: City, a: Action): City {
       };
     }
 
+    // ★★★ THE HAND OBEYS THE CEILING, 2026-08-08. The coherence review:
+    // the tap obeys no gate the rest of the game obeys — and the storehouse
+    // made that strictly worse, because a full store could be tapped past
+    // its own cap forever, which makes the whole storehouse ladder
+    // skippable by spamming a button.
+    //
+    // ⚠️ IT DELIBERATELY DOES NOT OBEY THE OTHER TWO, and both exemptions
+    // are load-bearing rather than laziness:
+    //
+    //   THE PATHS — `initial()` has no paths and no works, so the hand is
+    //   the only source of the first 5 stone. Route the tap and the game
+    //   cannot be started at all.
+    //
+    //   STARVING — an empty larder halts every works but the farms. A town
+    //   with no farm yet needs 12 stone to build one, and if the hand
+    //   halted too there would be no way to earn it: a save that can never
+    //   recover. The hand is the floor under a starve, on purpose.
     case 'tap':
       return a.kind === 'logs'
-        ? { ...g, logs: g.logs + TAP_STONE }
-        : { ...g, stone: g.stone + TAP_STONE };
+        ? { ...g, logs: stow(g, g.logs, g.logs + TAP_STONE) }
+        : { ...g, stone: stow(g, g.stone, g.stone + TAP_STONE) };
 
     case 'lay': {
       if (unlayable(g, a.a, a.b)) return g;

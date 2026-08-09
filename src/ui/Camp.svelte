@@ -181,7 +181,9 @@
     if (s.allows === 'lumber') {
       out.push({
         label: 'Chop logs by hand',
-        note: `+${TAP_STONE} a tap · ${Math.floor(game.logs)} held`,
+        note: brim(game.logs)
+          ? `stores full at ${roomOf(game)} · a tap adds nothing`
+          : `+${TAP_STONE} a tap · ${Math.floor(game.logs)} held`,
         why: null,
         go: () => act({ type: 'tap', kind: 'logs' }),
       });

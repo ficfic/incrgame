@@ -293,3 +293,23 @@ unbounded, so the pair is too.
 A cart buys exactly nothing for a town whose paths already carry everything
 it makes, and 30 stone for nothing is a trap laid squarely in the first
 hour, when no path is near its cap.
+
+
+## ★★ THE HAND OBEYS THE CEILING — fixed 2026-08-08
+
+The coherence review's second finding: **the tap obeyed no gate the rest of
+the game obeys**, and the storehouse made that strictly worse — a full store
+could be tapped past its own cap forever, which makes the whole storehouse
+ladder skippable by spamming a button. The hand now goes through `stow`,
+the same single helper the tick uses, so the hand and the carts can never
+disagree about what full means.
+
+**It deliberately still ignores the other two gates, and both exemptions
+are load-bearing:**
+
+| gate | why the hand is exempt |
+|---|---|
+| the paths | `initial()` has no paths and no works. The hand is the only source of the first 5 stone; route it and the game cannot be started. |
+| starving | An empty larder halts every works but the farms. A town with no farm needs 12 stone to build one — if the hand halted too, there would be no way to earn it. **The hand is the floor under a starve.** |
+
+Both are pinned by tests that fail if a future session "fixes" them.

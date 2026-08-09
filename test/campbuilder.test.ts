@@ -1193,3 +1193,68 @@ describe('★★★ THE CARTWRIGHT — the one exponential that runs for the pla
     expect(honour({ game: old as never, savedAt: 1 })!.game.carts).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ★★★ THE HAND OBEYS THE CEILING, 2026-08-08 — the coherence review's second
+// finding: the tap obeys no gate the rest of the game obeys. The storehouse
+// made it strictly worse, so this closes the gate it broke, and PINS the two
+// gates the hand must never obey.
+// ---------------------------------------------------------------------------
+describe('★★★ THE HAND OBEYS THE CEILING — and the two gates it must not', () => {
+  it('★★★ a full store cannot be tapped past its own cap', () => {
+    // The leak: spam the button and the storehouse ladder is skippable.
+    let g: City = { ...initial(), stone: STORE_BASE - 0.25 };
+    g = apply(g, { type: 'tap' });
+    expect(g.stone).toBe(STORE_BASE);
+    for (let i = 0; i < 200; i++) g = apply(g, { type: 'tap' });
+    expect(g.stone).toBe(STORE_BASE);
+    // Logs too — the chop at the pines is the same hand.
+    let l: City = { ...initial(), logs: STORE_BASE };
+    for (let i = 0; i < 50; i++) l = apply(l, { type: 'tap', kind: 'logs' });
+    expect(l.logs).toBe(STORE_BASE);
+    // And a storehouse lifts the hand's ceiling with everything else's.
+    const roomier = apply({ ...initial(), stone: STORE_BASE, store: 1 }, { type: 'tap' });
+    expect(roomier.stone).toBe(STORE_BASE + 0.25);
+  });
+
+  it('★ a stock over the ceiling is held by the hand too, never confiscated', () => {
+    const over = apply({ ...initial(), stone: STORE_BASE * 2 }, { type: 'tap' });
+    expect(over.stone).toBe(STORE_BASE * 2);
+  });
+
+  it('★★★ THE HAND STILL WORKS WITH NO PATHS — or the game cannot be started', () => {
+    // `initial()` has no paths, no works and nothing in store. If the tap
+    // were routed like production, there would be no way to earn the first
+    // 5 stone. This test is the reason that exemption exists.
+    const fresh = initial();
+    expect(Object.keys(fresh.paths)).toHaveLength(0);
+    expect(apply(fresh, { type: 'tap' }).stone).toBe(TAP_STONE);
+    // The whole bootstrap, by hand: 5 stone buys the first quarry.
+    let g = fresh;
+    for (let i = 0; i < 20; i++) g = apply(g, { type: 'tap' });
+    expect(g.stone).toBeGreaterThanOrEqual(BASE.quarry.stone!);
+  });
+
+  it('★★★ THE HAND STILL WORKS WHILE STARVING — or a save can never recover', () => {
+    // An empty larder halts every works but the farms. A town with no farm
+    // needs 12 stone to build one; if the hand halted too, there would be
+    // no way to earn it. The hand is the floor under a starve, on purpose.
+    const starved: City = { ...initial(), pop: 20, food: 0, goblins: {},
+      stacks: { 1: 2 }, paths: { [pathKey(0, 1)]: 3 } };
+    expect(flow(starved).starving).toBe(true);
+    expect(flow(starved).stone).toBe(0);
+    expect(apply(starved, { type: 'tap' }).stone).toBe(TAP_STONE);
+    // ...and by hand alone the town can still buy its way out.
+    let g = starved;
+    for (let i = 0; i < 48; i++) g = apply(g, { type: 'tap' });
+    expect(g.stone).toBeGreaterThanOrEqual(BASE.farm.stone!);
+  });
+
+  it('the hand and the carts agree on what full means — one helper, not two', () => {
+    // Both call `stow`, so a retune can never let one drift from the other.
+    const g: City = { ...initial(), store: 2, stone: roomOf({ ...initial(), store: 2 }) };
+    expect(apply(g, { type: 'tap' }).stone).toBe(g.stone);
+    expect(tick({ ...g, pop: 9, food: 99, goblins: {}, stacks: { 1: 4 },
+      paths: { [pathKey(0, 1)]: 3 } }, 60).stone).toBe(g.stone);
+  });
+});
