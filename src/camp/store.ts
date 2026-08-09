@@ -1,6 +1,7 @@
 // THE CAMP'S SAVE. Its own key, its own shape — the old game's saves stay
 // untouched on theirs, so flipping back loses nobody anything.
-import { CITY_VERSION, initial, type City } from './engine';
+import { CITY_VERSION, GOBLINS, MAX_GAUGE, RATION_PACK, SITE, initial,
+  pathKey, type City } from './engine';
 
 const KEY = 'camp-save';
 
@@ -8,6 +9,10 @@ interface Blob { game: unknown; savedAt: number }
 
 const num = (v: unknown, lo: number, hi: number): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+/** People and buildings are WHOLE — the owner's staffing ruling, enforced
+ *  at the door as well as in the engine. */
+const whole = (v: unknown, lo: number, hi: number): v is number =>
+  num(v, lo, hi) && Number.isInteger(v);
 
 /** Refuse anything that is not a camp save. Additive fields default. */
 export function honour(b: Blob | null | undefined): { game: City; savedAt: number } | null {
@@ -19,7 +24,16 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   for (const k of ['stone', 'logs', 'planks', 'food', 'pop', 'popPart'] as const) {
     if (g[k] !== undefined && !num(g[k], 0, 1e9)) return null;
   }
-  if (g.stacks !== undefined && (typeof g.stacks !== 'object' || g.stacks === null)) return null;
+  // ⚠️ VALUES, NOT JUST SHAPES (review finding, 2026-08-08): `stacks:{1:"x"}`
+  // used to load clean, NaN-poison every rate through `flow()`, and then the
+  // NEXT save — now carrying `NaN` stone — was refused outright. A junk import
+  // silently ate the town one session later. Every map is checked to the leaf.
+  if (g.stacks !== undefined) {
+    if (typeof g.stacks !== 'object' || g.stacks === null) return null;
+    for (const [k, v] of Object.entries(g.stacks)) {
+      if (!SITE.has(Number(k)) || !whole(v, 0, 9999)) return null;
+    }
+  }
   if (g.laying !== undefined) {
     if (typeof g.laying !== 'object' || g.laying === null) return null;
     for (const v of Object.values(g.laying)) {
@@ -29,12 +43,26 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   }
   if (g.crew !== undefined) {
     if (typeof g.crew !== 'object' || g.crew === null) return null;
-    for (const v of Object.values(g.crew)) if (!num(v, 0, 999)) return null;
+    // Whole hands only — `2.5` used to load and print "hands 2.5 of 8".
+    for (const [k, v] of Object.entries(g.crew)) {
+      if (!SITE.has(Number(k)) || !whole(v, 0, 999)) return null;
+    }
   }
-  if (g.paths !== undefined && (typeof g.paths !== 'object' || g.paths === null)) return null;
+  if (g.paths !== undefined) {
+    if (typeof g.paths !== 'object' || g.paths === null) return null;
+    for (const [k, v] of Object.entries(g.paths)) {
+      // A key must name a REAL pair of neighbours in its sorted form, or the
+      // gauge is unreachable ink the component walk will never see.
+      const [a, b] = k.split('|').map(Number);
+      const near = SITE.get(a!)?.near.includes(b!);
+      if (!near || pathKey(a!, b!) !== k || !whole(v, 1, MAX_GAUGE)) return null;
+    }
+  }
   if (g.goblins !== undefined) {
     if (typeof g.goblins !== 'object' || g.goblins === null) return null;
-    for (const v of Object.values(g.goblins)) if (!num(v, 0, 9999)) return null;
+    for (const [k, v] of Object.entries(g.goblins)) {
+      if (GOBLINS[Number(k)] === undefined || !num(v, 0, 9999)) return null;
+    }
   }
   if (g.hero !== undefined) {
     if (typeof g.hero !== 'object' || g.hero === null) return null;
@@ -45,12 +73,19 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
     // mangled fight drops to null (fights are transient), the town stays.
     const f = g.fight as Partial<NonNullable<City['fight']>>;
     const sound = typeof f === 'object'
-      && Number.isInteger(f.site)
+      // ⚠️ A REAL HELD GROUND, not merely an integer: `site: 99` used to be
+      // accepted, and the panel's `SITE.get(99)!.name` then threw on the
+      // first render — a crafted save killed the whole screen.
+      && GOBLINS[f.site as number] !== undefined
       && Array.isArray(f.sq) && f.sq.length === 3
       && f.sq.every(q => q && num(q.hp, 0, 9999) && num(q.poke, 0, 99)
         && (q.kind === 'brute' || q.kind === 'runt'))
-      && Number.isInteger(f.target) && num(f.target, 0, 2)
-      && num(f.round, 0, 1e6);
+      && whole(f.target, 0, 2)
+      && whole(f.round, 0, 1e6)
+      // ⚠️ THE PACK IS THE RATION RULING. Missing, it read `undefined <= 0`
+      // → false, spent to `NaN`, and `NaN <= 0` is false forever: unlimited
+      // rations from any packless save.
+      && whole(f.packs, 0, RATION_PACK);
     if (!sound) g.fight = null;
   }
   return { game: { ...initial(), ...g }, savedAt: b.savedAt };

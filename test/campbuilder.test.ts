@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
   unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
   TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
-  PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY,
+  PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY, regenOf, catchUp, STEP_SECS, SITE,
   RATION_FOOD, RATION_HP, RATION_PACK,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
@@ -414,6 +414,57 @@ describe('★ honest refusals and the save', () => {
     expect(old!.game.fight).toBeNull();
     expect(old!.game.pop).toBe(initial().pop);
   });
+
+  // ★★ THE DOOR, 2026-08-08 (review findings). A save arrives from the
+  // owner's OTHER DEVICE through a paste box — the import is the one place
+  // a hand-made object reaches the engine, and it was letting four kinds of
+  // nonsense through. Each of these crashed, cheated, or ate the town.
+  it('★★ a fight at ground that does not exist is refused, not rendered', () => {
+    const mid = apply({ ...initial(), hero: { hp: 10, arms: 1, part: 0 } },
+      { type: 'assail', id: 4 });
+    // `site: 99` used to pass (an integer is an integer) and the panel's
+    // `SITE.get(99)!.name` then threw on first paint — a dead screen.
+    const bad = honour({ game: { ...mid,
+      fight: { ...mid.fight!, site: 99 } }, savedAt: 1 });
+    expect(bad!.game.fight).toBeNull();
+    // Site 1 is real ground but was never held: still not a fight.
+    expect(honour({ game: { ...mid, fight: { ...mid.fight!, site: 1 } },
+      savedAt: 1 })!.game.fight).toBeNull();
+  });
+
+  it('★★ a packless fight is refused — no unlimited rations', () => {
+    const mid = apply({ ...initial(), food: 99, hero: { hp: 10, arms: 1, part: 0 } },
+      { type: 'assail', id: 4 });
+    const { packs: _, ...packless } = mid.fight!;
+    // `undefined <= 0` is false, so ration() spent it to NaN, and `NaN <= 0`
+    // is false forever: the pack ruling was void on every imported save.
+    expect(honour({ game: { ...mid, fight: packless as never },
+      savedAt: 1 })!.game.fight).toBeNull();
+    expect(honour({ game: { ...mid, fight: { ...mid.fight!, packs: 1e9 } },
+      savedAt: 1 })!.game.fight).toBeNull();
+  });
+
+  it('★★ junk in stacks or paths is refused at the door, not eaten', () => {
+    // These used to load, NaN-poison every rate through flow(), and then the
+    // NEXT save — carrying NaN stone — was refused: the town died a session
+    // later, with nothing on screen to say why.
+    expect(honour({ game: { ...initial(), stacks: { 1: 'x' } as never },
+      savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), stacks: { 99: 1 } }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), stacks: { 1: 1.5 } }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), paths: { '0|1': 'x' } as never },
+      savedAt: 1 })).toBeNull();
+    // A path between sites that do not touch is ink no walk can ever reach.
+    expect(honour({ game: { ...initial(), paths: { '1|3': 1 } }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), paths: { '1|0': 1 } }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), paths: { '0|1': 9 } }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), goblins: { 1: 5 } }, savedAt: 1 })).toBeNull();
+  });
+
+  it('★ hands are WHOLE at the door too — the staffing ruling', () => {
+    expect(honour({ game: { ...initial(), crew: { 1: 2.5 } }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), crew: { 1: 2 } }, savedAt: 1 })).not.toBeNull();
+  });
 });
 
 describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town', () => {
@@ -602,7 +653,7 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
 
   it('★ goblins regroup while unengaged — never mid-fight, never past spawn', () => {
     const bled: City = { ...initial(), goblins: { ...initial().goblins, 4: 2 } };
-    expect(tick(bled, 100).goblins[4]).toBeCloseTo(7, 6);
+    expect(tick(bled, 100).goblins[4]).toBeCloseTo(2 + regenOf(4) * 100, 6);
     expect(tick(bled, 9999).goblins[4]).toBe(12);          // capped at spawn
     const fighting = apply({ ...bled, goblins: { ...bled.goblins, 4: 2 } },
       { type: 'assail', id: 4 });
@@ -635,5 +686,207 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     expect(g.hero.hp).toBe(5);        // full line answers a wall-strike
     g = tick(g, 300);
     expect(g.hero.hp).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE LADDER SOLVER — the check `engine.ts` cites. It was written to tune
+// the strip, run as a scratch file, and NOT COMMITTED, while the constant it
+// justified kept pointing at it. The review caught the phantom citation
+// (CLAUDE.md rule 4 is about exactly this), so it lives here now and runs on
+// every push. It plays each rung EXHAUSTIVELY — every aim, every guard, every
+// ration, memoised — and asks what PERFECT play achieves.
+// ---------------------------------------------------------------------------
+describe('★★★ THE LADDER HOLDS — solved, not felt', () => {
+  /** Best hp the hero can walk away with, or -1 if the fight cannot be won
+   *  by ANY line of play. Memoised on the whole fight position. */
+  function solve(start: City): number {
+    const memo = new Map<string, number>();
+    const site = start.fight!.site;
+    const best = (g: City): number => {
+      if (!g.fight) return g.goblins[site] === undefined ? g.hero.hp : -1;
+      const f = g.fight;
+      const key = `${f.sq.map((q) => q.hp)}|${g.hero.hp}|${f.round % WINDUP_EVERY}`
+        + `|${f.packs}|${Math.floor(g.food)}`;
+      const got = memo.get(key);
+      if (got !== undefined) return got;
+      memo.set(key, -1);          // a revisited position is never an improvement
+      let top = -1;
+      for (let i = 0; i < 3; i++) {
+        if ((f.sq[i]?.hp ?? 0) <= 0) continue;
+        const aimed = f.target === i ? g : apply(g, { type: 'aim', at: i });
+        top = Math.max(top, best(apply(aimed, { type: 'strike' })));
+      }
+      if (f.packs > 0 && g.food >= RATION_FOOD) {
+        top = Math.max(top, best(apply(g, { type: 'ration' })));
+      }
+      top = Math.max(top, best(apply(g, { type: 'guard' })));
+      memo.set(key, top);
+      return top;
+    };
+    return best(start);
+  }
+
+  /** The rung: every earlier ground freed, the hero full, the larder deep. */
+  const rung = (site: number, arms: number): City => {
+    const order = [4, 5, 6, 7, 8, 9];
+    const goblins: Record<number, number> = {};
+    for (const s of order.slice(order.indexOf(site))) goblins[s] = GOBLINS[s]!.strength;
+    const base: City = { ...initial(), goblins, food: 99 };
+    return apply({ ...base, hero: { hp: heroMax(base), arms, part: 0 } },
+      { type: 'assail', id: site });
+  };
+
+  /** Mash-attack: never aim, never guard, never eat. */
+  const mash = (g: City): City => {
+    let s = g;
+    for (let i = 0; i < 200 && s.fight; i++) s = apply(s, { type: 'strike' });
+    return s;
+  };
+
+  // ★ THE ARMS GATE, the whole design in one table: the ladder's own arms
+  // win it, one tier under LOSES however well you play, and mashing loses
+  // even fully armed. Change a goblin number and this is what shouts.
+  const LADDER: Array<[site: number, arms: number]> =
+    [[4, 1], [5, 2], [6, 4], [7, 6], [8, 8], [9, 10]];
+
+  for (const [site, arms] of LADDER) {
+    it(`★ ${SITE.get(site)!.name}: Arms ×${arms} wins it read right`, () => {
+      expect(solve(rung(site, arms))).toBeGreaterThan(0);
+    });
+
+    it(`★★ ${SITE.get(site)!.name}: Arms ×${arms - 1} cannot win it AT ALL`, () => {
+      expect(solve(rung(site, arms - 1))).toBe(-1);
+    });
+
+    it(`★★ ${SITE.get(site)!.name}: mash-attack loses at Arms ×${arms}`, () => {
+      expect(mash(rung(site, arms)).goblins[site]).toBeGreaterThan(0);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// ★★ THE GRIND, PRICED — the review's finding: a flat regen made
+// chip-flee-heal-repeat PAY at the deep rungs, because a sortie's damage
+// grows with arms and the wound's price did not. Regen is a fraction of
+// SPAWN now, so no holding can be ground down one rung under its gate.
+// ---------------------------------------------------------------------------
+describe('★★ THE FLEE-REGROUP GRIND PAYS NOTHING, at every rung', () => {
+  /** One cycle at `arms`: fight until beaten home or won, then heal all the
+   *  way back while the ground regroups. Net strength removed, per cycle. */
+  const cycle = (site: number, arms: number): number => {
+    const order = [4, 5, 6, 7, 8, 9];
+    const goblins: Record<number, number> = {};
+    for (const s of order.slice(order.indexOf(site))) goblins[s] = GOBLINS[s]!.strength;
+    const base: City = { ...initial(), goblins, food: 0 };
+    const max = heroMax(base);
+    let g = apply({ ...base, hero: { hp: max, arms, part: 0 } },
+      { type: 'assail', id: site });
+    const before = g.fight!.sq.reduce((n, q) => n + q.hp, 0);
+    // The grinder's best sortie: always hit the softest live square, and
+    // break off the moment the next answer would beat them home.
+    for (let i = 0; i < 200 && g.fight; i++) {
+      const f = g.fight;
+      const live = f.sq.map((q, at) => ({ ...q, at })).filter((q) => q.hp > 0);
+      const answer = live.reduce((n, q) => n + q.poke, 0) * (windup(f.round) ? 2 : 1);
+      if (answer >= g.hero.hp) { g = apply(g, { type: 'flee' }); break; }
+      const soft = live.reduce((a, b) => (a.hp <= b.hp ? a : b));
+      g = apply(apply(g, { type: 'aim', at: soft.at }), { type: 'strike' });
+    }
+    const bled = g.goblins[site] ?? 0;
+    if (bled === 0) return before;                 // took it outright
+    // Heal to full at home; the ground regroups the whole time.
+    const heal = (max - g.hero.hp) * HEAL_SECS;
+    return before - Math.min(GOBLINS[site]!.strength, bled + regenOf(site) * heal);
+  };
+
+  it('★★ one rung under the gate, every holding out-heals the grinder', () => {
+    for (const [site, arms] of [[4, 1], [5, 2], [6, 4], [7, 6], [8, 8], [9, 10]] as const) {
+      // ⚠️ THE OLD FLAT 0.05 PAID +0.75, +2.50 and +4.25 a cycle at 7, 8, 9.
+      expect(cycle(site, arms - 1),
+        `site ${site} at Arms ×${arms - 1} grinds ${cycle(site, arms - 1)} a cycle`)
+        .toBeLessThanOrEqual(0);
+    }
+  });
+
+  it('★ regen is a share of the holding\'s own spawn, not a flat rate', () => {
+    expect(regenOf(4)).toBeCloseTo(GOBLINS[4]!.strength * GOBLIN_REGEN, 9);
+    expect(regenOf(9)).toBeGreaterThan(regenOf(4));
+    // Fight one is barely touched: the tutorial's pace is the old pace.
+    expect(regenOf(4)).toBeCloseTo(0.048, 6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★ THE POCKET TIME OBEYS THE SAME RULES AS THE LIVE ONE (review finding).
+// A single twelve-hour Euler step read the town once and billed the night at
+// that reading. The away run is chunked now.
+// ---------------------------------------------------------------------------
+describe('★★ THE AWAY RUN — simulated, not estimated', () => {
+  it('★★ a town with huts and NO BREAD does not grow overnight', () => {
+    // Huts for 22, two people, an empty larder and no farm. Live play stalls
+    // at the wild's table; the old one-step away tick grew the whole town
+    // because `pop < WILD_FED` and `hunger()` were read once, at second zero.
+    const cold: City = { ...initial(), stacks: { 0: 5 }, pop: 2, food: 0 };
+    expect(popCap(cold)).toBeGreaterThan(WILD_FED);
+    expect(catchUp(cold, 12 * 3600).pop).toBe(WILD_FED);
+    // ★ AND AT ANY STEP SIZE — the ceiling is a rule of the tick, not of the
+    // chunking, so one enormous step obeys it too. (Before the fix this
+    // returned 22: the town filled its huts on an empty larder overnight.)
+    expect(tick(cold, 12 * 3600).pop).toBe(WILD_FED);
+    // Bread, and the same night fills the huts.
+    expect(catchUp({ ...cold, food: 9e5 }, 12 * 3600).pop).toBe(popCap(cold));
+  });
+
+  it('★ a path two seconds from done carries for the rest of the night', () => {
+    const laying: City = { ...initial(), stacks: { 1: 1 }, pop: 4, food: 99,
+      laying: { [pathKey(0, 1)]: { left: 2, secs: PATH_SECS } } };
+    const away = catchUp(laying, 3600);
+    expect(away.paths[pathKey(0, 1)]).toBe(1);
+    // An hour of quarrying landed, minus the two seconds of spadework.
+    expect(away.stone).toBeGreaterThan(100);
+    // The single step lays the path at the END and carries nothing at all.
+    expect(tick(laying, 3600).stone).toBe(0);
+  });
+
+  it('the chunking is invisible where nothing changes across the span', () => {
+    // No huts, no growth, one quarry: chunked and whole agree to the penny.
+    const flat: City = { ...initial(), stacks: { 1: 1 }, pop: 4, food: 0,
+      paths: { [pathKey(0, 1)]: 1 } };
+    expect(catchUp(flat, STEP_SECS * 4).stone)
+      .toBeCloseTo(tick(flat, STEP_SECS * 4).stone, 6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★ WHICH WAY THE CARRIERS WALK (review finding). The view used to guess
+// direction from site-id order, so on the mesh's own showpiece — logs going
+// OUT to a mill that sits at a higher id — the porters walked away from the
+// goods. The owner's rule: "the dots going through the paths should
+// correspond to the resources flowing there."
+// ---------------------------------------------------------------------------
+describe('★★ THE CARRIERS FOLLOW THE FLOW, not the id order', () => {
+  it('★★ logs walk OUT to the mill; planks walk back to the camp', () => {
+    // Pines(2) wired straight to the river mill(3), mill wired to camp(0).
+    const g: City = { ...initial(), pop: 99, food: 999,
+      stacks: { 2: 1, 3: 1 },
+      paths: { [pathKey(2, 3)]: 3, [pathKey(0, 3)]: 3 } };
+    const f = flow(g);
+    // pathKey(2,3) is "2|3": +1 means 2 → 3, which is pines → mill. The old
+    // id-order guess said -1 here, and the carriers walked mill → pines.
+    expect(f.dirs.get(pathKey(2, 3))).toBe(1);
+    // pathKey(0,3) is "0|3": planks run mill → camp, so 3 → 0, which is -1.
+    expect(f.dirs.get(pathKey(0, 3))).toBe(-1);
+  });
+
+  it('★ stone walks to the camp whichever end the quarry is', () => {
+    const f = flow(quarried(1, 1));
+    expect(f.dirs.get(pathKey(0, 1))).toBe(-1);      // 1 → 0
+  });
+
+  it('a path carrying nothing has no direction at all', () => {
+    const idle: City = { ...initial(), pop: 99, food: 999,
+      stacks: {}, paths: { [pathKey(0, 1)]: 1 } };
+    expect(flow(idle).dirs.has(pathKey(0, 1))).toBe(false);
   });
 });

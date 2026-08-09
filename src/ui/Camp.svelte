@@ -5,7 +5,7 @@
   import Board, { type Dot, type Line } from './Board.svelte';
   import { INK, TOL } from '../game/ink';
   import type { Box } from '../game/layout';
-  import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
+  import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW, PATH_SECS,
     windup, RATION_FOOD, RATION_HP,
@@ -124,7 +124,11 @@
           load: choked ? 1 : busy ? Math.min(1, carrying / (gauge || 1)) : 0,
           gauge,
           choked,
-          dir: busy || choked ? (n > s.id ? -1 : 1) : 0,
+          // ★ WHICH WAY THE CARRIERS WALK comes from the FLOW, not from id
+          // order (review finding): the pines→mill legs ran backwards, and
+          // the owner's rule is that the dots correspond to what is moving.
+          // Board's `dir` is signed along a→b, and a is this site.
+          dir: (f.dirs.get(key) ?? 0) * (s.id < n ? 1 : -1),
           carry: true,
         });
       }
@@ -221,7 +225,12 @@
   const status = $derived((() => {
     if (picked === null) return '';
     if (picked === 0) {
-      return `${Math.floor(game.pop)} of ${cap} people`
+      // ★ "12/10 people strange" (owner playtest) — captives walk home even
+      // when the huts are full, so pop CAN sit over the cap. The header was
+      // taught to say so; this line was not, and still read "16 of 2".
+      return (game.pop > cap
+        ? `${Math.floor(game.pop)} people · huts full`
+        : `${Math.floor(game.pop)} of ${cap} people`)
         + (hunger(game) > 0
           ? ` · eats ${hunger(game).toFixed(1)}/s · fields bring ${f.food.toFixed(1)}/s`
           : ` · the wild feeds ${WILD_FED}`)
@@ -287,7 +296,9 @@
     const back = load();
     if (back) {
       const secs = Math.min(elapsedSince(back.savedAt), 12 * 3600);
-      game = secs > 1 ? apply(back.game, { type: 'tick', secs }) : back.game;
+      // Chunked, not one giant step — the away run obeys the same starving,
+      // growth and spade rules the live run does.
+      game = secs > 1 ? catchUp(back.game, secs) : back.game;
       // ★ THE AWAY LINE — what the pocket time brought, one row of numbers.
       if (secs > 90) {
         const d = (a: number, b: number): number => Math.floor(a) - Math.floor(b);

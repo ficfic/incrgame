@@ -65,7 +65,8 @@ export const GOBLINS: Record<number,
   // square's health, pegged to the ladder's hit (2+arms) — ONE aimed
   // strike drops a runt at tier, TWO at tier-minus-one, and those two
   // extra full-line answers are the whole gate. Re-simmed to optimal
-  // play square by square (test: "the ladder holds").
+  // play square by square (test: "THE LADDER HOLDS — solved, not felt",
+  // which runs the solver itself on every push).
   4: { strength: 12, bite: 2, runt: 3 },
   5: { strength: 18, bite: 3, runt: 4 },
   6: { strength: 24, bite: 4, runt: 6 },
@@ -74,11 +75,24 @@ export const GOBLINS: Record<number,
   9: { strength: 60, bite: 6, runt: 12 },
 };
 
-/** ★ GOBLINS REGROUP: a bled, unengaged holding regains this much
- *  strength a second, back up to its spawn. Kills the never-arm exploit —
- *  chip, flee, heal free, repeat. (The old bare-hands two-sortie tutorial
- *  is void: the strip gates fight one at Arms ×1, which teaches arming.) */
-export const GOBLIN_REGEN = 0.05;
+/** ★ GOBLINS REGROUP: a bled, unengaged holding climbs back toward its
+ *  spawn. Kills the never-arm exploit — chip, flee, heal free, repeat.
+ *  (The old bare-hands two-sortie tutorial is void: the strip gates
+ *  fight one at Arms ×1, which teaches arming.)
+ *
+ *  ⚠️ RETUNED 2026-08-08 (review finding): the rate was FLAT 0.05/s, so a
+ *  cycle's cost was 0.75 strength per hp healed no matter which holding
+ *  it was — while the damage a sortie deals grows with arms. The deep
+ *  rungs therefore ground out ONE RUNG UNDER the gate (+0.75, +2.50,
+ *  +4.25 net per cycle at sites 7/8/9). Regen is now a FRACTION OF
+ *  SPAWN a second, so a bigger holding closes its wounds faster and the
+ *  grind pays nothing anywhere. Fight one (12 strong) is barely touched:
+ *  0.048/s against the old 0.05. */
+export const GOBLIN_REGEN = 0.004;
+/** What a holding regains a second — its own spawn strength times the
+ *  rate, so the ladder's own numbers set the pace. */
+export const regenOf = (id: number): number =>
+  (GOBLINS[id]?.strength ?? 12) * GOBLIN_REGEN;
 export const SITE = new Map(SITES.map((s) => [s.id, s]));
 
 // ★ NEIGHBOURING IS SYMMETRIC, enforced here so a hand-typed list can
@@ -366,6 +380,13 @@ export interface Flow {
    *  flowing there."* The board draws carriers from this, so an idle path
    *  in a busy component shows nobody. */
   loads: Map<string, number>;
+  /** ★ WHICH WAY EACH PATH RUNS: +1 if the goods travel low-id → high-id
+   *  along `pathKey`, -1 the other way, absent for a path carrying
+   *  nothing. The NET of everything routed over it — logs heading out to
+   *  a mill and planks coming back share one edge, and the carriers walk
+   *  whichever way wins. The view used to guess this from id order and
+   *  got the pines→mill legs backwards. */
+  dirs: Map<string, number>;
   /** 0..1 — how staffed every works is. Under 1, people are the shortage. */
   staff: number;
   comp: Set<number>;
@@ -459,12 +480,15 @@ export function flow(g: City): Flow {
     SITE.get(id)!.allows === 'sawmill' && (g.stacks[id] ?? 0) > 0).sort((a, b) => a - b);
   const toCamp = routes(g);
   const toMill = mills.length ? routes(g, mills) : toCamp;
-  const walk = (from: number, parent: Map<number, number>, roots: Set<number>): string[] => {
-    const out: string[] = [];
+  /** The chain of edges from a site to its root — each with WHICH WAY the
+   *  goods travel along it, since `pathKey` is sorted and the walk is not. */
+  const walk = (from: number, parent: Map<number, number>, roots: Set<number>):
+    Array<{ e: string; d: number }> => {
+    const out: Array<{ e: string; d: number }> = [];
     for (let at = from; !roots.has(at);) {
       const next = parent.get(at);
       if (next === undefined) return out;
-      out.push(pathKey(at, next));
+      out.push({ e: pathKey(at, next), d: at < next ? 1 : -1 });
       at = next;
     }
     return out;
@@ -475,7 +499,8 @@ export function flow(g: City): Flow {
   // STAGE 1 — the raw goods: stone and food to the camp, logs to the mills
   // (or to the camp pile while no mill stands). Shared edges load together;
   // an over-cap edge scales every flow across it and the rest is WASTE.
-  const flows: Array<{ id: number; rate: number; legs: string[]; kind: Kind }> = [];
+  const flows: Array<{ id: number; rate: number;
+    legs: Array<{ e: string; d: number }>; kind: Kind }> = [];
   for (const [id, m] of made) {
     const k = SITE.get(id)!.allows;
     if (k === 'sawmill' || m <= 0) continue;
@@ -488,17 +513,19 @@ export function flow(g: City): Flow {
   }
   const load1 = new Map<string, number>();
   for (const f of flows) {
-    for (const e of f.legs) load1.set(e, (load1.get(e) ?? 0) + f.rate);
+    for (const { e } of f.legs) load1.set(e, (load1.get(e) ?? 0) + f.rate);
   }
   const choked = new Set<string>();
   const carried = new Map<number, number>();
   const loads = new Map<string, number>();
+  /** Signed load per edge — the net decides which way the carriers walk. */
+  const net = new Map<string, number>();
   let stone = 0;
   let food = 0;
   let logsIn = 0;
   for (const f of flows) {
     let scale = 1;
-    for (const e of f.legs) {
+    for (const { e } of f.legs) {
       const cap = (g.paths[e] ?? 0) * CARRY;
       const l = load1.get(e) ?? 0;
       if (l > cap + 1e-9) {
@@ -507,7 +534,10 @@ export function flow(g: City): Flow {
       }
     }
     const got = f.rate * scale;
-    for (const e of f.legs) loads.set(e, (loads.get(e) ?? 0) + got);
+    for (const { e, d } of f.legs) {
+      loads.set(e, (loads.get(e) ?? 0) + got);
+      net.set(e, (net.get(e) ?? 0) + got * d);
+    }
     carried.set(f.id, got);
     if (f.kind === 'quarry') stone += got;
     else if (f.kind === 'farm') food += got;
@@ -525,17 +555,17 @@ export function flow(g: City): Flow {
   let planks = 0;
   if (sawing > 0) {
     const load2 = new Map<string, number>();
-    const legsOf = new Map<number, string[]>();
+    const legsOf = new Map<number, Array<{ e: string; d: number }>>();
     for (const id of mills) {
       const share = sawing * ((made.get(id) ?? 0) / millCap);
       const legs = walk(id, toCamp, campRoot);
       legsOf.set(id, legs);
-      for (const e of legs) load2.set(e, (load2.get(e) ?? 0) + share);
+      for (const { e } of legs) load2.set(e, (load2.get(e) ?? 0) + share);
     }
     for (const id of mills) {
       const share = sawing * ((made.get(id) ?? 0) / millCap);
       let scale = 1;
-      for (const e of legsOf.get(id)!) {
+      for (const { e } of legsOf.get(id)!) {
         const cap = (g.paths[e] ?? 0) * CARRY;
         const room = Math.max(0, cap - (load1.get(e) ?? 0));
         const want = load2.get(e) ?? 0;
@@ -545,14 +575,22 @@ export function flow(g: City): Flow {
         }
       }
       const got = share * scale;
-      for (const e of legsOf.get(id)!) loads.set(e, (loads.get(e) ?? 0) + got);
+      for (const { e, d } of legsOf.get(id)!) {
+        loads.set(e, (loads.get(e) ?? 0) + got);
+        net.set(e, (net.get(e) ?? 0) + got * d);
+      }
       carried.set(id, got);
       planks += got;
     }
   }
 
+  // The net decides the walk: a path where logs out and planks back
+  // cancel exactly shows nobody, which is honest.
+  const dirs = new Map<string, number>();
+  for (const [e, n] of net) if (Math.abs(n) > 1e-9) dirs.set(e, n > 0 ? 1 : -1);
+
   return { stone, logs: logsIn, planks, food, starving, logsIn, millCap,
-    sawing, hands, made, carried, choked, loads, staff, comp };
+    sawing, hands, made, carried, choked, loads, dirs, staff, comp };
 }
 
 /** Why the next copy cannot be raised here, in plain words, or null. */
@@ -641,6 +679,27 @@ function answered(g: City, f: NonNullable<City['fight']>,
     fight: { ...f, round: f.round + 1 } };
 }
 
+/** ★ THE LONGEST A SINGLE TICK MAY STAND FOR. One `tick` is one Euler
+ *  step: it reads the town at the START of the step and bills the whole
+ *  span at that reading. Live, at a fifth of a second, nothing can drift.
+ *  Away, at twelve HOURS, everything did. */
+export const STEP_SECS = 60;
+
+/** ★ THE POCKET TIME, SIMULATED RATHER THAN ESTIMATED (review finding,
+ *  2026-08-08). A single 12-hour tick grew a town of 2 to a town of 22 on
+ *  an empty larder — `pop < WILD_FED` and `hunger()` were both read once,
+ *  at the start, and stayed true for the whole night. Live play stalls at
+ *  six for want of bread, which is the rule the food artery is built on.
+ *  A path two seconds from done also carried nothing for twelve hours.
+ *  Chunked, the away run obeys every rule the live run obeys. Pure. */
+export function catchUp(g: City, secs: number): City {
+  let out = g;
+  for (let left = secs; left > 1e-9; left -= STEP_SECS) {
+    out = apply(out, { type: 'tick', secs: Math.min(STEP_SECS, left) });
+  }
+  return out;
+}
+
 export function apply(g: City, a: Action): City {
   switch (a.type) {
     case 'tick': {
@@ -663,7 +722,14 @@ export function apply(g: City, a: Action): City {
       if (pop < popCap(g) && fed) {
         popPart += s / GROW_SECS;
         const grown = Math.floor(popPart);
-        pop = Math.min(popCap(g), pop + grown);
+        // ⚠️ THE WILD'S TABLE IS A CEILING WITHIN THE STEP TOO (review
+        // finding). A long tick used to bank several settlers at once off a
+        // single `fed` reading taken at second zero — so a breadless town
+        // sailed straight past the six the wild feeds, and the food artery
+        // the whole mid-game is built on simply did not bite when the game
+        // was in a pocket. Growth stops AT the table until there is bread.
+        const room = g.food > 1 ? popCap(g) : Math.max(pop, WILD_FED);
+        pop = Math.min(room, pop + grown);
         popPart -= grown;
       } else {
         popPart = 0;
@@ -702,7 +768,7 @@ export function apply(g: City, a: Action): City {
         const spawn = GOBLINS[id]?.strength ?? left;
         if (g.fight?.site === id || left >= spawn) continue;
         if (goblins === g.goblins) goblins = { ...g.goblins };
-        goblins[id] = Math.min(spawn, left + GOBLIN_REGEN * s);
+        goblins[id] = Math.min(spawn, left + regenOf(id) * s);
       }
       return {
         ...g,
