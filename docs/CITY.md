@@ -368,3 +368,50 @@ rounded shell — no special cases, and no polygon-insetting mitre maths.
   fired `the carriers do not walk` on a build where they walked fine. Only
   running the probe found it. A barrier is a line, which is what a barrier
   is.
+
+
+## ★★ THE HUD — rebuilt 2026-08-09 to the owner's mock
+
+It was one wrapped run-on line — `60 stone 12 logs 45 planks 54 food 11
+people · huts full hero 10/10 · arms 1` — with every quantity at the same
+weight and no alignment, so nothing could be found at a glance.
+
+Now **four goods across the top, four standings under them**:
+
+| | | | |
+|---|---|---|---|
+| STONE | LOGS | PLANKS | FOOD |
+| 👤 people | 🏠 huts | ⚔️ hero | 🛞 carts |
+
+The stone column is the tap — a whole column of thumb instead of a chip.
+
+**Three states had to survive the restyle**, all earned this week, and a
+HUD that looks better while hiding them would be worse: a **full** store
+(the stock has stopped climbing), a **STARVING** town (every works but the
+farms has halted), and the tap rate on stone.
+
+⚠️ **Every cell carries `data-q`, and that is what the probe reads.** The
+old checks regexed the whole header for `2/2 people` and `6 people · huts
+full`, so each was coupled to the order and punctuation of a run-on line —
+and one of them could not see the population cap at all (it turned out the
+captives walk home into a camp with room for **two**, not six).
+
+### Two defects the screenshots caught, in order
+
+1. The gear button was pinned to the top corner and **sat on the FOOD
+   column**, clipping its label to `FOO`. It lives in the standings row now,
+   as a trailing `auto` column that cannot overlap anything.
+2. The standings were four equal columns, which **clipped the hero's arms
+   count** — `⚔️ 8/10 · arms` with nothing after it. They are uneven by
+   nature (`🛞 3` against `⚔️ 8/10 · arms 1`), so the short ones take what
+   they need and the hero takes the slack.
+
+### ⚠️ And a check this work destabilised, now fixed
+
+`the carriers do not walk` measured the **centroid** of carrier ink and
+wanted 0.4px of drift in 700ms. Carriers are spread along every path, so
+dots entering and leaving cancel out and the centre moves ~0.3px — it
+**failed on good builds and passed on others**. Changing the header's
+height perturbed it enough to fire twice. It now measures the raw sum of
+positions, where the same walk reads 30–65% against a 0.05% threshold, and
+0.000% when the animation is frozen. Three consecutive green runs.

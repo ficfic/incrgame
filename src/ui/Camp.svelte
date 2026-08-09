@@ -450,27 +450,63 @@
 
 <main>
   <header>
-    <!-- ★ A FULL STORE IS SAID ON THE CHIP ITSELF. Waste the player cannot
-         see is the choke bug all over again in a different currency. -->
-    <button class="spring" class:brim={brim(game.stone)}
-      onclick={() => act({ type: 'tap' })}>
-      <b>{Math.floor(game.stone)}</b><span>stone</span>
-      <em>{brim(game.stone) ? `full of ${roomOf(game)}`
-        : `+${TAP_STONE}${f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}`}</em>
-    </button>
-    <span class="keep" class:hurt={brim(game.logs)}>{Math.floor(game.logs)} logs{
-      brim(game.logs) ? ' · full' : ''}</span>
-    <span class="keep" class:hurt={brim(game.planks)}>{Math.floor(game.planks)} planks{
-      brim(game.planks) ? ' · full' : planksNow > 0 ? ` +${planksNow.toFixed(1)}/s` : ''}</span>
-    <span class="keep" class:hurt={f.starving || brim(game.food)}>{Math.floor(game.food)} food{
-      f.starving ? ' · STARVING' : brim(game.food) ? ' · full'
-      : hunger(game) > 0 ? ` −${hunger(game).toFixed(1)}/s` : ''}{
-      f.food > 0 && !brim(game.food) ? ` +${f.food.toFixed(1)}/s` : ''}</span>
-    <span class="keep lv">{game.pop > cap
-      ? `${Math.floor(game.pop)} people · huts full`
-      : `${Math.floor(game.pop)}/${cap} people`}</span>
-    <span class="keep">hero {game.hero.hp}/{heroMax(game)} · arms {game.hero.arms}</span>
-    <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
+    <!-- ★★ THE HUD, 2026-08-09, built to the owner's design mock. It replaces a
+         wrapped run-on line ("60 stone 12 logs 45 planks 54 food 11 people ·
+         huts full hero 10/10 · arms 1") that had every quantity at the same
+         weight and no alignment, so nothing could be found at a glance.
+
+         Four goods across the top, four standings under them. Each cell
+         carries `data-q`, which is what the probe reads — a targeted cell
+         beats a regex over the whole header, and the old checks were
+         regexing a soup.
+
+         ⚠️ THE THREE STATES THAT MUST SURVIVE ANY RESTYLE, all of them
+         earned this week: a FULL store (the stock stops climbing), a
+         STARVING town (every works but the farms halts), and the tap rate
+         on stone. A HUD that looks better and hides those is worse. -->
+    <div class="hud">
+      <button class="cell tap" class:brim={brim(game.stone)}
+        data-q="stone" onclick={() => act({ type: 'tap' })}>
+        <span class="cap">STONE</span>
+        <b>{Math.floor(game.stone)}</b>
+        <em>🪨 {brim(game.stone) ? `full of ${roomOf(game)}`
+          : `+${TAP_STONE}${f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}`}</em>
+      </button>
+      <div class="cell" class:brim={brim(game.logs)} data-q="logs">
+        <span class="cap">LOGS</span>
+        <b>{Math.floor(game.logs)}</b>
+        <em>🪵 {brim(game.logs) ? 'full'
+          : f.logsIn > 0 ? `+${f.logsIn.toFixed(1)}/s` : '—'}</em>
+      </div>
+      <div class="cell" class:brim={brim(game.planks)} data-q="planks">
+        <span class="cap">PLANKS</span>
+        <b>{Math.floor(game.planks)}</b>
+        <em>🟫 {brim(game.planks) ? 'full'
+          : planksNow > 0 ? `+${planksNow.toFixed(1)}/s` : '—'}</em>
+      </div>
+      <div class="cell" class:hurt={f.starving} class:brim={brim(game.food) && !f.starving}
+        data-q="food">
+        <span class="cap">FOOD</span>
+        <b>{Math.floor(game.food)}</b>
+        <em>🌾 {f.starving ? 'STARVING' : brim(game.food) ? 'full'
+          : `${hunger(game) > 0 ? `−${hunger(game).toFixed(1)}/s` : ''}${
+            f.food > 0 ? ` +${f.food.toFixed(1)}/s` : ''}`.trim() || '—'}</em>
+      </div>
+    </div>
+    <div class="hud standings">
+      <span class="cell" class:lv={game.pop < cap} data-q="people"
+        aria-label="people">👤 {Math.floor(game.pop)}/{cap}</span>
+      <span class="cell" class:brim={game.pop >= cap} data-q="huts"
+        aria-label="huts">🏠 {game.pop >= cap ? 'full' : `×${game.stacks[0] ?? 0}`}</span>
+      <span class="cell" class:hurt={game.hero.hp < heroMax(game) / 3} data-q="hero"
+        aria-label="hero">⚔️ {game.hero.hp}/{heroMax(game)} · arms {game.hero.arms}</span>
+      <span class="cell" data-q="carts" aria-label="carts">🛞 {game.carts}</span>
+      <!-- ⚠️ THE GEAR LIVES IN THIS ROW, not pinned over the top corner. It
+           was absolute, and it sat on the FOOD column and clipped its label
+           to "FOO" — caught in the first screenshot. A trailing `auto`
+           column cannot overlap anything. -->
+      <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
+    </div>
     {#if menu}
     <div class="menurow">
       <button class="reset" class:armed={wiping}
@@ -594,26 +630,63 @@
     main { border-inline: 1px solid #d8d0bf; box-shadow: 0 0 42px #0002; }
     :global(body) { background: #e3dccb; }
   }
-  header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    padding: 10px 14px; border-bottom: 1px solid #d8d0bf; }
-  .spring { display: flex; align-items: baseline; gap: 6px; border: 1px solid #d8d0bf;
-    border-radius: 12px; padding: 8px 14px; background: #f7f2e7; font: inherit; }
-  .spring b { font-size: 22px; color: #1f6b3a; }
-  .spring em { font-style: normal; font-size: 12px; color: #8a8172; }
+  header { display: flex; flex-direction: column; gap: 0;
+    border-bottom: 1px solid #d8d0bf; position: relative; }
+
+  /* ★ FOUR EQUAL COLUMNS. `minmax(0, 1fr)` and not `1fr`: a long rate line
+     ("−0.9/s +1.2/s") would otherwise push its column wider than its share
+     and knock the other three out of alignment, which is the exact thing
+     this HUD replaced. */
+  .hud { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch; }
+  .hud .cell { display: flex; flex-direction: column; align-items: center;
+    gap: 1px; padding: 7px 2px 8px; border: 0; border-right: 1px solid #e6dfcf;
+    background: none; font: inherit; text-align: center; min-width: 0; }
+  .hud .cell:last-child { border-right: 0; }
+  .cap { font-size: 10px; letter-spacing: .09em; color: #9a8f79; font-weight: 700; }
+  .hud .cell b { font-size: 21px; line-height: 1.05; color: #2c2822; font-weight: 700; }
+  .hud .cell em { font-style: normal; font-size: 11px; color: #8a8172;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+  /* The tap target is the whole stone column, which is a far bigger thumb
+     mark than the old chip — and it is the one thing here you can press. */
+  .hud .cell.tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .hud .cell.tap:active { background: #efe8d9; }
+
+  /* A stock that has stopped climbing, and a town that has stopped eating. */
+  .hud .cell.brim b, .hud .cell.brim em { color: #b3452f; }
+  .hud .cell.hurt b, .hud .cell.hurt em { color: #b3452f; font-weight: 700; }
+
+  .standings { border-top: 1px solid #e6dfcf; background: #f7f2e7;
+    /* ⚠️ NOT FOUR EQUAL COLUMNS like the row above. The standings are wildly
+       uneven in length — "🛞 3" against "⚔️ 8/10 · arms 1" — and equal shares
+       clipped the hero's arms count to "arms" with nothing after it. The
+       short ones take what they need; the hero takes the slack. */
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto; }
+  .standings .cell { padding-left: 8px; padding-right: 8px; }
+  .standings .cell { flex-direction: row; justify-content: center; gap: 4px;
+    padding: 6px 2px; font-size: 13px; color: #6b5d3f; font-weight: 600;
+    white-space: nowrap; overflow: hidden; }
+  .standings .cell.lv { color: #1f6b3a; }
+  .standings .cell.brim { color: #b3452f; }
+  .standings .cell.hurt { color: #b3452f; }
+
   .keep { font-size: 14px; color: #6b5d3f; font-weight: 600; }
-  .keep.lv { color: #1f6b3a; }
-  .keep.hurt { color: #b3452f; }
-  .spring.brim { border-color: #b3452f; background: #f7e9e5; }
-  .spring.brim b { color: #b3452f; }
   .keep.build { color: #b0a892; font-weight: 400; font-size: 12px; }
   .reset { font: inherit; font-size: 13px; border: 1px solid #d8d0bf;
     border-radius: 10px; padding: 6px 10px; background: #efe9dc; color: #6b6353; }
-  .reset.gear { margin-left: auto; }
+  /* ⚠️ ABSOLUTE NOW: the header is a COLUMN since the HUD went in, so
+     `margin-left:auto` no longer pushes it anywhere — it would sit as its own
+     full-width row under the standings. Pinned to the top corner instead,
+     clear of the four columns. */
+  .reset.gear { padding: 2px 10px; line-height: 1.3; align-self: center;
+    margin: 0 6px 0 2px; }
   .reset.armed { background: #b3452f; color: #fff; }
   .map { flex: 1; min-height: 0; position: relative; margin: 10px; }
   .panel { padding: 8px 14px 16px; border-top: 1px solid #d8d0bf; background: #f7f2e7;
     min-height: 148px; max-height: 44dvh; overflow-y: auto; }
-  .menurow { flex-basis: 100%; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .menurow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    padding: 8px 14px; border-top: 1px solid #e6dfcf; }
   .panel h2 { margin: 4px 0 6px; font-size: 18px; }
   .note { color: #8a8172; font-size: 14px; margin: 4px 0; }
   .deed { display: block; width: 100%; text-align: left; font: inherit; font-size: 16px;
