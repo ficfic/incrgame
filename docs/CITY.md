@@ -184,3 +184,46 @@ was out-sitting under-armed fights). Solver verdict, every rung: WIN at
 ladder arms, LOSE at −1 and −2, mash LOSES. Fight one now gates at
 Arms ×1 — the bare-hands two-sortie tutorial is void (regen outruns it),
 and the first lesson is arming, aiming past the wall, and the wind-up.
+
+
+## ★★★ WHY TAKE THE GROUND — built 2026-08-08, the owner's own complaint
+
+> *"no reason to have a site protected by goblins where you can build a
+> quarry because you have unlimited defenceless quarries you can build
+> near start."*
+
+Correct, and four independent reviews said the same thing louder: the
+territory ladder paid **2 captives, 3 hero hp and a fog lift**, and the
+ground itself paid nothing. Worse — conquest was throughput-NEGATIVE:
+every eastern good filed down `0|3` behind the mill's planks, and *every
+mouthful of food in the game* crossed `0|4`, one 3.0/s edge, which is
+where the town silently stopped growing at 66 people against a design
+that says 200.
+
+Two answers, both small, both shipped:
+
+**1. THE TWO GATES CARRY THEIR OWN ROAD HOME.** Scree Slope and Goblin
+Knoll now touch the camp directly (`near: [0, …]`). The edge is drawn
+from minute one as a dotted line to held ground — *you can see the road
+you cannot have yet* — and it cannot be laid while the goblins stand on
+it. Taking the Knoll doubles the food artery to 6.0/s and moves the pop
+wall from **66 to 126**; taking the Scree lifts the whole east off the
+mill's edge. This is a prize no amount of building at Rock Face can buy,
+which is exactly what was missing.
+
+**2. HELD GROUND IS RICHER.** `rich` per site, multiplied into every
+hand's output: Scree ×1.5, Knoll ×2, Dark Pines ×2.5, High Quarry ×3,
+Green Vale ×3.5 — scaled to the garrison, so the story and the
+spreadsheet say the same thing. One ×3 pit makes exactly what three
+plain pits make, but it is bought at the price of copy #1 instead of
+copies #1-3, and the lead is permanent: `ln(M)/ln(1.35)` copies, ~3.7
+for ×3, because both sites go on climbing the same curve. Bounded on
+purpose — nothing runs away.
+
+The panel says both prizes **before the fight is paid for**: *"dangerous
+— goblins, 24 strong · quarry ×2 · own path to camp"*.
+
+⚠️ STILL OPEN after this (see `docs/BACKLOG.md`, the coherence review):
+no player-side exponential anywhere (RATE never changes), `tap` obeys no
+gate, `starving` reads production instead of delivery, farms over-staff,
+and auto-staffing is blind to chokes.

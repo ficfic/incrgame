@@ -33,6 +33,9 @@ export interface Site {
   /** ★ THE MAP GROWS OUTWARD: this ground shows only once the named site
    *  is liberated. The far country is the knoll fight's real prize. */
   behind?: number;
+  /** ★ RICHER GROUND: every hand posted here makes this many times what
+   *  the same hand makes on safe ground. Absent = 1, plain. */
+  rich?: number;
 }
 
 /** ★ THE WILDERNESS. Hand-placed; the board draws exactly these. Beyond
@@ -43,15 +46,33 @@ export const SITES: readonly Site[] = [
   { id: 2, name: 'Tall Pines', x: 296, y: 118, allows: 'lumber', near: [0, 1, 3] },
   { id: 3, name: 'River Bend', x: 292, y: 296, allows: 'sawmill', near: [0, 2, 5] },
   { id: 4, name: 'High Meadow', x: 104, y: 292, allows: 'farm', near: [0, 1, 6] },
-  { id: 5, name: 'Scree Slope', x: 388, y: 232, allows: 'quarry', near: [3] },
-  { id: 6, name: 'Goblin Knoll', x: 46, y: 380, allows: 'quarry', near: [4] },
+  // ★★ THE TWO GATES, and they are the map's real prizes — see `near: [0]`.
+  // Each one is a SECOND ROAD HOME for its whole arm of the country: until
+  // the Scree falls, every eastern good crosses `0|3` alongside the mill's
+  // planks; until the Knoll falls, EVERY MOUTHFUL OF FOOD IN THE GAME
+  // crosses `0|4`, and that single 3.0/s edge is where the town stops
+  // growing at 66 people. Taking them opens an artery, which is a thing
+  // no amount of building at Rock Face can buy.
+  { id: 5, name: 'Scree Slope', x: 388, y: 232, allows: 'quarry', near: [0, 3], rich: 1.5 },
+  { id: 6, name: 'Goblin Knoll', x: 46, y: 380, allows: 'quarry', near: [0, 4], rich: 2 },
   // ★★ THE SECOND REGION, 2026-08-08 — behind the knoll and the scree,
   // stronger holdings, longer hauls, and the farmland the growing town
-  // will need. Hidden until the ground in front of it falls.
-  { id: 7, name: 'Dark Pines', x: -34, y: 452, allows: 'lumber', near: [6], behind: 6 },
-  { id: 8, name: 'High Quarry', x: 474, y: 306, allows: 'quarry', near: [5], behind: 5 },
-  { id: 9, name: 'Green Vale', x: 78, y: 512, allows: 'farm', near: [7], behind: 6 },
+  // will need. Hidden until the ground in front of it falls. RICH: the
+  // deep country's ground is simply better, which is the other half of
+  // why anybody would walk down there.
+  { id: 7, name: 'Dark Pines', x: -34, y: 452, allows: 'lumber', near: [6], behind: 6, rich: 2.5 },
+  { id: 8, name: 'High Quarry', x: 474, y: 306, allows: 'quarry', near: [5], behind: 5, rich: 3 },
+  { id: 9, name: 'Green Vale', x: 78, y: 512, allows: 'farm', near: [7], behind: 6, rich: 3.5 },
 ];
+
+/** ★ HOW GOOD THE GROUND IS — every hand here makes this much more. The
+ *  answer to the owner: *"no reason to have a site protected by goblins
+ *  where you can build a quarry, because you have unlimited defenceless
+ *  quarries near start."* A ×M site is worth a PERMANENT head start of
+ *  ln(M)/ln(1.35) copies over a safe one — ×3 is 3.7 copies, forever —
+ *  so the High Quarry's first pit beats Rock Face's fourth and stays
+ *  ahead. Bounded, because both sites still climb the same 1.35 curve. */
+export const richOf = (id: number): number => SITE.get(id)?.rich ?? 1;
 
 /** ★★ THE GOBLINS, stolen from Mayor of Noobtown on the owner's order:
  *  held ground shows its strength, takes no works and no paths, and the
@@ -456,9 +477,11 @@ export function flow(g: City): Flow {
   let farmRaw = 0;
   for (const id of worked) {
     const st = SITE.get(id)!;
-    const base = st.allows === 'quarry' ? RATE.quarry
+    const base = (st.allows === 'quarry' ? RATE.quarry
       : st.allows === 'lumber' ? RATE.lumber
-      : st.allows === 'farm' ? RATE.farm : RATE.sawmill;
+      : st.allows === 'farm' ? RATE.farm : RATE.sawmill)
+      // ★ THE GROUND ITSELF, not just how many hands stand on it.
+      * richOf(id);
     made.set(id, hands.get(id)! * base);
     if (st.allows === 'farm') farmRaw += hands.get(id)! * base;
   }

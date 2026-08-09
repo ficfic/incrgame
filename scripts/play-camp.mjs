@@ -419,6 +419,19 @@ console.log('  deep    :', `"${far.slice(0, 70)}"`);
 if (!/goblins, 32 strong/.test(far)) {
   misses.push(`the deep country does not price its danger: "${far.slice(0, 60)}"`);
 }
+// ★ THE PRIZE, said while the goblins are still standing on it — the owner:
+// no reason to want held ground. Dark Pines is ×2.5 lumber.
+if (!/lumberworks ×2\.5/.test(far)) {
+  misses.push(`held ground does not say what it is WORTH: "${far.slice(0, 80)}"`);
+}
+// ★ AND THE SECOND ROAD HOME: the Scree carries the whole east off `0|3`.
+await page.locator('.map .node[data-id="site:5"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
+const gate = await panel();
+console.log('  gate    :', `"${gate.slice(0, 80)}"`);
+if (!/own path to camp/.test(gate)) {
+  misses.push(`the gate does not offer its own artery: "${gate.slice(0, 80)}"`);
+}
 const heroLine = await header();
 if (!/hero 16\/16/.test(heroLine)) {
   misses.push(`two liberations should read hero 16/16: "${heroLine.slice(30, 90)}"`);

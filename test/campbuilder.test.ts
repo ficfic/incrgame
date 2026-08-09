@@ -8,6 +8,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
   TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
   PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY, regenOf, catchUp, STEP_SECS, SITE,
+  richOf, MAX_GAUGE,
   RATION_FOOD, RATION_HP, RATION_PACK,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
@@ -888,5 +889,97 @@ describe('★★ THE CARRIERS FOLLOW THE FLOW, not the id order', () => {
     const idle: City = { ...initial(), pop: 99, food: 999,
       stacks: {}, paths: { [pathKey(0, 1)]: 1 } };
     expect(flow(idle).dirs.has(pathKey(0, 1))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ MAKING GROUND WORTH TAKING, 2026-08-08. The owner: *"no reason to have
+// a site protected by goblins where you can build a quarry because you have
+// unlimited defenceless quarries you can build near start."* Two answers, and
+// these tests are both of them: held ground is RICHER, and the two gates each
+// carry their own road home — a thing no amount of building at Rock Face buys.
+// ---------------------------------------------------------------------------
+describe('★★★ WHY TAKE THE GROUND — richness, and the second road home', () => {
+  it('★ the ground itself multiplies every hand posted on it', () => {
+    expect(richOf(1)).toBe(1);            // Rock Face, safe and plain
+    expect(richOf(6)).toBe(2);            // Goblin Knoll
+    expect(richOf(8)).toBe(3);            // High Quarry, rung five
+    expect(richOf(9)).toBe(3.5);          // Green Vale, the last holding
+    // Same hands, same works, better ground: three times the stone.
+    const plain: City = { ...initial(), pop: 99, food: 999, goblins: {},
+      stacks: { 1: 1 }, paths: { [pathKey(0, 1)]: 3 } };
+    const deep: City = { ...initial(), pop: 99, food: 999, goblins: {},
+      stacks: { 8: 1 }, paths: { [pathKey(0, 5)]: 3, [pathKey(5, 8)]: 3 } };
+    expect(flow(plain).made.get(1)).toBeCloseTo(CREW * RATE.quarry, 9);
+    expect(flow(deep).made.get(8)).toBeCloseTo(CREW * RATE.quarry * 3, 9);
+  });
+
+  it('★★ a ×M site is worth a PERMANENT head start of ln(M)/ln(1.35) copies', () => {
+    // The whole economic claim, checked rather than asserted: the High
+    // Quarry's FIRST pit out-produces Rock Face's fourth, and it cost less.
+    // ONE pit on ×3 ground makes exactly what THREE plain pits make...
+    const rich1 = CREW * RATE.quarry * richOf(8);
+    expect(rich1).toBeCloseTo(3 * CREW * RATE.quarry, 9);
+    // ...but it is bought at the price of copy #1, not copies #1-3, and the
+    // curve is what makes that a permanent lead rather than a one-off.
+    const oneRich = costOf('quarry', 0).stone!;
+    const threePlain = costOf('quarry', 0).stone! + costOf('quarry', 1).stone!
+      + costOf('quarry', 2).stone!;
+    expect(oneRich).toBeLessThan(threePlain / 2);
+    // The lead in COPIES is the log ratio — ~3.7 for x3, forever, because
+    // both sites go on climbing the same 1.35.
+    const head = Math.log(richOf(8)) / Math.log(1.35);
+    expect(head).toBeGreaterThan(3.6);
+    expect(head).toBeLessThan(3.7);
+  });
+
+  it('★★★ THE TWO GATES CARRY THEIR OWN ROAD HOME', () => {
+    // Every mouthful of food in the game used to cross `0|4`, and every
+    // eastern good crossed `0|3` beside the mill's planks. The Knoll and the
+    // Scree each touch the camp directly — that is what the fight buys.
+    expect(SITE.get(6)!.near).toContain(0);
+    expect(SITE.get(5)!.near).toContain(0);
+    // Symmetric, so the camp knows about them too.
+    expect(SITE.get(0)!.near).toEqual(expect.arrayContaining([5, 6]));
+    // But the road cannot be laid while the goblins stand on it.
+    expect(unlayable({ ...initial(), stone: 99 }, 0, 6))
+      .toMatch(/^dangerous — goblins/);
+  });
+
+  it('★★★ THE FOOD ARTERY DOUBLES when the knoll falls — the 66-pop wall', () => {
+    // The wall, measured: all food over one 3.0/s edge feeds 6 + 3.0/EAT.
+    const oneEdge = MAX_GAUGE * CARRY;
+    expect(WILD_FED + oneEdge / EAT).toBe(66);
+    // Both farms, deep country freed, EVERY path at full gauge — but no
+    // road from the knoll to the camp: the south still files through `0|4`.
+    const viaMeadow: City = { ...initial(), pop: 99, food: 999, goblins: {},
+      // Enough field at BOTH ends to saturate whatever road it is given.
+      stacks: { 4: 5, 9: 3 },
+      paths: { [pathKey(0, 4)]: 3, [pathKey(4, 6)]: 3, [pathKey(6, 7)]: 3,
+        [pathKey(7, 9)]: 3 } };
+    expect(flow(viaMeadow).food).toBeCloseTo(oneEdge, 6);      // capped at 3.0
+    expect(flow(viaMeadow).choked.has(pathKey(0, 4))).toBe(true);
+    // Now lay the knoll's own road. The deep country reroutes down it and
+    // the two arteries carry together.
+    const viaBoth: City = { ...viaMeadow,
+      paths: { ...viaMeadow.paths, [pathKey(0, 6)]: 3 } };
+    expect(flow(viaBoth).food).toBeGreaterThan(oneEdge + 1e-6);
+    expect(flow(viaBoth).food).toBeCloseTo(2 * oneEdge, 6);
+    // ★ Which is the wall moving from 66 people to 126.
+    expect(WILD_FED + 2 * oneEdge / EAT).toBe(126);
+  });
+
+  it('★★ the scree carries the east so the mill keeps its planks', () => {
+    // Site 8's stone used to file down `0|3` behind the sawmill's output.
+    const g: City = { ...initial(), pop: 99, food: 999, goblins: {},
+      stacks: { 2: 1, 3: 3, 8: 2 },
+      paths: { [pathKey(0, 2)]: 3, [pathKey(0, 3)]: 3, [pathKey(3, 5)]: 3,
+        [pathKey(5, 8)]: 3 } };
+    expect(flow(g).choked.has(pathKey(0, 3))).toBe(true);
+    // The scree's own road takes the stone off the mill's back.
+    const open = flow({ ...g, paths: { ...g.paths, [pathKey(0, 5)]: 3 } });
+    expect(open.choked.has(pathKey(0, 3))).toBe(false);
+    expect(open.stone).toBeGreaterThan(flow(g).stone);
+    expect(open.planks).toBeGreaterThan(flow(g).planks);
   });
 });

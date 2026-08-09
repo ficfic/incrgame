@@ -8,6 +8,7 @@
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW, PATH_SECS,
+    richOf,
     windup, RATION_FOOD, RATION_HP,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
@@ -221,6 +222,20 @@
     return out;
   })());
 
+  /** ★ WHAT HELD GROUND IS WORTH, in the two currencies that matter: how
+   *  much richer it is than safe ground, and whether it carries its own
+   *  road to the camp. Said on the panel BEFORE the fight is paid for. */
+  function prizeOf(id: number): string {
+    const s = SITE.get(id);
+    if (!s) return '';
+    const bits: string[] = [];
+    const r = richOf(id);
+    if (r > 1) bits.push(`${KIND_NAME[s.allows].toLowerCase()} ×${r}`);
+    // A direct edge to the camp that no laid path uses yet: an artery.
+    if (s.near.includes(0) && !game.paths[pathKey(0, id)]) bits.push('own path to camp');
+    return bits.length ? ` · ${bits.join(' · ')}` : '';
+  }
+
   /** The tapped site's one status line — numbers, and only when they bite. */
   const status = $derived((() => {
     if (picked === null) return '';
@@ -238,10 +253,18 @@
         + (f.staff < 1 && !f.starving ? ` · works ${Math.round(f.staff * 100)}% staffed` : '');
     }
     if (game.goblins[picked]) {
-      return `dangerous — goblins, ${Math.ceil(game.goblins[picked] ?? 0)} strong`;
+      // ★ THE PRIZE, SAID BEFORE THE FIGHT — the owner: no reason to want
+      // held ground. Now the ground says what it is worth, and whether it
+      // is a second road home, while the goblins are still standing on it.
+      return `dangerous — goblins, ${Math.ceil(game.goblins[picked] ?? 0)} strong`
+        + prizeOf(picked);
     }
     const n = game.stacks[picked] ?? 0;
-    if (n <= 0) return '';
+    // ★ Won ground keeps saying what it is worth — a ×3 pit that reads the
+    // same as Rock Face is the complaint all over again, one fight later.
+    const rich = richOf(picked) > 1
+      ? `rich ground · every hand ×${richOf(picked)}` : '';
+    if (n <= 0) return rich;
     if (!f.comp.has(picked)) return 'no path to the camp · carries 0';
     if (SITE.get(picked)?.allows === 'sawmill' && f.millCap > 0
       && f.logsIn + (game.logs > 0.05 ? 1 : 0) < f.millCap - 1e-9) {
