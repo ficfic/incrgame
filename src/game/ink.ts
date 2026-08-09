@@ -52,6 +52,13 @@ export const INK = {
   casing: '#0c353b',
   /** A route that is only dotted on the plan — a right of way, not a road. */
   unmade: '#8d8a80',
+  /** ★ THE BARRIER, 2026-08-09 — the line around the ground you hold, after
+   *  Mayor of Noobtown's ward (the owner: *"yeah in noobtown he's had a
+   *  barrier"*). ⚠️ DELIBERATELY NOT THE MOCK'S TEAL: `route` is teal and the
+   *  probe counts it, so a large teal fill would have silently corrupted the
+   *  "is the road filling?" pixel check — the exact trap `docs/NEXT.md` warns
+   *  about. Violet is 56 from its nearest counted ink, measured. */
+  ward: '#6b4a9e',
   // ⚠️ NOT THE SAME AS `you`, AND IT USED TO BE. Both were #8ff0cf in the dark
   // palette, so the probe's "is the road filling?" check was also counting the
   // dot you are standing on — which is always there. The check would have passed
@@ -150,6 +157,7 @@ export const TOL: Partial<Record<InkName, number>> = {
   sea: 12,
   beach: 12,
   fog: 10,
+  ward: 12,
 };
 export const COUNTED = Object.keys(TOL) as InkName[];
 

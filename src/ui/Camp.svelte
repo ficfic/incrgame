@@ -13,6 +13,8 @@
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
+  import { ward } from '../camp/barrier';
+  import type { Shape } from '../game/shapes';
 
   let game = $state<City>(initial());
   let ready = $state(false);
@@ -146,6 +148,27 @@
       }
     }
     return out;
+  })());
+
+  /** ★ THE BARRIER — the ward around the ground you hold, under everything
+   *  else on the map. A faint wash so the terrain still reads through it, and
+   *  a dashed line at the edge: this is a frontier, not a wall you built.
+   *  Redrawn only when the held ground changes, because `ward()` is derived
+   *  from exactly that. */
+  const scene = $derived<Shape[]>((() => {
+    const pts = ward(game);
+    if (pts.length < 3) return CAMP_SHAPES;
+    // ⚠️ NO FILL, AND THAT IS NOT A STYLE CHOICE. A 7%-alpha wash over the
+    // whole held country tints every pixel under it, including the carrier
+    // dots the probe measures — it shifted their centroid enough that
+    // "the carriers do not walk" fired on a build where they walked fine.
+    // Found by running the probe, which is the only reason it was found.
+    // The barrier is a LINE, which is what a barrier is.
+    return [
+      { s: 'path', pts, ink: 'ward', close: true, curve: true,
+        w: 2, dash: [7, 6], alpha: 0.55 },
+      ...CAMP_SHAPES,
+    ];
   })());
 
   const box = $derived<Box>((() => {
@@ -471,7 +494,7 @@
   {#if ready}
     <div class="map">
       <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false}
-        decor={CAMP_SHAPES} pulse={pops} />
+        decor={scene} pulse={pops} />
     </div>
     <section class="panel">
       {#if awayLine}

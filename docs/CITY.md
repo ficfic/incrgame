@@ -337,3 +337,34 @@ quarries frees the very paths the food was stuck behind, which is how a
 starving town digs itself out — measured, a town that delivers 1.2/s
 against a 1.7/s appetite delivers 3.0/s once the works stop competing for
 the road.
+
+
+## ★★ THE BARRIER — built 2026-08-09
+
+> *"yeah in noobtown he's had a barrier"*
+
+Mayor of Noobtown draws a ward around the town and pushes it outward as you
+take ground. `src/camp/barrier.ts` is that, on a graph: a dashed line
+enclosing every stop with no goblins on it, plus the padding.
+
+It is **a picture of a fact the game already has**, not a new quantity —
+liberating a holding moves the line. That is the whole reason to draw it:
+taking ground used to change some numbers and nothing you could see from
+across the room. Measured, the enclosed area grows >10% on the first
+liberation, and the deep country revealed behind it stays outside.
+
+Every held stop contributes a ring of sample points and the hull is taken
+over all of them, so one stop yields a circle, two a capsule, and nine a
+rounded shell — no special cases, and no polygon-insetting mitre maths.
+
+⚠️ **Two traps, both hit and both recorded:**
+
+- **The mock's teal was not usable.** `route` is teal and the probe counts
+  it; a large teal region would have silently corrupted the "is the road
+  filling?" check. The ward is violet, measured at 56 from its nearest
+  counted ink.
+- **The fill had to go.** A 7%-alpha wash over the held country tints every
+  pixel beneath it — including the carrier dots the probe measures — and it
+  fired `the carriers do not walk` on a build where they walked fine. Only
+  running the probe found it. A barrier is a line, which is what a barrier
+  is.
