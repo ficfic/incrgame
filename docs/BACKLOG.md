@@ -627,3 +627,44 @@ that a beat is reachable from where the player starts.
 - 2026-08-08 review (the-graph): away tick is one Euler step — pop 2 + huts 22 + food 0 grows to 22 overnight eating nothing; live stalls at 6. Chunk the away tick.
 - 2026-08-08 review (the-graph): engine.ts comment cites test "the ladder holds" which was never committed (solver was scratch). Point at real tests or commit the solver.
 - 2026-08-08 owner-comment audit: logs have NO rate in the header (asked 2026-08-08); +1 pop fires only on stone, chopped logs give no float (chop feedback ask, partial).
+
+### ★★★ THE COHERENCE REVIEW, 2026-08-08 — four agents, owner's two examples generalized
+
+Owner: *"look for inconsistencies like the fact that you can chop trees before
+making path there or having no reason to have a site protected by goblins where
+you can build a quarry because you have unlimited defenceless quarries."*
+Both confirmed in code, and both are the tip of a class.
+
+**THE SPINE IS BROKEN IN TWO PLACES** (defects, not opinions)
+- [ ] **`tap` obeys no gate the rest of the game obeys** (`engine.ts:788`). No site id, so nothing is checked: not goblins, not `component()`, not `starving`, not `laying`. Measured: 0.25/tap at ~5 taps/s = **1.25/s — more than a fully crewed quarry (0.6/s) and more than a gauge-1 path carries (1.0/s)**. "Chop logs by hand" is offered with `why: null` hardcoded on ANY lumber site including Dark Pines (fight four, no path needed after). The logistics layer IS the design and the thumb lives permanently outside it. `campbuilder.test.ts:53` enshrines it. → `tap` takes a site id; require in-component, unheld, non-starving.
+- [ ] **Starving reads PRODUCTION, every other food number reads DELIVERY** (`engine.ts:465`, `farmRaw` from `made`). Verified by simulation: farm ×2 (makes 1.6/s) over a gauge-1 path (carries 1.0/s), pop 30 (eats 1.2/s), empty larder → `starving === false` for 600s, the quarry ran at full rate and banked 360 stone, header never said STARVING. **The famine is avoidable by wasting food.** → compare `hunger(g)` to the CARRIED farm total.
+
+**TERRITORY PAYS NOTHING NEW** (the owner's second example, generalized)
+- [ ] **Six liberations introduce zero new resources, kinds or mechanics.** Sites 4-9 are farm/quarry/quarry/lumber/quarry/farm; all four building kinds are available in minute one. Every liberation pays an identical prize (+2 captives, +3 hero hp, reveal). Sharpest: **High Quarry (id 8, 48 strong, rung five) has nothing `behind:` it** — its whole reward is a third stone site while Rock Face takes unlimited copies at zero risk. Breaks CITY.md:122 (*"ONE new rung per region, Kittens-law"*).
+- [ ] **Region 2 adds no artery, so it cannot add throughput.** With every path at MAX_GAUGE: sites 6, 7, 9 all reach camp via `0|4`; site 8 via `0|3`. **The four hardest fights add zero new camp edges.** Green Vale (60 strong, the final holding) is a FARM shipping over the exact edge High Meadow already saturates. CITY.md:120 names the per-region food artery as a requirement; `engine.ts:244` records this artery walling the map once already.
+- [ ] The economics, priced (chad): the cost curve IS per-site (`stacks[id]`), so conquest resets it — crossover at copy 3-16 for any sane conquest cost (`n* = ln(1+T/C)/0.3001`), i.e. it fires early and feels like an accounting move. Of the four payoffs only **+2 captives is permanent economic value, and it is site-independent** — so an arms purchase is a POP purchase flavoured as a territory purchase. Fixes ranked by machinery: (1) per-site `RATE_MULT` — one table, one multiply; a ×M site is worth a permanent head start of `ln(M)/ln(1.35)` copies; (2) **site slot caps** — one integer, deletes the word "unlimited" from the complaint; (3) a held-only resource (iron) feeding `armsCost` so the ladder self-funds; (4) distance payoff — rank last.
+
+**THE GUARDS ARE AIMED AT A GAME NOBODY PLAYS**
+- [ ] `check-core-purity.mjs:52` guards `src/core` + `src/game`; `check-words.mjs:28` lists seven road-game surfaces. **`src/camp/` and `Camp.svelte` — the entire shipped game — are in neither**, and `npm run guard` prints two confident ticks about retired code. `docs/NEXT.md` item 22 records this EXACT failure one pivot ago.
+
+**SMALLER LEAKS**
+- [ ] `unassailable` (`engine.ts:629`) never checks `behind` — the engine will open a fight on unrevealed ground; only the view hides it.
+- [ ] `pin` (`engine.ts:805`) checks nothing — no site, no goblins, no works. `pin(id,-1)` on bare ground writes `crew[id]=0` permanently, and the "auto" escape only renders when `stacks>0`. Reachable via imported save.
+- [ ] "works N% staffed" is built from auto-staffed non-farm sites only (`engine.ts:447`) — pin every works and it reads 100% while the town stands idle. One word, one quantity.
+
+**DOC DRIFT — CITY.md disagrees with the engine on four numbers**
+- [ ] CITY.md:24,88 say cost curve 1.15^n; the code uses **1.35** (1.15 is huts alone).
+- [ ] CITY.md:32,44 say pop thresholds are the unlock ladder; `shown()` gates on `behind` + goblins. DECISIONS records the replacement, never propagated.
+- [ ] CITY.md:78 prices a hut at "+2 pop cap"; `HUT_ROOM = 4`.
+- [ ] CITY.md:82 says starving halts STAFFING; the code halts OUTPUT (hands stay posted, crew row reports a full quarry making nothing).
+- [ ] CITY.md:105 banner says "nothing here is built" over a section containing the shipped battle strip (:175).
+
+**THE OWNER'S EYE — hollow systems**
+- [ ] **6468 stone by round two.** Paths cost 3-9 across nine edges; stone is infinite and buys nothing that matters. → one scaling stone sink, or stone stops being a currency.
+- [ ] **The choke resolves to "Widen · 6 stone"** — rule 3 is the whole design and its answer is tapping the fix under the warning. → widening should cost something you are short of.
+- [ ] **The fight is a lock with a fixed combination**: aim runt, aim runt, guard the wind-up, six times. Deterministic and solver-verified is exactly why the 4th is a tax. → the goblins need a move that must be answered differently.
+- [ ] **Every fight opens aimed at the brute** — the wrong square. Re-fixing the default is a chore, not a decision.
+- [ ] **Full-hp gate + 15s per hp**: at 28 hp that is seven minutes of staring.
+- [ ] **Routing is BFS and one sawmill site exists**, so "nearest mill" has one answer — a spoke diagram, not a network. The player never chooses a route.
+- [ ] **Built sites lose their names**: "Rock Face" becomes "Farm ×1 · 0.8/s". The map stops being a place.
+- [ ] "998 food · fields bring 0.0/s" — numbers describing nothing.
