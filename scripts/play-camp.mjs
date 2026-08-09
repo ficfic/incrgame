@@ -436,6 +436,38 @@ const heroLine = await header();
 if (!/hero 16\/16/.test(heroLine)) {
   misses.push(`two liberations should read hero 16/16: "${heroLine.slice(30, 90)}"`);
 }
+// -------------------------------------------------- the larder ----------
+console.log('\nSTARVING READS DELIVERY');
+// The review's silent failure: a farm growing far more than the town eats,
+// with a quarry crowding the food off the one road home. The larder is
+// empty and NOTHING on screen said so.
+await seed({ version: 5, stacks: { 4: 6, 6: 6 },
+  paths: { '0|4': 1, '4|6': 3 },
+  stone: 0, logs: 0, planks: 0, food: 0, pop: 40, popPart: 0,
+  goblins: {}, hero: { hp: 10, arms: 0, part: 0 }, fight: null,
+  store: 9, carts: 0 });
+const larder = await header();
+console.log('  header  :', `"${larder.slice(0, 78)}"`);
+if (!/STARVING/.test(larder)) {
+  misses.push(`fields full, larder empty, and the header is silent: "${larder.slice(0, 78)}"`);
+}
+// The farm is growing plenty — it simply cannot get home.
+await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(250);
+const farmTitle = (await page.locator('.panel h2').textContent() ?? '').trim();
+console.log('  farm    :', `"${farmTitle}"`);
+if (!/makes .* carries/.test(farmTitle)) {
+  misses.push(`the choked farm does not show the split: "${farmTitle}"`);
+}
+// And the halted quarry reports itself halted, not still working.
+await page.locator('.map .node[data-id="site:6"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(250);
+const quarryTitle = (await page.locator('.panel h2').textContent() ?? '').trim();
+console.log('  quarry  :', `"${quarryTitle}"`);
+if (!/· 0(\.0)?(\/s)?$/.test(quarryTitle)) {
+  misses.push(`a halted quarry does not read as halted: "${quarryTitle}"`);
+}
+
 // -------------------------------------------------- the hand ------------
 console.log('\nTHE HAND AT A FULL STORE');
 // The leak the coherence review found: the tap obeyed no gate. Spam it at

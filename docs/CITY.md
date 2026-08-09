@@ -313,3 +313,27 @@ are load-bearing:**
 | starving | An empty larder halts every works but the farms. A town with no farm needs 12 stone to build one — if the hand halted too, there would be no way to earn it. **The hand is the floor under a starve.** |
 
 Both are pinned by tests that fail if a future session "fixes" them.
+
+
+## ★★★ STARVING READS DELIVERY — fixed 2026-08-08
+
+The coherence review's third finding. The test was `hunger(g) > farmRaw`,
+and `farmRaw` is the food standing **in the fields**. A farm whose path
+home was choked therefore counted as feeding the town, and **the failure
+was silent**: empty larder, no warning, no halt, every works running flat
+out on rations that never arrived. Measured on the sabotage, the header
+read `0 food −1.7/s +0.5/s` — eating more than arrives, at zero, with
+nothing on screen saying so.
+
+Delivery is only known *after* routing, and routing is what the halt
+changes, so `flow` now runs the haulage twice:
+
+1. `deliver(made)` — the town running normally. Did enough food get home?
+2. If not, the works halt and `deliver(halted)` runs again with only the
+   farms working.
+
+**The second run is not a penalty, it is the mechanism.** Halting the
+quarries frees the very paths the food was stuck behind, which is how a
+starving town digs itself out — measured, a town that delivers 1.2/s
+against a 1.7/s appetite delivers 3.0/s once the works stop competing for
+the road.

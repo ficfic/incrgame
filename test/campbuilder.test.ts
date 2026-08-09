@@ -1258,3 +1258,76 @@ describe('★★★ THE HAND OBEYS THE CEILING — and the two gates it must not
       paths: { [pathKey(0, 1)]: 3 } }, 60).stone).toBe(g.stone);
   });
 });
+
+// ---------------------------------------------------------------------------
+// ★★★ STARVING IS ABOUT WHAT ARRIVES, 2026-08-08 — the coherence review's
+// third finding. The test read `farmRaw`, the food standing in the FIELDS, so
+// a farm whose path home was choked counted as feeding the town. The failure
+// was silent: empty larder, no warning, no halt, every works running flat out
+// on rations that never arrived.
+// ---------------------------------------------------------------------------
+describe('★★★ STARVING READS DELIVERY, NOT HARVEST', () => {
+  /** A farm and a quarry sharing one narrow path home. The quarry's goods
+   *  crowd the food off the road — the whole point of the finding. */
+  const shared = (gauge: number, over: Partial<City> = {}): City => ({
+    ...initial(), goblins: {}, food: 0, pop: 40,
+    stacks: { 4: 6, 6: 6 },
+    paths: { [pathKey(0, 4)]: gauge, [pathKey(4, 6)]: MAX_GAUGE },
+    ...over });
+
+  it('★★★ THE BUG: fields full of food, an empty larder, and no warning', () => {
+    const g = shared(1);
+    const f = flow(g);
+    // The fields are growing far more than the town eats...
+    const grown = [...f.made].filter(([id]) => SITE.get(id)!.allows === 'farm')
+      .reduce((a, [, m]) => a + m, 0);
+    expect(grown).toBeGreaterThan(hunger(g));
+    // ...but almost none of it gets home, because the quarry has the road.
+    expect(f.food).toBeLessThan(hunger(g));
+    expect(f.choked.has(pathKey(0, 4))).toBe(true);
+    // THE FIX: the town is starving, and says so.
+    expect(f.starving).toBe(true);
+  });
+
+  it('★★ the halt frees the very path the food was stuck behind', () => {
+    // Starving halts every works but the farms — which is not just a
+    // penalty, it is the mechanism: the quarry stops crowding the road.
+    const g = shared(1);
+    const open = flow({ ...g, food: 99 });   // fed: everything runs
+    const shut = flow(g);                    // starving: only farms run
+    expect(shut.food).toBeGreaterThan(open.food);
+    // And the halted quarry is reported as halted, not as still working.
+    expect(shut.made.get(6)).toBe(0);
+    expect(open.made.get(6)!).toBeGreaterThan(0);
+  });
+
+  it('★★★ a town CAN dig itself out — the halt delivers enough to recover', () => {
+    // Same town, a wider road: choked while the quarry runs, fed once the
+    // works halt. This is the loop closing rather than a death spiral.
+    const g = shared(MAX_GAUGE);
+    expect(flow({ ...g, food: 99 }).food).toBeLessThan(hunger(g));
+    const f = flow(g);
+    expect(f.starving).toBe(true);
+    expect(f.food).toBeGreaterThan(hunger(g));
+    // One tick and the larder is no longer empty.
+    expect(tick(g, 1).food).toBeGreaterThan(0);
+  });
+
+  it('★ a town whose food gets home is not starving, however narrow the road', () => {
+    // The other direction: delivery is what counts, so a small town on a
+    // thin path is fine as long as enough arrives.
+    const small: City = { ...initial(), goblins: {}, food: 0, pop: 12,
+      stacks: { 4: 2 }, paths: { [pathKey(0, 4)]: 1 } };
+    const f = flow(small);
+    expect(f.food).toBeGreaterThanOrEqual(hunger(small));
+    expect(f.starving).toBe(false);
+  });
+
+  it('★ an unconnected farm feeds nobody, and the town knows', () => {
+    // No path at all: the harvest is real and entirely unreachable.
+    const cut: City = { ...initial(), goblins: {}, food: 0, pop: 40,
+      stacks: { 4: 8 }, paths: {} };
+    expect(flow(cut).food).toBe(0);
+    expect(flow(cut).starving).toBe(true);
+  });
+});

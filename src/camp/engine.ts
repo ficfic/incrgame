@@ -562,13 +562,6 @@ export function flow(g: City): Flow {
     made.set(id, hands.get(id)! * base);
     if (st.allows === 'farm') farmRaw += hands.get(id)! * base;
   }
-  const starving = g.food <= 0.001 && hunger(g) > farmRaw + 1e-9;
-  if (starving) {
-    for (const [id, m] of made) {
-      if (SITE.get(id)!.allows !== 'farm') made.set(id, 0);
-    }
-    void 0;
-  }
 
   // ★★ MESH ROUTING, 2026-08-08 — the owner: *"there should be a reason to
   // connect stuff to each other as opposed to just center."* There is now:
@@ -599,6 +592,11 @@ export function flow(g: City): Flow {
   // STAGE 1 — the raw goods: stone and food to the camp, logs to the mills
   // (or to the camp pile while no mill stands). Shared edges load together;
   // an over-cap edge scales every flow across it and the rest is WASTE.
+  /** ★★★ ONE RUN OF THE WHOLE HAULAGE, for a given day's production.
+   *  Pulled out of line 2026-08-08 so it can be run TWICE — see the
+   *  starvation decision below, which needs to know what actually got
+   *  home before it can know whether the town is starving. */
+  const deliver = (made: Map<number, number>) => {
   const flows: Array<{ id: number; rate: number;
     legs: Array<{ e: string; d: number }>; kind: Kind }> = [];
   for (const [id, m] of made) {
@@ -684,13 +682,42 @@ export function flow(g: City): Flow {
     }
   }
 
+  return { stone, food, logsIn, planks, millCap, sawing,
+    made, carried, choked, loads, net };
+  };
+
+  // ★★★ STARVING IS ABOUT WHAT ARRIVES, NOT WHAT IS GROWN, 2026-08-08.
+  // The coherence review's third finding: this test used to read `farmRaw`,
+  // the food standing in the fields. A farm whose path home is choked was
+  // therefore counted as feeding the town, and the failure was SILENT — an
+  // empty larder, no warning, no halt, and every works running flat out on
+  // rations that never arrived.
+  //
+  // So the town is run once as it would run normally, and the answer to
+  // "did enough food get home" decides. If it did not, the works halt and
+  // the town is run AGAIN with only the farms working — which frees the
+  // very paths the food was stuck behind, and is how a starving town digs
+  // itself out.
+  void farmRaw;
+  const open = deliver(made);
+  const starving = g.food <= 0.001 && hunger(g) > open.food + 1e-9;
+  const halted = new Map(made);
+  if (starving) {
+    for (const [id] of halted) {
+      if (SITE.get(id)!.allows !== 'farm') halted.set(id, 0);
+    }
+  }
+  const run = starving ? deliver(halted) : open;
+  const { stone, food, logsIn, planks, millCap, sawing, carried, choked,
+    loads, net } = run;
+
   // The net decides the walk: a path where logs out and planks back
   // cancel exactly shows nobody, which is honest.
   const dirs = new Map<string, number>();
   for (const [e, n] of net) if (Math.abs(n) > 1e-9) dirs.set(e, n > 0 ? 1 : -1);
 
   return { stone, logs: logsIn, planks, food, starving, logsIn, millCap,
-    sawing, hands, made, carried, choked, loads, dirs, staff, comp };
+    sawing, hands, made: run.made, carried, choked, loads, dirs, staff, comp };
 }
 
 /** Why the next copy cannot be raised here, in plain words, or null. */
