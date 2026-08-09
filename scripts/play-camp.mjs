@@ -247,8 +247,8 @@ if (!/\b2\/2\b/.test(await cell('people'))) {
 // would toggle it off, so the probe just reads what is already open.
 const staffed = await panel();
 console.log('  camp    :', `"${staffed.slice(0, 80)}"`);
-if (!/% staffed/.test(staffed)) {
-  misses.push(`three jobs on two people and the camp does not say staffed-%: "${staffed.slice(0, 70)}"`);
+if (!/👤\d+%/.test(staffed)) {
+  misses.push(`three jobs on two people and the camp does not mark the shortfall: "${staffed.slice(0, 70)}"`);
 }
 // ★ THE VISUAL PASS: every built works wears its little building on the map.
 const icons = await page.$$eval('.map .node .icon', (n) => n.length);
@@ -305,7 +305,7 @@ await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catc
 await page.waitForTimeout(200);
 const sendNote = await panel();
 console.log('  offers  :', `"${sendNote.slice(0, 70)}"`);
-if (!/hits 2 · their runts bite 2/.test(sendNote)) {
+if (!/⚔️2 · 🩸2/.test(sendNote)) {
   misses.push(`the held ground does not quote the fight: "${sendNote.slice(0, 60)}"`);
 }
 await page.locator('.deed', { hasText: 'Send the hero' }).click({ timeout: 2000 })
@@ -503,6 +503,21 @@ if (!(dock.floor >= 44)) {
 }
 if (dock.cols < 2) misses.push(`the dock is still one column of ${dock.n} full-width deeds`);
 
+// ★ AND NO PROSE CREEPS BACK. The owner: *"too much prose there, please
+// icons and indicators."* Every deed note is marks and numbers now, so the
+// English words that used to live there are the check: if any of them
+// returns, this fires. (`of` is deliberately absent — "1 of 3" is gone from
+// the labels but "0/10" is not English.)
+const PROSE = /\b(you have|holds|of each|standing|carried|dangerous|goblins|strong|thrown away|a tap|hits|bite|carries|staffed|people|eats|fields bring|stores hold)\b/i;
+const wordy = await page.evaluate(() => [...document.querySelectorAll('.deed em')]
+  .map((e) => e.textContent.trim()));
+const proseIn = wordy.filter((t) => /\b(you have|holds|of each|standing|carried|dangerous|goblins|strong|thrown away|a tap|hits|bite|carries|staffed)\b/i.test(t));
+console.log('  notes   :', `${wordy.length} deed notes, ${proseIn.length} with prose in them`);
+if (proseIn.length > 0) {
+  misses.push(`prose is back in the dock: ${proseIn.slice(0, 2).map((t) => `"${t}"`).join(', ')}`);
+}
+void PROSE;
+
 // -------------------------------------------------- the larder ----------
 console.log('\nSTARVING READS DELIVERY');
 // The review's silent failure: a farm growing far more than the town eats,
@@ -583,7 +598,7 @@ await seed({ version: 5, stacks: { 0: 6, 1: 6, 2: 6, 3: 4 },
 const cartDeed = page.locator('.deed', { hasText: 'Carts ×1' });
 const cartNote = (await cartDeed.textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
 console.log('  offers  :', `"${cartNote.slice(0, 76)}"`);
-if (!/thrown away now/.test(cartNote)) {
+if (!/⚠\d/.test(cartNote)) {
   misses.push(`the cartwright does not state its case: "${cartNote.slice(0, 76)}"`);
 }
 // Read the SPLIT off the choked quarry's own panel title — the same
@@ -650,7 +665,7 @@ if (!/full of 60/.test(await cell('stone'))) {
 const storeDeed = page.locator('.deed', { hasText: 'Storehouse ×1' });
 const storeNote = await storeDeed.textContent().catch(() => '');
 console.log('  offers  :', `"${storeNote.trim().replace(/\s+/g, ' ').slice(0, 60)}"`);
-if (!/holds 120 of each/.test(storeNote)) {
+if (!/📦120/.test(storeNote)) {
   misses.push(`the storehouse does not price its room: "${storeNote.trim().slice(0, 60)}"`);
 }
 await storeDeed.click({ timeout: 2000 })

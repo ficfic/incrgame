@@ -14,6 +14,7 @@
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
   import { ward } from '../camp/barrier';
+  import { MARK, amount, outOf, price, times } from '../camp/marks';
   import type { Shape } from '../game/shapes';
 
   let game = $state<City>(initial());
@@ -191,7 +192,7 @@
       const why = unassailable(game, s.id);
       out.push({
         label: 'Send the hero',
-        note: why ?? `hits ${heroHit(game)} · their runts bite ${GOBLINS[s.id]?.bite ?? 2}`,
+        note: why ?? `${MARK.hero}${heroHit(game)} · ${MARK.bite}${GOBLINS[s.id]?.bite ?? 2}`,
         why,
         go: () => act({ type: 'assail', id: s.id }),
       });
@@ -205,8 +206,8 @@
       out.push({
         label: 'Chop logs by hand',
         note: brim(game.logs)
-          ? `stores full at ${roomOf(game)} · a tap adds nothing`
-          : `+${TAP_STONE} a tap · ${Math.floor(game.logs)} held`,
+          ? `${MARK.waste} ${outOf('logs', game.logs, roomOf(game))}`
+          : `+${TAP_STONE} · ${amount('logs', Math.floor(game.logs))}`,
         why: null,
         go: () => act({ type: 'tap', kind: 'logs' }),
       });
@@ -215,8 +216,8 @@
     const why = unraisable(game, s.id);
     out.push({
       label: `${KIND_NAME[s.allows]} ×${have + 1}`,
-      note: (why ?? priceLine(costOf(s.allows, have)))
-        + (have > 0 ? ` · ${have} standing` : ''),
+      note: (why ?? price(costOf(s.allows, have)))
+        + (have > 0 ? ` · ${times(have)}` : ''),
       why,
       go: () => act({ type: 'raise', id: s.id }),
     });
@@ -227,10 +228,9 @@
       const noRoom = game.stone < sp.stone || game.planks < sp.planks;
       out.push({
         label: `Storehouse ×${game.store + 1}`,
-        note: `${sp.stone} stone · ${sp.planks} planks → holds `
-          + `${roomOf(game) + STORE_ROOM} of each`
-          + (game.store > 0 ? ` · ${game.store} standing` : ''),
-        why: noRoom ? `${sp.stone} stone · ${sp.planks} planks` : null,
+        note: `${price(sp)} → ${MARK.room}${roomOf(game) + STORE_ROOM}`
+          + (game.store > 0 ? ` · ${times(game.store)}` : ''),
+        why: noRoom ? price(sp) : null,
         go: () => act({ type: 'stow' }),
       });
       // ★ THE CARTWRIGHT — the one exponential that runs FOR the player,
@@ -244,10 +244,9 @@
       const noCart = game.stone < cp.stone || game.planks < cp.planks;
       out.push({
         label: `Carts ×${game.carts + 1}`,
-        note: `${cp.stone} stone · ${cp.planks} planks → every gauge carries `
-          + `${(CARRY * cartHaul(game) * CART_GAIN).toFixed(2)}/s`
-          + ` · ${wasted.toFixed(1)}/s is being thrown away now`,
-        why: noCart ? `${cp.stone} stone · ${cp.planks} planks` : null,
+        note: `${price(cp)} → ${MARK.carts}${(CARRY * cartHaul(game) * CART_GAIN).toFixed(2)}/s`
+          + ` · ${MARK.waste}${wasted.toFixed(1)}/s`,
+        why: noCart ? price(cp) : null,
         go: () => act({ type: 'cart' }),
       });
       }
@@ -255,9 +254,9 @@
       const short = game.stone < p.stone || game.planks < p.planks;
       out.push({
         label: `Arms ×${game.hero.arms + 1}`,
-        note: `${p.stone} stone · ${p.planks} planks → hits ${heroHit(game) + 1}`
-          + (game.hero.arms > 0 ? ` · ${game.hero.arms} carried` : ''),
-        why: short ? `${p.stone} stone · ${p.planks} planks` : null,
+        note: `${price(p)} → ${MARK.hero}${heroHit(game) + 1}`
+          + (game.hero.arms > 0 ? ` · ${times(game.hero.arms)}` : ''),
+        why: short ? price(p) : null,
         go: () => act({ type: 'arm' }),
       });
     }
@@ -269,8 +268,8 @@
       if (job) {
         out.push({
           label: `Laying · ${t.name}`,
-          note: `${Math.ceil(job.left)}s`,
-          why: `${Math.ceil(job.left)}s`,
+          note: `${MARK.time}${Math.ceil(job.left)}s`,
+          why: `${MARK.time}${Math.ceil(job.left)}s`,
           go: () => {},
         });
         continue;
@@ -279,9 +278,14 @@
       if (gauge >= MAX_GAUGE) continue;
       const w = unlayable(game, s.id, n);
       out.push({
-        label: gauge === 0 ? `Path · ${t.name}` : `Widen · ${t.name} (${gauge} of ${MAX_GAUGE})`,
-        note: w ?? `${pathCostOf(gauge)} stone · ${PATH_SECS * (gauge + 1)}s · carries `
-          + `${((gauge + 1) * CARRY * cartHaul(game)).toFixed(1)}/s`,
+        // ⚠️ THE GAUGE MOVED OUT OF THE LABEL. "Widen · Rock Face (1 of 3)"
+        // did not fit a half-width card and ellipsised to "Widen · Rock Face
+        // (…", which cut the one number the label was carrying. The name is
+        // what you scan for; the count belongs with the other numbers.
+        label: gauge === 0 ? `Path · ${t.name}` : `Widen · ${t.name}`,
+        note: w ?? `${gauge}/${MAX_GAUGE} · ${amount('stone', pathCostOf(gauge))} `
+          + `${MARK.time}${PATH_SECS * (gauge + 1)}s`
+          + ` → ${((gauge + 1) * CARRY * cartHaul(game)).toFixed(1)}/s`,
         why: w,
         go: () => act({ type: 'lay', a: s.id, b: n }),
       });
@@ -310,15 +314,24 @@
       // ★ "12/10 people strange" (owner playtest) — captives walk home even
       // when the huts are full, so pop CAN sit over the cap. The header was
       // taught to say so; this line was not, and still read "16 of 2".
-      return (game.pop > cap
-        ? `${Math.floor(game.pop)} people · huts full`
-        : `${Math.floor(game.pop)} of ${cap} people`)
-        + (hunger(game) > 0
-          ? ` · eats ${hunger(game).toFixed(1)}/s · fields bring ${f.food.toFixed(1)}/s`
-          : ` · the wild feeds ${WILD_FED}`)
-        + (f.starving ? ' — raise or connect farms' : '')
-        + ` · stores hold ${roomOf(game)}`
-        + (f.staff < 1 && !f.starving ? ` · works ${Math.round(f.staff * 100)}% staffed` : '');
+      // ★ MARKS, NOT A SENTENCE (2026-08-09, the owner: *"too much prose
+      // there, please icons and indicators"*). This line read "20 people ·
+      // huts full · eats 0.7/s · fields bring 0.0/s · stores hold 120 ·
+      // works 63% staffed" — eleven words and six numbers, sitting directly
+      // under a HUD that already showed four of them.
+      //
+      // ⚠️ WHAT THE HUD ALREADY SAYS IS GONE FROM HERE, not restyled: the
+      // population and its cap are `👤20/18` one row up. What is left is
+      // what the HUD does NOT carry — the food balance, the room in the
+      // stores, and how well the works are manned.
+      return [
+        hunger(game) > 0
+          ? `${MARK.food}+${f.food.toFixed(1)}/s −${hunger(game).toFixed(1)}/s`
+          : `${MARK.food}${MARK.people}${WILD_FED}`,
+        f.starving ? `${MARK.waste}${MARK.food}` : '',
+        `${MARK.room}${roomOf(game)}`,
+        f.staff < 1 && !f.starving ? `${MARK.people}${Math.round(f.staff * 100)}%` : '',
+      ].filter(Boolean).join(' · ');
     }
     if (game.goblins[picked]) {
       // ★ THE PRIZE, SAID BEFORE THE FIGHT — the owner: no reason to want

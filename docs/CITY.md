@@ -455,3 +455,39 @@ is not. Shaving that is how a compact list becomes a list you cannot hit.
    `min-height` could be dropped to 28px with nothing noticing. Proven
    exactly that way. The probe reads the computed `min-height` now, which is
    the rule that actually protects a thumb.
+
+
+## ★★ MARKS, NOT PROSE — 2026-08-09
+
+> *"too much prose there, please icons and indicators"*
+
+`src/camp/marks.ts` names each thing once, and **the HUD and the dock both
+read it** — a second hand-typed set of icons in the deeds is exactly how the
+board came to say "25 nodes" beside a HUD saying "3 recovered".
+
+| was | is |
+|---|---|
+| `55 stone · 33 planks → holds 300 of each · 3 standing` | `🪨55 🟫33 → 📦300 · ×3` |
+| `11 stone — you have 3` | `🪨3/11` |
+| `dangerous — goblins, 18 strong` | `☠18` |
+| `18 stone · 9 planks → hits 6 · 3 carried` | `🪨18 🟫9 → ⚔️6 · ×3` |
+| `6 stone · 12s · carries 3.4/s` | `1/3 · 🪨6 ⏱12s → 3.4/s` |
+| `20 people · huts full · eats 0.7/s · fields bring 0.0/s · stores hold 120 · works 63% staffed` | `🌾+0.0/s −0.7/s · 📦120 · 👤63%` |
+
+Two things worth keeping straight:
+
+- **`🪨3/11` is have-over-need**, the same shape as `👤4/6` in the HUD one row
+  above. The old form was eight words for two numbers *and* a different
+  shape from the row above it.
+- **The status line lost what the HUD already says**, rather than being
+  restyled. Population and its cap are `👤20/18` one row up; what is left
+  here is the food balance, the room in the stores, and how well the works
+  are manned — the three things the HUD does not carry.
+- `Widen · Rock Face (1 of 3)` did not fit a half-width card and ellipsised
+  to `(…`, cutting the one number the label carried. The name is what you
+  scan for, so the gauge moved into the note with the other numbers.
+
+⚠️ **The probe now fails on prose returning to a deed note** — it scans every
+`.deed em` for the English that used to live there (`you have`, `holds`,
+`standing`, `dangerous`, `carries`, `hits`…). Proven by putting the
+storehouse's old sentence back.

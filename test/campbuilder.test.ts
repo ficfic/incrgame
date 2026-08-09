@@ -97,7 +97,9 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
   });
 
   it('★ huts cost PLANKS — the mill chain is the sink', () => {
-    expect(unraisable({ ...initial(), stone: 99 }, 0)).toMatch(/planks/);
+    // ★ MARKS, NOT PROSE (2026-08-09): `🟫0/10` — have over need, the same
+    // shape the HUD uses one row above. It must still name the right GOOD.
+    expect(unraisable({ ...initial(), stone: 99 }, 0)).toMatch(/^🟫0\/10$/);
     const g = apply({ ...initial(), planks: 12 }, { type: 'raise', id: 0 });
     expect(g.stacks[0]).toBe(1);
     expect(g.planks).toBeCloseTo(12 - BASE.hut.planks!, 9);
@@ -383,11 +385,11 @@ describe('★ honest refusals and the save', () => {
 
   it('refusals say why: price, danger, reach', () => {
     expect(unraisable({ ...initial(), paths: { [pathKey(0, 1)]: 1 } }, 1))
-      .toMatch(/^5 stone — you have 0/);
-    expect(unraisable(initial(), 4)).toMatch(/^dangerous — goblins, 12 strong/);
+      .toMatch(/^🪨0\/5$/);
+    expect(unraisable(initial(), 4)).toMatch(/^☠12$/);
     expect(unlayable(initial(), 1, 3)).toBe('nothing joins these');
     expect(unlayable({ ...initial(), stone: 99 }, 1, 2)).toBe('no path reaches either end');
-    expect(unlayable({ ...initial(), stone: 99 }, 3, 5)).toMatch(/^dangerous — goblins, 18 strong/);
+    expect(unlayable({ ...initial(), stone: 99 }, 3, 5)).toMatch(/^☠18$/);
   });
 
   it('round-trips a real city and refuses the rest', () => {
@@ -945,7 +947,7 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
     expect(SITE.get(0)!.near).toEqual(expect.arrayContaining([5, 6]));
     // But the road cannot be laid while the goblins stand on it.
     expect(unlayable({ ...initial(), stone: 99 }, 0, 6))
-      .toMatch(/^dangerous — goblins/);
+      .toMatch(/^☠/);
   });
 
   it('★★★ THE FOOD ARTERY DOUBLES when the knoll falls — the 66-pop wall', () => {

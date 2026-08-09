@@ -127,6 +127,8 @@ for (const s of SITES) {
   }
 }
 
+import { MARK, outOf, type Good } from './marks';
+
 export const pathKey = (a: number, b: number): string =>
   a < b ? `${a}|${b}` : `${b}|${a}`;
 
@@ -397,7 +399,10 @@ export const priceLine = (p: Price): string =>
 /** What the price finds short, or null when it is covered. */
 export const shortOf = (g: City, p: Price): string | null => {
   for (const [k, v] of Object.entries(p) as [keyof Price, number][]) {
-    if ((g[k] ?? 0) < v!) return `${v} ${k} — you have ${Math.floor(g[k])}`;
+    // ★ `🪨3/11` — have over need, 2026-08-09. It was "11 stone — you have
+    // 3": eight words for two numbers, and it did not match `👤4/6` in the
+    // HUD one row above it. Same shape now.
+    if ((g[k] ?? 0) < v!) return outOf(k as Good, g[k] ?? 0, v!);
   }
   return null;
 };
@@ -724,7 +729,7 @@ export function flow(g: City): Flow {
 export function unraisable(g: City, id: number): string | null {
   const s = SITE.get(id);
   if (!s) return 'no such ground';
-  if (g.goblins[id]) return `dangerous — goblins, ${Math.ceil(g.goblins[id])} strong`;
+  if (g.goblins[id]) return `${MARK.danger}${Math.ceil(g.goblins[id])}`;
   // ★ THE PATH COMES FIRST — the owner: *"it's weird that i can build
   // something before there's a path to that spot."* No works on ground
   // the town cannot reach.
@@ -738,7 +743,7 @@ export function unlayable(g: City, a: number, b: number): string | null {
   const B = SITE.get(b);
   if (!A || !B || !A.near.includes(b)) return 'nothing joins these';
   if (g.goblins[a] || g.goblins[b]) {
-    return `dangerous — goblins, ${Math.ceil(g.goblins[a] ?? g.goblins[b]!)} strong`;
+    return `${MARK.danger}${Math.ceil(g.goblins[a] ?? g.goblins[b]!)}`;
   }
   if (g.laying[pathKey(a, b)]) return 'already laying';
   const gauge = g.paths[pathKey(a, b)] ?? 0;
