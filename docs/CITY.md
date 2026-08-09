@@ -415,3 +415,43 @@ dots entering and leaving cancel out and the centre moves ~0.3px — it
 height perturbed it enough to fire twice. It now measures the raw sum of
 positions, where the same walk reads 30–65% against a 0.05% threshold, and
 0.000% when the animation is frozen. Three consecutive green runs.
+
+
+## ★★ THE DOCK — halved 2026-08-09
+
+> *"can you work on the horizontal buttons at the bottom now, they take too
+> much space"* — the owner, playing on the phone.
+
+They did. Each deed was a full-width card, name over price over 10px of
+padding, **54px each**, so the list ran to 234px of an 844px screen with
+only four deeds showing and 400px+ at the camp.
+
+Two columns now, which is **the answer the battle strip already reached for
+the same reason** (`.verbs`, *"four stacked full-width deeds pushed the strip
+off small screens"*) — the dock uses the precedent rather than inventing a
+second one.
+
+Measured on the owner's own screen, at the busiest site:
+
+| | one column | two columns |
+|---|---|---|
+| 4 deeds (the mill) | 234px | **118px** |
+| 10 deeds (the camp) | 556px | **340px** |
+| map gets | 374px | **490px** |
+
+⚠️ **Every row is still 44px minimum.** The list is shorter; the tap target
+is not. Shaving that is how a compact list becomes a list you cannot hit.
+
+### Two things the screenshots caught that no check would have
+
+1. **The right column ran off the screen edge**, cutting `Widen · The Camp
+   (1 of 3)` to `(1 of`. The base `.deed` rule sets `width: 100%` and **this
+   app has no `box-sizing: border-box` reset anywhere** — so inside a grid
+   cell every row came out 22px wider than its column. `.deed.row` sets
+   `border-box` and `width: auto`; a global reset was not worth the blast
+   radius.
+2. The measured-height check for the 44px floor was **vacuous**: every deed
+   carries two lines of text and comes out 49–63px unaided, so the
+   `min-height` could be dropped to 28px with nothing noticing. Proven
+   exactly that way. The probe reads the computed `min-height` now, which is
+   the rule that actually protects a thumb.

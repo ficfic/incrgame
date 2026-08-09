@@ -606,12 +606,22 @@
             {/if}
           </div>
         {/if}
+        <div class="deeds">
         {#each deeds as d (d.label)}
-          <button class="deed" disabled={d.why !== null} onclick={d.go}>
-            {d.label}
+          <!-- ★ ONE LINE PER DEED, 2026-08-09. The owner, on the phone: *"the
+               horizontal buttons at the bottom, they take too much space."*
+               They did — label over note over 10px of padding is ~67px of a
+               844px screen EACH, so five deeds ate a third of the phone and
+               the map got what was left. Name left, price right, one row.
+               ⚠️ STILL 44px TALL. The row is shorter but the TAP TARGET is
+               not: that is the floor a thumb needs, and shaving it is how a
+               compact list becomes a list you cannot hit. -->
+          <button class="deed row" disabled={d.why !== null} onclick={d.go}>
+            <span class="what">{d.label}</span>
             <em>{d.note}</em>
           </button>
         {/each}
+        </div>
       {:else}
         <p class="note">Tap a site.</p>
       {/if}
@@ -694,6 +704,32 @@
     padding: 10px 12px; margin: 6px 0; }
   .deed:disabled { background: #e3ddd0; color: #8a8172; }
   .deed em { display: block; font-style: normal; font-size: 12.5px; color: #8a8172; }
+
+  /* ★★ TWO COLUMNS, 2026-08-09 — the owner, on the phone: *"the horizontal
+     buttons at the bottom, they take too much space."* Full-width rows were
+     54px each and the list ran to 234px of an 844px screen; the map got 374.
+     This is the same answer the battle strip already reached for the same
+     reason (`.verbs`, "four stacked full-width deeds pushed the strip off
+     small screens") — so the dock now uses the precedent instead of
+     inventing a second one. */
+  .deeds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0; }
+  /* ⚠️ `box-sizing` AND `width:auto` ARE LOAD-BEARING HERE. The base `.deed`
+     rule sets `width:100%`, and there is no border-box reset anywhere in this
+     app — so inside a grid cell each row came out 22px wider than its column
+     (100% + 10px padding each side + 1px border each side) and the right-hand
+     column ran off the screen edge, cutting "Widen · The Camp (1 of 3)" to
+     "(1 of". Caught in the screenshot, not by any check. */
+  .deed.row { display: flex; flex-direction: column; justify-content: center;
+    align-items: flex-start; gap: 1px; min-height: 44px; margin: 0;
+    box-sizing: border-box; width: auto; min-width: 0;
+    padding: 7px 10px; font-size: 14.5px; border-radius: 10px; line-height: 1.2; }
+  /* ⚠️ THE NAME MAY ELLIPSISE, THE PRICE MAY NOT. A deed you cannot afford
+     has to say what it wants — that is the entire job of the second line —
+     so it wraps rather than truncating, and the cell grows to fit it. */
+  .deed.row .what { max-width: 100%; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .deed.row em { display: block; font-size: 11.5px; line-height: 1.25;
+    max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .crew { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
   .crew span { font-size: 14px; color: #6b5d3f; }
   .crew button { font: inherit; font-size: 18px; line-height: 1; width: 34px; height: 34px;

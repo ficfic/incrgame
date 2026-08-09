@@ -463,6 +463,46 @@ const heroLine = await header();
 if (!/\b16\/16\b/.test(await cell('hero'))) {
   misses.push(`two liberations should read hero 16/16: "${await cell('hero')}"`);
 }
+// -------------------------------------------------- the dock ------------
+console.log('\nTHE DOCK FITS');
+// ★ The owner, on the phone: "the horizontal buttons at the bottom, they take
+// too much space." Two columns now. Two things have to hold, and the SECOND
+// one shipped broken once already: every deed must stay inside the screen
+// (the base `.deed` rule sets width:100% and this app has no border-box
+// reset, so each grid cell overflowed by 22px and cut the right-hand labels),
+// and no deed may be shorter than a thumb.
+await seed({ version: 5, stacks: { 0: 4, 1: 4, 2: 2, 3: 2 },
+  paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
+  stone: 900, logs: 90, planks: 900, food: 900, pop: 30, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 13, arms: 3, part: 0 }, fight: null, store: 3, carts: 2 });
+const dock = await page.evaluate(() => {
+  const w = document.documentElement.clientWidth;
+  const ds = [...document.querySelectorAll('.deed')];
+  const r = ds.map((d) => d.getBoundingClientRect());
+  return {
+    n: ds.length,
+    past: r.filter((b) => b.right > w + 0.5 || b.left < -0.5).length,
+    short: r.filter((b) => b.height < 44).length,
+    // ⚠️ MEASURED HEIGHT ALONE CANNOT CATCH A SHRUNK FLOOR: every deed here
+    // carries two lines of text and comes out 49-63px on its own, so the
+    // min-height could be dropped to 28px and nothing would notice. Proven
+    // exactly that way, and this reads the rule itself instead.
+    floor: Math.min(...ds.map((d) => parseFloat(getComputedStyle(d).minHeight) || 0)),
+    cols: new Set(r.map((b) => Math.round(b.left))).size,
+    tall: r.length ? Math.round(r[r.length - 1].bottom - r[0].top) : 0,
+  };
+});
+console.log('  deeds   :',
+  `${dock.n} in ${dock.cols} columns, ${dock.tall}px tall, floor ${dock.floor}px`);
+if (dock.n < 6) misses.push(`only ${dock.n} deeds at the busiest site — seed is wrong`);
+if (dock.past > 0) misses.push(`${dock.past} deeds run past the screen edge`);
+if (dock.short > 0) misses.push(`${dock.short} deeds are under 44px — too small for a thumb`);
+if (!(dock.floor >= 44)) {
+  misses.push(`the deed floor is ${dock.floor}px — a thumb needs 44`);
+}
+if (dock.cols < 2) misses.push(`the dock is still one column of ${dock.n} full-width deeds`);
+
 // -------------------------------------------------- the larder ----------
 console.log('\nSTARVING READS DELIVERY');
 // The review's silent failure: a farm growing far more than the town eats,
