@@ -436,6 +436,69 @@ const heroLine = await header();
 if (!/hero 16\/16/.test(heroLine)) {
   misses.push(`two liberations should read hero 16/16: "${heroLine.slice(30, 90)}"`);
 }
+// -------------------------------------------------- the cartwright ------
+console.log('\nTHE CARTWRIGHT');
+// A town whose paths are eating its work: the deed must be OFFERED, must
+// say what is being thrown away, and buying it must visibly un-choke the
+// board. And it must NOT be offered to a town that wastes nothing — a
+// deed that takes 30 stone to do nothing is a trap.
+await seed({ version: 5, stacks: { 0: 6, 1: 6, 2: 6, 3: 4 },
+  paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
+  stone: 400, logs: 0, planks: 400, food: 900, pop: 24, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 20, carts: 0 });
+const cartDeed = page.locator('.deed', { hasText: 'Carts ×1' });
+const cartNote = (await cartDeed.textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
+console.log('  offers  :', `"${cartNote.slice(0, 76)}"`);
+if (!/thrown away now/.test(cartNote)) {
+  misses.push(`the cartwright does not state its case: "${cartNote.slice(0, 76)}"`);
+}
+// Read the SPLIT off the choked quarry's own panel title — the same
+// reader the choke phase uses, because the board thins labels when the
+// map is crowded.
+const splitOf = async () => {
+  await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+  await page.waitForTimeout(250);
+  const t = (await page.locator('.panel h2').textContent()) ?? '';
+  return t.trim();
+};
+const cartBefore = await splitOf();
+console.log('  before  :', `"${cartBefore}"`);
+// The title says `makes X · carries Y` while choked and collapses to a
+// bare `Y/s` once everything it makes gets home — so read both shapes,
+// because the collapse IS the win and must not read as a parse failure.
+const carriedIn = (t) => Number(
+  (/carries ([\d.]+)/.exec(t) ?? /·\s*([\d.]+)\/s/.exec(t))?.[1] ?? NaN);
+const carriedBefore = carriedIn(cartBefore);
+if (!/carries/.test(cartBefore)) {
+  misses.push(`the seeded quarry is not choked to begin with: "${cartBefore}"`);
+}
+if (!(carriedBefore > 0)) {
+  misses.push(`the seeded town is not choked, so the cart proves nothing: "${cartBefore}"`);
+}
+await page.locator('.map .node[data-id="site:0"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(250);
+await cartDeed.click({ timeout: 2000 })
+  .catch(() => misses.push('no deed sets the cartwright to work'));
+await page.waitForTimeout(600);
+const cartAfter = await splitOf();
+console.log('  after   :', `"${cartAfter}"`);
+const carriedAfter = carriedIn(cartAfter);
+if (!(carriedAfter > carriedBefore)) {
+  misses.push(`a cart carried nothing more: ${carriedBefore} then ${carriedAfter}`);
+} else {
+  console.log('  gain    :', `${carriedBefore}/s → ${carriedAfter}/s off the same works`);
+}
+// And the trap: a town with one quarry on an open path wastes nothing.
+await seed({ version: 5, stacks: { 0: 1, 1: 1 }, paths: { '0|1': 3 },
+  stone: 400, logs: 0, planks: 400, food: 90, pop: 4, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 20, carts: 0 });
+const offeredIdle = await page.locator('.deed', { hasText: 'Carts ×' }).count();
+console.log('  unchoked:', offeredIdle === 0
+  ? 'no cart deed, correctly' : 'CART OFFERED TO A TOWN THAT WASTES NOTHING');
+if (offeredIdle > 0) misses.push('the cartwright is offered to a town with nothing to gain');
+
 // -------------------------------------------------- the storehouse ------
 console.log('\nTHE STORE');
 // A town whose quarries have filled the camp: the chip must SAY full, and

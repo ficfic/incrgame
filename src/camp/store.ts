@@ -26,6 +26,7 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   }
   // Storehouses are whole buildings, like every other count.
   if (g.store !== undefined && !whole(g.store, 0, 9999)) return null;
+  if (g.carts !== undefined && !whole(g.carts, 0, 9999)) return null;
   // ⚠️ VALUES, NOT JUST SHAPES (review finding, 2026-08-08): `stacks:{1:"x"}`
   // used to load clean, NaN-poison every rate through `flow()`, and then the
   // NEXT save — now carrying `NaN` stone — was refused outright. A junk import

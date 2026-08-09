@@ -9,6 +9,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
   PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY, regenOf, catchUp, STEP_SECS, SITE,
   richOf, MAX_GAUGE, roomOf, storeCost, STORE_BASE, STORE_ROOM,
+  carriesOf, cartCost, cartHaul, CART_GAIN,
   RATION_FOOD, RATION_HP, RATION_PACK,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
@@ -1075,5 +1076,120 @@ describe('★★★ THE STOREHOUSE — a ceiling on every good', () => {
     // An old save with no storehouses at all loads at zero.
     const { store: _, ...old } = initial();
     expect(honour({ game: old as never, savedAt: 1 })!.game.store).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE CARTWRIGHT, 2026-08-08 — the coherence review's top finding: every
+// exponential in this engine runs AGAINST the player. This is the one that
+// runs for them, and it runs on the GRAPH, because the graph is where a
+// finished town's work was being thrown away.
+// ---------------------------------------------------------------------------
+describe('★★★ THE CARTWRIGHT — the one exponential that runs for the player', () => {
+  /** A finished town: every site stacked, every path at MAX_GAUGE, full pop. */
+  const maxed = (carts: number): City => {
+    const g: City = { ...initial(), goblins: {}, food: 9e5, stone: 9e5,
+      planks: 9e5, logs: 9e5, carts, stacks: {}, paths: {} };
+    for (const s of SITES) g.stacks[s.id] = s.id === 0 ? 40 : 8;
+    for (const s of SITES) for (const n of s.near) g.paths[pathKey(s.id, n)] = MAX_GAUGE;
+    return { ...g, pop: popCap(g) };
+  };
+  const totals = (g: City): { made: number; carried: number } => {
+    const f = flow(g);
+    let made = 0, carried = 0;
+    for (const s of SITES) {
+      if (s.id === 0) continue;
+      made += f.made.get(s.id) ?? 0;
+      carried += f.carried.get(s.id) ?? 0;
+    }
+    return { made, carried };
+  };
+
+  it('★★★ THE MEASUREMENT THAT CHOSE THE DESIGN — a maxed town wastes most of its work', () => {
+    // This is why the backlog's "multiply RATE.quarry" would have been a
+    // no-op: at MAX_GAUGE on every path, a finished town already throws
+    // away three quarters of what it makes. Multiplying production
+    // multiplies the waste. If this ever stops being true, the cartwright
+    // is aimed at the wrong wall and this test is the alarm.
+    const { made, carried } = totals(maxed(0));
+    expect(made).toBeGreaterThan(50);
+    expect(carried).toBeLessThan(made * 0.3);
+  });
+
+  it('★★ a cart rung raises what EVERY path carries', () => {
+    const g = maxed(0);
+    const key = pathKey(0, 4);
+    expect(carriesOf(g, key)).toBeCloseTo(MAX_GAUGE * CARRY, 9);
+    expect(carriesOf({ ...g, carts: 1 }, key))
+      .toBeCloseTo(MAX_GAUGE * CARRY * CART_GAIN, 9);
+    expect(carriesOf({ ...g, carts: 3 }, key))
+      .toBeCloseTo(MAX_GAUGE * CARRY * CART_GAIN ** 3, 9);
+    // A path that is not laid carries nothing, carts or no carts. (1 and 9
+    // are not neighbours, so this key is not in `paths` at all.)
+    expect(carriesOf({ ...g, carts: 9 }, pathKey(1, 9))).toBe(0);
+  });
+
+  it('★★★ EVERY RUNG BUYS REAL INCOME, and the ladder compounds', () => {
+    // Measured, not asserted in the abstract: 13.9/s at no carts climbing
+    // past 48/s at eight, every single rung strictly better than the last.
+    let last = 0;
+    for (let c = 0; c <= 8; c++) {
+      const now = totals(maxed(c)).carried;
+      expect(now).toBeGreaterThan(last);
+      last = now;
+    }
+    expect(totals(maxed(0)).carried).toBeGreaterThan(13);
+    expect(totals(maxed(8)).carried).toBeGreaterThan(totals(maxed(0)).carried * 3);
+  });
+
+  it('★★ it can never carry MORE than the town makes — it opens a wall, it does not mint', () => {
+    // The one way a throughput multiplier could become a cheat.
+    for (const c of [0, 4, 12, 40]) {
+      const { made, carried } = totals(maxed(c));
+      expect(carried).toBeLessThanOrEqual(made + 1e-6);
+    }
+    // And at absurd carts the town delivers everything it makes, no more.
+    expect(totals(maxed(40)).carried).toBeCloseTo(totals(maxed(40)).made, 4);
+  });
+
+  it('★ carts run out on a given town — they leapfrog with the works', () => {
+    // A finite, findable number of rungs un-chokes a maxed town; past that
+    // a cart buys nothing until more works are built. That is the pair of
+    // ladders, working — and it is why the cartwright's deed is offered
+    // only while something is actually being wasted.
+    let enough = -1;
+    for (let c = 0; c <= 40 && enough < 0; c++) {
+      if (flow(maxed(c)).choked.size === 0) enough = c;
+    }
+    expect(enough).toBeGreaterThan(0);
+    expect(enough).toBeLessThan(20);
+    // At that rung the town delivers everything it makes...
+    const { made, carried } = totals(maxed(enough));
+    expect(carried).toBeCloseTo(made, 4);
+    // ...and three times the works chokes the same carts all over again.
+    const bigger: City = { ...maxed(enough), stacks: { ...maxed(enough).stacks } };
+    for (const s of SITES) if (s.id !== 0) bigger.stacks[s.id] = 24;
+    expect(flow({ ...bigger, pop: popCap(bigger) }).choked.size).toBeGreaterThan(0);
+  });
+
+  it('★★ cost is steeper than the gain, so a rung is earned', () => {
+    expect(cartCost(0)).toEqual({ stone: 30, planks: 20 });
+    expect(cartCost(4).stone).toBe(Math.ceil(30 * 1.55 ** 4));
+    // 1.55 against a 1.3 haul: the ladder slows, it never stops.
+    expect(1.55).toBeGreaterThan(CART_GAIN);
+    const g = apply({ ...initial(), stone: 50, planks: 30 }, { type: 'cart' });
+    expect(g.carts).toBe(1);
+    expect(g.stone).toBe(20);
+    expect(g.planks).toBe(10);
+    const broke = initial();
+    expect(apply(broke, { type: 'cart' })).toBe(broke);
+  });
+
+  it('a cart count is whole at the save door, and old saves load at none', () => {
+    expect(honour({ game: { ...initial(), carts: 3 }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), carts: 2.5 }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), carts: -1 }, savedAt: 1 })).toBeNull();
+    const { carts: _, ...old } = initial();
+    expect(honour({ game: old as never, savedAt: 1 })!.game.carts).toBe(0);
   });
 });

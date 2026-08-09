@@ -256,3 +256,40 @@ A stock already OVER the ceiling is held, never confiscated: it simply
 cannot grow. The header says `full of 60` on the chip and the camp panel
 says `stores hold 60`, because waste nobody can see is the choke bug
 wearing a different hat.
+
+
+## ★★★ THE CARTWRIGHT — built 2026-08-08
+
+The coherence review's top finding: **every exponential in this engine ran
+against the player.** `CURVE` 1.35, `armsCost` 1.3, `storeCost` 1.3 all
+compound upward, while output is strictly LINEAR in a hard-capped
+population. There was no player-side exponential anywhere.
+
+**The backlog asked for a production multiplier, and it would have been a
+no-op.** Measured before building — a finished town, every site stacked
+eight deep, every path at `MAX_GAUGE`, 162 people:
+
+| | |
+|---|---|
+| makes | 57.9/s |
+| carries | 13.9/s |
+| **wasted at the paths** | **76%** |
+
+`MAX_GAUGE` is a hard ceiling, so multiplying `RATE` would have multiplied
+the waste and delivered nothing. **The exponential goes where the wall is.**
+A cart rung multiplies what every gauge CARRIES (`CART_GAIN` 1.3, cost
+1.55), turning that dead 76% into the reward — and design rule 3 says the
+graph is the logistics layer, so a multiplier on haulage is the one that
+belongs on this game's board.
+
+Measured payoff on that same maxed town: 13.9/s at no carts → 48.7/s at
+eight, every rung strictly better than the last, and it can never carry
+more than the town makes. It **runs out on purpose** — a findable number of
+rungs fully un-chokes a given town, after which carts buy nothing until
+more works are built. Carts and works leapfrog; the works ladder is
+unbounded, so the pair is too.
+
+⚠️ **The deed is offered only while something is actually being wasted.**
+A cart buys exactly nothing for a town whose paths already carry everything
+it makes, and 30 stone for nothing is a trap laid squarely in the first
+hour, when no path is near its cap.

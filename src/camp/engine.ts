@@ -162,6 +162,9 @@ export interface City {
   /** ★ STOREHOUSES at the camp — how many stand. They are the CAP on every
    *  good; a full store wastes what arrives, the same law the paths obey. */
   store: number;
+  /** ★ CARTS — how many times the cartwright has re-shod the haulage.
+   *  The one exponential in this engine that runs FOR the player. */
+  carts: number;
   /** ★ A FIGHT IN PROGRESS, or null — the owner's own screen: our square
    *  left, three goblin squares right. Turn-based: every round is yours.
    *  `sq` is the line — a BRUTE up front (the mash trap) and two RUNTS
@@ -196,6 +199,7 @@ export const initial = (): City => ({
     Object.entries(GOBLINS).map(([k, v]) => [k, v.strength])),
   hero: { hp: 10, arms: 0, part: 0 },
   store: 0,
+  carts: 0,
   fight: null,
 });
 
@@ -306,6 +310,39 @@ export const CAPTIVES = 2;
 /** What one path-gauge carries, per second, of everything put together. */
 export const CARRY = 1.0;
 export const MAX_GAUGE = 3;
+
+/** ★★★ THE CARTWRIGHT, 2026-08-08 — THE ONE EXPONENTIAL THAT RUNS FOR THE
+ *  PLAYER. The coherence review's finding was that there is no player-side
+ *  exponential anywhere: `CURVE` and `armsCost` compound against you, while
+ *  output is strictly LINEAR in a hard-capped population.
+ *
+ *  ⚠️ THE BACKLOG ASKED FOR A PRODUCTION MULTIPLIER AND IT WOULD HAVE BEEN
+ *  A NO-OP. Measured before building: a finished town — every site stacked
+ *  eight deep, every path at MAX_GAUGE, 162 people — makes 57.9/s and
+ *  carries 13.9/s. **76% of a maxed town's work is already thrown away at
+ *  the paths**, and MAX_GAUGE is a hard ceiling, so multiplying production
+ *  would have multiplied the waste and nothing else.
+ *
+ *  So the exponential goes where the wall is. A cart rung multiplies what
+ *  every gauge CARRIES, which turns that dead 76% into the reward — and
+ *  design rule 3 says the graph is the logistics layer, so a multiplier on
+ *  haulage is the one that belongs on this game's board.
+ *
+ *  It runs out on purpose: ~5 rungs fully un-choke a given town, after
+ *  which carts do nothing until you build more works. Carts and works
+ *  leapfrog, and the works ladder is unbounded, so the pair is too. */
+export const CART_GAIN = 1.3;
+/** How much more every path carries, all carts together. */
+export const cartHaul = (g: City): number => Math.pow(CART_GAIN, g.carts);
+/** What one path can carry a second — gauge, times the carts. */
+export const carriesOf = (g: City, key: string): number =>
+  (g.paths[key] ?? 0) * CARRY * cartHaul(g);
+/** The next cart rung. 1.55 against a 1.3 gain: each rung takes ~1.19×
+ *  as long as the last, which is a curve rather than a wall. */
+export const cartCost = (have: number): { stone: number; planks: number } => ({
+  stone: Math.ceil(30 * Math.pow(1.55, have)),
+  planks: Math.ceil(20 * Math.pow(1.55, have)),
+});
 
 /** Each hut houses this many people — one hut per crew, ~50 lifetime.
  *  (At 2, hut #99 cost five million planks. Nobody was living there.) */
@@ -580,7 +617,7 @@ export function flow(g: City): Flow {
   for (const f of flows) {
     let scale = 1;
     for (const { e } of f.legs) {
-      const cap = (g.paths[e] ?? 0) * CARRY;
+      const cap = carriesOf(g, e);
       const l = load1.get(e) ?? 0;
       if (l > cap + 1e-9) {
         choked.add(e);
@@ -620,7 +657,7 @@ export function flow(g: City): Flow {
       const share = sawing * ((made.get(id) ?? 0) / millCap);
       let scale = 1;
       for (const { e } of legsOf.get(id)!) {
-        const cap = (g.paths[e] ?? 0) * CARRY;
+        const cap = carriesOf(g, e);
         const room = Math.max(0, cap - (load1.get(e) ?? 0));
         const want = load2.get(e) ?? 0;
         if (want > room + 1e-9) {
@@ -704,6 +741,8 @@ export type Action =
   | { type: 'arm' }
   /** Raise the next storehouse at the camp — room for every good. */
   | { type: 'stow' }
+  /** Set the cartwright to work — every path carries more. */
+  | { type: 'cart' }
   /** Send the hero at held ground — the battle strip opens. */
   | { type: 'assail'; id: number }
   /** Attack the targeted square. The line answers. */
@@ -901,6 +940,17 @@ export function apply(g: City, a: Action): City {
         stone: g.stone - price.stone,
         planks: g.planks - price.planks,
         store: g.store + 1,
+      };
+    }
+
+    case 'cart': {
+      const price = cartCost(g.carts);
+      if (g.stone < price.stone || g.planks < price.planks) return g;
+      return {
+        ...g,
+        stone: g.stone - price.stone,
+        planks: g.planks - price.planks,
+        carts: g.carts + 1,
       };
     }
 

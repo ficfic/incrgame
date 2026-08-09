@@ -8,7 +8,7 @@
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW, PATH_SECS,
-    richOf, storeCost, roomOf, STORE_ROOM,
+    richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     windup, RATION_FOOD, RATION_HP,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
@@ -44,6 +44,14 @@
   /** ★ Is this good at the storehouse ceiling? Everything arriving past it
    *  is WASTE, the same law the paths obey — so the chip says so. */
   const brim = (n: number): boolean => n >= roomOf(game) - 1e-9;
+  /** ★ WHAT THE PATHS ARE EATING, per second, over the whole town. This is
+   *  the cartwright's case, and without it on screen the deed is a number
+   *  with no reason attached. */
+  const wasted = $derived((() => {
+    let out = 0;
+    for (const [id, m] of f.made) out += Math.max(0, m - (f.carried.get(id) ?? 0));
+    return out;
+  })());
   /** Planks the mills can actually deliver right now: capacity, starved to
    *  the log supply when the pile is dry. The header never overpromises. */
   const planksNow = $derived(
@@ -200,6 +208,24 @@
         why: noRoom ? `${sp.stone} stone · ${sp.planks} planks` : null,
         go: () => act({ type: 'stow' }),
       });
+      // ★ THE CARTWRIGHT — the one exponential that runs FOR the player,
+      // and it runs on the graph because that is where the waste is.
+      // ⚠️ OFFERED ONLY WHILE SOMETHING IS ACTUALLY CHOKED. A cart buys
+      // exactly nothing for a town whose paths already carry everything
+      // it makes, and a deed that takes 30 stone to do nothing is a trap
+      // laid for the first hour, when no path is anywhere near its cap.
+      if (wasted > 0.05) {
+      const cp = cartCost(game.carts);
+      const noCart = game.stone < cp.stone || game.planks < cp.planks;
+      out.push({
+        label: `Carts ×${game.carts + 1}`,
+        note: `${cp.stone} stone · ${cp.planks} planks → every gauge carries `
+          + `${(CARRY * cartHaul(game) * CART_GAIN).toFixed(2)}/s`
+          + ` · ${wasted.toFixed(1)}/s is being thrown away now`,
+        why: noCart ? `${cp.stone} stone · ${cp.planks} planks` : null,
+        go: () => act({ type: 'cart' }),
+      });
+      }
       const p = armsCost(game.hero.arms);
       const short = game.stone < p.stone || game.planks < p.planks;
       out.push({
@@ -229,7 +255,8 @@
       const w = unlayable(game, s.id, n);
       out.push({
         label: gauge === 0 ? `Path · ${t.name}` : `Widen · ${t.name} (${gauge} of ${MAX_GAUGE})`,
-        note: w ?? `${pathCostOf(gauge)} stone · ${PATH_SECS * (gauge + 1)}s · carries ${((gauge + 1)).toFixed(0)}/s`,
+        note: w ?? `${pathCostOf(gauge)} stone · ${PATH_SECS * (gauge + 1)}s · carries `
+          + `${((gauge + 1) * CARRY * cartHaul(game)).toFixed(1)}/s`,
         why: w,
         go: () => act({ type: 'lay', a: s.id, b: n }),
       });
