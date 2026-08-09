@@ -436,6 +436,39 @@ const heroLine = await header();
 if (!/hero 16\/16/.test(heroLine)) {
   misses.push(`two liberations should read hero 16/16: "${heroLine.slice(30, 90)}"`);
 }
+// -------------------------------------------------- the storehouse ------
+console.log('\nTHE STORE');
+// A town whose quarries have filled the camp: the chip must SAY full, and
+// raising a storehouse must let it climb again. Waste nobody can see is
+// the choke bug in a different currency.
+await seed({ version: 5, stacks: { 0: 1, 1: 4 }, paths: { '0|1': 3 },
+  stone: 60, logs: 0, planks: 40, food: 400, pop: 12, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 0 });
+const brimmed = await header();
+console.log('  full    :', `"${brimmed.slice(0, 70)}"`);
+if (!/full of 60/.test(brimmed)) {
+  misses.push(`a full store does not say so on the chip: "${brimmed.slice(0, 70)}"`);
+}
+// The camp is pre-selected on boot, so the deed is already on the dock.
+const storeDeed = page.locator('.deed', { hasText: 'Storehouse ×1' });
+const storeNote = await storeDeed.textContent().catch(() => '');
+console.log('  offers  :', `"${storeNote.trim().replace(/\s+/g, ' ').slice(0, 60)}"`);
+if (!/holds 120 of each/.test(storeNote)) {
+  misses.push(`the storehouse does not price its room: "${storeNote.trim().slice(0, 60)}"`);
+}
+await storeDeed.click({ timeout: 2000 })
+  .catch(() => misses.push('no deed raises a storehouse'));
+await page.waitForTimeout(1400);
+const roomier = await header();
+console.log('  roomier :', `"${roomier.slice(0, 70)}"`);
+if (/full of/.test(roomier)) {
+  misses.push(`the store was raised and the town is still full: "${roomier.slice(0, 70)}"`);
+}
+if (!/\+\d/.test(roomier.split('logs')[0])) {
+  misses.push(`stone is not climbing again after the storehouse: "${roomier.slice(0, 70)}"`);
+}
+
 // ---------------------------------------------------- the pocket time ----
 console.log('\nTHE AWAY LINE');
 await page.addInitScript(() => {

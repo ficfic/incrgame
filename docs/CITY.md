@@ -227,3 +227,32 @@ The panel says both prizes **before the fight is paid for**: *"dangerous
 no player-side exponential anywhere (RATE never changes), `tap` obeys no
 gate, `starving` reads production instead of delivery, farms over-staff,
 and auto-staffing is blind to chokes.
+
+
+## ★★ THE STOREHOUSE — built 2026-08-08
+
+> *"i also think we'd need to do some storage capacity"*
+
+Every good is now **capped**, and what arrives at a full store is **WASTE** —
+the same law the paths already obey, in a second currency. A camp holds
+`STORE_BASE` 60 of each; every storehouse adds a flat `STORE_ROOM` 60,
+priced in stone AND planks on a 1.3 curve so it races the huts for the
+mill's output rather than being bought out of spare change.
+
+Flat room, not compounding, on purpose: the answer to *"I need a bigger
+number"* should always be **one more building**.
+
+Two things fall out of it, both wanted:
+
+- **Stone stops being infinite.** The review's finding was *"6468 stone by
+  round two, and it buys nothing"*. Twelve hours away now banks a
+  storehouse's worth and spills the rest — visibly, on the chip.
+- **The cap gates what you can SAVE FOR.** Arms ×9 costs 66 stone and Hut
+  #15 costs 71 planks; a bare camp holds 60. Everything below those rungs
+  fits, so nothing is walled early — but the top of both ladders is behind
+  a storehouse. It is not a nicety.
+
+A stock already OVER the ceiling is held, never confiscated: it simply
+cannot grow. The header says `full of 60` on the chip and the camp panel
+says `stores hold 60`, because waste nobody can see is the choke bug
+wearing a different hat.

@@ -8,7 +8,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
   TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
   PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY, regenOf, catchUp, STEP_SECS, SITE,
-  richOf, MAX_GAUGE,
+  richOf, MAX_GAUGE, roomOf, storeCost, STORE_BASE, STORE_ROOM,
   RATION_FOOD, RATION_HP, RATION_PACK,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
@@ -844,8 +844,9 @@ describe('★★ THE AWAY RUN — simulated, not estimated', () => {
       laying: { [pathKey(0, 1)]: { left: 2, secs: PATH_SECS } } };
     const away = catchUp(laying, 3600);
     expect(away.paths[pathKey(0, 1)]).toBe(1);
-    // An hour of quarrying landed, minus the two seconds of spadework.
-    expect(away.stone).toBeGreaterThan(100);
+    // An hour of quarrying landed — up to the storehouse ceiling, which is
+    // what an hour of that quarry now means.
+    expect(away.stone).toBe(roomOf(laying));
     // The single step lays the path at the END and carries nothing at all.
     expect(tick(laying, 3600).stone).toBe(0);
   });
@@ -981,5 +982,98 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
     expect(open.choked.has(pathKey(0, 3))).toBe(false);
     expect(open.stone).toBeGreaterThan(flow(g).stone);
     expect(open.planks).toBeGreaterThan(flow(g).planks);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE STOREHOUSE, 2026-08-08 — the owner: *"we'd need to do some storage
+// capacity."* Every good is capped and the overflow is WASTE, which is the
+// law the paths already obey. It is also the answer to the review's "stone
+// is infinite by round two and buys nothing".
+// ---------------------------------------------------------------------------
+describe('★★★ THE STOREHOUSE — a ceiling on every good', () => {
+  const rich = (over: Partial<City> = {}): City => ({
+    ...initial(), pop: 99, food: 999, goblins: {},
+    stacks: { 1: 4 }, paths: { [pathKey(0, 1)]: 3 }, ...over });
+
+  it('★ a bare camp holds STORE_BASE of each; each house adds a flat room', () => {
+    expect(roomOf(initial())).toBe(STORE_BASE);
+    expect(roomOf({ ...initial(), store: 1 })).toBe(STORE_BASE + STORE_ROOM);
+    expect(roomOf({ ...initial(), store: 4 })).toBe(STORE_BASE + 4 * STORE_ROOM);
+  });
+
+  it('★★ a full store WASTES what arrives — the paths\' own law', () => {
+    // Four crewed quarries make 2.4/s into a 3.0/s path: nothing choked,
+    // and yet the stock stops dead at the ceiling.
+    const g = tick(rich({ stone: STORE_BASE - 1 }), 60);
+    expect(g.stone).toBe(STORE_BASE);
+    // A second minute adds nothing at all.
+    expect(tick(g, 60).stone).toBe(STORE_BASE);
+    // Raise a storehouse and the same town climbs again.
+    const roomier = tick({ ...g, store: 1 }, 60);
+    expect(roomier.stone).toBeGreaterThan(STORE_BASE);
+  });
+
+  it('★ every good has its own ceiling, not a shared purse', () => {
+    const full: City = { ...initial(), pop: 99, food: 999, goblins: {},
+      stone: STORE_BASE, logs: STORE_BASE, planks: STORE_BASE,
+      stacks: { 1: 2, 2: 2, 3: 2 },
+      paths: { [pathKey(0, 1)]: 3, [pathKey(0, 2)]: 3, [pathKey(0, 3)]: 3 } };
+    const on = tick(full, 60);
+    expect(on.stone).toBe(STORE_BASE);
+    expect(on.planks).toBe(STORE_BASE);
+    expect(on.logs).toBeLessThanOrEqual(STORE_BASE);
+  });
+
+  it('★ a stock ALREADY over the ceiling is held, never confiscated', () => {
+    // Tearing a storehouse down is not a thing, but an imported save or a
+    // retune could land here. The rule: it cannot GROW, it does not vanish.
+    const over = tick(rich({ stone: STORE_BASE * 3 }), 60);
+    expect(over.stone).toBe(STORE_BASE * 3);
+  });
+
+  it('★★ storehouses cost stone AND planks, so they race the huts', () => {
+    expect(storeCost(0)).toEqual({ stone: 25, planks: 15 });
+    expect(storeCost(3).stone).toBe(Math.ceil(25 * 1.3 ** 3));
+    const g = apply({ ...initial(), stone: 40, planks: 20 }, { type: 'stow' });
+    expect(g.store).toBe(1);
+    expect(g.stone).toBe(15);
+    expect(g.planks).toBe(5);
+    expect(roomOf(g)).toBe(STORE_BASE + STORE_ROOM);
+    const broke = initial();
+    expect(apply(broke, { type: 'stow' })).toBe(broke);
+  });
+
+  it('★★★ THE CAP GATES WHAT YOU CAN SAVE FOR — the point of the building', () => {
+    // Arms ×9 (66 stone) and Hut #15 (71 planks) both cost more than a
+    // bare camp can HOLD, so the storehouse is not a nicety: it stands
+    // between the town and the top of either ladder.
+    expect(armsCost(8).stone).toBeGreaterThan(STORE_BASE);
+    expect(costOf('hut', 14).planks!).toBeGreaterThan(STORE_BASE);
+    // The rungs BELOW them fit in a bare camp, so nothing is walled early
+    // — the first eight swords and a dozen huts never see the ceiling.
+    expect(armsCost(7).stone).toBeLessThanOrEqual(STORE_BASE);
+    expect(costOf('hut', 12).planks!).toBeLessThan(STORE_BASE);
+    // And one house clears both, with the last sword (85) inside it.
+    expect(armsCost(9).stone).toBeLessThan(STORE_BASE + STORE_ROOM);
+    expect(costOf('hut', 14).planks!).toBeLessThan(STORE_BASE + STORE_ROOM);
+  });
+
+  it('★★ the pocket time fills the store and spills the rest', () => {
+    // The review: "6468 stone by round two, and it buys nothing." Twelve
+    // hours now bank a storehouse's worth, not a mountain.
+    const away = catchUp(rich(), 12 * 3600);
+    expect(away.stone).toBe(STORE_BASE);
+    expect(catchUp(rich({ store: 2 }), 12 * 3600).stone)
+      .toBe(STORE_BASE + 2 * STORE_ROOM);
+  });
+
+  it('a storehouse count is whole at the save door', () => {
+    expect(honour({ game: { ...initial(), store: 2 }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), store: 1.5 }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), store: -1 }, savedAt: 1 })).toBeNull();
+    // An old save with no storehouses at all loads at zero.
+    const { store: _, ...old } = initial();
+    expect(honour({ game: old as never, savedAt: 1 })!.game.store).toBe(0);
   });
 });

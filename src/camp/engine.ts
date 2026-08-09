@@ -159,6 +159,9 @@ export interface City {
   goblins: Record<number, number>;
   /** ★ THE HERO — one, the town's own. Arms come from the stores. */
   hero: { hp: number; arms: number; part: number };
+  /** ★ STOREHOUSES at the camp — how many stand. They are the CAP on every
+   *  good; a full store wastes what arrives, the same law the paths obey. */
+  store: number;
   /** ★ A FIGHT IN PROGRESS, or null — the owner's own screen: our square
    *  left, three goblin squares right. Turn-based: every round is yours.
    *  `sq` is the line — a BRUTE up front (the mash trap) and two RUNTS
@@ -192,6 +195,7 @@ export const initial = (): City => ({
   goblins: Object.fromEntries(
     Object.entries(GOBLINS).map(([k, v]) => [k, v.strength])),
   hero: { hp: 10, arms: 0, part: 0 },
+  store: 0,
   fight: null,
 });
 
@@ -248,6 +252,33 @@ export const armsCost = (have: number): { stone: number; planks: number } => ({
 
 /** One tap chips this much stone by hand — the bootstrap and the thumb. */
 export const TAP_STONE = 0.25;
+
+/** ★★ THE STOREHOUSE, 2026-08-08 (owner: *"we'd need to do some storage
+ *  capacity"*). Every good is capped; a full store WASTES what arrives,
+ *  which is the law the paths already obey — production past the pipe is
+ *  gone. Two things fall out of it, both wanted:
+ *
+ *    · Stone stops being infinite. The away line used to read +6462 of a
+ *      thing that buys nothing; now the pocket time fills the store and
+ *      the rest is spillage you can SEE and spend a building to stop.
+ *    · The cap gates what you can SAVE FOR. Hut #13 costs 81 planks and
+ *      Arms ×10 costs 85 stone — both over a bare 60 — so the store is
+ *      not a nicety, it is the thing standing between the town and the
+ *      end of either ladder.
+ *
+ *  Room is FLAT per house, not compounding: the whole point is that the
+ *  answer to "I need a bigger number" is always one more building. */
+export const STORE_BASE = 60;
+export const STORE_ROOM = 60;
+/** How much of each good the town can hold. */
+export const roomOf = (g: City): number =>
+  STORE_BASE + STORE_ROOM * g.store;
+/** The next storehouse's price — stone AND planks, so it competes with
+ *  huts for the mill's output rather than being bought out of spare. */
+export const storeCost = (have: number): { stone: number; planks: number } => ({
+  stone: Math.ceil(25 * Math.pow(1.3, have)),
+  planks: Math.ceil(15 * Math.pow(1.3, have)),
+});
 
 /** ★★ MULTI-HAND WORKS, 2026-08-08 (the pacing pass): every copy holds
  *  CREW hands, and output is PER WORKER — people carry growth, buildings
@@ -671,6 +702,8 @@ export type Action =
   | { type: 'free'; id: number }
   /** Buy the next tier of the hero's arms, from the stores. */
   | { type: 'arm' }
+  /** Raise the next storehouse at the camp — room for every good. */
+  | { type: 'stow' }
   /** Send the hero at held ground — the battle strip opens. */
   | { type: 'assail'; id: number }
   /** Attack the targeted square. The line answers. */
@@ -793,12 +826,19 @@ export function apply(g: City, a: Action): City {
         if (goblins === g.goblins) goblins = { ...g.goblins };
         goblins[id] = Math.min(spawn, left + regenOf(id) * s);
       }
+      // ★ THE STORE IS A CEILING, and going over it is WASTE — the same
+      // law the paths obey. A stock already over the cap (the store was
+      // just the only thing holding it) is left alone rather than
+      // confiscated; it simply cannot grow.
+      const room = roomOf(g);
+      const hold = (was: number, now: number): number =>
+        now <= room ? now : Math.max(was, room);
       return {
         ...g,
-        stone: g.stone + f.stone * s,
-        logs: cut - sawn,
-        planks: g.planks + shipped,
-        food: Math.max(0, g.food + (f.food - hunger(g)) * s),
+        stone: hold(g.stone, g.stone + f.stone * s),
+        logs: hold(g.logs, cut - sawn),
+        planks: hold(g.planks, g.planks + shipped),
+        food: hold(g.food, Math.max(0, g.food + (f.food - hunger(g)) * s)),
         pop,
         popPart,
         hero,
@@ -850,6 +890,17 @@ export function apply(g: City, a: Action): City {
         stone: g.stone - price.stone,
         planks: g.planks - price.planks,
         hero: { ...g.hero, arms: g.hero.arms + 1 },
+      };
+    }
+
+    case 'stow': {
+      const price = storeCost(g.store);
+      if (g.stone < price.stone || g.planks < price.planks) return g;
+      return {
+        ...g,
+        stone: g.stone - price.stone,
+        planks: g.planks - price.planks,
+        store: g.store + 1,
       };
     }
 

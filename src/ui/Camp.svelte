@@ -8,7 +8,7 @@
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW, PATH_SECS,
-    richOf,
+    richOf, storeCost, roomOf, STORE_ROOM,
     windup, RATION_FOOD, RATION_HP,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
@@ -41,6 +41,9 @@
   const f = $derived(flow(game));
 
   const cap = $derived(popCap(game));
+  /** ★ Is this good at the storehouse ceiling? Everything arriving past it
+   *  is WASTE, the same law the paths obey — so the chip says so. */
+  const brim = (n: number): boolean => n >= roomOf(game) - 1e-9;
   /** Planks the mills can actually deliver right now: capacity, starved to
    *  the log supply when the pile is dry. The header never overpromises. */
   const planksNow = $derived(
@@ -185,6 +188,18 @@
       go: () => act({ type: 'raise', id: s.id }),
     });
     if (s.id === 0) {
+      // ★ THE STOREHOUSE, beside the huts — room for every good, and the
+      // only thing standing between the town and the top of either ladder.
+      const sp = storeCost(game.store);
+      const noRoom = game.stone < sp.stone || game.planks < sp.planks;
+      out.push({
+        label: `Storehouse ×${game.store + 1}`,
+        note: `${sp.stone} stone · ${sp.planks} planks → holds `
+          + `${roomOf(game) + STORE_ROOM} of each`
+          + (game.store > 0 ? ` · ${game.store} standing` : ''),
+        why: noRoom ? `${sp.stone} stone · ${sp.planks} planks` : null,
+        go: () => act({ type: 'stow' }),
+      });
       const p = armsCost(game.hero.arms);
       const short = game.stone < p.stone || game.planks < p.planks;
       out.push({
@@ -250,6 +265,7 @@
           ? ` · eats ${hunger(game).toFixed(1)}/s · fields bring ${f.food.toFixed(1)}/s`
           : ` · the wild feeds ${WILD_FED}`)
         + (f.starving ? ' — raise or connect farms' : '')
+        + ` · stores hold ${roomOf(game)}`
         + (f.staff < 1 && !f.starving ? ` · works ${Math.round(f.staff * 100)}% staffed` : '');
     }
     if (game.goblins[picked]) {
@@ -382,15 +398,22 @@
 
 <main>
   <header>
-    <button class="spring" onclick={() => act({ type: 'tap' })}>
+    <!-- ★ A FULL STORE IS SAID ON THE CHIP ITSELF. Waste the player cannot
+         see is the choke bug all over again in a different currency. -->
+    <button class="spring" class:brim={brim(game.stone)}
+      onclick={() => act({ type: 'tap' })}>
       <b>{Math.floor(game.stone)}</b><span>stone</span>
-      <em>+{TAP_STONE}{f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}</em>
+      <em>{brim(game.stone) ? `full of ${roomOf(game)}`
+        : `+${TAP_STONE}${f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}`}</em>
     </button>
-    <span class="keep">{Math.floor(game.logs)} logs</span>
-    <span class="keep">{Math.floor(game.planks)} planks{planksNow > 0 ? ` +${planksNow.toFixed(1)}/s` : ''}</span>
-    <span class="keep" class:hurt={f.starving}>{Math.floor(game.food)} food{
-      f.starving ? ' · STARVING' : hunger(game) > 0 ? ` −${hunger(game).toFixed(1)}/s` : ''}{
-      f.food > 0 ? ` +${f.food.toFixed(1)}/s` : ''}</span>
+    <span class="keep" class:hurt={brim(game.logs)}>{Math.floor(game.logs)} logs{
+      brim(game.logs) ? ' · full' : ''}</span>
+    <span class="keep" class:hurt={brim(game.planks)}>{Math.floor(game.planks)} planks{
+      brim(game.planks) ? ' · full' : planksNow > 0 ? ` +${planksNow.toFixed(1)}/s` : ''}</span>
+    <span class="keep" class:hurt={f.starving || brim(game.food)}>{Math.floor(game.food)} food{
+      f.starving ? ' · STARVING' : brim(game.food) ? ' · full'
+      : hunger(game) > 0 ? ` −${hunger(game).toFixed(1)}/s` : ''}{
+      f.food > 0 && !brim(game.food) ? ` +${f.food.toFixed(1)}/s` : ''}</span>
     <span class="keep lv">{game.pop > cap
       ? `${Math.floor(game.pop)} people · huts full`
       : `${Math.floor(game.pop)}/${cap} people`}</span>
@@ -528,6 +551,8 @@
   .keep { font-size: 14px; color: #6b5d3f; font-weight: 600; }
   .keep.lv { color: #1f6b3a; }
   .keep.hurt { color: #b3452f; }
+  .spring.brim { border-color: #b3452f; background: #f7e9e5; }
+  .spring.brim b { color: #b3452f; }
   .keep.build { color: #b0a892; font-weight: 400; font-size: 12px; }
   .reset { font: inherit; font-size: 13px; border: 1px solid #d8d0bf;
     border-radius: 10px; padding: 6px 10px; background: #efe9dc; color: #6b6353; }
