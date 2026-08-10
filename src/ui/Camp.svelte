@@ -48,6 +48,20 @@
   /** ★ Is this good at the storehouse ceiling? Everything arriving past it
    *  is WASTE, the same law the paths obey — so the chip says so. */
   const brim = (n: number): boolean => n >= roomOf(game) - 1e-9;
+  /** How much of the valley is still theirs — the goal, as one number. */
+  const holdings = $derived(Object.keys(game.goblins).length);
+  /** ★ THE NEAREST RAID: whichever holding is fullest, and what it is
+   *  coming for. `null` before first blood, when there is no war yet. */
+  const worst = $derived((() => {
+    let best: { m: number; at: string } | null = null;
+    for (const id of raiders(game)) {
+      const m = game.menace[id] ?? 0;
+      const t = raidTarget(game, id);
+      if (t === null) continue;
+      if (best === null || m > best.m) best = { m, at: SITE.get(t)?.name ?? '' };
+    }
+    return best;
+  })());
   /** ★ WHAT THE PATHS ARE EATING, per second, over the whole town. This is
    *  the cartwright's case, and without it on screen the deed is a number
    *  with no reason attached. */
@@ -306,7 +320,17 @@
     if (!s) return '';
     const bits: string[] = [];
     const r = richOf(id);
-    if (r > 1) bits.push(`${KIND_NAME[s.allows].toLowerCase()} ×${r}`);
+    // ★ SAY WHAT THE MULTIPLIER MULTIPLIES, 2026-08-10 (playtest). It read
+    // `quarry ×1.5` and the owner: *"Query one point five. What does it even
+    // mean?"* A bare ratio against an unnamed base is not a number anybody
+    // can act on. Quote the RATE this ground would actually pay per hand,
+    // against the rate safe ground pays, in the units the HUD already uses.
+    if (r > 1) {
+      const base = s.allows === 'quarry' ? RATE.quarry
+        : s.allows === 'lumber' ? RATE.lumber
+        : s.allows === 'farm' ? RATE.farm : RATE.sawmill;
+      bits.push(`${(base * r).toFixed(2)}/s a hand vs ${base.toFixed(2)}`);
+    }
     // A direct edge to the camp that no laid path uses yet: an artery.
     if (s.near.includes(0) && !game.paths[pathKey(0, id)]) bits.push('own path to camp');
     return bits.length ? ` · ${bits.join(' · ')}` : '';
@@ -394,7 +418,12 @@
     awayLine = null;
     won = null;
     const n = numOf(id);
-    picked = picked === n ? null : n;
+    // ★ STICKY, 2026-08-10 (playtest). It was `picked === n ? null : n`, so
+    // a second tap on the same dot cleared the selection — and the owner:
+    // *"when you click the second time on the node, it shouldn't close,
+    // because the state when there is no node selected is a little bit weird
+    // state."* There is no reason to ever WANT the empty panel.
+    picked = n;
   }
 
   async function copySave(): Promise<void> {
@@ -513,26 +542,26 @@
       <button class="cell tap" class:brim={brim(game.stone)}
         data-q="stone" onclick={() => act({ type: 'tap' })}>
         <span class="cap">STONE</span>
-        <b>{Math.floor(game.stone)}</b>
+        <b>{Math.floor(game.stone)}<span class="cap-of">/{roomOf(game)}</span></b>
         <em>🪨 {brim(game.stone) ? `full of ${roomOf(game)}`
           : `+${TAP_STONE}${f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}`}</em>
       </button>
       <div class="cell" class:brim={brim(game.logs)} data-q="logs">
         <span class="cap">LOGS</span>
-        <b>{Math.floor(game.logs)}</b>
+        <b>{Math.floor(game.logs)}<span class="cap-of">/{roomOf(game)}</span></b>
         <em>🪵 {brim(game.logs) ? 'full'
           : f.logsIn > 0 ? `+${f.logsIn.toFixed(1)}/s` : '—'}</em>
       </div>
       <div class="cell" class:brim={brim(game.planks)} data-q="planks">
         <span class="cap">PLANKS</span>
-        <b>{Math.floor(game.planks)}</b>
+        <b>{Math.floor(game.planks)}<span class="cap-of">/{roomOf(game)}</span></b>
         <em>🟫 {brim(game.planks) ? 'full'
           : planksNow > 0 ? `+${planksNow.toFixed(1)}/s` : '—'}</em>
       </div>
       <div class="cell" class:hurt={f.starving} class:brim={brim(game.food) && !f.starving}
         data-q="food">
         <span class="cap">FOOD</span>
-        <b>{Math.floor(game.food)}</b>
+        <b>{Math.floor(game.food)}<span class="cap-of">/{roomOf(game)}</span></b>
         <em>🌾 {f.starving ? 'STARVING' : brim(game.food) ? 'full'
           : `${hunger(game) > 0 ? `−${hunger(game).toFixed(1)}/s` : ''}${
             f.food > 0 ? ` +${f.food.toFixed(1)}/s` : ''}`.trim() || '—'}</em>
@@ -551,6 +580,20 @@
            to "FOO" — caught in the first screenshot. A trailing `auto`
            column cannot overlap anything. -->
       <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
+    </div>
+    <!-- ★★ THE GOAL, AND THE WAR, ON SCREEN — 2026-08-10 (playtest). Two
+         complaints, one line. *"at the moment, I do not see any goal. I don't
+         understand what to do."* And: *"I'm not sure when the attack on the
+         camp is gonna happen. And if it's gonna happen."* The raid clock
+         existed but only on the holding's own panel, which you had to go and
+         tap — a war you cannot see coming is not a clock. -->
+    <div class="warline" class:hot={worst !== null && worst.m > 0.6} data-q="war">
+      {#if worst !== null}
+        {MARK.waste}{Math.round(worst.m * 100)}% → {worst.at}
+        · {MARK.danger}{holdings} left
+      {:else}
+        {MARK.danger}{holdings} holdings hold this valley
+      {/if}
     </div>
     {#if menu}
     <div class="menurow">
@@ -700,6 +743,13 @@
   .hud .cell:last-child { border-right: 0; }
   .cap { font-size: 10px; letter-spacing: .09em; color: #9a8f79; font-weight: 700; }
   .hud .cell b { font-size: 21px; line-height: 1.05; color: #2c2822; font-weight: 700; }
+  /* ★ THE CEILING IS ALWAYS ON SCREEN, 2026-08-10 (playtest). The owner:
+     *"I don't seem to have any storage capacity... it doesn't say anywhere
+     what is my limit for the stone"* — it only said `full of 60` once it was
+     already full, which is the one moment the number is no longer useful.
+     Dimmer and smaller than the amount, so `41/60` still reads as "41". */
+  .cap-of { font-size: 13px; color: #9a8f79; font-weight: 600; }
+  .hud .cell.brim .cap-of, .hud .cell.hurt .cap-of { color: #b3452f; }
   .hud .cell em { font-style: normal; font-size: 11px; color: #8a8172;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
@@ -711,6 +761,13 @@
   /* A stock that has stopped climbing, and a town that has stopped eating. */
   .hud .cell.brim b, .hud .cell.brim em { color: #b3452f; }
   .hud .cell.hurt b, .hud .cell.hurt em { color: #b3452f; font-weight: 700; }
+
+  .warline { padding: 5px 10px; font-size: 12.5px; font-weight: 600;
+    text-align: center; color: #6b5d3f; background: #f2ece0;
+    border-top: 1px solid #e6dfcf; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
+  /* Past two thirds it stops being background information. */
+  .warline.hot { color: #b3452f; background: #f7e9e5; }
 
   .standings { border-top: 1px solid #e6dfcf; background: #f7f2e7;
     /* ⚠️ NOT FOUR EQUAL COLUMNS like the row above. The standings are wildly

@@ -463,7 +463,11 @@ if (!/☠32\b/.test(far)) {
 }
 // ★ THE PRIZE, said while the goblins are still standing on it — the owner:
 // no reason to want held ground. Dark Pines is ×2.5 lumber.
-if (!/lumberworks ×2\.5/.test(far)) {
+// ⚠️ REWRITTEN 2026-08-10: it used to check for `lumberworks ×2.5`, a bare
+// ratio the owner could not read — *"Query one point five. What does it even
+// mean?"* The prize now quotes the rate a hand actually earns there against
+// what safe ground pays, so the check reads the RATE.
+if (!/0\.50\/s a hand vs 0\.20/.test(far)) {
   misses.push(`held ground does not say what it is WORTH: "${far.slice(0, 80)}"`);
 }
 // ★ AND THE SECOND ROAD HOME: the Scree carries the whole east off `0|3`.
@@ -560,6 +564,38 @@ if (!/arms 4\b/.test(armsAfter)) {
 if (await page.locator('.gone').count() > 0) {
   misses.push('the next camp was founded and the end screen is still up');
 }
+
+// -------------------------------------------------- the playtest --------
+console.log('\nTHE PLAYTEST FIXES');
+await seed({ version: 5, stacks: { 0: 2, 1: 2 }, paths: { '0|1': 1 },
+  stone: 41, logs: 3, planks: 12, food: 80, pop: 6, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, arms: 1, part: 0 }, fight: null, store: 0, carts: 0,
+  menace: { 4: 0.7 }, taken: 1 });
+
+// ★ ITEM F — the ceiling is on screen BEFORE it is reached. The owner:
+// "it doesn't say anywhere what is my limit for the stone".
+const stoneCell = await cell('stone');
+console.log('  ceiling :', `"${stoneCell}"`);
+if (!/41\/60/.test(stoneCell)) {
+  misses.push(`the stone cell hides its ceiling until it is full: "${stoneCell}"`);
+}
+
+// ★ ITEM H — the goal and the war are on screen without hunting for them.
+const warLine = await cell('war');
+console.log('  war     :', `"${warLine}"`);
+if (!/⚠\d+% →/.test(warLine) || !/☠\d+/.test(warLine)) {
+  misses.push(`the raid clock and the goal are not on screen: "${warLine}"`);
+}
+
+// ★ ITEM I — a second tap does not clear the selection.
+await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
+await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(250);
+const stillThere = await page.locator('.panel h2').count();
+console.log('  sticky  :', stillThere ? 'still selected after a second tap' : 'DESELECTED');
+if (!stillThere) misses.push('a second tap on a node clears the selection');
 
 // -------------------------------------------------- the dock ------------
 console.log('\nTHE DOCK FITS');
