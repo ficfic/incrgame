@@ -30,6 +30,7 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // Menace is a fraction per holding, 0..1 — never a count.
   if (g.taken !== undefined && !whole(g.taken, 0, 999)) return null;
   if (g.forays !== undefined && !whole(g.forays, 0, 1e6)) return null;
+  if (g.famine !== undefined && !num(g.famine, 0, 1e6)) return null;
   if (g.forage !== undefined && g.forage !== null) {
     if (!num(g.forage.left, 0, 9999) || !num(g.forage.secs, 0.001, 9999)) return null;
   }

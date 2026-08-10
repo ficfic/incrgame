@@ -789,3 +789,31 @@ does not re-order itself into an idle mine.
 The whole way back is walked in a test: from a town with nothing, seven
 forays buy a road home (3) and a pit (5), and the town produces off its own
 works again.
+
+
+## ★★★ THE LARDER IS LIVE, AND FAMINE IS A SQUEEZE — 2026-08-10
+
+**Food was inert for the whole opening, and the cause was arithmetic, not
+design.** `WILD_FED` was 6 while the camp sleeps 4, so `hunger()` returned a
+flat **zero** until you had built a hut and filled it. The wild feeds **two**
+now: the four who came with you are eating from the first second, the wagon
+carries 40 of runway, and the answer to the pinch is High Meadow — the first
+fight. That gives the tutorial fight a reason, which was a separate
+complaint.
+
+**Famine was a switch and is now a squeeze**, exactly as asked: −30% at the
+first empty second, deepening to −95% over `FAMINE_DEEP` (120s). Farms are
+exempt because they are the way out, and it never reaches zero, which is what
+keeps the starvation dead-end shut alongside the foray.
+
+⚠️ **It does not deepen while you are away**, for two reasons that agree.
+`docs/BRIEF.md` forbids punishing absence — a famine that bites harder for
+having gone out is exactly that. And the ramp reads `famine` at the start of
+a tick, so a deepening one would make production depend on how the away-time
+happened to be chunked; sabotaging this breaks the catch-up-equals-tick
+guard, which is how it was caught.
+
+⚠️ **The dig-out is slower now, and that is the point.** Under the binary
+halt the quarries stopped dead and the bread got through on the very next
+frame. A squeeze has to bite before it frees the road, so a measured town
+digs itself out in tens of seconds rather than instantly.

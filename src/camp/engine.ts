@@ -231,6 +231,9 @@ export interface City {
   /** ★ CARTS — how many times the cartwright has re-shod the haulage.
    *  The one exponential in this engine that runs FOR the player. */
   carts: number;
+  /** ★ HOW LONG THE LARDER HAS BEEN EMPTY, in seconds. Drives how deep the
+   *  famine bites — it is a squeeze, not a switch. */
+  famine: number;
   /** ★ THE HERO IS OUT FORAGING — the job, or null. */
   forage: { left: number; secs: number } | null;
   /** How many forays have come home. Picks which encounter comes next. */
@@ -315,7 +318,7 @@ export const initial = (): City => ({
   stone: START_STONE,
   logs: START_LOGS,
   planks: 0,
-  food: 0,
+  food: START_FOOD,
   crew: {},
   // ★ FOUR came with you — see CAMP_ROOM. It was two, and two people cannot
   // staff the three works the opening asks for, so the mill made nothing.
@@ -326,6 +329,7 @@ export const initial = (): City => ({
   hero: { hp: 10, spears: 0, part: 0 },
   store: 0,
   carts: 0,
+  famine: 0,
   forage: null,
   forays: 0,
   menace: {},
@@ -540,6 +544,27 @@ export const RATE = { quarry: 0.15, lumber: 0.2, sawmill: 0.25, farm: 0.2 } as c
  *
  *  ⚠️ AND IT IS PURE. No RNG anywhere in this engine, so the encounters cycle
  *  by `forays` rather than rolling: varied, deterministic, and testable. */
+/** ★★★ FAMINE IS A SQUEEZE, NOT A SWITCH, 2026-08-10. The owner: *"famine
+ *  does not have any effect, does it — let's make it gradual from -30 to -95
+ *  production."*
+ *
+ *  It halted every non-farm works OUTRIGHT, which is both harsher and less
+ *  legible than it sounds: a town either worked or it did not, so there was
+ *  no moment where you could FEEL it coming and act. Now the first empty
+ *  second costs 30% and it deepens to 95% over `FAMINE_DEEP`, which gives
+ *  the player two minutes to get bread moving before it really bites.
+ *
+ *  ⚠️ IT NEVER REACHES ZERO. At −95% a stripped town still earns, which is
+ *  what keeps the starvation dead-end shut alongside the foray. */
+export const FAMINE_SHALLOW = 0.30;
+export const FAMINE_DEEP_CUT = 0.95;
+export const FAMINE_DEEP = 120;
+/** What a hungry town still makes, as a fraction — 0.70 down to 0.05. */
+export const faminePinch = (g: City): number => {
+  const deep = Math.min(1, Math.max(0, g.famine) / FAMINE_DEEP);
+  return 1 - (FAMINE_SHALLOW + (FAMINE_DEEP_CUT - FAMINE_SHALLOW) * deep);
+};
+
 export const FORAGE_SECS = 45;
 export interface Foray { name: string; loot: Partial<Record<Good, number>> }
 export const FORAYS: readonly Foray[] = [
@@ -563,7 +588,18 @@ export function unforageable(g: City): string | null {
 
 /** ★ The wild feeds this many for free — a town of six needs no fields.
  *  The seventh settler eats, and so does every rescued captive. */
-export const WILD_FED = 6;
+/** ★★ THE WILD FEEDS A COUPLE, 2026-08-10 — it fed SIX, and the camp sleeps
+ *  four, so food was inert until you had built a hut AND filled it. The
+ *  owner: *"food has no meaning in the beginning because it doesn't start to
+ *  work until you get the first farm."* Two means the four who came with you
+ *  are already eating, so the larder is live from the first second — and the
+ *  answer to it is High Meadow, which is the first fight. That gives the
+ *  tutorial fight a REASON, which was the other half of the complaint. */
+export const WILD_FED = 2;
+/** ★ What the wagon carries in bread — enough runway to lay the roads, raise
+ *  a pit and take the meadow before the pinch bites. At pop 4 the town eats
+ *  0.10/s, so 40 is about six and a half minutes. */
+export const START_FOOD = 40;
 /** What one person past the wild's table eats, per second. ⚠️ 0.05, not
  *  0.1: all southern food crosses one artery, and at 0.1 the map walled
  *  silently at ~36 people (chad's find). Future regions must bring their
@@ -1028,8 +1064,13 @@ export function flow(g: City): Flow {
   const starving = g.food <= 0.001 && hunger(g) > open.food + 1e-9;
   const halted = new Map(made);
   if (starving) {
-    for (const [id] of halted) {
-      if (SITE.get(id)!.allows !== 'farm') halted.set(id, 0);
+    // ★ A SQUEEZE, NOT A SWITCH — see `faminePinch`. The first empty second
+    // costs 30% and it deepens to 95% over two minutes, so the player can
+    // FEEL it coming instead of the town simply stopping. Farms are exempt:
+    // they are the way out, and halting them would be the dead end.
+    const pinch = faminePinch(g);
+    for (const [id, m] of halted) {
+      if (SITE.get(id)!.allows !== 'farm') halted.set(id, m * pinch);
     }
   }
   const run = starving ? deliver(halted) : open;
@@ -1360,6 +1401,18 @@ export function apply(g: City, a: Action): City {
       // something; banking work you are owed is the opposite, and is what
       // `docs/BRIEF.md` promises. One foray per absence — it does not
       // re-order itself.
+      // ★ THE LARDER'S CLOCK: it deepens while empty and recovers once bread
+      // is moving again, so a town that digs itself out is not punished for
+      // the hole it was in.
+      // ⚠️ IT DOES NOT DEEPEN WHILE YOU ARE AWAY, for two reasons that agree.
+      // `docs/BRIEF.md`: timers bank work, they never punish absence — and a
+      // famine that bites harder for having gone out is exactly that. It also
+      // keeps `catchUp` and a single long `tick` identical to the penny,
+      // which they must be: the ramp reads `famine` at the start of a tick,
+      // so a deepening one would make the answer depend on chunk size.
+      const famine = a.away ? g.famine
+        : f.starving ? g.famine + s
+        : Math.max(0, g.famine - s * 2);
       let forage = g.forage;
       let forays = g.forays;
       let loot: Partial<Record<Good, number>> | null = null;
@@ -1417,6 +1470,7 @@ export function apply(g: City, a: Action): City {
         lost,
         forage,
         forays,
+        famine,
       };
 
       // ★★★ AND THE SWING COMES DOWN — last, on the town the rest of this

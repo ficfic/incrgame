@@ -825,3 +825,57 @@ facts.
   are the natural home for the brief's item 6 (choose-your-own-adventure, 2d10)
   and for `docs/NEXT.md`'s hidden road stops — a foray that asks a question
   rather than just paying out.
+
+
+---
+
+# ★★ PLAYTEST ROUND 2, 2026-08-10 — after the tap died
+
+- [x] ✔ **Food had no meaning at the start.** *"food has no meaning in the
+  beginning because it doesn't start to work until you get the first farm."*
+  Root cause found by running it: `WILD_FED` was **6** and the camp sleeps
+  **4**, so `hunger()` was flatly **zero** until you had built a hut *and*
+  filled it. The wild feeds **two** now, the wagon carries `START_FOOD` 40 of
+  runway, and the answer to the pinch is High Meadow — **which is the first
+  fight**, so the tutorial fight now has a reason.
+- [x] ✔ **Famine had no effect.** Verified: it was binary (`stone/s 0.000`).
+  Now a squeeze, exactly as asked — **−30% at the first empty second,
+  deepening to −95%** over two minutes. Farms are exempt (they are the way
+  out) and it never reaches zero, which is what keeps the starvation dead-end
+  shut alongside the foray. ⚠️ It does **not** deepen while you are away:
+  the brief forbids punishing absence, *and* a deepening ramp would make
+  production depend on how the away-time was chunked (proven — sabotaging it
+  breaks the catch-up-equals-tick guard).
+- [x] ✔ **The `+1` pops were not aligned with the moving dots.** They could
+  not be: they watched the **store**, which also moves when you spend, when a
+  foray lands, and when a raid takes something. The dots are **deliveries**.
+  Both count the same event now — a porter is spaced so one crossing is one
+  unit delivered, and the float integrates that same delivered rate.
+- [x] ✔ **Unhoused people should not work.** Already true — it shipped after
+  the playtest was recorded. Verified: `pop 12, housed 4, hands 4`.
+
+## ⚠️ STILL OPEN — the big one
+
+- [ ] **★★★ GOODS SHOULD ACTUALLY TRAVEL.** *"we need to introduce economy
+  where production lines and stuff moving around areas matters, so logs appear
+  and become available at the sawmill once the pip finishes travel, so all
+  paths should be two ways, and maybe the pips should be changed for relevant
+  resource icon."*
+
+  **This is a different economy, not a tweak, and it is the largest single
+  item in the file.** Today `flow()` solves a rate network every tick: goods
+  are *never anywhere*, they are a throughput number, and a mill's logs
+  "arrive" the instant the rate says so. What the owner is asking for is
+  **parcels in transit** — a log leaves the pines, occupies a road for N
+  seconds, and only becomes sawable when it lands. That changes: the save
+  (parcels are state), the routing (per-parcel, both directions), the choke
+  (a queue rather than a scaling factor), and every rate readout in the HUD.
+
+  Three parts, and they are worth separating:
+  1. **parcels in transit** — the engine change above;
+  2. **two-way paths** — falls out of 1, since a parcel has a direction of
+     its own rather than an edge having one;
+  3. **resource-icon pips** — the visible half. ⚠️ Blocked on ink: four new
+     goods-coloured inks must each clear every counted ink by its own net, and
+     a colour near a counted one has silently made three checks vacuous in
+     this repo before. Measure first, as with the ward.

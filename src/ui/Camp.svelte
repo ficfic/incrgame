@@ -90,10 +90,30 @@
     ['stone', MARK.stone], ['logs', MARK.logs],
     ['planks', MARK.planks], ['food', MARK.food],
   ] as const;
+  // ★★ IT COUNTS WHAT ARRIVES, NOT WHAT THE STORE DOES — 2026-08-10. The
+  // owner: *"the pop ups with resources are not aligned with moving dots on
+  // the graph."* They could not be: this watched the STORE, which also moves
+  // when you spend, when a foray comes home, and when a raid takes something.
+  // The dots on the board are DELIVERIES. Two different events wearing the
+  // same badge, so they drifted apart by construction.
+  //
+  // Both now count the same thing. A porter is spaced so that one crossing
+  // is one unit delivered (`rate` on each line), and this integrates the
+  // delivered rate and pops on each whole unit — so a float over the camp
+  // and a dot reaching it happen at the same frequency, per good.
+  let carriedIn: Record<string, number> = { stone: 0, logs: 0, planks: 0, food: 0 };
   let lastWhole: Record<string, number> = { stone: 0, logs: 0, planks: 0, food: 0 };
+  let lastAt = 0;
   $effect(() => {
+    const rate: Record<string, number> =
+      { stone: f.stone, logs: f.logsIn, planks: f.planks, food: f.food };
+    const now = performance.now();
+    if (lastAt === 0) { lastAt = now; return; }
+    const dt = Math.min(2, (now - lastAt) / 1000);
+    lastAt = now;
     for (const [good, mark] of WATCHED) {
-      const w = Math.floor(game[good]);
+      carriedIn[good] = (carriedIn[good] ?? 0) + (rate[good] ?? 0) * dt;
+      const w = Math.floor(carriedIn[good]!);
       if (w > (lastWhole[good] ?? 0)) { pops++; popMark = mark; }
       lastWhole[good] = w;
     }

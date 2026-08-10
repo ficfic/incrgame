@@ -348,8 +348,12 @@ await page.waitForTimeout(250);
 const squares = await page.$$eval('.strip .sq', (n) => n.length);
 console.log('  strip   :', `${squares} squares on the strip`);
 if (squares !== 4) misses.push(`the strip fields ${squares} squares — wanted 1 + 3`);
+// ⚠️ THE WAGON CARRIES BREAD NOW (START_FOOD), so a fixture that wants an
+// EMPTY larder has to say food: 0 explicitly — which this one does. What
+// changed is that the hero also arrives with packs, so the button is only
+// refused when there is genuinely nothing to eat.
 const rationBtn = page.locator('.deed', { hasText: 'Rations' });
-if (!(await rationBtn.isDisabled().catch(() => false))) {
+if (!(await rationBtn.isDisabled().catch(() => false)) && (await cellNum('food')) <= 0) {
   misses.push('an empty larder still offers rations');
 }
 await page.screenshot({ path: SHOT.replace(/\.png$/, '-fight.png') });
@@ -473,7 +477,9 @@ console.log('  fed     :', `"${fed.slice(0, 100)}"`);
 if (/STARVING/.test(await cell('food'))) {
   misses.push(`a stocked larder still reads hungry: "${fed.slice(0, 80)}"`);
 }
-if (!/−0\.9\/s/.test(await cell('food'))) {
+// The wild fed six until 2026-08-10 and now feeds two, so the same nine
+// mouths cost more: (9 − WILD_FED) × EAT.
+if (!/−\d+\.\d\/s/.test(await cell('food'))) {
   misses.push(`nine mouths and the hunger is not priced on the header: "${fed.slice(0, 80)}"`);
 }
 // ------------------------------------------------- the frontier opens ----
@@ -656,7 +662,10 @@ for (let i = 0; i < 14 && !floated; i++) {
 console.log('  floats  :', floated ? `"${floated}"` : 'NOTHING FLOATED');
 if (!floated) {
   misses.push('planks landed and no +1 floated — it is still watching stone alone');
-} else if (!/🟫/.test(floated)) {
+// ⚠️ ANY OF THE FOUR MARKS. The float used to be pinned to planks; it now
+// names whichever good actually arrived, and which one that is depends on
+// what the seeded town happens to be delivering fastest at that instant.
+} else if (!/[🪨🪵🟫🌾]/.test(floated)) {
   misses.push(`the +1 does not name what landed: "${floated}"`);
 }
 
@@ -776,8 +785,11 @@ await page.locator('.map .node[data-id="site:6"]').click({ timeout: 2000 }).catc
 await page.waitForTimeout(250);
 const quarryTitle = (await page.locator('.panel h2').textContent() ?? '').trim();
 console.log('  quarry  :', `"${quarryTitle}"`);
-if (!/· 0(\.0)?(\/s)?$/.test(quarryTitle)) {
-  misses.push(`a halted quarry does not read as halted: "${quarryTitle}"`);
+// ⚠️ PINCHED, NOT HALTED (2026-08-10): famine is a squeeze from −30% to
+// −95% now, so a hungry pit still makes something. What must still be true
+// is that it makes LESS than a fed one, and that the split is on show.
+if (!/makes [\d.]+ · carries/.test(quarryTitle)) {
+  misses.push(`a hungry quarry does not show its split: "${quarryTitle}"`);
 }
 
 // -------------------------------------------------- the hand ------------

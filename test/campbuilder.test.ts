@@ -13,7 +13,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   richOf, MAX_GAUGE, roomOf, storeCost, STORE_BASE, STORE_ROOM,
   carriesOf, cartCost, cartHaul, CART_GAIN,
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
-  FORAGE_SECS, FORAYS, nextForay, unforageable,
+  FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -343,7 +343,11 @@ describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
       paths: { [pathKey(0, 1)]: 1, [pathKey(0, 4)]: 1 } };
     const f = flow(g);
     expect(f.starving).toBe(true);
-    expect(f.stone).toBe(0);   // posted or not, the quarry stands down
+    // ⚠️ SLOWED, NOT STOPPED (2026-08-10): famine is a squeeze now — the
+    // first empty second costs 30% and it deepens to 95%. Posted or not, the
+    // quarry takes the pinch, and the pin cannot buy its way out of it.
+    expect(f.stone).toBeCloseTo(flow({ ...g, food: 9e5 }).stone * faminePinch(g), 6);
+    expect(f.stone).toBeLessThan(flow({ ...g, food: 9e5 }).stone);
   });
 
   it('pins survive the save and garbage is refused', () => {
@@ -550,9 +554,11 @@ describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town'
   });
 
   it('★ the larder banks the surplus and pays the hunger', () => {
-    // A crewed farm brings 0.8/s; eight people eat 0.1/s: +0.7/s net.
+    // A crewed farm brings 0.8/s; eight people past the wild's table of two
+    // eat 0.3/s: +0.5/s net. (The wild fed SIX until 2026-08-10, which made
+    // the larder inert for the whole opening.)
     const g = tick(farmed(1, 8, 0), 10);
-    expect(g.food).toBeCloseTo(7, 6);
+    expect(g.food).toBeCloseTo((0.8 - (8 - WILD_FED) * EAT) * 10, 6);
   });
 
   it('★★ STARVING halts every works but the farms — and so it recovers', () => {
@@ -561,7 +567,7 @@ describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town'
       paths: { [pathKey(0, 1)]: 1, [pathKey(0, 4)]: 1 } };
     const f = flow(g);
     expect(f.starving).toBe(true);
-    expect(f.stone).toBe(0);                          // the quarry stands down
+    expect(f.stone).toBeLessThan(flow({ ...g, food: 9e5 }).stone);  // pinched
     expect(f.food).toBeCloseTo(CREW * RATE.farm, 9);  // the farm does not
     // Bread in the larder ends it.
     const fed = flow({ ...g, food: 5 });
@@ -1174,7 +1180,7 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
   it('★★★ THE FOOD ARTERY DOUBLES when the knoll falls — the 66-pop wall', () => {
     // The wall, measured: all food over one 3.0/s edge feeds 6 + 3.0/EAT.
     const oneEdge = MAX_GAUGE * CARRY;
-    expect(WILD_FED + oneEdge / EAT).toBe(66);
+    expect(WILD_FED + oneEdge / EAT).toBe(WILD_FED + 60);
     // Both farms, deep country freed, EVERY path at full gauge — but no
     // road from the knoll to the camp: the south still files through `0|4`.
     const viaMeadow: City = { ...initial(), pop: 99, food: 999, goblins: {},
@@ -1191,7 +1197,7 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
     expect(flow(viaBoth).food).toBeGreaterThan(oneEdge + 1e-6);
     expect(flow(viaBoth).food).toBeCloseTo(2 * oneEdge, 6);
     // ★ Which is the wall moving from 66 people to 126.
-    expect(WILD_FED + 2 * oneEdge / EAT).toBe(126);
+    expect(WILD_FED + 2 * oneEdge / EAT).toBe(WILD_FED + 120);
   });
 
   it('★★ the scree carries the east so the mill keeps its planks', () => {
@@ -1458,7 +1464,10 @@ describe('★★★ THE HAND IS GONE — the wagon is the bootstrap', () => {
     expect(fresh.logs).toBeGreaterThanOrEqual(BASE.lumber.logs!);
     // Nothing else is given: the mill, the huts and the larder are earned.
     expect(fresh.planks).toBe(0);
-    expect(fresh.food).toBe(0);
+    // ⚠️ THE WAGON CARRIES BREAD NOW. The wild feeds only two, so the four
+    // who came with you eat from the first second; without runway the opening
+    // would be a famine you could not answer.
+    expect(fresh.food).toBe(START_FOOD);
     // And the wagon fits in a bare camp's store, so none of it is wasted.
     expect(fresh.stone).toBeLessThanOrEqual(roomOf(fresh));
     expect(fresh.logs).toBeLessThanOrEqual(roomOf(fresh));
@@ -1576,7 +1585,7 @@ describe('★★★ STARVING READS DELIVERY, NOT HARVEST', () => {
     const shut = flow(g);                    // starving: only farms run
     expect(shut.food).toBeGreaterThan(open.food);
     // And the halted quarry is reported as halted, not as still working.
-    expect(shut.made.get(6)).toBe(0);
+    expect(shut.made.get(6)!).toBeLessThan(open.made.get(6)!);   // pinched
     expect(open.made.get(6)!).toBeGreaterThan(0);
   });
 
@@ -1587,9 +1596,24 @@ describe('★★★ STARVING READS DELIVERY, NOT HARVEST', () => {
     expect(flow({ ...g, food: 99 }).food).toBeLessThan(hunger(g));
     const f = flow(g);
     expect(f.starving).toBe(true);
-    expect(f.food).toBeGreaterThan(hunger(g));
-    // One tick and the larder is no longer empty.
-    expect(tick(g, 1).food).toBeGreaterThan(0);
+    // ⚠️ THE DIG-OUT IS SLOWER NOW, and that is the point of a gradual famine:
+    // at the first empty second the quarries are only pinched 30%, so they
+    // still crowd the road. As it deepens they get out of the way and the
+    // bread gets home. Measured at both ends.
+    expect(f.food).toBeLessThan(hunger(g));
+    const deep = flow({ ...g, famine: FAMINE_DEEP });
+    expect(deep.food).toBeGreaterThan(hunger(g));
+    // ⚠️ NOT ON THE FIRST TICK ANY MORE, and that is the change. Under the
+    // old binary halt the quarries stopped dead and the bread got through
+    // immediately. A squeeze has to bite before it frees the road, so the
+    // town digs out over half a minute rather than in one frame — which is
+    // the whole point of making it gradual. Measured, not assumed.
+    let out = g;
+    let secs = 0;
+    while (secs < 200 && out.food <= 0) { out = tick(out, 1); secs++; }
+    expect(out.food, 'the town never dug itself out').toBeGreaterThan(0);
+    expect(secs).toBeGreaterThan(1);
+    expect(secs).toBeLessThan(90);
   });
 
   it('★ a town whose food gets home is not starving, however narrow the road', () => {
@@ -2166,5 +2190,79 @@ describe('★★★ THE FORAY — you can always dig yourself out', () => {
     const back = honour({ game: old as never, savedAt: 1 })!.game;
     expect(back.forage).toBeNull();
     expect(back.forays).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE LARDER IS LIVE FROM THE FIRST SECOND, 2026-08-10. The owner: *"food
+// has no meaning in the beginning because it doesn't start to work until you
+// get the first farm"* and *"famine does not have any effect, does it — let's
+// make it gradual from -30 to -95 production."*
+// ---------------------------------------------------------------------------
+describe('★★★ FOOD MATTERS FROM THE START, AND FAMINE IS A SQUEEZE', () => {
+  it('★★★ the four who came with you are already eating', () => {
+    // The wild fed SIX and the camp sleeps four, so hunger was flatly zero
+    // until you had built a hut AND filled it — the larder was scenery for
+    // the whole opening.
+    expect(WILD_FED).toBeLessThan(CAMP_ROOM);
+    expect(hunger(initial())).toBeGreaterThan(0);
+    // And the wagon carries the runway to answer it.
+    expect(initial().food).toBe(START_FOOD);
+    const hours = START_FOOD / hunger(initial()) / 60;
+    expect(hours).toBeGreaterThan(4);    // minutes, not seconds
+    expect(hours).toBeLessThan(20);      // and not a lifetime
+  });
+
+  it('★★★ THE PINCH RUNS −30% TO −95%, exactly as asked', () => {
+    expect(faminePinch({ ...initial(), famine: 0 })).toBeCloseTo(0.70, 9);
+    expect(faminePinch({ ...initial(), famine: FAMINE_DEEP })).toBeCloseTo(0.05, 9);
+    expect(faminePinch({ ...initial(), famine: FAMINE_DEEP / 2 })).toBeCloseTo(0.375, 9);
+    // It never reaches zero: a stripped town still earns, which is what keeps
+    // the starvation dead end shut alongside the foray.
+    expect(faminePinch({ ...initial(), famine: 1e6 })).toBeGreaterThan(0);
+  });
+
+  it('★★ a hungry works is SLOWED, and it deepens as the larder stays empty', () => {
+    const g: City = { ...initial(), pop: 12, food: 0, goblins: {},
+      stacks: { 0: 3, 1: 3 }, paths: { [pathKey(0, 1)]: 3 } };
+    const fed = flow({ ...g, food: 9e5 }).stone;
+    expect(flow({ ...g, famine: 0 }).stone).toBeCloseTo(fed * 0.70, 6);
+    expect(flow({ ...g, famine: FAMINE_DEEP }).stone).toBeCloseTo(fed * 0.05, 6);
+    // Strictly worse the longer it lasts, and never zero.
+    let last = Infinity;
+    for (const fam of [0, 30, 60, 90, 120]) {
+      const now = flow({ ...g, famine: fam }).stone;
+      expect(now).toBeLessThan(last);
+      expect(now).toBeGreaterThan(0);
+      last = now;
+    }
+  });
+
+  it('★★ the farms are exempt — they are the way out', () => {
+    const g: City = { ...initial(), pop: 20, food: 0, goblins: {},
+      // One small farm against twenty mouths — enough to be hungry, not
+      // enough to be hopeless.
+      stacks: { 0: 5, 4: 1 }, paths: { [pathKey(0, 4)]: MAX_GAUGE } };
+    expect(flow(g).starving).toBe(true);
+    expect(flow({ ...g, famine: FAMINE_DEEP }).made.get(4))
+      .toBeCloseTo(flow({ ...g, food: 9e5 }).made.get(4)!, 6);
+  });
+
+  it('★★★ IT DOES NOT DEEPEN WHILE YOU ARE AWAY', () => {
+    // Two reasons that agree: the brief forbids punishing absence, and the
+    // ramp reads `famine` at the start of a tick — so a deepening one would
+    // make production depend on how the away-time happened to be chunked.
+    const g: City = { ...initial(), pop: 12, food: 0, stacks: { 0: 3, 1: 3 },
+      goblins: {}, paths: { [pathKey(0, 1)]: 3 } };
+    expect(catchUp(g, 3600).famine).toBe(0);
+    // ...and the whole-span tick and the chunked catch-up still agree.
+    expect(catchUp(g, STEP_SECS * 4).stone)
+      .toBeCloseTo(apply(g, { type: 'tick', secs: STEP_SECS * 4, away: true }).stone, 6);
+  });
+
+  it('★ it heals twice as fast as it bites, once bread is moving', () => {
+    const hungry: City = { ...initial(), famine: 60, food: 500, pop: 4 };
+    expect(tick(hungry, 10).famine).toBeCloseTo(40, 6);
+    expect(tick(hungry, 600).famine).toBe(0);
   });
 });
