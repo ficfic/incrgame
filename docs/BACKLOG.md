@@ -741,3 +741,74 @@ what the engine already knows.
 ## I — SELECTION ★
 
 - [x] ✔ DONE 2026-08-10 (67f22ec) **★ Tapping a selected node deselects it, and nothing-selected is a dead screen.** *"when you click the second time on the node, it shouldn't close, because the state when there is no node selected is a little bit weird state."* `Camp.svelte:397` — `picked = picked === n ? null : n`. Selection should be sticky.
+
+
+---
+
+# ★★★ BALANCE AUDIT, 2026-08-10 — after the tap died
+
+`chad-liquidity` re-ran item A2 once the hand was removed. **The headline is
+good: killing the tap fixed the thing the owner complained about.** Hands are
+now the only scarce thing, so a Rock Face copy bought past your hand count is
+worth exactly **+0.00/s**, while liberating pays +0.30 to +2.00/s. Every rung
+has a computable, positive, ~3-minute payback. *"What is the point of me
+taking things with quarries"* is answered.
+
+⚠️ **But today's change introduced two blockers.** The audit derived its
+numbers by hand; the main session then **executed** both against the
+committed engine. Marked accordingly — hand-derived findings are leads, not
+facts.
+
+## ✔ CONFIRMED BY EXECUTION — must fix before this deploys
+
+- [ ] **★★★ PERMANENT SOFTLOCK, and it is reachable by ordinary play.** Lay all
+  three camp roads (−9, leaving 6), wait for them to finish, widen one
+  (`pathCostOf(1)` = 6) → **0 stone, no works, no stone source, forever.**
+  Verified: an hour of ticks later, still `0.00` stone; quarry (5) and
+  sawmill (8) both unaffordable permanently. And you cannot even lose your
+  way out — `raiders()` needs `taken > 0`, so `lost` never fires and `found`
+  is refused. The dead save is dead forever. *(The tap used to be the escape
+  hatch; removing it removed the escape.)* Fix candidate: **a widen on a path
+  that carries nothing is a trap purchase in every case, not just the fatal
+  one** — refuse it.
+- [ ] **★★★ THE SAWMILL MAKES NOTHING ON A DEFAULT SAVE.** Verified by
+  running the opening: with `pop 2`, the round-robin over sites [1,2,3] gives
+  `Rock Face=1, Tall Pines=1, River Bend=0` and **`planks/s 0.000`**. Planks
+  are the only route to a hut, a hut is the only route to pop, pop multiplies
+  everything — so an unpinned player has a dead game ~80s in, staring at a
+  building they earned that produces zero, with nothing on screen explaining
+  it. Fix candidate: `initial().pop` and the `popCap` base both 2 → 4.
+
+## ⚠ HAND-DERIVED, NOT YET EXECUTED — verify before acting
+
+- [ ] **★★★ Buying a building LOWERS your income.** The auto-staffer is blind
+  to `richOf` and `RATE`, so raising a Rock Face pit beside a High Quarry is
+  claimed to drop stone 1.80 → 1.20/s (−33%), and −31% at 5 hands. *An
+  incremental where a purchase reduces your rate is not a tuning issue.* Fix
+  candidate: fill the highest `RATE[kind] × richOf` site to `capOf` first,
+  **per kind only** — sorting globally would let the sawmill's 0.25 starve
+  your stone.
+- [ ] **★★ `taken` re-increments on re-liberation → unbounded free hero.** A
+  raid gives ground away at the raider's *current* strength; bleed one to 1,
+  let it take a site, retake it in one strike for `+3 heroMax` and `+2 pop`,
+  every 300s, forever.
+- [ ] **★★ A raid can create a starvation dead-end.** `starving` zeroes every
+  non-farm `made`; lose your last farm with `pop > 6` and low stone and
+  nothing recovers for 15–20 minutes. Fix candidate: scale non-farm output to
+  0.25 rather than 0 — the dig-out mechanism survives, the dead end does not.
+- [ ] **★ `CAPTIVES` bypass `popCap`.** Winning at cap gives two mouths that
+  cannot work and start eating: the advertised prize is net-negative until
+  you spend 12 more planks.
+- [ ] **★ Two 50-second dead windows in the first 140 seconds**, where the
+  only affordable buys are traps (a second quarry that adds +0.00/s at two
+  hands, and a widen). The `pop → 4` fix above collapses both.
+- [ ] **★ Raid stagger and tie-break.** Both raiders come due on the same
+  tick; `raidTarget` tie-breaks *toward* the camp for stacked sites, the
+  opposite of the bare-ground rule right beside it. Do-nothing run to camp
+  fall: **≈19 minutes**, which is a correctly sized first loss — do not touch
+  `RAID_SECS`.
+- [ ] **★ Stale doc:** `BACKLOG.md`'s "the pop ceiling is 66" predates the
+  cartwright; `0|4` with 4 carts is 8.57 food/s → pop ~177.
+- [ ] **★ `raiders()`'s comment lies** — it claims a holding with nothing in
+  reach never fills; the code only checks `!g.goblins[n]`. Harmless today
+  because the `taken > 0` gate carries the real work, but it will mislead.
