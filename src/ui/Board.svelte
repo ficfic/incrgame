@@ -90,7 +90,7 @@
   };
 
   let { dots, lines, box, label, onTap, onGround, decor = [], drag = true, inset = 0,
-    feed = null, pulse = 0, fog = null }: {
+    feed = null, pulse = 0, pulseMark = '', fog = null }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
     onTap: (id: string) => void;
     onGround?: () => void;
@@ -108,6 +108,11 @@
     /** Bumps every time a whole mana lands — each bump floats a +1 off the
      *  pin. The number itself is only compared, never shown. */
     pulse?: number;
+    /** ★ WHAT LANDED, as a mark — 2026-08-10 (playtest). The owner: *"I also
+     *  don't see plus one pop up with the appropriate icon once the resource
+     *  is mined."* The float said a bare `+1` for every good alike, so it
+     *  could not tell you WHICH pile grew. Empty falls back to a bare +1. */
+    pulseMark?: string;
     /** ★ HOW MANY PIXELS OF THE BOARD'S BOTTOM ARE COVERED by the panel that
      *  now sits over it. The canvas still PAINTS the full height — terrain
      *  behind a translucent panel is the whole point of overlaying it — but the
@@ -189,7 +194,7 @@
   const DASH_CRAWL = 12;
 
   /** +1s floating off the pin. Purely cosmetic, capped, self-removing. */
-  let plusses = $state<Array<{ id: number; x: number; y: number }>>([]);
+  let plusses = $state<Array<{ id: number; x: number; y: number; mark: string }>>([]);
   let plusId = 0;
   let lastPulse = 0;
   let lastPlusAt = 0;
@@ -208,7 +213,8 @@
     const at = posOf.get(you.id);
     if (!at || plusses.length >= 4) return;
     lastPlusAt = t;
-    plusses = [...plusses, { id: plusId++, x: sx(at.x), y: sy(at.y) - 26 }];
+    plusses = [...plusses,
+      { id: plusId++, x: sx(at.x), y: sy(at.y) - 26, mark: pulseMark }];
   });
   // Floaters hold SCREEN coordinates, so a pan or a pinch strands them over
   // the wrong ground — clear them the moment the camera moves.
@@ -820,7 +826,8 @@
   {/each}
   {#each plusses as p (p.id)}
     <span class="plus" style="left:{p.x}px; top:{p.y}px"
-      onanimationend={() => (plusses = plusses.filter((q) => q.id !== p.id))}>+1</span>
+      onanimationend={() => (plusses = plusses.filter((q) => q.id !== p.id))}
+      >+1{p.mark ? ` ${p.mark}` : ''}</span>
   {/each}
 </div>
 

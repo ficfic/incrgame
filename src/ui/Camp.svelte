@@ -76,14 +76,26 @@
   const planksNow = $derived(
     game.logs > 0.05 ? f.planks : Math.min(f.planks, f.logs));
 
-  // ★ +1 POPS over the camp: one bump per whole stone landed, any source.
-  // The board itself throttles to one a second and clears them on a pan.
+  // ★★ +1 POPS over the camp, NAMED — 2026-08-10 (playtest). The owner:
+  // *"I also don't see plus one pop up with the appropriate icon once the
+  // resource is mined."* It watched stone alone and floated a bare `+1`, so
+  // a town whose planks were climbing and whose stone was not showed
+  // nothing at all, and one whose stone was climbing did not say so.
+  // Every good is watched now and the float carries that good's mark.
+  // The board still throttles to one a second and clears them on a pan.
   let pops = $state(0);
-  let lastWholeStone = 0;
+  let popMark = $state('');
+  const WATCHED = [
+    ['stone', MARK.stone], ['logs', MARK.logs],
+    ['planks', MARK.planks], ['food', MARK.food],
+  ] as const;
+  let lastWhole: Record<string, number> = { stone: 0, logs: 0, planks: 0, food: 0 };
   $effect(() => {
-    const w = Math.floor(game.stone);
-    if (w > lastWholeStone) pops++;
-    lastWholeStone = w;
+    for (const [good, mark] of WATCHED) {
+      const w = Math.floor(game[good]);
+      if (w > (lastWhole[good] ?? 0)) { pops++; popMark = mark; }
+      lastWhole[good] = w;
+    }
   });
 
   const siteId = (n: number): string => `site:${n}`;
@@ -634,7 +646,7 @@
   {#if ready}
     <div class="map">
       <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false}
-        decor={scene} pulse={pops} />
+        decor={scene} pulse={pops} pulseMark={popMark} />
     </div>
     <section class="panel">
       {#if awayLine}

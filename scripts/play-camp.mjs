@@ -626,6 +626,31 @@ const stillThere = await page.locator('.panel h2').count();
 console.log('  sticky  :', stillThere ? 'still selected after a second tap' : 'DESELECTED');
 if (!stillThere) misses.push('a second tap on a node clears the selection');
 
+// -------------------------------------------------- the +1 -------------
+console.log('\nTHE +1 NAMES WHAT LANDED');
+// The owner: "I also don't see plus one pop up with the appropriate icon
+// once the resource is mined." It watched stone alone and floated a bare
+// +1, so a town whose PLANKS were climbing showed nothing at all.
+await seed({ version: 5, stacks: { 0: 3, 2: 2, 3: 2 },
+  paths: { '0|2': 2, '0|3': 2, '2|3': 2 }, raising: {},
+  stone: 20, logs: 20, planks: 0, food: 300, pop: 10, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 2, carts: 0 });
+// No quarry anywhere: the only pile that can grow is planks, so a float
+// here is proof the +1 is not still watching stone alone.
+let floated = '';
+for (let i = 0; i < 14 && !floated; i++) {
+  await page.waitForTimeout(900);
+  const t = await page.locator('.plus').first().textContent().catch(() => '');
+  if (t) floated = t.trim();
+}
+console.log('  floats  :', floated ? `"${floated}"` : 'NOTHING FLOATED');
+if (!floated) {
+  misses.push('planks landed and no +1 floated — it is still watching stone alone');
+} else if (!/🟫/.test(floated)) {
+  misses.push(`the +1 does not name what landed: "${floated}"`);
+}
+
 // -------------------------------------------------- the dock ------------
 console.log('\nTHE DOCK FITS');
 // ★ The owner, on the phone: "the horizontal buttons at the bottom, they take
