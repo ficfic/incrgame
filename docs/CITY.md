@@ -670,3 +670,58 @@ because earth is the only hue on the board that is neither.
 earth is `foe` at 43 against a needed 12; the old cyan's nearest was `river`
 at 39. The trench dash lays ~2.7px of ink per unit against the old solid
 3px, so the probe's fill-growth check keeps its meaning.
+
+
+## ★★★ THE HAND IS GONE — 2026-08-10, and it was the whole economy
+
+> *"there is no need for me to build a quarry because I am able to much
+> faster click on the thing… I don't need a quarry ever"*
+
+`TAP_STONE` was 0.25 a click, gated by **nothing** — not paths, not hands,
+not food, not storage. A thumb at 4Hz is ~1.0/s from nothing, forever,
+against a quarry's 0.15/s **shared across its hands**. Every ladder in this
+game was priced against an income the player beats by hand, which is also
+why taking rich ground bought nothing worth having.
+
+**The game opens with a wagon instead: 15 stone, 10 logs.**
+
+- The opening chain costs 11 — a road (3), a quarry (5), a road (3).
+- **15 rather than 11 is the anti-softlock number**: only three roads leave
+  the camp ungoblined (9 stone), and 9 + 5 for a pit is 14, so no opening
+  *order* can strand a town that no longer has a hand to dig out with.
+- Logs are a closed loop without the chop — a lumber camp costs logs and
+  only a lumber camp makes them — so 10 seeds it with 2 spare.
+
+⚠️ **That reasoning had a hole and the hole is real** — see the balance audit
+in `BACKLOG.md`. It counted *laying* and forgot *widening*: three roads then
+one widen is 15 spent exactly, and the save is then dead forever. Verified by
+execution. **The escape hatch was the tap, and removing it removed the
+escape.** Unfixed at time of writing.
+
+## ★★ EVERYTHING TAKES TIME — 2026-08-10
+
+> *"some mill got built as far as I understand instantly, although this is a
+> little bit strange. Actually, it should take time to build it."*
+
+`docs/BRIEF.md` item 3 makes timers the idle spine, and paths were the only
+one in the game. Buildings now use the same shape: hut 8s, quarry and
+lumberworks 10s, farm 12s, sawmill 15s — **flat per kind, deliberately not on
+the 1.35 curve**, since the cost already climbs and taxing the clock as well
+would wall the ladder. Costs are paid at the order, the works stands when the
+tick lands it, a site under the hammer staffs nobody, and away-ticks bank
+builds exactly as they bank spades.
+
+## ★★ THE +1 NAMES WHAT LANDED — 2026-08-10
+
+> *"I also don't see plus one pop up with the appropriate icon once the
+> resource is mined"*
+
+Two defects in one line: the float watched **stone alone**, so a town whose
+planks were climbing showed nothing at all; and it said a bare `+1` for every
+good alike. Every good is watched now and the float carries that good's mark
+from `marks.ts` — the same table the HUD and the dock read, so the three
+cannot drift. The board keeps its one-a-second throttle, because at pipe
+rates a `+1` per landing is confetti and the owner has said so once already.
+
+⚠️ Proven by a seed with **no quarry anywhere**, so the only pile that can
+grow is planks: a float there cannot be the old stone-watching code.
