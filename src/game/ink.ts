@@ -34,7 +34,7 @@ export const INK = {
   dot: '#a1907a',        // drawn, but not reached
   known: '#3f3a33',      // reached, or named
   open: '#1f7a3f',       // a road you can lay from here
-  shut: '#c8781a',       // one you cannot yet
+  shut: '#b3600a',       // one you cannot yet
   you: '#d63b26',        // where you are standing — the red pin every map has
   ring: '#12203a',       // the selection ring, which outranks everything
 
@@ -58,7 +58,30 @@ export const INK = {
    *  probe counts it, so a large teal fill would have silently corrupted the
    *  "is the road filling?" pixel check — the exact trap `docs/NEXT.md` warns
    *  about. Violet is 56 from its nearest counted ink, measured. */
-  ward: '#6b4a9e',
+  ward: '#6e2f5e',
+  // ⚠️ RETUNED 2026-08-10, and NOT to taste — measured. The owner said only
+  // *"the colors are also a little bit strange"*, which is not actionable on
+  // its own, so the palette was audited against two things a number can
+  // settle: WCAG contrast on the parchment, and whether inks that mean
+  // OPPOSITE things survive colour blindness.
+  //
+  //   `shut` #c8781a → #b3600a. The choke warning sat at 2.90 contrast,
+  //   below the 3.0 floor for a graphic — a warning you have to hunt for.
+  //   Now 3.89, and still the same amber family.
+  //
+  //   `ward` #6b4a9e → #6e2f5e. The barrier and a finished road were 21
+  //   apart under deuteranopia and protanopia — violet and teal collapse
+  //   into each other — so the line around your own country read as another
+  //   road. Now 50 apart at the worst of the two, contrast 8.00, and still
+  //   clear of `barred` (38) and `foe` (42).
+  //
+  // Both still clear every counted ink by that ink's own net; `test/ink.test.ts`
+  // enforces that and was run against these values.
+  //
+  // ⚠️ NOT CHANGED, though it measures worst of all: `flowing` reads 1.06
+  // against the parchment. It is drawn OVER the road's casing and core, never
+  // on bare ground, so contrast-against-paper is the wrong measure for it.
+  // Recorded so the next audit does not "fix" a colour that is correct.
   // ⚠️ NOT THE SAME AS `you`, AND IT USED TO BE. Both were #8ff0cf in the dark
   // palette, so the probe's "is the road filling?" check was also counting the
   // dot you are standing on — which is always there. The check would have passed

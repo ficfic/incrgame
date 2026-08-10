@@ -725,3 +725,30 @@ rates a `+1` per landing is confetti and the owner has said so once already.
 
 ⚠️ Proven by a seed with **no quarry anywhere**, so the only pile that can
 grow is planks: a float there cannot be the old stone-watching code.
+
+
+## ★★ THE PALETTE, MEASURED — 2026-08-10
+
+> *"the colors are also a little bit strange"*
+
+Not actionable as stated, so it was split into the objective half and the
+taste half. The objective half is now fixed **and guarded**
+(`test/palette.test.ts`), against two things a number can settle:
+
+| | was | now |
+|---|---|---|
+| `shut` — the choke warning — WCAG contrast on parchment | **2.90** (below the 3.0 floor for a graphic) | **3.89** |
+| `ward` vs `route` — the barrier against a road — under deuteranopia/protanopia | **21** apart, they collapse together | **50** |
+
+The board leans on green for *yours* and red for *theirs*, which is exactly
+the pairing about one man in twelve cannot make, so the colour-blind check
+covers every pair a player must separate to play at all: worked vs held,
+layable vs not, danger vs choke, road vs trench, barrier vs road, theirs vs
+where you stand.
+
+⚠️ **`flowing` measures 1.06 and is correct.** It is drawn over the road's
+casing and core, never on bare ground, so contrast-against-paper is the
+wrong measure for it. Written down so the next audit does not "fix" it.
+
+⚠️ **The taste half is still open**, and taste is not testable. If a specific
+colour still reads wrong, it needs pointing at.
