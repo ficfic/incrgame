@@ -115,11 +115,16 @@ export const RAID_SECS = 300;
  *  that has something on it worth taking. A holding with nothing in reach
  *  never fills, so the early camp is not besieged from minute one. */
 export function raiders(g: City): number[] {
+  // ★★ FIRST BLOOD STARTS THE WAR, 2026-08-09. Before this the goblins came
+  // for a camp that had never touched them, which made the opening five
+  // minutes a siege you had no hero for. They ignore you until you take
+  // something of theirs — and then they do not stop.
+  if (g.taken <= 0 || g.lost) return [];
   const out: number[] = [];
   for (const id of Object.keys(g.goblins).map(Number)) {
     const s = SITE.get(id);
     if (!s) continue;
-    if (s.near.some((n) => !g.goblins[n] && (g.stacks[n] ?? 0) > 0)) out.push(id);
+    if (s.near.some((n) => !g.goblins[n])) out.push(id);
   }
   return out;
 }
@@ -129,11 +134,22 @@ export function raidTarget(g: City, id: number): number | null {
   const s = SITE.get(id);
   if (!s) return null;
   let best: number | null = null;
+  let bare: number | null = null;
   for (const n of s.near) {
-    if (g.goblins[n] || (g.stacks[n] ?? 0) <= 0) continue;
-    if (best === null || (g.stacks[n] ?? 0) > (g.stacks[best] ?? 0)) best = n;
+    if (g.goblins[n]) continue;
+    if ((g.stacks[n] ?? 0) > 0) {
+      if (best === null || (g.stacks[n] ?? 0) > (g.stacks[best] ?? 0)) best = n;
+    } else if (bare === null || (bare === 0 && n !== 0)) {
+      // ★ NOTHING LEFT TO BURN MEANS THEY TAKE THE GROUND. A site they
+      // strip bare is a site they can hold — and THE CAMP LAST OF ALL,
+      // which is how a run ends.
+      // ⚠️ The first cut wrote `bare === null || n === 0`, which preferred
+      // the camp over every outpost — the exact opposite of the sentence
+      // above it. Caught by a test that expected an outpost to fall.
+      bare = n;
+    }
   }
-  return best;
+  return best ?? bare;
 }
 
 /** ★ GOBLINS REGROUP: a bled, unengaged holding climbs back toward its
@@ -210,6 +226,15 @@ export interface City {
   /** ★ MENACE — how ready each goblin holding is to come at you, 0 to 1.
    *  Keyed by the holding's site id. */
   menace: Record<number, number>;
+  /** ★ HOW MANY HOLDINGS THIS RUN HAS TAKEN. Drives the hero's constitution
+   *  and starts the war — ⚠️ counted explicitly rather than derived from
+   *  `goblins`, because a raid can now ADD a holding and the old
+   *  `originals − current` arithmetic went backwards the moment it did. */
+  taken: number;
+  /** ★ THE VALLEY IS LOST — the camp itself has been overrun. */
+  lost: boolean;
+  /** ★ WHAT OUTLIVES A RUN. The infrastructure does not; the veteran does. */
+  legacy: { runs: number; arms: number };
   /** ★ A FIGHT IN PROGRESS, or null — the owner's own screen: our square
    *  left, three goblin squares right. Turn-based: every round is yours.
    *  `sq` is the line — a BRUTE up front (the mash trap) and two RUNTS
@@ -246,6 +271,9 @@ export const initial = (): City => ({
   store: 0,
   carts: 0,
   menace: {},
+  taken: 0,
+  lost: false,
+  legacy: { runs: 0, arms: 0 },
   fight: null,
 });
 
@@ -287,8 +315,7 @@ export const windup = (round: number): boolean =>
 /** ★ EVERY LIBERATION TOUGHENS THE HERO: +3 health per ground freed.
  *  The deep country's bites (5s and 6s) are priced against this — arms
  *  buy the strike, the fights already won buy the surviving. */
-export const heroMax = (g: City): number =>
-  HERO_HP + 3 * (Object.keys(GOBLINS).length - Object.keys(g.goblins).length);
+export const heroMax = (g: City): number => HERO_HP + 3 * g.taken;
 /** What one strike lands: bare hands plus the armoury. */
 export const heroHit = (g: City): number => 2 + g.hero.arms;
 /** Arms price in BOTH currencies, on a steeper curve — the late fights
@@ -830,6 +857,8 @@ export type Action =
   | { type: 'stow' }
   /** Set the cartwright to work — every path carries more. */
   | { type: 'cart' }
+  /** The valley is lost: walk out and found the next one. */
+  | { type: 'found' }
   /** Send the hero at held ground — the battle strip opens. */
   | { type: 'assail'; id: number }
   /** Attack the targeted square. The line answers. */
@@ -885,7 +914,7 @@ export function catchUp(g: City, secs: number): City {
 export function apply(g: City, a: Action): City {
   switch (a.type) {
     case 'tick': {
-      if (!(a.secs > 0)) return g;
+      if (!(a.secs > 0) || g.lost) return g;
       const s = a.secs;
       const f = flow(g);
       // The mills saw what arrives plus what is piled — integrated over the
@@ -973,15 +1002,28 @@ export function apply(g: City, a: Action): City {
         if (menace === g.menace) menace = { ...g.menace };
         menace[id] = next;
       }
+      let lost: boolean = g.lost;
       if (!a.away) {
         for (const id of able) {
           if ((menace[id] ?? 0) < 1) continue;
-          const t = raidTarget(g, id);
+          const t = raidTarget({ ...g, stacks, goblins }, id);
           if (t === null) continue;
-          if (stacks === g.stacks) stacks = { ...g.stacks };
-          stacks[t] = Math.max(0, (stacks[t] ?? 0) - 1);
           if (menace === g.menace) menace = { ...g.menace };
           menace[id] = 0;
+          if ((stacks[t] ?? 0) > 0) {
+            if (stacks === g.stacks) stacks = { ...g.stacks };
+            stacks[t] = stacks[t]! - 1;
+            continue;
+          }
+          // ★★★ THE GROUND ITSELF. A site with nothing left on it is a site
+          // they take and hold — the barrier shrinks, and you have to march
+          // to get it back. The camp is the last one, and losing it ends
+          // the run.
+          if (goblins === g.goblins) goblins = { ...goblins };
+          goblins[t] = goblins[id] ?? GOBLINS[id]?.strength ?? 12;
+          if (menace === g.menace) menace = { ...g.menace };
+          menace[t] = 0;
+          if (t === 0) lost = true;
         }
       }
 
@@ -1004,6 +1046,7 @@ export function apply(g: City, a: Action): City {
         laying,
         menace,
         stacks,
+        lost,
       };
     }
 
@@ -1091,6 +1134,24 @@ export function apply(g: City, a: Action): City {
       };
     }
 
+    // ★★★ FOUND THE NEXT CAMP. The owner: *"make hero lose and restart
+    // stronger."* Everything you built is gone — that is what losing the
+    // valley means — and the ONE thing that walks out is the veteran.
+    //
+    // The carry is `floor(arms/2) + 1`, taken as a MAXIMUM against what you
+    // already had, so a run that ends early can never make you weaker than
+    // the run before it. Failure is a plateau, never a loss: `docs/BRIEF.md`.
+    case 'found': {
+      if (!g.lost) return g;
+      const legacy = {
+        runs: g.legacy.runs + 1,
+        arms: Math.max(g.legacy.arms, Math.floor(g.hero.arms / 2) + 1),
+      };
+      const next = initial();
+      return { ...next, legacy,
+        hero: { ...next.hero, arms: legacy.arms } };
+    }
+
     case 'assail': {
       if (unassailable(g, a.id)) return g;
       const spec = GOBLINS[a.id];
@@ -1121,7 +1182,8 @@ export function apply(g: City, a: Action): City {
         delete goblins[f.site];
         const menace = { ...g.menace };
         delete menace[g.fight.site];
-        return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES };
+        return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES,
+          taken: g.taken + 1 };
       }
       return answered(g, { ...f, sq, target: at }, false);
     }

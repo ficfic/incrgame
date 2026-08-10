@@ -478,6 +478,22 @@
 </script>
 
 <main>
+  {#if game.lost}
+    <!-- ★★★ THE RUN IS OVER, SAID LOUDLY. The owner, on a previous win:
+         *"I think I won, but it wasn't clear."* A run that ends quietly is
+         a bug in the only moment the game has. Nothing else is reachable
+         until they choose to walk out. -->
+    <div class="gone">
+      <h1>THE VALLEY IS LOST</h1>
+      <p class="note">{MARK.danger} the camp is overrun · {MARK.hero}{game.hero.arms} carried</p>
+      <p class="note">the works are gone · the veteran is not</p>
+      <button class="deed row big" onclick={() => act({ type: 'found' })}>
+        <span class="what">Found the next camp</span>
+        <em>{MARK.hero}{Math.max(game.legacy.arms, Math.floor(game.hero.arms / 2) + 1)}
+          · run {game.legacy.runs + 1}</em>
+      </button>
+    </div>
+  {/if}
   <header>
     <!-- ★★ THE HUD, 2026-08-09, built to the owner's design mock. It replaces a
          wrapped run-on line ("60 stone 12 logs 45 planks 54 food 11 people ·
@@ -709,6 +725,16 @@
   .standings .cell.lv { color: #1f6b3a; }
   .standings .cell.brim { color: #b3452f; }
   .standings .cell.hurt { color: #b3452f; }
+
+  /* ★ THE END OF A RUN COVERS THE BOARD. It is the one moment the game
+     has, and it must not be a line in a corner. */
+  .gone { position: fixed; inset: 0; z-index: 50; display: flex;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; padding: 24px; text-align: center; background: #efe6d6; }
+  .gone h1 { font-size: 26px; letter-spacing: .04em; color: #b3452f; margin: 0; }
+  .gone .note { margin: 0; }
+  .gone .deed.row.big { align-items: center; min-height: 56px; max-width: 320px;
+    background: #fdfaf2; border-color: #b3452f; margin-top: 8px; }
 
   .keep { font-size: 14px; color: #6b5d3f; font-weight: 600; }
   .keep.build { color: #b0a892; font-weight: 400; font-size: 12px; }

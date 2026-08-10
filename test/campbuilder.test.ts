@@ -4,6 +4,7 @@
 //
 // ---- PROVEN RED, 2026-08-08 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
+import { held } from '../src/camp/barrier';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
   unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
   TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
@@ -129,8 +130,11 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
 
   it('★ every liberation toughens the hero: +3 health per ground freed', () => {
     expect(heroMax(initial())).toBe(HERO_HP);
+    // ⚠️ COUNTED, NOT DERIVED (2026-08-09): this used to read `originals −
+    // current holdings`, which went BACKWARDS the moment a raid ADDED a
+    // holding. `taken` is what this run has liberated.
     const { 4: _a, 5: _b, ...rest } = initial().goblins;
-    const g: City = { ...initial(), goblins: rest };
+    const g: City = { ...initial(), goblins: rest, taken: 2 };
     expect(heroMax(g)).toBe(HERO_HP + 6);
     // And the heal fills to the GROWN max.
     const hurt: City = { ...g, hero: { hp: 0, arms: 0, part: 0 } };
@@ -463,7 +467,13 @@ describe('★ honest refusals and the save', () => {
     expect(honour({ game: { ...initial(), paths: { '1|3': 1 } }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), paths: { '1|0': 1 } }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), paths: { '0|1': 9 } }, savedAt: 1 })).toBeNull();
-    expect(honour({ game: { ...initial(), goblins: { 1: 5 } }, savedAt: 1 })).toBeNull();
+    // ⚠️ REVERSED 2026-08-09: goblins on Rock Face used to be a forgery,
+    // because only the six original holdings could hold any. A raid can now
+    // TAKE ground, so that is an ordinary mid-run state and refusing it
+    // wiped the save the moment the goblins won a site. What is still a
+    // forgery is a site that does not exist.
+    expect(honour({ game: { ...initial(), goblins: { 1: 5 } }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), goblins: { 99: 5 } }, savedAt: 1 })).toBeNull();
   });
 
   it('★ hands are WHOLE at the door too — the staffing ruling', () => {
@@ -1343,8 +1353,11 @@ describe('★★★ STARVING READS DELIVERY, NOT HARVEST', () => {
 // ---------------------------------------------------------------------------
 describe('★★★ THE RAID — held ground takes something back', () => {
   /** The camp with huts, one holding next door with something to hit. */
+  // ⚠️ `taken: 1` IS LOAD-BEARING: the goblins ignore a camp that has never
+  // touched them (see FIRST BLOOD below), so a besieged fixture has to have
+  // drawn blood already.
   const pressed = (over: Partial<City> = {}): City => ({
-    ...initial(), pop: 12, food: 900,
+    ...initial(), pop: 12, food: 900, taken: 1,
     stacks: { 0: 4, 1: 2 }, paths: { [pathKey(0, 1)]: 2 },
     goblins: { 4: 12 }, ...over });
 
@@ -1352,12 +1365,14 @@ describe('★★★ THE RAID — held ground takes something back', () => {
     // Site 4 touches the camp, which has huts. Nothing else is adjacent to
     // anything of yours, so the early camp is not besieged from minute one.
     expect(raiders(pressed())).toEqual([4]);
-    // ⚠️ Stripping the CAMP is not enough — site 4 touches Rock Face too, so
-    // it still has something to come for. Bare the lot and it stands down.
-    expect(raiders(pressed({ stacks: { 1: 2 } }))).toEqual([4]);
-    expect(raiders(pressed({ stacks: {} }))).toEqual([]);
-    // A holding deep in the country, with no held neighbour, stands down.
-    expect(raiders(pressed({ goblins: { 8: 48 } }))).toEqual([]);
+    // ⚠️ REVISED 2026-08-09: a holding no longer needs a BUILDING in reach,
+    // because a bare site is ground it can take and hold. It needs ground of
+    // yours next to it — so one whose every neighbour is already goblin-held
+    // is the one that stands down.
+    expect(raiders(pressed({ stacks: {} }))).toEqual([4]);
+    expect(raiders(pressed({ goblins: { 8: 48, 5: 18 } }))).toEqual([5]);
+    // ⚠️ `{8: 48}` ALONE NO LONGER STANDS DOWN: site 8's neighbour is the
+    // Scree, and with no goblins on the Scree that is ground you hold.
   });
 
   it('★ it comes for the fullest thing it can reach', () => {
@@ -1391,14 +1406,15 @@ describe('★★★ THE RAID — held ground takes something back', () => {
     expect(tick(away, 1).stacks[0]).toBe(3);
   });
 
-  it('★ a raid cannot dig below nothing, and never touches the goods', () => {
+  it('★ a raid never digs a stack below nothing, and never touches the goods', () => {
     const bare = pressed({ stacks: { 0: 1 } });
     const once = tick(bare, RAID_SECS + 1);
     expect(once.stacks[0]).toBe(0);
-    // Nothing left to take: no raider, no menace, no negative stack.
-    expect(raiders(once)).toEqual([]);
-    expect(tick(once, RAID_SECS * 3).stacks[0]).toBe(0);
-    expect(tick(bare, RAID_SECS + 1).stone).toBe(bare.stone);
+    expect(once.stacks[0]).toBeGreaterThanOrEqual(0);
+    // The stores are not what they came for.
+    expect(once.stone).toBe(bare.stone);
+    expect(once.planks).toBe(bare.planks);
+    expect(once.food).toBeLessThanOrEqual(bare.food);
   });
 
   it('★★ taking the ground stops the clock for good', () => {
@@ -1417,5 +1433,125 @@ describe('★★★ THE RAID — held ground takes something back', () => {
     expect(honour({ game: { ...initial(), menace: { 4: -1 } }, savedAt: 1 })).toBeNull();
     const { menace: _, ...old } = initial();
     expect(honour({ game: old as never, savedAt: 1 })!.game.menace).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE RUN ENDS, AND THE NEXT ONE STARTS STRONGER, 2026-08-09 — the second
+// half of the owner's answer: *"make hero lose and restart stronger."*
+// ---------------------------------------------------------------------------
+describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
+  const war = (over: Partial<City> = {}): City => ({
+    ...initial(), pop: 12, food: 900, taken: 1,
+    stacks: { 0: 1 }, goblins: { 4: 12 }, ...over });
+
+  it('★★★ FIRST BLOOD STARTS THE WAR — an untouched camp is never raided', () => {
+    // Before this the goblins came for a camp that had never touched them,
+    // which made the opening five minutes a siege you had no hero for.
+    const peace = war({ taken: 0 });
+    expect(raiders(peace)).toEqual([]);
+    expect(tick(peace, RAID_SECS * 4).stacks[0]).toBe(1);
+    // Take one holding and they do not stop.
+    expect(raiders(war())).toEqual([4]);
+  });
+
+  it('★★★ NOTHING LEFT TO BURN MEANS THEY TAKE THE GROUND', () => {
+    // A camp whose every other neighbour is already lost: the next raid
+    // finds nothing to burn and takes the camp itself.
+    const cornered = war({ stacks: {}, goblins: { 4: 12, 1: 12, 2: 12, 3: 12 } });
+    const fallen = tick(cornered, RAID_SECS + 1);
+    expect(fallen.goblins[0]).toBeGreaterThan(0);
+    expect(fallen.lost).toBe(true);
+  });
+
+  it('★★ they eat the ground INWARD — outposts first, the camp last', () => {
+    // Site 4 touches the camp (0) and Rock Face (1). It always goes for the
+    // fullest thing standing, then for bare GROUND, and the camp is the
+    // last bare site it will take. That ordering is the run's length.
+    const g = war({ stacks: { 0: 1 } });
+    const a = tick(g, RAID_SECS + 1);          // the hut burns
+    expect(a.stacks[0]).toBe(0);
+    expect(a.lost).toBe(false);
+    const b = tick(a, RAID_SECS + 1);          // bare Rock Face is TAKEN
+    expect(b.goblins[1]).toBeGreaterThan(0);
+    expect(b.lost).toBe(false);
+    // And the barrier no longer encloses it.
+    expect(held(b).some((p) => p.x === SITE.get(1)!.x)).toBe(false);
+    // ...and it keeps eating outward-in. The camp is the LAST thing it
+    // takes, whenever that falls — that ordering is the run's length.
+    let g2 = b;
+    for (let i = 0; i < 8 && !g2.lost; i++) g2 = tick(g2, RAID_SECS + 1);
+    expect(g2.lost).toBe(true);
+    // Every other neighbour of the raiding holding fell before the camp.
+    for (const n of SITE.get(4)!.near) {
+      if (n === 0) continue;
+      expect(g2.goblins[n], `site ${n} should have fallen first`).toBeGreaterThan(0);
+    }
+  });
+
+  it('★★ a lost valley stops dead — no ticking on a corpse', () => {
+    const dead: City = { ...war(), lost: true, stone: 5 };
+    expect(tick(dead, 600)).toBe(dead);
+  });
+
+  it('★★★ THE VETERAN WALKS OUT, and the next run is never weaker', () => {
+    const dead: City = { ...war(), lost: true,
+      hero: { hp: 3, arms: 7, part: 0 }, legacy: { runs: 0, arms: 0 } };
+    const next = apply(dead, { type: 'found' });
+    expect(next.lost).toBe(false);
+    expect(next.legacy).toEqual({ runs: 1, arms: 4 });
+    expect(next.hero.arms).toBe(4);
+    // Everything else is gone — that is what losing the valley means.
+    expect(next.stacks).toEqual({});
+    expect(next.taken).toBe(0);
+    expect(Object.keys(next.goblins)).toHaveLength(Object.keys(GOBLINS).length);
+    // ★ AND IT NEVER GOES BACKWARDS: a short run cannot undo a long one.
+    const short: City = { ...next, lost: true, hero: { hp: 1, arms: 0, part: 0 } };
+    expect(apply(short, { type: 'found' }).hero.arms).toBe(4);
+    expect(apply(short, { type: 'found' }).legacy.runs).toBe(2);
+  });
+
+  it('★ you cannot found a camp while the valley still stands', () => {
+    const alive = war();
+    expect(apply(alive, { type: 'found' })).toBe(alive);
+  });
+
+  it('★ the hero grows with what THIS run took, and a raid cannot undo it', () => {
+    // heroMax used to be `originals − current holdings`, which went
+    // BACKWARDS the moment a raid added a holding. It counts liberations.
+    expect(heroMax({ ...initial(), taken: 0 })).toBe(heroMax(initial()));
+    expect(heroMax({ ...initial(), taken: 2 })).toBeGreaterThan(heroMax(initial()));
+    const raided: City = { ...war({ taken: 2 }), goblins: { 4: 12, 1: 12, 2: 12 } };
+    expect(heroMax(raided)).toBe(heroMax({ ...initial(), taken: 2 }));
+  });
+
+  it('the run fields hold at the save door', () => {
+    expect(honour({ game: { ...initial(), taken: 3 }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), taken: -1 }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), legacy: { runs: 1, arms: 2 } }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), legacy: { runs: 1, arms: 1.5 } }, savedAt: 1 })).toBeNull();
+    const { legacy: _, taken: __, lost: ___, ...old } = initial();
+    const back = honour({ game: old as never, savedAt: 1 })!.game;
+    expect(back.legacy).toEqual({ runs: 0, arms: 0 });
+    expect(back.taken).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★ A RUN THE GOBLINS ARE WINNING MUST SURVIVE A RELOAD, 2026-08-09.
+// ---------------------------------------------------------------------------
+describe('★ taken ground reloads', () => {
+  it('★★ goblins standing on a site they TOOK is a save, not a forgery', () => {
+    // The door checked every goblin key against GOBLINS, the six original
+    // holdings. A raid can now put goblins on Rock Face or the camp, so that
+    // check refused a legitimately-played save and wiped the run the moment
+    // the goblins took their first site.
+    const raided: City = { ...initial(), taken: 1,
+      goblins: { ...initial().goblins, 1: 12 } };
+    expect(honour({ game: raided, savedAt: 1 })).not.toBeNull();
+    const overrun: City = { ...raided, goblins: { ...raided.goblins, 0: 12 }, lost: true };
+    expect(honour({ game: overrun, savedAt: 1 })).not.toBeNull();
+    // A site that does not exist is still a forgery.
+    expect(honour({ game: { ...initial(), goblins: { 99: 12 } }, savedAt: 1 })).toBeNull();
   });
 });

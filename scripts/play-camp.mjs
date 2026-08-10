@@ -406,6 +406,11 @@ console.log('\nTHE TABLE');
 // farm keeps its hands. Bread on hand ends it.
 await seed({ version: 5, stacks: { 0: 6, 1: 2, 4: 1 },
   paths: { '0|1': 1, '0|4': 1 }, goblins: { 5: 18, 7: 32, 8: 48, 9: 60 },
+  // ⚠️ `taken: 2` states what these missing holdings MEAN. heroMax counts
+  // liberations now instead of inferring them from how many holdings are
+  // left — a raid can ADD one, and the old arithmetic ran backwards when it
+  // did. A seed that skips the fights has to say so.
+  taken: 2,
   stone: 10, logs: 0, planks: 0, food: 0, pop: 24, popPart: 0,
   hero: { hp: 13, arms: 1, part: 0 }, fight: null });
 const starving = await header();
@@ -418,6 +423,11 @@ if (/stone.*\+0\.\d\/s/.test(starving.split('logs')[0])) {
 }
 await seed({ version: 5, stacks: { 0: 6, 1: 2, 4: 2 },
   paths: { '0|1': 1, '0|4': 1 }, goblins: { 5: 18, 7: 32, 8: 48, 9: 60 },
+  // ⚠️ `taken: 2` states what these missing holdings MEAN. heroMax counts
+  // liberations now instead of inferring them from how many holdings are
+  // left — a raid can ADD one, and the old arithmetic ran backwards when it
+  // did. A seed that skips the fights has to say so.
+  taken: 2,
   stone: 10, logs: 0, planks: 0, food: 8, pop: 24, popPart: 0,
   hero: { hp: 13, arms: 1, part: 0 }, fight: null });
 const fed = await header();
@@ -434,6 +444,11 @@ console.log('\nTHE FRONTIER');
 // Green Vale show, the High Quarry still hides behind the scree.
 await seed({ version: 5, stacks: { 0: 4, 1: 2, 4: 2 },
   paths: { '0|1': 1, '0|4': 1 }, goblins: { 5: 18, 7: 32, 8: 48, 9: 60 },
+  // ⚠️ `taken: 2` states what these missing holdings MEAN. heroMax counts
+  // liberations now instead of inferring them from how many holdings are
+  // left — a raid can ADD one, and the old arithmetic ran backwards when it
+  // did. A seed that skips the fights has to say so.
+  taken: 2,
   stone: 40, logs: 0, planks: 10, food: 8, pop: 9, popPart: 0,
   hero: { hp: 16, arms: 4, part: 0 }, fight: null });
 const sitesFar = await page.$$eval('.map .node', (n) => n.length);
@@ -472,7 +487,9 @@ await seed({ version: 5, stacks: { 0: 4, 1: 3 }, paths: { '0|1': 2 },
   stone: 40, logs: 0, planks: 60, food: 900, pop: 14, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 13, arms: 3, part: 0 }, fight: null, store: 1, carts: 0,
-  menace: { 4: 0.99 } });
+  // ⚠️ `taken: 1` IS LOAD-BEARING: the goblins ignore a camp that has never
+  // touched them, so a besieged seed has to have drawn blood already.
+  menace: { 4: 0.99 }, taken: 1 });
 // ⚠️ COUNT FIRST. Seeded AT the gate (menace 1) the raid landed before the
 // probe had read a baseline, and the check compared ×3 with ×3. It is seeded
 // just short now, and the huts are counted before anything else happens.
@@ -499,6 +516,49 @@ const hutsAfter = await hutsNow();
 console.log('  raided  :', `Hut ×${hutsBefore} → ×${hutsAfter}`);
 if (!(hutsAfter < hutsBefore)) {
   misses.push(`the raid came due and took nothing: Hut ×${hutsBefore} → ×${hutsAfter}`);
+}
+
+// -------------------------------------------------- the run ends --------
+console.log('\nTHE VALLEY IS LOST');
+// The second half of the goal: the run ENDS, loudly, and the next one
+// starts stronger. The owner on a previous win: "I think I won, but it
+// wasn't clear" — so this must cover the board, not sit in a corner.
+await seed({ version: 5, stacks: {}, paths: {},
+  stone: 5, logs: 0, planks: 0, food: 90, pop: 4, popPart: 0,
+  // ⚠️ SITE 6 TOO. High Meadow touches the camp, Rock Face AND the Knoll —
+  // leave any of them held and it eats that instead, because the camp is
+  // the last bare site it will take. The first seed here forgot the Knoll.
+  goblins: { 4: 12, 1: 12, 2: 12, 3: 12, 6: 24 },
+  hero: { hp: 4, arms: 7, part: 0 }, fight: null, store: 0, carts: 0,
+  menace: { 4: 0.99 }, taken: 1, lost: false, legacy: { runs: 0, arms: 0 } });
+await page.waitForTimeout(6000);
+const end = await page.locator('.gone').count();
+const endText = end ? (await page.locator('.gone').textContent()).replace(/\s+/g, ' ').trim() : '';
+console.log('  ends    :', end ? `"${endText.slice(0, 70)}"` : 'THE RUN DID NOT END');
+if (!end) misses.push('the camp was overrun and the run did not end');
+if (!/THE VALLEY IS LOST/.test(endText)) {
+  misses.push(`the end of a run is not said loudly: "${endText.slice(0, 60)}"`);
+}
+// ★ IT MUST COVER THE BOARD. A run-ending banner you can play behind is
+// not an ending.
+const covers = end ? await page.evaluate(() => {
+  const r = document.querySelector('.gone').getBoundingClientRect();
+  return r.width >= document.documentElement.clientWidth - 1
+    && r.height >= document.documentElement.clientHeight - 1;
+}) : false;
+console.log('  covers  :', covers ? 'the whole screen' : 'NOT THE WHOLE SCREEN');
+if (!covers) misses.push('the end-of-run screen does not cover the board');
+// And founding the next camp carries the veteran: arms 7 -> 4.
+await page.locator('.gone button').click({ timeout: 2000 })
+  .catch(() => misses.push('no button founds the next camp'));
+await page.waitForTimeout(900);
+const armsAfter = await cell('hero');
+console.log('  founded :', `"${armsAfter}"`);
+if (!/arms 4\b/.test(armsAfter)) {
+  misses.push(`the veteran did not walk out of the lost valley: "${armsAfter}"`);
+}
+if (await page.locator('.gone').count() > 0) {
+  misses.push('the next camp was founded and the end screen is still up');
 }
 
 // -------------------------------------------------- the dock ------------

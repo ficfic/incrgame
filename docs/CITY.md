@@ -534,3 +534,40 @@ advertise their own artery. Added to the line, not put in front of it.
 The second half — **the hero loses and you restart stronger**. Right now a
 raid can strip a site to nothing and the run simply continues. That is the
 goal state, and it is the next item.
+
+
+## ★★★ LOSE THE VALLEY, KEEP THE VETERAN — built 2026-08-09
+
+The second half of the owner's answer: *"make hero lose and restart
+stronger."* **The game has a goal state now.**
+
+- **First blood starts the war.** The goblins ignore a camp that has never
+  touched them — before this they came for you in the opening five minutes,
+  a siege you had no hero for. Take one holding and they do not stop.
+- **A raid takes a building; when there is nothing left to burn it takes the
+  GROUND.** A stripped site becomes theirs, the barrier shrinks, and you must
+  march to get it back.
+- **They eat inward.** Always the fullest thing standing, then bare ground,
+  and **the camp last of all**. That ordering is the length of a run.
+- **The camp falls → the valley is lost.** The board stops ticking and the
+  end covers the screen: *THE VALLEY IS LOST*. The owner's complaint on a
+  previous win was *"I think I won, but it wasn't clear"* — a run that ends
+  quietly is a bug in the only moment the game has.
+- **The veteran walks out.** Everything built is gone; the hero carries
+  `floor(arms/2) + 1`, taken as a **maximum** against what you already had —
+  so a run that ends early can never make you weaker than the run before it.
+  *Failure is a plateau, never a loss:* `docs/BRIEF.md`.
+
+### Three bugs this shook out, all found by a check rather than by luck
+
+1. **`heroMax` ran backwards.** It was `originals − current holdings`, and a
+   raid can now *add* a holding. It counts `taken` — liberations this run —
+   explicitly.
+2. **The save door refused a run the goblins were winning.** Every goblin key
+   was checked against the six original holdings, so the moment a raid took
+   Rock Face the save was rejected on reload and **the run was silently
+   wiped**. Any real site is legal now; a site that does not exist is still a
+   forgery.
+3. **`raidTarget` preferred the camp** among bare sites — the exact opposite
+   of "the camp last of all", which the comment above it already claimed.
+   Caught by a test that expected an outpost to fall first.

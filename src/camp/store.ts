@@ -28,6 +28,12 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   if (g.store !== undefined && !whole(g.store, 0, 9999)) return null;
   if (g.carts !== undefined && !whole(g.carts, 0, 9999)) return null;
   // Menace is a fraction per holding, 0..1 — never a count.
+  if (g.taken !== undefined && !whole(g.taken, 0, 999)) return null;
+  if (g.lost !== undefined && typeof g.lost !== 'boolean') return null;
+  if (g.legacy !== undefined) {
+    if (typeof g.legacy !== 'object' || g.legacy === null) return null;
+    if (!whole(g.legacy.runs, 0, 9999) || !whole(g.legacy.arms, 0, 999)) return null;
+  }
   if (g.menace !== undefined) {
     if (typeof g.menace !== 'object' || g.menace === null) return null;
     for (const v of Object.values(g.menace)) if (!num(v, 0, 1)) return null;
@@ -69,7 +75,12 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   if (g.goblins !== undefined) {
     if (typeof g.goblins !== 'object' || g.goblins === null) return null;
     for (const [k, v] of Object.entries(g.goblins)) {
-      if (GOBLINS[Number(k)] === undefined || !num(v, 0, 9999)) return null;
+      // ⚠️ ANY SITE, NOT JUST THE SIX ORIGINAL HOLDINGS (2026-08-09). A raid
+      // can now TAKE ground, which puts goblins on Rock Face or the camp —
+      // states the game reaches in ordinary play. Checking against `GOBLINS`
+      // refused those saves on reload, silently wiping a run the moment the
+      // goblins took their first site.
+      if (SITE.get(Number(k)) === undefined || !num(v, 0, 9999)) return null;
     }
   }
   if (g.hero !== undefined) {
