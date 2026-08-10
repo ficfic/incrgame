@@ -701,7 +701,7 @@ what the engine already knows.
 
 - [ ] **★★★ Clicking out-earns every building, so nothing you build matters.** *"there is no need for me to build a quarry because I am able to much faster click on the thing… I don't need a quarry ever"* and again for logs: *"I can go and chop logs by hand faster than any lumberworks can do it."* `TAP_STONE` is 0.25 a click; a quarry is 0.15/s **shared across its hands**. A thumb at 4Hz is 1.0/s from nothing, forever, ungated by paths, hands, food or storage. Every ladder in the game — works, huts, carts, the whole logistics layer — is priced against an income the player can trivially beat by hand. **This is the top item; nothing else in this list matters while it holds.** The owner's own suggestion: *"maybe clicking on the stone or clicking on the logs doesn't make any sense. Maybe we should just give some initial resources."*
 - [ ] **★★ Taking ground buys nothing you want.** *"the next item, high quarry. But what's the point? I can have one quarry, or I can just click. What is the point of me taking things with quarries?"* `rich` ×1.5–×3.5 multiplies a rate the tap already dwarfs. Falls out of A, but check it again after A is fixed.
-- [ ] **★ `quarry ×1.5` on held ground means nothing to a player.** *"Query one point five. What does it even mean?"* The prize line states a multiplier without saying what it multiplies.
+- [x] ✔ DONE 2026-08-10 (67f22ec) **★ `quarry ×1.5` on held ground means nothing to a player.** *"Query one point five. What does it even mean?"* The prize line states a multiplier without saying what it multiplies.
 
 ## B — NOTHING TAKES TIME, so there is no idle game ★★★
 
@@ -717,7 +717,7 @@ what the engine already knows.
 
 ## D — THE BARRIER DOES NOT READ AS A BARRIER ★★
 
-- [ ] **★★ It encloses ground the player has never been to.** *"it's a little bit weird, and it is hard to understand that this is a barrier. Why does it cover Rock Face and Tall Pines and so on? Because I have not yet went to Tall Pines."* It is drawn from *"sites with no goblins on them"*, which is not the same thing as ground you have reached, built on, or earned. Either it follows what you actually hold (built/pathed), or it is not a barrier.
+- [x] ✔ DONE 2026-08-10 (4a25766) **★★ It encloses ground the player has never been to.** *"it's a little bit weird, and it is hard to understand that this is a barrier. Why does it cover Rock Face and Tall Pines and so on? Because I have not yet went to Tall Pines."* It is drawn from *"sites with no goblins on them"*, which is not the same thing as ground you have reached, built on, or earned. Either it follows what you actually hold (built/pathed), or it is not a barrier.
 
 ## E — GATES THAT ARE NOT THERE ★★
 
@@ -727,7 +727,7 @@ what the engine already knows.
 ## F — THE HUD ★
 
 - [ ] **★★ Stone is tappable, logs is not, and nothing says why.** *"while I can click the stone in the resource, I cannot click logs. This is weird."* Two cells that look identical behave differently. (Logs has a chop deed at the pines; the HUD does not say so.)
-- [ ] **★ The storage cap is invisible until you hit it.** *"I don't seem to have any storage capacity… it doesn't say anywhere what is my limit for the stone… I don't really have — sixty out of sixty. Okay."* The cell shows the rate, and only says `full of 60` once it is full. Should read `41/60` throughout.
+- [x] ✔ DONE 2026-08-10 (67f22ec) **★ The storage cap is invisible until you hit it.** *"I don't seem to have any storage capacity… it doesn't say anywhere what is my limit for the stone… I don't really have — sixty out of sixty. Okay."* The cell shows the rate, and only says `full of 60` once it is full. Should read `41/60` throughout.
 
 ## G — THE FICTION DOES NOT HOLD ★★
 
@@ -735,9 +735,9 @@ what the engine already knows.
 
 ## H — NO GOAL ON SCREEN ★★
 
-- [ ] **★★ The player does not know what to do.** *"at the moment, I do not see any goal. I don't understand what to do. I have zero food, zero planks."* The run now HAS a goal in the engine (take the valley, or lose it) and the screen never states it.
-- [ ] **★★ The raid never announced itself in a whole playthrough.** *"I'm not sure when the attack on the camp is gonna happen. And if it's gonna happen."* Menace only shows on the holding's own panel, which you have to go and tap. A war you cannot see coming is not a clock.
+- [x] ✔ DONE 2026-08-10 (67f22ec) **★★ The player does not know what to do.** *"at the moment, I do not see any goal. I don't understand what to do. I have zero food, zero planks."* The run now HAS a goal in the engine (take the valley, or lose it) and the screen never states it.
+- [x] ✔ DONE 2026-08-10 (67f22ec) **★★ The raid never announced itself in a whole playthrough.** *"I'm not sure when the attack on the camp is gonna happen. And if it's gonna happen."* Menace only shows on the holding's own panel, which you have to go and tap. A war you cannot see coming is not a clock.
 
 ## I — SELECTION ★
 
-- [ ] **★ Tapping a selected node deselects it, and nothing-selected is a dead screen.** *"when you click the second time on the node, it shouldn't close, because the state when there is no node selected is a little bit weird state."* `Camp.svelte:397` — `picked = picked === n ? null : n`. Selection should be sticky.
+- [x] ✔ DONE 2026-08-10 (67f22ec) **★ Tapping a selected node deselects it, and nothing-selected is a dead screen.** *"when you click the second time on the node, it shouldn't close, because the state when there is no node selected is a little bit weird state."* `Camp.svelte:397` — `picked = picked === n ? null : n`. Selection should be sticky.

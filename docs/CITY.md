@@ -571,3 +571,57 @@ stronger."* **The game has a goal state now.**
 3. **`raidTarget` preferred the camp** among bare sites — the exact opposite
    of "the camp last of all", which the comment above it already claimed.
    Caught by a test that expected an outpost to fall first.
+
+
+## ★★ THE PLAYTEST, 2026-08-10 — what the first end-to-end play changed
+
+`docs/BACKLOG.md` holds all nineteen items in the owner's own words. What
+landed first, and why each was a real defect rather than a preference:
+
+### The barrier encloses what you HOLD
+
+> *"why does it cover Rock Face and Tall Pines and so on? Because I have not
+> yet went to Tall Pines"*
+
+`held()` meant *"every site with no goblins standing on it"*, which on a
+fresh save is most of the map. A line that starts around ground you have
+never visited cannot read as a frontier you push outward — the complaint was
+about the **definition**, not the drawing.
+
+Held now = **the camp, always** · **anything you built on** · **anything
+joined to the camp by finished paths**, walking only over ground already
+yours. Minus goblin ground, minus ground hidden behind an unliberated
+holding.
+
+| enclosed area | |
+|---|---|
+| fresh save, old definition | 54,629 |
+| fresh save, new | **7,947** — 6.9× smaller |
+| after a raid takes Rock Face back | 38,807 — **the line shrinks** |
+
+Two choices worth not re-deriving: it does **not** use the engine's
+`component()`, because that walk crosses goblin ground (for hauling, a path
+is a path) and would keep a cut-off arm inside the line; and `laying` does
+not count, so the road fills as it is dug and the barrier moves when it
+lands — one event, one tell.
+
+### The one screen
+
+- **Selection is sticky.** `picked === n ? null : n` cleared it on a second
+  tap. *"the state when there is no node selected is a little bit weird
+  state."* There is no reason to ever want the empty panel.
+- **Every good shows its ceiling always** — `41/60`, not a bare amount with
+  `full of 60` appearing only once full, which is the one moment the number
+  stops being useful.
+- **The goal and the war are permanently on screen.** *"I do not see any
+  goal"* and *"I'm not sure when the attack on the camp is gonna happen"* —
+  the raid clock existed but only on the holding's own panel, which you had
+  to go and tap. A war you cannot see coming is not a clock.
+- **The rich multiplier says what it multiplies.** `quarry ×1.5` → `0.50/s a
+  hand vs 0.20`. *"Query one point five. What does it even mean?"*
+
+### ⚠️ Still open, and the big one
+
+**The tap out-earns every building**, which voids the economy and is why the
+owner reports no reason to build a quarry and no reason to take ground for
+one. Being fixed alongside build timers and an over-cap consequence.
