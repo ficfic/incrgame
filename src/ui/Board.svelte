@@ -27,7 +27,7 @@
   // it is why `layout.ts` ticks to completion and stops.
   import type { Box } from '../game/layout';
   import { INK, LOOK, type InkName } from '../game/ink';
-  import { cutAt } from '../game/paths';
+  import { cutAt, lengthOf } from '../game/paths';
   import type { Shape, Pt } from '../game/shapes';
 
   export interface Dot {
@@ -56,6 +56,21 @@
      *  introduce the carrier dots which actually bring resources to camp."*
      *  The dash code below stays; a line opts in. */
     carry?: boolean;
+    /** ★★★ WHAT THIS LINE ACTUALLY DELIVERS, IN UNITS A SECOND — and the only
+     *  number the carrier dots are drawn from. 2026-08-10, the owner: *"if it
+     *  is point zero four per second, then I anticipate to see a dot moving
+     *  from lumberworks to the camp at a rate of one per two seconds. At the
+     *  moment, I see much more."*
+     *
+     *  ⚠️ NOT `load`. `load` is the fraction of the line's CAPACITY in use, so
+     *  it is 1 on a full trickle and 1 on a full torrent — the old dots were
+     *  spaced off it and looked identical at 0.04/s and 40/s, which is what
+     *  the owner caught. This is the raw rate, and one dot crossing the far
+     *  end IS one unit landing. See the maths in `draw()`.
+     *
+     *  0 (the default) draws NO carriers: a line that says nothing about what
+     *  it delivers is not allowed to imply a number. */
+    rate?: number;
     /** ★ THE BEND — the road's real course in world coordinates, first point at
      *  this line's `a` end. Absent off the chapter, where stops sit at solved
      *  rather than authored positions and a baked path would join two points
@@ -129,25 +144,49 @@
    *  a nudge is a gesture rather than a thing to save and migrate. */
   let moved = $state<Map<string, { x: number; y: number }>>(new Map());
 
-  /** ★ THE ONE MOVING THING ON THE BOARD. A phase for the flow dashes,
-   *  advanced by rAF ONLY while something is flowing — the board stays a still
-   *  map the rest of the time, which is the old no-jingling rule holding.
-   *  Positions never change; only lineDashOffset does, so nothing a thumb aims
-   *  at ever moves. */
+  /** ★ THE ONE MOVING THING ON THE BOARD. A clock for the flow dashes and the
+   *  carriers, advanced by rAF ONLY while something is flowing — the board
+   *  stays a still map the rest of the time, which is the old no-jingling rule
+   *  holding. Positions never change; only the dash offset and the carriers'
+   *  own place along a line do, so nothing a thumb aims at ever moves.
+   *
+   *  ⚠️ IN SECONDS SINCE THE FLOW STARTED, and it used to be in nothing at all
+   *  — an arbitrary 0.012-per-millisecond count wrapped at 1000. The carriers
+   *  have to be placed from a real rate in units A SECOND, so the clock has to
+   *  be in seconds or the maths cannot be written down. The dash crawl keeps
+   *  its old speed exactly: it was 12 of those units a second, and it is
+   *  `DASH_CRAWL` = 12 drawing units a second now. */
   let phase = $state(0);
   $effect(() => {
-    const moving = feed !== null || lines.some((l) => (l.dir ?? 0) !== 0 && l.fill >= 1);
+    // ⚠️ A CARRY LINE NEEDS A RATE TO ANIMATE, not just a direction: with no
+    // rate it draws no carriers, and an rAF spinning over a board where
+    // nothing is drawn moving is the exact thing this gate exists to stop.
+    const moving = feed !== null || lines.some((l) => l.fill >= 1
+      && (l.dir ?? 0) !== 0 && (!l.carry || Math.abs(l.rate ?? 0) > 0));
     if (!moving) return;
     let raf = 0;
     let last = performance.now();
     const step = (t: number): void => {
       // ~30fps is plenty for a crawl and half the battery of 60.
-      if (t - last > 33) { phase = (phase + (t - last) * 0.012) % 1000; last = t; }
+      // The wrap is an hour, so the one frame it jumps on happens once an
+      // hour instead of the old once every eighty-three seconds.
+      if (t - last > 33) { phase = (phase + (t - last) / 1000) % 3600; last = t; }
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   });
+
+  /** ★ HOW FAST A PORTER WALKS, in WORLD units a second. Constant, so a long
+   *  haul visibly takes longer than a short one — and it is NOT what sets the
+   *  arrival rate (see `draw()`), so it can be tuned for legibility alone. */
+  const WALK = 28;
+  /** ★ AND HOW CLOSE TWO PORTERS MAY GET, in world units. A busy road would
+   *  otherwise draw a solid bar of touching dots. Past this they walk FASTER
+   *  rather than closer, which leaves the arrival rate untouched. */
+  const MIN_GAP = 16;
+  /** The dash crawl, in drawing units a second. Was baked into `phase`. */
+  const DASH_CRAWL = 12;
 
   /** +1s floating off the pin. Purely cosmetic, capped, self-removing. */
   let plusses = $state<Array<{ id: number; x: number; y: number }>>([]);
@@ -298,6 +337,25 @@
         X(p2.x - (p3.x - p1.x) / 6), Y(p2.y - (p3.y - p1.y) / 6),
         X(p2.x), Y(p2.y));
     }
+  }
+
+  /** The point `d` world units along a run, measured from its first point.
+   *  ⚠️ ALONG THE POLYLINE, not along the drawn bezier: on the one view whose
+   *  runs actually bend (the chapter) nothing sets `carry`, so every carrier
+   *  drawn today walks a straight two-point run and this is exact. If a bent
+   *  road ever carries, its dots will cut its corners by a pixel or two. */
+  function atLen(pts: Pt[], d: number): Pt {
+    let left = Math.max(0, d);
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const p = pts[i]!, q = pts[i + 1]!;
+      const seg = Math.hypot(q.x - p.x, q.y - p.y);
+      if (left <= seg || i + 2 === pts.length) {
+        const t = seg > 0 ? Math.min(1, left / seg) : 0;
+        return { x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t };
+      }
+      left -= seg;
+    }
+    return pts[pts.length - 1]!;
   }
 
   /** Draw one shape. `X`/`Y` map world to wherever we are drawing — the live
@@ -495,28 +553,51 @@
         // the probe's motion check only ever sampled the FEED strip — over
         // brown — so it stayed green. Order is the fix; the probe now samples
         // a pipe too.
-        if (l.load > 0 && (l.dir ?? 0) !== 0) {
-          if (l.carry) {
-            // ★ THE CARRIERS: little porters walking the path with the
-            // goods, spaced by how hard the path works. Same phase clock
-            // as the dash, so they stop when nothing flows.
-            const a0 = run[0]!;
-            const b0 = run[run.length - 1]!;
-            const n = 2 + Math.round(2 * Math.min(1, l.load));
-            for (let i = 0; i < n; i++) {
-              const t0 = (phase * 0.06 * (l.dir ?? 1) + i / n) % 1;
-              const t = t0 < 0 ? t0 + 1 : t0;
-              paint(ctx, { s: 'disc', x: a0.x + (b0.x - a0.x) * t,
-                y: a0.y + (b0.y - a0.y) * t, r: 2.6, ink: 'flowing',
-                ring: 'casing', rw: 0.8, alpha: 0.95 }, sx, sy, 1);
+        if (l.carry) {
+          // ★★★ ONE DOT IS ONE UNIT DELIVERED — 2026-08-10. The owner: *"if it
+          // is point zero four per second, then I anticipate to see a dot
+          // moving from lumberworks to the camp at a rate of one per two
+          // seconds. At the moment, I see much more."*
+          //
+          // ⚠️ WHAT WAS HERE WAS DECORATION WEARING A READOUT'S CLOTHES: two to
+          // four dots, spaced by `load` — the fraction of CAPACITY in use — and
+          // slid by a fixed 0.06 of the line per phase tick. `load` is 1 on a
+          // full trickle and 1 on a full torrent, so the picture was IDENTICAL
+          // at 0.04/s and at 40/s. Nothing on screen was a function of the rate.
+          //
+          // ★ THE MATHS, and it is the whole item. Porters stand `gap` world
+          // units apart and all walk at `v` world units a second, so one
+          // crosses the far end every `gap / v` seconds. Choose the gap from
+          // the rate:
+          //
+          //     gap = v / rate     ⇒     arrivals a second = v / gap = rate
+          //
+          // `v` therefore never touches what the dots CLAIM, only how spread
+          // out they are — which is why the crowding clamp below is free. When
+          // `gap` would fall under MIN_GAP the porters walk FASTER instead of
+          // closer (`v = gap * rate`), and exactly `rate` of them still leave
+          // the road every second. Count them at 0.15/s and you count 0.15/s.
+          const rate = Math.abs(l.rate ?? 0);
+          const len = rate > 0 && (l.dir ?? 0) !== 0 ? lengthOf(run) : 0;
+          if (len > 1) {
+            const gap = Math.max(MIN_GAP, WALK / rate);
+            const v = gap * rate;              // === WALK unless clamped
+            // Where the leading porter has got to, modulo the spacing. The
+            // rest follow at `gap`, and the road holds `len / gap` of them —
+            // under one when the rate is low, which is the point: the player
+            // sees ONE dot cross, then an empty road, then the next.
+            for (let d = (phase * v) % gap; d <= len; d += gap) {
+              const p = atLen(run, (l.dir ?? 1) > 0 ? d : len - d);
+              paint(ctx, { s: 'disc', x: p.x, y: p.y, r: 3.2, ink: 'flowing',
+                ring: 'casing', rw: 1, alpha: 0.95 }, sx, sy, 1);
             }
-          } else {
-            ctx.save();
-            ctx.lineDashOffset = -phase * (l.dir ?? 1);
-            paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
-              w: 2, dash: [5, 9], alpha: 0.95 }, sx, sy, 1);
-            ctx.restore();
           }
+        } else if (l.load > 0 && (l.dir ?? 0) !== 0) {
+          ctx.save();
+          ctx.lineDashOffset = -phase * DASH_CRAWL * (l.dir ?? 1);
+          paint(ctx, { s: 'path', pts: run, ink: 'flowing', curve: true,
+            w: 2, dash: [5, 9], alpha: 0.95 }, sx, sy, 1);
+          ctx.restore();
         }
       } else {
         paint(ctx, made
@@ -528,8 +609,27 @@
       // ⚠️ ALONG THE BEND, cut by LENGTH — a straight interpolation here would
       // grow the road outside its own bed the moment roads stopped being
       // straight.
+      //
+      // ★★ AND IT IS A TRENCH, NOT A ROAD — 2026-08-10. The owner: *"the path
+      // color when it is building, it is blue. I don't understand why it is
+      // blue. And when it's finished, it's dark blue."* Both complaints are the
+      // same defect: this was a SOLID line in a bright cyan one family away
+      // from `route` (the finished road) and `flowing` (what runs through it),
+      // so a way half dug looked like a way already made in a different mood.
+      //
+      // Two things separate them now. `fill` is turned earth (see `ink.ts`),
+      // which is the one hue on this board that is neither the teal of a made
+      // road nor the amber of a choke. And it is drawn HATCHED and uncased —
+      // spoil and sleepers, no surface, no outline — over the dotted `unmade`
+      // plan that still runs on ahead of it. Unfinished reads as unfinished.
+      // ⚠️ AND IT CARRIES NOTHING: the load underlay, the crawl and the
+      // carriers above are all inside `if (made …)`, which is the truth — a
+      // road you are still digging delivers zero.
       if (l.fill > 0 && l.fill < 1) {
-        paint(ctx, { s: 'path', ink: 'fill', w: 3, curve: true,
+        // Width and dash chosen to lay down the same ink per unit of length as
+        // the old solid 3px line (5 × 8-long stadium every 13 ≈ 2.7px), so the
+        // probe's "is the road visibly filling?" pixel count keeps its meaning.
+        paint(ctx, { s: 'path', ink: 'fill', w: 5, curve: true, dash: [3, 10],
           pts: cutAt(run, l.fill, true) }, sx, sy, 1);
       }
     }
@@ -541,7 +641,7 @@
       paint(ctx, { s: 'path', pts: feed, ink: 'casing', w: 7 }, sx, sy, 1);
       paint(ctx, { s: 'path', pts: feed, ink: 'route', w: 4.6 }, sx, sy, 1);
       ctx.save();
-      ctx.lineDashOffset = -phase;
+      ctx.lineDashOffset = -phase * DASH_CRAWL;
       paint(ctx, { s: 'path', pts: feed, ink: 'flowing', w: 2.2, dash: [5, 9] }, sx, sy, 1);
       ctx.restore();
     }

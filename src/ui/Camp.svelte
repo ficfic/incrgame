@@ -164,6 +164,17 @@
           // Board's `dir` is signed along a→b, and a is this site.
           dir: (f.dirs.get(key) ?? 0) * (s.id < n ? 1 : -1),
           carry: true,
+          // ★★ WHAT THIS ROAD ACTUALLY DELIVERS, per second — 2026-08-10
+          // (playtest). The owner: *"if it is point zero four per second,
+          // then I anticipate to see a dot moving from lumberworks to the
+          // camp at a rate of one per two seconds. At the moment, I see much
+          // more."* The board used to space its porters by `load`, which is
+          // a FRACTION OF CAPACITY — identical at 0.04/s and 40/s. It now
+          // spaces them so one dot crossing IS one unit delivered, and this
+          // is the number it does it with. ⚠️ Omit it and no carriers draw
+          // at all, on purpose: a line that will not say what it delivers
+          // may not imply a number.
+          rate: carrying,
         });
       }
     }

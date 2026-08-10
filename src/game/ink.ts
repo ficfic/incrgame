@@ -64,7 +64,25 @@ export const INK = {
   // dot you are standing on — which is always there. The check would have passed
   // with nothing filling at all. Found by `test/ink.test.ts` the day it was
   // written, and the constraint survives the repaint.
-  fill: '#3ec6da',       // the flow being opened — bright, unmistakably arcane
+  /** ★★ A WAY BEING MADE — TURNED EARTH, NOT A ROAD. 2026-08-10, the owner:
+   *  *"the path color when it is building, it is blue. I don't understand why
+   *  it is blue. And when it's finished, it's dark blue."* It was `#3ec6da`, a
+   *  bright arcane cyan — the SAME FAMILY as `route` (the finished way) and
+   *  `flowing` (what runs through it), so the board drew three unrelated facts
+   *  in three shades of one colour and none of them said which was which.
+   *
+   *  Now it is spoil: the dug bed before anything is laid in it, hatched
+   *  rather than solid (`Board.svelte`). Three hues, three facts — earth is
+   *  being dug, teal is a made road, pale cyan is what it carries, amber is a
+   *  choke — and the choke amber survives because earth is nowhere near it.
+   *
+   *  ⚠️ MEASURED BEFORE IT WAS CHOSEN, because `fill` IS COUNTED (tol 10) and a
+   *  brown palette is a crowded one. Max per-channel distance to its nearest
+   *  neighbours: `foe` 43, `barred` 48, `edgebog` 53, `relief` 54 (the contour
+   *  brown), `edgecrag` 60, `edgemoor` 60, `shut` 62 (the choke amber), `wood`
+   *  66. Nearest of all is 43 against a needed 12 — the old cyan's nearest was
+   *  `river` at 39. Every pair is checked by `test/ink.test.ts`. */
+  fill: '#8a5a20',
   /** ★ THE CURRENT ITSELF — 2026-08-05, the owner: *"the mana is orange dots
    *  over blue channel. I don't understand why they're orange."* They were
    *  brass-era amber. Mana light now: a pale luminous cyan riding inside the
