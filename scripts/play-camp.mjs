@@ -715,6 +715,39 @@ if (proseIn.length > 0) {
 }
 void PROSE;
 
+// -------------------------------------------------- the foray -----------
+console.log('\nTHE FLOOR UNDER THE ECONOMY');
+// The owner: "i think it's possible to soft lock, so we need to do repeatable
+// encounters with logs and stone and other stuff as loot." A town stripped of
+// every works with nothing in the stores — which is what a raid leaves — must
+// still have a way back.
+await seed({ version: 5, stacks: {}, paths: {},
+  stone: 0, logs: 0, planks: 0, food: 0, pop: 4, popPart: 0,
+  goblins: {}, hero: { hp: 13, spears: 0, part: 0 }, fight: null,
+  store: 0, carts: 0, menace: {}, taken: 1, lost: false,
+  forage: null, forays: 0, legacy: { runs: 0, spears: 0 } });
+const ruinStone = await cellNum('stone');
+const forayDeed = page.locator('.deed', { hasText: 'Send the hero out' });
+const forayNote = (await forayDeed.textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
+console.log('  offers  :', `"${forayNote.slice(0, 64)}"`);
+if (!/⏱\d+s →/.test(forayNote)) {
+  misses.push(`a ruined town is not offered a way back: "${forayNote.slice(0, 60)}"`);
+}
+await forayDeed.click({ timeout: 2000 })
+  .catch(() => misses.push('no deed sends the hero out'));
+await page.waitForTimeout(600);
+const outNote = (await page.locator('.deed', { hasText: 'Foraging' })
+  .textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
+console.log('  out     :', `"${outNote.slice(0, 50)}"`);
+if (!/⏱\d+s/.test(outNote)) misses.push(`the hero went out and the deed does not say so: "${outNote}"`);
+// It lands, and the ruined town has goods again.
+await page.waitForTimeout(46000);
+const backStone = await cellNum('stone');
+console.log('  home    :', `stone ${ruinStone} → ${backStone}`);
+if (!(backStone > ruinStone)) {
+  misses.push(`the foray came home empty: stone ${ruinStone} → ${backStone}`);
+}
+
 // -------------------------------------------------- the larder ----------
 console.log('\nSTARVING READS DELIVERY');
 // The review's silent failure: a farm growing far more than the town eats,

@@ -812,3 +812,16 @@ facts.
 - [ ] **★ `raiders()`'s comment lies** — it claims a holding with nothing in
   reach never fills; the code only checks `!g.goblins[n]`. Harmless today
   because the `taken > 0` gate carries the real work, but it will mislead.
+
+
+- [x] ✔ DONE 2026-08-10 — **★★★ THE SOFTLOCK, GENERALLY.** The owner: *"i think
+  it's possible to soft lock, so we need to do repeatable encounters with logs
+  and stone and other stuff as loot."* Right, and the widen gate only plugged
+  one route: a raid takes a building every 150s, so every works can be stripped
+  while the stores sit at zero. **The foray** is the floor — 45s, loot, needs no
+  buildings, repeatable forever, and deliberately slower than one hand in a pit
+  so it can never become the tap again. Cycles deterministically, because the
+  engine has no RNG. → **Open follow-up: the encounters are loot only.** They
+  are the natural home for the brief's item 6 (choose-your-own-adventure, 2d10)
+  and for `docs/NEXT.md`'s hidden road stops — a foray that asks a question
+  rather than just paying out.

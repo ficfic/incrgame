@@ -231,6 +231,10 @@ export interface City {
   /** ★ CARTS — how many times the cartwright has re-shod the haulage.
    *  The one exponential in this engine that runs FOR the player. */
   carts: number;
+  /** ★ THE HERO IS OUT FORAGING — the job, or null. */
+  forage: { left: number; secs: number } | null;
+  /** How many forays have come home. Picks which encounter comes next. */
+  forays: number;
   /** ★ MENACE — how ready each goblin holding is to come at you, 0 to 1.
    *  Keyed by the holding's site id. */
   menace: Record<number, number>;
@@ -322,6 +326,8 @@ export const initial = (): City => ({
   hero: { hp: 10, spears: 0, part: 0 },
   store: 0,
   carts: 0,
+  forage: null,
+  forays: 0,
   menace: {},
   taken: 0,
   lost: false,
@@ -514,6 +520,46 @@ export const CREW = 4;
 
 /** Output per WORKER per second. */
 export const RATE = { quarry: 0.15, lumber: 0.2, sawmill: 0.25, farm: 0.2 } as const;
+
+/** ★★★ THE FORAY — the floor under the whole economy, 2026-08-10.
+ *
+ *  The owner: *"i think it's possible to soft lock, so we need to do
+ *  repeatable encounters with logs and stone and other stuff as loot."*
+ *  They are right, and it is worse than the one case already plugged: after
+ *  first blood a raid takes a BUILDING every 150s, so a town can be stripped
+ *  of every works while its stores sit at zero. Nothing then produces
+ *  anything, ever. Refusing one bad purchase cannot fix that; only a source
+ *  of goods that needs no buildings can.
+ *
+ *  ⚠️ IT MUST BE SLOWER THAN A WORKING PIT, or it is the tap again. That is
+ *  the whole reason the hand died this morning: 0.25 a click out-earned every
+ *  ladder in the game and made building pointless. A foray pays 4 stone over
+ *  45s = 0.089/s, against ONE hand in a quarry at 0.15/s — so the moment you
+ *  have a single working pit, foraging is the worse move. It is a floor, not
+ *  a strategy.
+ *
+ *  ⚠️ AND IT IS PURE. No RNG anywhere in this engine, so the encounters cycle
+ *  by `forays` rather than rolling: varied, deterministic, and testable. */
+export const FORAGE_SECS = 45;
+export interface Foray { name: string; loot: Partial<Record<Good, number>> }
+export const FORAYS: readonly Foray[] = [
+  { name: 'A scree slip', loot: { stone: 4 } },
+  { name: 'Deadfall in the pines', loot: { logs: 4 } },
+  { name: 'A berry hollow', loot: { food: 4 } },
+  { name: 'An old cairn', loot: { stone: 3, logs: 2 } },
+  { name: 'A goblin cache', loot: { stone: 2, food: 3 } },
+];
+/** Which encounter the next foray meets. */
+export const nextForay = (g: City): Foray => FORAYS[g.forays % FORAYS.length]!;
+/** Seconds left on the hero's foray, or null when they are home. */
+export const forageLeft = (g: City): number | null => g.forage?.left ?? null;
+/** Why the hero cannot go out, or null. */
+export function unforageable(g: City): string | null {
+  if (g.lost) return 'the valley is lost';
+  if (g.fight) return 'the hero is fighting';
+  if (g.forage) return `${MARK.time}${Math.ceil(g.forage.left)}s`;
+  return null;
+}
 
 /** ★ The wild feeds this many for free — a town of six needs no fields.
  *  The seventh settler eats, and so does every rescued captive. */
@@ -1082,6 +1128,8 @@ export type Action =
   | { type: 'cart' }
   /** The valley is lost: walk out and found the next one. */
   | { type: 'found' }
+  /** Send the hero out for whatever the country will give up. */
+  | { type: 'forage' }
   /** Send the hero at held ground — the battle strip opens. */
   | { type: 'assail'; id: number }
   // ★★ THE THREE ORDERS take BLOW_SECS to land — they are CALLED here and
@@ -1307,6 +1355,19 @@ export function apply(g: City, a: Action): City {
         if (menace === g.menace) menace = { ...g.menace };
         menace[id] = next;
       }
+      // ★ THE FORAY COMES HOME, and it lands on an away tick too. A raid and
+      // a blow are held until you are watching because they can COST you
+      // something; banking work you are owed is the opposite, and is what
+      // `docs/BRIEF.md` promises. One foray per absence — it does not
+      // re-order itself.
+      let forage = g.forage;
+      let forays = g.forays;
+      let loot: Partial<Record<Good, number>> | null = null;
+      if (forage) {
+        const left = forage.left - s;
+        if (left > 0) forage = { ...forage, left };
+        else { loot = nextForay(g).loot; forays = g.forays + 1; forage = null; }
+      }
       let lost: boolean = g.lost;
       if (!a.away) {
         for (const id of able) {
@@ -1339,10 +1400,11 @@ export function apply(g: City, a: Action): City {
       const hold = (was: number, now: number): number => stow(g, was, now);
       const out: City = {
         ...g,
-        stone: hold(g.stone, g.stone + f.stone * s),
-        logs: hold(g.logs, cut - sawn),
-        planks: hold(g.planks, g.planks + shipped),
-        food: hold(g.food, Math.max(0, g.food + (f.food - hunger(g)) * s)),
+        stone: hold(g.stone, g.stone + f.stone * s + (loot?.stone ?? 0)),
+        logs: hold(g.logs, cut - sawn + (loot?.logs ?? 0)),
+        planks: hold(g.planks, g.planks + shipped + (loot?.planks ?? 0)),
+        food: hold(g.food,
+          Math.max(0, g.food + (f.food - hunger(g)) * s) + (loot?.food ?? 0)),
         pop,
         popPart,
         hero,
@@ -1353,6 +1415,8 @@ export function apply(g: City, a: Action): City {
         menace,
         stacks,
         lost,
+        forage,
+        forays,
       };
 
       // ★★★ AND THE SWING COMES DOWN — last, on the town the rest of this
@@ -1458,6 +1522,11 @@ export function apply(g: City, a: Action): City {
       const next = initial();
       return { ...next, legacy,
         hero: { ...next.hero, spears: legacy.spears } };
+    }
+
+    case 'forage': {
+      if (unforageable(g) !== null) return g;
+      return { ...g, forage: { left: FORAGE_SECS, secs: FORAGE_SECS } };
     }
 
     case 'assail': {

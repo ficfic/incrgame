@@ -13,6 +13,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   richOf, MAX_GAUGE, roomOf, storeCost, STORE_BASE, STORE_ROOM,
   carriesOf, cartCost, cartHaul, CART_GAIN,
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
+  FORAGE_SECS, FORAYS, nextForay, unforageable,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -2056,5 +2057,114 @@ describe('★★★ THE WAGON CANNOT BE SPENT INTO A DEAD SAVE', () => {
     expect(housed(initial())).toBe(CAMP_ROOM);
     // A hut still adds its room on top.
     expect(popCap({ ...initial(), stacks: { 0: 1 } })).toBe(CAMP_ROOM + HUT_ROOM);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE FORAY — the floor under the economy, 2026-08-10. The owner: *"i think
+// it's possible to soft lock, so we need to do repeatable encounters with logs
+// and stone and other stuff as loot."*
+// ---------------------------------------------------------------------------
+describe('★★★ THE FORAY — you can always dig yourself out', () => {
+  /** Stripped bare: no works, no goods, no roads — the state a raid leaves.
+   *  ⚠️ `goblins: {}` ISOLATES THE FLOOR from the war. With holdings left and
+   *  `taken > 0` the raiders keep taking bare GROUND while these tests run,
+   *  which is the game working correctly but makes the fixture drift. */
+  const ruined = (): City => ({ ...initial(), stone: 0, logs: 0, planks: 0,
+    food: 0, stacks: {}, paths: {}, taken: 1, goblins: {} });
+
+  it('★★★ THE SOFTLOCK IS GONE: a town with nothing can still earn', () => {
+    // A raid takes a building every 150s once the war is on, so every works
+    // can be stripped while the stores sit at zero — and before this, nothing
+    // in the game produced anything ever again.
+    let g = ruined();
+    expect(unforageable(g)).toBeNull();
+    g = apply(g, { type: 'forage' });
+    g = tick(g, FORAGE_SECS + 1);
+    expect(g.stone + g.logs + g.food).toBeGreaterThan(0);
+    // ...and it repeats, forever, so the floor never runs out.
+    for (let i = 0; i < 6; i++) {
+      g = apply(g, { type: 'forage' });
+      g = tick(g, FORAGE_SECS + 1);
+    }
+    // ★ THE WHOLE WAY BACK, walked: a road home (3) and then a pit (5).
+    expect(g.stone).toBeGreaterThanOrEqual(PATH_COST + BASE.quarry.stone!);
+    g = apply(g, { type: 'lay', a: 0, b: 1 });
+    g = tick(g, PATH_SECS + 1);
+    expect(g.paths[pathKey(0, 1)]).toBe(1);
+    expect(unraisable(g, 1)).toBeNull();
+    g = apply(g, { type: 'raise', id: 1 });
+    g = tick(g, BUILD_SECS.quarry + 30);
+    // And the town is producing again, off its own works.
+    expect(flow(g).stone).toBeGreaterThan(0);
+  });
+
+  it('★★★ IT IS SLOWER THAN ONE HAND IN A PIT — a floor, not a strategy', () => {
+    // This is the whole reason the tap died: 0.25 a click out-earned every
+    // ladder in the game. If a foray ever beats a single working quarry, it
+    // has become the same mistake wearing a costume.
+    for (const f of FORAYS) {
+      const total = Object.values(f.loot).reduce((a, b) => a + b, 0);
+      expect(total / FORAGE_SECS,
+        `"${f.name}" pays ${total} in ${FORAGE_SECS}s`).toBeLessThan(RATE.quarry);
+    }
+  });
+
+  it('★ one hero, one job: no foraging mid-fight, and no double orders', () => {
+    // ⚠️ hp must be FULL or `unassailable` refuses — the hero heals first,
+    // and `heroMax` is 13 once a holding has been taken.
+    let g: City = { ...ruined(), goblins: { 4: 12 },
+      hero: { hp: heroMax({ ...ruined(), goblins: { 4: 12 } }), spears: 9, part: 0 } };
+    g = apply(g, { type: 'assail', id: 4 });
+    expect(unforageable(g)).toBe('the hero is fighting');
+    expect(apply(g, { type: 'forage' }).forage).toBeNull();
+    const out = apply(ruined(), { type: 'forage' });
+    expect(out.forage).not.toBeNull();
+    // A second order while out changes nothing — it does not restart the clock.
+    const again = apply(tick(out, 10), { type: 'forage' });
+    expect(again.forage!.left).toBeCloseTo(FORAGE_SECS - 10, 6);
+  });
+
+  it('★★ the encounters vary, and they do it WITHOUT a die', () => {
+    // The engine is pure — no RNG anywhere — so they cycle by count.
+    let g = ruined();
+    const seen: string[] = [];
+    for (let i = 0; i < FORAYS.length; i++) {
+      seen.push(nextForay(g).name);
+      g = tick(apply(g, { type: 'forage' }), FORAGE_SECS + 1);
+    }
+    expect(new Set(seen).size).toBe(FORAYS.length);
+    // And it wraps, so it is repeatable forever.
+    expect(nextForay(g).name).toBe(seen[0]);
+    // Same state, same encounter — twice.
+    expect(nextForay(ruined()).name).toBe(nextForay(ruined()).name);
+  });
+
+  it('★★ a foray BANKS while you are away — it is work owed, not a threat', () => {
+    // A raid and a blow are held until you are watching, because they can
+    // cost you something. This pays you, so it lands.
+    const out = apply(ruined(), { type: 'forage' });
+    const home = catchUp(out, 3600);
+    expect(home.forage).toBeNull();
+    expect(home.stone + home.logs + home.food).toBeGreaterThan(0);
+    // One per absence: it does not re-order itself into an idle mine.
+    expect(home.forays).toBe(1);
+  });
+
+  it('★ loot obeys the storehouse ceiling like everything else', () => {
+    const full: City = { ...ruined(), stone: roomOf(ruined()), forays: 0 };
+    const g = tick(apply(full, { type: 'forage' }), FORAGE_SECS + 1);
+    expect(g.stone).toBe(roomOf(full));
+  });
+
+  it('the foray holds at the save door', () => {
+    expect(honour({ game: { ...initial(), forays: 3 }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), forays: -1 }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), forage: { left: 9, secs: 45 } }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), forage: { left: 9, secs: 0 } }, savedAt: 1 })).toBeNull();
+    const { forage: _, forays: __, ...old } = initial();
+    const back = honour({ game: old as never, savedAt: 1 })!.game;
+    expect(back.forage).toBeNull();
+    expect(back.forays).toBe(0);
   });
 });

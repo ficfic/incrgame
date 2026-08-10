@@ -752,3 +752,40 @@ wrong measure for it. Written down so the next audit does not "fix" it.
 
 ⚠️ **The taste half is still open**, and taste is not testable. If a specific
 colour still reads wrong, it needs pointing at.
+
+
+## ★★★ THE FORAY — the floor under the economy, 2026-08-10
+
+> *"i think it's possible to soft lock, so we need to do repeatable encounters
+> with logs and stone and other stuff as loot"*
+
+**The owner is right, and it was worse than the one case already plugged.**
+Refusing a bad widen fixes one route into a dead save; it cannot fix the
+general one. After first blood a raid takes a **building every 150s**, so a
+town can be stripped of every works while its stores sit at zero — and then
+nothing in the game produces anything, ever again. Only a source of goods
+that needs no buildings can fix that.
+
+The hero goes out for `FORAGE_SECS` (45s) and comes back with loot.
+
+⚠️ **It is deliberately slower than ONE hand in a pit.** 4 stone over 45s is
+0.089/s against a single quarry hand's 0.15/s, so the moment you have one
+working pit, foraging is the worse move. **This is the whole reason the hand
+died this morning** — 0.25 a click out-earned every ladder and made building
+pointless — and a test now fails if any encounter's loot ever crosses
+`RATE.quarry`. A floor, not a strategy.
+
+⚠️ **And it is pure.** There is no RNG anywhere in this engine, so the
+encounters **cycle by count** rather than rolling: varied, deterministic,
+and testable. Five of them today — a scree slip, deadfall in the pines, a
+berry hollow, an old cairn, a goblin cache — and adding one is a line of
+data.
+
+**It banks while you are away and it lands.** A raid and a blow are held
+until you are watching, because those can *cost* you something; work you are
+owed is the opposite, and `docs/BRIEF.md` promises it. One per absence — it
+does not re-order itself into an idle mine.
+
+The whole way back is walked in a test: from a town with nothing, seven
+forays buy a road home (3) and a pit (5), and the town produces off its own
+works again.

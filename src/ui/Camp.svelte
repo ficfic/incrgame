@@ -9,6 +9,7 @@
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE,
+    unforageable, nextForay, forageLeft, FORAGE_SECS,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP,
@@ -270,6 +271,25 @@
       go: () => act({ type: 'raise', id: s.id }),
     });
     if (s.id === 0) {
+      // ★★★ THE FORAY — the floor under the economy, and the only deed in
+      // the game that needs nothing at all. A raid can strip a town of every
+      // works while its stores sit at zero; without this there is no way
+      // back from that, ever. ⚠️ It is deliberately SLOWER than one hand in
+      // a pit, so it can never become the hand that was removed this
+      // morning: a floor, not a strategy.
+      {
+        const why = unforageable(game);
+        const next = nextForay(game);
+        const left = forageLeft(game);
+        out.push({
+          label: left !== null ? 'Foraging…' : 'Send the hero out',
+          note: left !== null
+            ? `${MARK.time}${Math.ceil(left)}s · ${next.name}`
+            : `${MARK.time}${FORAGE_SECS}s → ${price(next.loot)} · ${next.name}`,
+          why,
+          go: () => act({ type: 'forage' }),
+        });
+      }
       // ★ THE STOREHOUSE, beside the huts — room for every good, and the
       // only thing standing between the town and the top of either ladder.
       const sp = storeCost(game.store);
