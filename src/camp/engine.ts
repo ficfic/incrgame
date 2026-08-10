@@ -96,6 +96,46 @@ export const GOBLINS: Record<number,
   9: { strength: 60, bite: 6, runt: 12 },
 };
 
+/** ★★★ THE GOBLINS COME AT YOU, 2026-08-09. The owner, asked what the goal
+ *  is: *"i feel like we need to add attacking goblins and then make hero lose
+ *  and restart stronger or something."* This is the first half.
+ *
+ *  Until now held ground did nothing but sit there and heal, so the map was a
+ *  to-do list: six fights, in any order, at your leisure. A holding that can
+ *  take something back is a CLOCK, and it is what makes the hero matter on
+ *  every one of the days between fights rather than six times a run.
+ *
+ *  ⚠️ IT MUST NOT PUNISH ABSENCE. `docs/BRIEF.md`, standing constraint:
+ *  *"Timers bank work; they never punish absence."* So menace BUILDS while
+ *  you are away and CANNOT LAND — a raid that comes due offline waits at the
+ *  gate, full, and resolves on the first tick you are actually watching.
+ *  Come back to a raid about to break, never to a ruin. */
+export const RAID_SECS = 300;
+/** Which holdings are in a position to raid: those touching ground you hold
+ *  that has something on it worth taking. A holding with nothing in reach
+ *  never fills, so the early camp is not besieged from minute one. */
+export function raiders(g: City): number[] {
+  const out: number[] = [];
+  for (const id of Object.keys(g.goblins).map(Number)) {
+    const s = SITE.get(id);
+    if (!s) continue;
+    if (s.near.some((n) => !g.goblins[n] && (g.stacks[n] ?? 0) > 0)) out.push(id);
+  }
+  return out;
+}
+/** What this holding would hit: the neighbour of yours with the most on it,
+ *  so a raid always costs something and never picks an empty field. */
+export function raidTarget(g: City, id: number): number | null {
+  const s = SITE.get(id);
+  if (!s) return null;
+  let best: number | null = null;
+  for (const n of s.near) {
+    if (g.goblins[n] || (g.stacks[n] ?? 0) <= 0) continue;
+    if (best === null || (g.stacks[n] ?? 0) > (g.stacks[best] ?? 0)) best = n;
+  }
+  return best;
+}
+
 /** ★ GOBLINS REGROUP: a bled, unengaged holding climbs back toward its
  *  spawn. Kills the never-arm exploit — chip, flee, heal free, repeat.
  *  (The old bare-hands two-sortie tutorial is void: the strip gates
@@ -167,6 +207,9 @@ export interface City {
   /** ★ CARTS — how many times the cartwright has re-shod the haulage.
    *  The one exponential in this engine that runs FOR the player. */
   carts: number;
+  /** ★ MENACE — how ready each goblin holding is to come at you, 0 to 1.
+   *  Keyed by the holding's site id. */
+  menace: Record<number, number>;
   /** ★ A FIGHT IN PROGRESS, or null — the owner's own screen: our square
    *  left, three goblin squares right. Turn-based: every round is yours.
    *  `sq` is the line — a BRUTE up front (the mash trap) and two RUNTS
@@ -202,6 +245,7 @@ export const initial = (): City => ({
   hero: { hp: 10, arms: 0, part: 0 },
   store: 0,
   carts: 0,
+  menace: {},
   fight: null,
 });
 
@@ -766,7 +810,9 @@ export function unassailable(g: City, id: number): string | null {
 }
 
 export type Action =
-  | { type: 'tick'; secs: number }
+  /** `away` marks a tick that is being caught up from the clock rather than
+   *  played. Menace still builds; raids do not land. */
+  | { type: 'tick'; secs: number; away?: boolean }
   /** Work by hand where you stand looking — stone off the rocks, logs off
    *  the pines. The thumb follows the tapped site; the shell says which. */
   | { type: 'tap'; kind?: 'stone' | 'logs' }
@@ -831,7 +877,7 @@ export const STEP_SECS = 60;
 export function catchUp(g: City, secs: number): City {
   let out = g;
   for (let left = secs; left > 1e-9; left -= STEP_SECS) {
-    out = apply(out, { type: 'tick', secs: Math.min(STEP_SECS, left) });
+    out = apply(out, { type: 'tick', secs: Math.min(STEP_SECS, left), away: true });
   }
   return out;
 }
@@ -906,6 +952,39 @@ export function apply(g: City, a: Action): City {
         if (goblins === g.goblins) goblins = { ...g.goblins };
         goblins[id] = Math.min(spawn, left + regenOf(id) * s);
       }
+      // ★★★ MENACE BUILDS, AND RAIDS LAND ONLY WHILE YOU ARE WATCHING.
+      // A holding with something of yours in reach fills toward a raid over
+      // RAID_SECS. If it comes due on an away-tick it STAYS full and waits:
+      // `docs/BRIEF.md` — "timers bank work; they never punish absence" — so
+      // you come back to a raid about to break, never to a ruin.
+      let menace = g.menace;
+      let stacks = g.stacks;
+      const able = raiders(g);
+      const canRaid = new Set(able);
+      for (const id of Object.keys(g.menace).map(Number)) {
+        // A holding that can no longer reach anything stands down.
+        if (!canRaid.has(id) && (g.menace[id] ?? 0) !== 0) {
+          if (menace === g.menace) menace = { ...g.menace };
+          menace[id] = 0;
+        }
+      }
+      for (const id of able) {
+        const next = Math.min(1, (g.menace[id] ?? 0) + s / RAID_SECS);
+        if (menace === g.menace) menace = { ...g.menace };
+        menace[id] = next;
+      }
+      if (!a.away) {
+        for (const id of able) {
+          if ((menace[id] ?? 0) < 1) continue;
+          const t = raidTarget(g, id);
+          if (t === null) continue;
+          if (stacks === g.stacks) stacks = { ...g.stacks };
+          stacks[t] = Math.max(0, (stacks[t] ?? 0) - 1);
+          if (menace === g.menace) menace = { ...g.menace };
+          menace[id] = 0;
+        }
+      }
+
       // ★ THE STORE IS A CEILING, and going over it is WASTE — the same
       // law the paths obey. A stock already over the cap (the store was
       // just the only thing holding it) is left alone rather than
@@ -923,6 +1002,8 @@ export function apply(g: City, a: Action): City {
         goblins,
         paths,
         laying,
+        menace,
+        stacks,
       };
     }
 
@@ -1038,7 +1119,9 @@ export function apply(g: City, a: Action): City {
         // captives walk home with the hero, hungry and ready to work.
         const goblins = { ...g.goblins };
         delete goblins[f.site];
-        return { ...g, goblins, fight: null, pop: g.pop + CAPTIVES };
+        const menace = { ...g.menace };
+        delete menace[g.fight.site];
+        return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES };
       }
       return answered(g, { ...f, sq, target: at }, false);
     }

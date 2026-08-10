@@ -491,3 +491,46 @@ Two things worth keeping straight:
 `.deed em` for the English that used to live there (`you have`, `holds`,
 `standing`, `dangerous`, `carries`, `hits`…). Proven by putting the
 storehouse's old sentence back.
+
+
+## ★★★ THE GOBLINS COME AT YOU — built 2026-08-09
+
+> *"i feel like we need to add attacking goblins and then make hero lose and
+> restart stronger or something"* — the owner, asked what the goal is.
+
+**This is the first half.** Until now held ground sat there and healed, so the
+map was a to-do list: six fights, in any order, at your leisure. A holding
+that can take something back is a **clock**, and it is what makes the hero
+matter on the days between fights rather than six times a run.
+
+- A holding whose neighbour is yours **and has something on it** fills toward
+  a raid over `RAID_SECS` (300s). One with nothing in reach never fills, so
+  the early camp is not besieged from minute one.
+- It comes for the fullest thing it can reach, and takes **one building**.
+- Taking the ground stops that clock for good.
+
+### ⚠️ It must not punish absence, and it does not
+
+`docs/BRIEF.md`, standing constraint: *"Timers bank work; they never punish
+absence."* So menace **builds** while you are away and **cannot land** — a
+raid that comes due offline waits at the gate, full, and breaks on the first
+tick you are actually watching. Twelve hours away is 144 raids' worth of
+time; **not one of them lands**. You come back to a raid about to break,
+never to a ruin. Pinned by a test, and proven by making raids land offline.
+
+### The clock is visible, because one you cannot see is theft
+
+The holding's own panel reads `☠12 · own path to camp · ⚠99% → The Camp` —
+strength, what it is worth taking, how full it is, and what it is coming for.
+The dot swells as it fills, riding the same `r` channel the board already
+uses for health.
+
+⚠️ The first cut of that line **returned early with only the menace and
+silently dropped the prize**, which broke the check that the two gates
+advertise their own artery. Added to the line, not put in front of it.
+
+### What is still missing
+
+The second half — **the hero loses and you restart stronger**. Right now a
+raid can strip a site to nothing and the run simply continues. That is the
+goal state, and it is the next item.

@@ -334,7 +334,7 @@ if (!/\b0\/10\b/.test(await cell('hero'))) {
 // site:4 is STILL picked from the assail — no second tap, that toggles.
 const bled = await panel();
 console.log('  bled    :', `"${bled.slice(0, 60)}"`);
-if (!/goblins, \d strong/.test(bled)) {
+if (!/☠\d\b/.test(bled)) {
   misses.push(`the ground did not keep its wounds: "${bled.slice(0, 60)}"`);
 }
 const namedStill = await page.locator('.map .node[data-id="site:4"]').textContent();
@@ -443,7 +443,7 @@ await page.locator('.map .node[data-id="site:7"]').click({ timeout: 2000 }).catc
 await page.waitForTimeout(200);
 const far = await panel();
 console.log('  deep    :', `"${far.slice(0, 70)}"`);
-if (!/goblins, 32 strong/.test(far)) {
+if (!/☠32\b/.test(far)) {
   misses.push(`the deep country does not price its danger: "${far.slice(0, 60)}"`);
 }
 // ★ THE PRIZE, said while the goblins are still standing on it — the owner:
@@ -463,6 +463,44 @@ const heroLine = await header();
 if (!/\b16\/16\b/.test(await cell('hero'))) {
   misses.push(`two liberations should read hero 16/16: "${await cell('hero')}"`);
 }
+// -------------------------------------------------- the raid ------------
+console.log('\nTHE GOBLINS COME');
+// Held ground used to sit there and heal. A holding with something of yours
+// in reach now fills toward a raid, says so, and takes a building when it
+// comes due. The clock has to be VISIBLE — one you cannot see is theft.
+await seed({ version: 5, stacks: { 0: 4, 1: 3 }, paths: { '0|1': 2 },
+  stone: 40, logs: 0, planks: 60, food: 900, pop: 14, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 13, arms: 3, part: 0 }, fight: null, store: 1, carts: 0,
+  menace: { 4: 0.99 } });
+// ⚠️ COUNT FIRST. Seeded AT the gate (menace 1) the raid landed before the
+// probe had read a baseline, and the check compared ×3 with ×3. It is seeded
+// just short now, and the huts are counted before anything else happens.
+const hutsBefore0 = (await page.locator('.map .node[data-id="site:0"]').textContent()) ?? '';
+await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(250);
+const menaced = await panel();
+console.log('  says    :', `"${menaced.slice(0, 60)}"`);
+if (!/⚠9\d% →/.test(menaced)) {
+  misses.push(`a holding about to raid does not say so: "${menaced.slice(0, 60)}"`);
+}
+// The camp's own hut count is the thing at stake — read it before and after.
+// ⚠️ READ OFF THE BOARD, NOT BY CLICKING. Selecting the camp to read its
+// panel meant two taps on dots whose size changes as menace fills, and the
+// second one kept missing. The node's own label already carries the count.
+const hutsNow = async () => {
+  const t = (await page.locator('.map .node[data-id="site:0"]').textContent()) ?? '';
+  return Number(/Hut ×(\d+)/.exec(t)?.[1] ?? NaN);
+};
+const hutsBefore = Number(/Hut ×(\d+)/.exec(hutsBefore0)?.[1] ?? NaN);
+// 0.99 of RAID_SECS 300 is one second short; six is margin, not a coin flip.
+await page.waitForTimeout(6000);
+const hutsAfter = await hutsNow();
+console.log('  raided  :', `Hut ×${hutsBefore} → ×${hutsAfter}`);
+if (!(hutsAfter < hutsBefore)) {
+  misses.push(`the raid came due and took nothing: Hut ×${hutsBefore} → ×${hutsAfter}`);
+}
+
 // -------------------------------------------------- the dock ------------
 console.log('\nTHE DOCK FITS');
 // ★ The owner, on the phone: "the horizontal buttons at the bottom, they take

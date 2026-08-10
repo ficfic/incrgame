@@ -10,6 +10,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY, regenOf, catchUp, STEP_SECS, SITE,
   richOf, MAX_GAUGE, roomOf, storeCost, STORE_BASE, STORE_ROOM,
   carriesOf, cartCost, cartHaul, CART_GAIN,
+  raiders, raidTarget, RAID_SECS,
   RATION_FOOD, RATION_HP, RATION_PACK,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
@@ -1331,5 +1332,90 @@ describe('★★★ STARVING READS DELIVERY, NOT HARVEST', () => {
       stacks: { 4: 8 }, paths: {} };
     expect(flow(cut).food).toBe(0);
     expect(flow(cut).starving).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE GOBLINS COME AT YOU, 2026-08-09 — the owner, asked what the goal is:
+// *"i feel like we need to add attacking goblins and then make hero lose and
+// restart stronger."* This is the first half. Held ground used to sit there and
+// heal, so the map was a to-do list of six fights at your leisure.
+// ---------------------------------------------------------------------------
+describe('★★★ THE RAID — held ground takes something back', () => {
+  /** The camp with huts, one holding next door with something to hit. */
+  const pressed = (over: Partial<City> = {}): City => ({
+    ...initial(), pop: 12, food: 900,
+    stacks: { 0: 4, 1: 2 }, paths: { [pathKey(0, 1)]: 2 },
+    goblins: { 4: 12 }, ...over });
+
+  it('★ only holdings that can REACH something of yours fill up', () => {
+    // Site 4 touches the camp, which has huts. Nothing else is adjacent to
+    // anything of yours, so the early camp is not besieged from minute one.
+    expect(raiders(pressed())).toEqual([4]);
+    // ⚠️ Stripping the CAMP is not enough — site 4 touches Rock Face too, so
+    // it still has something to come for. Bare the lot and it stands down.
+    expect(raiders(pressed({ stacks: { 1: 2 } }))).toEqual([4]);
+    expect(raiders(pressed({ stacks: {} }))).toEqual([]);
+    // A holding deep in the country, with no held neighbour, stands down.
+    expect(raiders(pressed({ goblins: { 8: 48 } }))).toEqual([]);
+  });
+
+  it('★ it comes for the fullest thing it can reach', () => {
+    const g = pressed({ stacks: { 0: 1, 4: 0 } });
+    expect(raidTarget(g, 4)).toBe(0);
+    // With two reachable sites it picks the one with the most standing.
+    const both: City = { ...initial(), goblins: { 6: 24 },
+      stacks: { 0: 2, 4: 7 }, paths: {} };
+    expect(raidTarget(both, 6)).toBe(4);
+  });
+
+  it('★★★ A RAID TAKES A BUILDING — the clock has teeth', () => {
+    const g = pressed();
+    // Menace fills over RAID_SECS...
+    const half = tick(g, RAID_SECS / 2);
+    expect(half.menace[4]).toBeCloseTo(0.5, 2);
+    expect(half.stacks[0]).toBe(4);
+    // ...and when it comes due, the camp loses a hut and the holding resets.
+    const hit = tick(g, RAID_SECS + 1);
+    expect(hit.stacks[0]).toBe(3);
+    expect(hit.menace[4]).toBe(0);
+  });
+
+  it('★★★ IT NEVER PUNISHES ABSENCE — the brief\'s standing constraint', () => {
+    // "Timers bank work; they never punish absence." Twelve hours away is
+    // 144 raids' worth of time. Not one of them lands.
+    const away = catchUp(pressed(), 12 * 3600);
+    expect(away.stacks[0]).toBe(4);
+    // It waits at the gate, full, and breaks on the first watched tick.
+    expect(away.menace[4]).toBe(1);
+    expect(tick(away, 1).stacks[0]).toBe(3);
+  });
+
+  it('★ a raid cannot dig below nothing, and never touches the goods', () => {
+    const bare = pressed({ stacks: { 0: 1 } });
+    const once = tick(bare, RAID_SECS + 1);
+    expect(once.stacks[0]).toBe(0);
+    // Nothing left to take: no raider, no menace, no negative stack.
+    expect(raiders(once)).toEqual([]);
+    expect(tick(once, RAID_SECS * 3).stacks[0]).toBe(0);
+    expect(tick(bare, RAID_SECS + 1).stone).toBe(bare.stone);
+  });
+
+  it('★★ taking the ground stops the clock for good', () => {
+    const g = tick(pressed(), RAID_SECS / 2);
+    expect(g.menace[4]).toBeGreaterThan(0);
+    const freed: City = { ...g, goblins: {} };
+    // No holding, no raiders, and the leftover menace stands down.
+    expect(raiders(freed)).toEqual([]);
+    expect(tick(freed, 5).menace[4]).toBe(0);
+    expect(tick(freed, RAID_SECS * 2).stacks[0]).toBe(4);
+  });
+
+  it('menace is a fraction at the save door, never a count', () => {
+    expect(honour({ game: { ...initial(), menace: { 4: 0.5 } }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), menace: { 4: 2 } }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), menace: { 4: -1 } }, savedAt: 1 })).toBeNull();
+    const { menace: _, ...old } = initial();
+    expect(honour({ game: old as never, savedAt: 1 })!.game.menace).toEqual({});
   });
 });

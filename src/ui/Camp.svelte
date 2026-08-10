@@ -9,6 +9,7 @@
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW, PATH_SECS,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
+    raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
@@ -113,6 +114,10 @@
     // ★ The picked site is unmissable — the owner could not tell what
     // was selected. Half again the size is a statement, not a hint.
     r: picked === s.id ? 8 : undefined,
+    // ★ A FILLING HOLDING SWELLS. The board already draws `r` for health,
+    // so menace rides the same channel rather than inventing a second one.
+    ...(game.goblins[s.id] && (game.menace[s.id] ?? 0) > 0 && picked !== s.id
+      ? { r: 5 + (game.menace[s.id] ?? 0) * 4 } : {}),
   })));
 
   const lines = $derived<Line[]>((() => {
@@ -337,8 +342,19 @@
       // ★ THE PRIZE, SAID BEFORE THE FIGHT — the owner: no reason to want
       // held ground. Now the ground says what it is worth, and whether it
       // is a second road home, while the goblins are still standing on it.
-      return `dangerous — goblins, ${Math.ceil(game.goblins[picked] ?? 0)} strong`
-        + prizeOf(picked);
+      //
+      // ★ AND THE RAID CLOCK BESIDE IT. A clock you cannot see is just
+      // theft, so the holding says how full it is and what it is coming
+      // for. ⚠️ ADDED TO THIS LINE, NOT PUT IN FRONT OF IT: the first cut
+      // returned early with only the menace and silently dropped the prize,
+      // which broke the check that the gates advertise their own artery.
+      const m = game.menace[picked] ?? 0;
+      const at = raidTarget(game, picked);
+      const clock = m > 0 && at !== null
+        ? ` · ${MARK.waste}${Math.round(m * 100)}% → ${SITE.get(at)?.name ?? ''}`
+        : '';
+      return `${MARK.danger}${Math.ceil(game.goblins[picked] ?? 0)}`
+        + prizeOf(picked) + clock;
     }
     const n = game.stacks[picked] ?? 0;
     // ★ Won ground keeps saying what it is worth — a ×3 pit that reads the
