@@ -710,9 +710,9 @@ what the engine already knows.
 
 ## C — THE BOARD LIES ABOUT WHAT IT IS DRAWING ★★
 
-- [ ] **★★★ Carrier dots do not match the rate they claim.** *"if it is point zero four per second, then I anticipate to see a dot moving from lumberworks to the camp at a rate of one per two seconds. At the moment, I see much more."* The dots are a `lineDashOffset` crawl with a fixed dash pattern — decoration, not a readout. **One dot should be one unit delivered.**
+- [x] ✔ DONE 2026-08-10 (cc2d094) **★★★ Carrier dots do not match the rate they claim.** *"if it is point zero four per second, then I anticipate to see a dot moving from lumberworks to the camp at a rate of one per two seconds. At the moment, I see much more."* The dots are a `lineDashOffset` crawl with a fixed dash pattern — decoration, not a readout. **One dot should be one unit delivered.**
 - [ ] **★★ No `+1` when a good actually lands, and no icon on it.** *"I also don't see plus one pop up with the appropriate icon once the resource is mined."* There is a `+1` for whole stone at the camp only, unlabelled.
-- [ ] **★★ Path colour says nothing.** *"the path color when it is building, it is blue. I don't understand why it is blue. And when it's finished, it's dark blue. I don't understand why it is dark blue."* Under construction and carrying are two different facts wearing nearly the same colour.
+- [x] ✔ DONE 2026-08-10 (cc2d094) **★★ Path colour says nothing.** *"the path color when it is building, it is blue. I don't understand why it is blue. And when it's finished, it's dark blue. I don't understand why it is dark blue."* Under construction and carrying are two different facts wearing nearly the same colour.
 - [ ] **★ The colours generally.** *"the colors are also a little bit strange."* Unspecific — needs the owner to point at one.
 
 ## D — THE BARRIER DOES NOT READ AS A BARRIER ★★

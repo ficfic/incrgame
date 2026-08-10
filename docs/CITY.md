@@ -625,3 +625,48 @@ lands — one event, one tell.
 **The tap out-earns every building**, which voids the economy and is why the
 owner reports no reason to build a quarry and no reason to take ground for
 one. Being fixed alongside build timers and an over-cap consequence.
+
+
+### The board tells the truth about its own rates
+
+> *"if it is point zero four per second, then I anticipate to see a dot
+> moving from lumberworks to the camp at a rate of one per two seconds. At
+> the moment, I see much more."*
+
+The porters were `2 + round(2*min(1,load))` dots sliding at a fixed fraction
+of the line per tick — and **`load` is fraction of capacity**, so it reads 1
+on a full trickle and 1 on a full torrent. The picture was identical at
+0.04/s and 40/s. Decoration wearing the costume of a readout.
+
+Porters now stand `gap` apart walking at `v`, so one crosses the far end
+every `gap/v` seconds. Set that to `1/rate`:
+
+```
+gap = v / rate     ⇒     arrivals per second = v / gap = rate
+```
+
+`v` never touches what the dots *claim*, only how spread out they are — so
+the anti-crowding clamp is free: `gap = max(MIN_GAP, WALK/rate)`,
+`v = gap*rate`. **A busy road makes the porters walk faster, not closer**,
+and exactly `rate` still leave per second. Measured over 600s on a real leg:
+0.04 → 0.0400, 0.15 → 0.1500, 1 → 0.9933, 40 → 39.9883.
+
+`phase` is in **seconds** now. It was an arbitrary 0.012-per-ms count
+wrapping at 1000, and you cannot write "units per second" against that.
+
+⚠️ `Camp.svelte` must pass `rate` per line. Omit it and **no carriers draw at
+all** — deliberately a loud regression rather than a silent lie.
+
+### Path colour
+
+Two of the owner's sentences were one defect: *"when it is building, it is
+blue… and when it's finished, it is dark blue."* Both states were blue, one
+family apart. A way being dug is now hatched, uncased, **turned earth** — it
+carries nothing and is drawn to say so. The finished road keeps its teal
+(the owner's own request for mana channels) and the amber choke survives,
+because earth is the only hue on the board that is neither.
+
+⚠️ **The ink trap was measured, not assumed.** Nearest counted ink to the new
+earth is `foe` at 43 against a needed 12; the old cyan's nearest was `river`
+at 39. The trench dash lays ~2.7px of ink per unit against the old solid
+3px, so the probe's fill-growth check keeps its meaning.
