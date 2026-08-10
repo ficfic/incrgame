@@ -817,3 +817,58 @@ guard, which is how it was caught.
 halt the quarries stopped dead and the bread got through on the very next
 frame. A squeeze has to bite before it frees the road, so a measured town
 digs itself out in tens of seconds rather than instantly.
+
+
+## ★★★ THE HUT BUG, AND WHAT YOU CAN DO ABOUT A RAID — 2026-08-10
+
+> *"my save got super bugged, huts were disappearing… also the goblin raids
+> mechanics is unclear how it happens, why and what can you do about it"*
+
+**It was not a corrupt save. It was one line.** The rule was *"come for the
+fullest thing you can reach"*, and the fullest pile in any town is the camp's
+**huts** — so every raider on the map queued on the housing, which is the one
+stack that gates people, and people gate everything. Simulated before the fix,
+three raiders on a going concern:
+
+| | huts | pop cap |
+|---|---|---|
+| start | 5 | 24 |
+| after raid 1 | 2 | 12 |
+| after raid 2 | **0** | **4** |
+
+Twenty people unhoused and idle, then the camp fell. The comment beside the
+bare-ground branch **already claimed the camp goes last** — it just was not
+true of ground with anything on it. It is now.
+
+### What you can do about it: three answers, all on screen
+
+The last third of the complaint had no answer at all. The only lever was to
+conquer the holding faster, which a town under three raiders often cannot.
+
+1. **Keep the hero home.** A hero at the camp — not fighting, not foraging,
+   not beaten — **turns one raid away** and bleeds that holding doing it, so
+   defending is slow progress toward taking it.
+2. **Take the holding.** That stops its clock for good.
+3. **Build more than they can eat.** Each building is 150 seconds of somebody
+   else's work.
+
+⚠️ **One hero, one gate.** The first cut let a single idle hero repel every
+holding on the map in the same instant, which is the mechanic deleting
+itself. The watch is spent by the first raid it turns away: three raiders
+means one is stopped and two get through.
+
+**And it made the hero's time a real choice** — loot, ground, or the walls,
+never all three. That is the trade the foray was missing.
+
+### Said on screen, always
+
+The war line carries all three questions: `⚠70% → Rock Face · ⚔️ on watch ·
+☠6 left` — how full, what it comes for, whether anything can stop it, and how
+much of the valley is still theirs. Before first blood it reads *"they come
+once you take one"*, which is the **why**.
+
+⚠️ **An emergent property worth knowing:** a 300-second raid cycle is almost
+exactly what one healed hero can hold off, so a town that keeps its hero home
+holds one gate indefinitely and loses the others. That fell out of the
+numbers rather than being designed, and it is why several test fixtures now
+have to send the hero away explicitly to make a raid land at all.

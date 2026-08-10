@@ -9,7 +9,7 @@
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE,
-    unforageable, nextForay, forageLeft, FORAGE_SECS,
+    unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP,
@@ -447,8 +447,13 @@
       // which broke the check that the gates advertise their own artery.
       const m = game.menace[picked] ?? 0;
       const at = raidTarget(game, picked);
+      // ★ THE WHOLE RULE, where the danger is: how full the clock is, what
+      // it comes for, how often, and the two things that stop it.
       const clock = m > 0 && at !== null
         ? ` · ${MARK.waste}${Math.round(m * 100)}% → ${SITE.get(at)?.name ?? ''}`
+          + ` every ${RAID_SECS}s · takes 1 building`
+          + ` · ${onWatch(game) ? `${MARK.hero} home turns one away`
+            : `${MARK.hero} away — nothing turns it away`}`
         : '';
       return `${MARK.danger}${Math.ceil(game.goblins[picked] ?? 0)}`
         + prizeOf(picked) + clock;
@@ -659,12 +664,22 @@
          camp is gonna happen. And if it's gonna happen."* The raid clock
          existed but only on the holding's own panel, which you had to go and
          tap — a war you cannot see coming is not a clock. -->
+    <!-- ★★★ HOW, WHY, AND WHAT TO DO — 2026-08-10. The owner: *"the goblin
+         raids mechanics is unclear how it happens, why and what can you do
+         about it."* All three go on one line, always:
+           HOW  — a percentage that fills, and the site it is coming for
+           WHY  — it only starts once you have taken ground (first blood)
+           WHAT — the hero stops one raid by being HOME, and taking the
+                  holding stops its clock for good -->
     <div class="warline" class:hot={worst !== null && worst.m > 0.6} data-q="war">
       {#if worst !== null}
         {MARK.waste}{Math.round(worst.m * 100)}% → {worst.at}
+        · {onWatch(game) ? `${MARK.hero} on watch` : `${MARK.hero} away`}
         · {MARK.danger}{holdings} left
+      {:else if holdings > 0}
+        {MARK.danger}{holdings} holdings · they come once you take one
       {:else}
-        {MARK.danger}{holdings} holdings hold this valley
+        {MARK.danger}0 · the valley is yours
       {/if}
     </div>
     {#if menu}

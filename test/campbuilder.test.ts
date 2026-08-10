@@ -13,7 +13,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   richOf, MAX_GAUGE, roomOf, storeCost, STORE_BASE, STORE_ROOM,
   carriesOf, cartCost, cartHaul, CART_GAIN,
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
-  FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP,
+  FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -1646,8 +1646,14 @@ describe('★★★ THE RAID — held ground takes something back', () => {
   // ⚠️ `taken: 1` IS LOAD-BEARING: the goblins ignore a camp that has never
   // touched them (see FIRST BLOOD below), so a besieged fixture has to have
   // drawn blood already.
+  // ⚠️ THE HERO IS OUT, AND THAT IS LOAD-BEARING (2026-08-10). A hero at home
+  // turns one raid away, and `hp: 0` is not enough on its own because a
+  // 300-second cycle is long enough for them to HEAL — which is a real and
+  // wanted property (one healed hero can just about hold one gate), but it
+  // means a fixture about a raid LANDING has to keep them genuinely away.
   const pressed = (over: Partial<City> = {}): City => ({
     ...initial(), pop: 12, food: 900, taken: 1,
+    hero: { hp: 0, spears: 0, part: 0 }, forage: { left: 9e8, secs: 9e8 },
     stacks: { 0: 4, 1: 2 }, paths: { [pathKey(0, 1)]: 2 },
     goblins: { 4: 12 }, ...over });
 
@@ -1680,9 +1686,12 @@ describe('★★★ THE RAID — held ground takes something back', () => {
     const half = tick(g, RAID_SECS / 2);
     expect(half.menace[4]).toBeCloseTo(0.5, 2);
     expect(half.stacks[0]).toBe(4);
-    // ...and when it comes due, the camp loses a hut and the holding resets.
+    // ...and when it comes due a BUILDING goes and the holding resets.
+    // ⚠️ Not the camp's hut: since 2026-08-10 the camp is last for stacked
+    // ground too, so the pit at Rock Face is what they come for.
     const hit = tick(g, RAID_SECS + 1);
-    expect(hit.stacks[0]).toBe(3);
+    expect(hit.stacks[1]).toBe(1);
+    expect(hit.stacks[0]).toBe(4);
     expect(hit.menace[4]).toBe(0);
   });
 
@@ -1691,9 +1700,11 @@ describe('★★★ THE RAID — held ground takes something back', () => {
     // 144 raids' worth of time. Not one of them lands.
     const away = catchUp(pressed(), 12 * 3600);
     expect(away.stacks[0]).toBe(4);
-    // It waits at the gate, full, and breaks on the first watched tick.
+    expect(away.stacks[1]).toBe(2);
+    // It waits at the gate, full, and breaks on the first watched tick —
+    // taking the works, with the camp's roof still last in the queue.
     expect(away.menace[4]).toBe(1);
-    expect(tick(away, 1).stacks[0]).toBe(3);
+    expect(tick(away, 1).stacks[1]).toBe(1);
   });
 
   it('★ a raid never digs a stack below nothing, and never touches the goods', () => {
@@ -1731,8 +1742,10 @@ describe('★★★ THE RAID — held ground takes something back', () => {
 // half of the owner's answer: *"make hero lose and restart stronger."*
 // ---------------------------------------------------------------------------
 describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
+  // ⚠️ Out on a foray — see `pressed` above.
   const war = (over: Partial<City> = {}): City => ({
     ...initial(), pop: 12, food: 900, taken: 1,
+    hero: { hp: 0, spears: 0, part: 0 }, forage: { left: 9e8, secs: 9e8 },
     stacks: { 0: 1 }, goblins: { 4: 12 }, ...over });
 
   it('★★★ FIRST BLOOD STARTS THE WAR — an untouched camp is never raided', () => {
@@ -2264,5 +2277,76 @@ describe('★★★ FOOD MATTERS FROM THE START, AND FAMINE IS A SQUEEZE', () =>
     const hungry: City = { ...initial(), famine: 60, food: 500, pop: 4 };
     expect(tick(hungry, 10).famine).toBeCloseTo(40, 6);
     expect(tick(hungry, 600).famine).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE RAID, MADE FAIR AND MADE PLAIN — 2026-08-10. The owner: *"my save got
+// super bugged, huts were disappearing… also the goblin raids mechanics is
+// unclear how it happens, why and what can you do about it."*
+// ---------------------------------------------------------------------------
+describe('★★★ RAIDS EAT THE WORKS, NOT THE ROOF', () => {
+  const town = (over: Partial<City> = {}): City => ({ ...initial(), taken: 1,
+    pop: 20, food: 9e5, stacks: { 0: 5, 1: 3, 2: 3, 3: 2 },
+    paths: { [pathKey(0, 1)]: 2, [pathKey(0, 2)]: 2, [pathKey(0, 3)]: 2 },
+    hero: { hp: 0, spears: 1, part: 0 }, ...over });
+
+  it('★★★ THE HUT BUG: the camp was the fullest pile, so every raid ate it', () => {
+    // This is what "my huts kept disappearing" was. The rule said "come for
+    // the fullest thing you can reach" and the fullest pile in ANY town is
+    // the camp's huts — so every raider on the map queued on the housing,
+    // which is the one stack that gates people, which gate everything.
+    const g = town();
+    // Raiders that have a works within reach come for the WORKS.
+    expect(raidTarget(g, 4)).not.toBe(0);
+    expect(raidTarget(g, 5)).not.toBe(0);
+    expect(SITE.get(raidTarget(g, 4)!)!.allows).not.toBe('hut');
+  });
+
+  it('★★ housing survives while there is anything else to take', () => {
+    // Measured over three cycles: before the fix, huts went 5 → 2 → 0 and
+    // the population cap collapsed 24 → 4 with twenty people left idle.
+    let g = town();
+    const capBefore = popCap(g);
+    for (let i = 0; i < 2; i++) g = tick(g, RAID_SECS + 1);
+    expect(g.stacks[0]!).toBeGreaterThan(0);
+    expect(popCap(g)).toBeGreaterThan(capBefore / 2);
+  });
+
+  it('★★★ THE ANSWER: a hero at home turns a raid away', () => {
+    // "What can you do about it" had no answer but "conquer faster", which
+    // a town under three raiders often cannot.
+    const away: City = { ...town(), hero: { hp: 0, spears: 1, part: 0 } };
+    expect(onWatch(away)).toBe(false);
+    const home: City = { ...town(), hero: { hp: heroMax(town()), spears: 1, part: 0 } };
+    expect(onWatch(home)).toBe(true);
+    const hit = tick(away, RAID_SECS + 1);
+    const held = tick(home, RAID_SECS + 1);
+    const lost = (x: City): number => [0, 1, 2, 3]
+      .reduce((n, id) => n + ((town().stacks[id] ?? 0) - (x.stacks[id] ?? 0)), 0);
+    expect(lost(held)).toBeLessThan(lost(hit));
+    // And turning one away BLEEDS that holding — defending is slow progress.
+    expect(held.goblins[4]!).toBeLessThan(home.goblins[4]!);
+  });
+
+  it('★★★ ONE HERO, ONE GATE — standing watch is not a wall', () => {
+    // A single idle hero used to repel every holding on the map in the same
+    // instant, which is the mechanic deleting itself.
+    const home: City = { ...town(), hero: { hp: heroMax(town()), spears: 1, part: 0 } };
+    expect(raiders(home).length).toBeGreaterThan(1);
+    const after = tick(home, RAID_SECS + 1);
+    const lost = [0, 1, 2, 3]
+      .reduce((n, id) => n + ((home.stacks[id] ?? 0) - (after.stacks[id] ?? 0)), 0);
+    expect(lost).toBeGreaterThan(0);            // some got through
+    expect(lost).toBeLessThan(raiders(home).length);   // but not all
+  });
+
+  it('★★ the watch costs the foray and the march — you cannot do both', () => {
+    const home: City = { ...town(), hero: { hp: heroMax(town()), spears: 1, part: 0 } };
+    expect(onWatch(apply(home, { type: 'forage' }))).toBe(false);
+    expect(onWatch({ ...home, fight: { site: 4, sq: [], round: 0, packs: 0,
+      target: 0, blow: null } as never })).toBe(false);
+    // And a hero beaten home cannot hold the walls either.
+    expect(onWatch({ ...home, hero: { hp: 0, spears: 1, part: 0 } })).toBe(false);
   });
 });

@@ -418,8 +418,10 @@ console.log('  rescued :', `"${rescued.slice(30, 100)}"`);
 // `huts full`, which was true only because the camp slept two; with four it
 // no longer overfills, and the thing the check exists for is that two people
 // walked home from the fight.
+// ⚠️ AT LEAST six: the town also grows on its own clock, so pinning the exact
+// number made this fire on a slow machine rather than on a real defect.
 const popHome = Number(/(\d+)\//.exec(await cell('people'))?.[1] ?? NaN);
-if (popHome !== 6) {
+if (!(popHome >= 6)) {
   misses.push(`no captives came home from the liberation: `
     + `people ${await cell('people')}, huts ${await cell('huts')}`);
 }
@@ -537,11 +539,14 @@ await seed({ version: 5, stacks: { 0: 4, 1: 3 }, paths: { '0|1': 2 },
   hero: { hp: 13, arms: 3, part: 0 }, fight: null, store: 1, carts: 0,
   // ⚠️ `taken: 1` IS LOAD-BEARING: the goblins ignore a camp that has never
   // touched them, so a besieged seed has to have drawn blood already.
+  // ⚠️ AND THE HERO IS OUT: since 2026-08-10 a hero at home turns one raid
+  // away, so a fixture about a raid LANDING must have them elsewhere.
+  forage: { left: 9000, secs: 9000 }, forays: 0,
   menace: { 4: 0.99 }, taken: 1 });
 // ⚠️ COUNT FIRST. Seeded AT the gate (menace 1) the raid landed before the
 // probe had read a baseline, and the check compared ×3 with ×3. It is seeded
 // just short now, and the huts are counted before anything else happens.
-const hutsBefore0 = (await page.locator('.map .node[data-id="site:0"]').textContent()) ?? '';
+const hutsBefore0 = (await page.locator('.map .node[data-id="site:1"]').textContent()) ?? '';
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(250);
 const menaced = await panel();
@@ -553,17 +558,20 @@ if (!/⚠9\d% →/.test(menaced)) {
 // ⚠️ READ OFF THE BOARD, NOT BY CLICKING. Selecting the camp to read its
 // panel meant two taps on dots whose size changes as menace fills, and the
 // second one kept missing. The node's own label already carries the count.
+// ⚠️ READ THE WORKS, NOT THE ROOF (2026-08-10). The camp is last for stacked
+// ground now — that was the "my huts kept disappearing" bug — so a raid on a
+// town with a pit standing comes for the PIT.
 const hutsNow = async () => {
-  const t = (await page.locator('.map .node[data-id="site:0"]').textContent()) ?? '';
-  return Number(/Hut ×(\d+)/.exec(t)?.[1] ?? NaN);
+  const t = (await page.locator('.map .node[data-id="site:1"]').textContent()) ?? '';
+  return Number(/Quarry ×(\d+)/.exec(t)?.[1] ?? NaN);
 };
-const hutsBefore = Number(/Hut ×(\d+)/.exec(hutsBefore0)?.[1] ?? NaN);
+const hutsBefore = Number(/Quarry ×(\d+)/.exec(hutsBefore0)?.[1] ?? NaN);
 // 0.99 of RAID_SECS 300 is one second short; six is margin, not a coin flip.
 await page.waitForTimeout(6000);
 const hutsAfter = await hutsNow();
-console.log('  raided  :', `Hut ×${hutsBefore} → ×${hutsAfter}`);
+console.log('  raided  :', `Quarry ×${hutsBefore} → ×${hutsAfter}`);
 if (!(hutsAfter < hutsBefore)) {
-  misses.push(`the raid came due and took nothing: Hut ×${hutsBefore} → ×${hutsAfter}`);
+  misses.push(`the raid came due and took nothing: Quarry ×${hutsBefore} → ×${hutsAfter}`);
 }
 
 // -------------------------------------------------- the run ends --------
@@ -578,6 +586,10 @@ await seed({ version: 5, stacks: {}, paths: {},
   // the last bare site it will take. The first seed here forgot the Knoll.
   goblins: { 4: 12, 1: 12, 2: 12, 3: 12, 6: 24 },
   hero: { hp: 4, arms: 7, part: 0 }, fight: null, store: 0, carts: 0,
+  // ⚠️ THE HERO IS OUT (2026-08-10). A hero at home turns one raid away, so
+  // a fixture about the camp FALLING has to have them somewhere else — which
+  // is the mechanic working, and is exactly the lever the owner asked for.
+  forage: { left: 9000, secs: 9000 }, forays: 0,
   menace: { 4: 0.99 }, taken: 1, lost: false, legacy: { runs: 0, arms: 0 } });
 await page.waitForTimeout(6000);
 const end = await page.locator('.gone').count();
@@ -628,8 +640,12 @@ if (!/4\d\/60/.test(stoneCell)) {
 // ★ ITEM H — the goal and the war are on screen without hunting for them.
 const warLine = await cell('war');
 console.log('  war     :', `"${warLine}"`);
+// ★ HOW, WHY AND WHAT TO DO, all three on the line — 2026-08-10.
 if (!/⚠\d+% →/.test(warLine) || !/☠\d+/.test(warLine)) {
   misses.push(`the raid clock and the goal are not on screen: "${warLine}"`);
+}
+if (!/(on watch|away)/.test(warLine)) {
+  misses.push(`the war line does not say whether the hero can stop it: "${warLine}"`);
 }
 
 // ★ ITEM I — a second tap does not clear the selection.

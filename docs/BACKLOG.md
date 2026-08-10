@@ -879,3 +879,13 @@ facts.
      goods-coloured inks must each clear every counted ink by its own net, and
      a colour near a counted one has silently made three checks vacuous in
      this repo before. Measure first, as with the ward.
+
+- [x] ✔ FIXED 2026-08-10 — **★★★ "huts were disappearing" was not a save bug.**
+  `raidTarget` came for the fullest stack, which is always the camp's housing,
+  so every raider ate the roof and the pop cap collapsed 24 → 4 in two cycles.
+  The camp is last for stacked ground now, as the code already claimed for bare
+  ground.
+- [x] ✔ DONE 2026-08-10 — **★★★ "what can you do about it" had no answer.** A
+  hero at home turns one raid away and bleeds that holding; one hero holds one
+  gate, so the watch is a choice against foraging and marching rather than a
+  wall. All three questions — how, why, what — are on the war line permanently.

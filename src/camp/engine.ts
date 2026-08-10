@@ -138,7 +138,26 @@ export function raidTarget(g: City, id: number): number | null {
   for (const n of s.near) {
     if (g.goblins[n]) continue;
     if ((g.stacks[n] ?? 0) > 0) {
-      if (best === null || (g.stacks[n] ?? 0) > (g.stacks[best] ?? 0)) best = n;
+      // ★★★ THE CAMP IS LAST FOR STACKED GROUND TOO, 2026-08-10.
+      //
+      // ⚠️ THIS IS THE "MY HUTS KEPT DISAPPEARING" BUG, and it was not a save
+      // corruption — it was this line. The rule was "come for the fullest
+      // thing you can reach", and the fullest pile in any town is the CAMP's
+      // huts. So every raider on the map queued up on the camp and ate
+      // housing, which is the one stack that gates everything else.
+      //
+      // Simulated before the fix, three raiders on a going concern:
+      //   start   huts 5   cap 24
+      //   raid 1  huts 2   cap 12
+      //   raid 2  huts 0   cap  4   ← twenty people now unhoused and idle
+      // and the run was over inside two cycles, opaquely.
+      //
+      // The comment beside `bare` below already claimed the camp goes last.
+      // It just was not true of the ground that had anything on it.
+      const better = best === null
+        || (best === 0 && n !== 0)
+        || (n !== 0 && (g.stacks[n] ?? 0) > (g.stacks[best] ?? 0));
+      if (better && !(n === 0 && best !== null && best !== 0)) best = n;
     } else if (bare === null || (bare === 0 && n !== 0)) {
       // ★ NOTHING LEFT TO BURN MEANS THEY TAKE THE GROUND. A site they
       // strip bare is a site they can hold — and THE CAMP LAST OF ALL,
@@ -576,6 +595,16 @@ export const FORAYS: readonly Foray[] = [
 ];
 /** Which encounter the next foray meets. */
 export const nextForay = (g: City): Foray => FORAYS[g.forays % FORAYS.length]!;
+/** ★★★ IS THE HERO STANDING WATCH? Home, whole enough to fight, and not
+ *  away on a foray. The owner, after a run: *"the goblin raids mechanics is
+ *  unclear how it happens, why and what can you do about it."* The last
+ *  third had no answer — the only lever was to conquer the holding faster,
+ *  which a town under three raiders often cannot do. A hero kept at home
+ *  turns raids away, so the player's real choice is now what to spend the
+ *  hero's time ON: loot, ground, or the walls. */
+export const onWatch = (g: City): boolean =>
+  !g.lost && !g.fight && !g.forage && g.hero.hp > 0;
+
 /** Seconds left on the hero's foray, or null when they are home. */
 export const forageLeft = (g: City): number | null => g.forage?.left ?? null;
 /** Why the hero cannot go out, or null. */
@@ -1422,6 +1451,12 @@ export function apply(g: City, a: Action): City {
         else { loot = nextForay(g).loot; forays = g.forays + 1; forage = null; }
       }
       let lost: boolean = g.lost;
+      // ⚠️ ONE HERO, ONE GATE. Read once before any raid resolves, and SPENT
+      // by the first one turned away — otherwise a single idle hero repelled
+      // every holding on the map at once and the war became free, which is
+      // the mechanic deleting itself. Three raiders means one is stopped and
+      // two get through; the defence is real, and it is not a wall.
+      let watch = onWatch(g);
       if (!a.away) {
         for (const id of able) {
           if ((menace[id] ?? 0) < 1) continue;
@@ -1429,6 +1464,17 @@ export function apply(g: City, a: Action): City {
           if (t === null) continue;
           if (menace === g.menace) menace = { ...g.menace };
           menace[id] = 0;
+          // ★★★ THE HERO TURNS IT AWAY. Standing watch costs the foray and
+          // the march, which is the price: you cannot loot, take ground and
+          // hold the walls with one person. A repelled raid BLEEDS the
+          // holding, so defending is also slow progress toward taking it.
+          if (watch) {
+            watch = false;
+            if (goblins === g.goblins) goblins = { ...goblins };
+            goblins[id] = Math.max(1, (goblins[id] ?? 1) - heroHit(g));
+            hero = { ...hero, hp: Math.max(0, hero.hp - (GOBLINS[id]?.bite ?? 2)) };
+            continue;
+          }
           if ((stacks[t] ?? 0) > 0) {
             if (stacks === g.stacks) stacks = { ...g.stacks };
             stacks[t] = stacks[t]! - 1;
