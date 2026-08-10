@@ -55,6 +55,18 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
       if (!num(job?.left, 0, 1e6) || !num(job?.secs, 0, 1e6)) return null;
     }
   }
+  // ★★ WORKS UNDER CONSTRUCTION, 2026-08-10. Same shape as `laying`, but
+  // keyed by SITE ID — so unlike a path key it must name real ground, or the
+  // panel's `SITE.get(id)!.allows` throws on the first paint the way a
+  // `site: 99` fight once did. An old save with no jobs defaults to {}.
+  if (g.raising !== undefined) {
+    if (typeof g.raising !== 'object' || g.raising === null) return null;
+    for (const [k, v] of Object.entries(g.raising)) {
+      const job = v as { left: number; secs: number };
+      if (!SITE.has(Number(k))) return null;
+      if (!num(job?.left, 0, 1e6) || !num(job?.secs, 0, 1e6)) return null;
+    }
+  }
   if (g.crew !== undefined) {
     if (typeof g.crew !== 'object' || g.crew === null) return null;
     // Whole hands only — `2.5` used to load and print "hands 2.5 of 8".

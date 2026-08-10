@@ -7,7 +7,8 @@
   import type { Box } from '../game/layout';
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
-    heroMax, WILD_FED, SITE, GOBLINS, RATE, TAP_STONE, MAX_GAUGE, CREW, PATH_SECS,
+    heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
+    raisingLeft, buildSecs, housed,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP,
@@ -98,6 +99,14 @@
     // The red mark carries the danger; the panel carries the number.
     if (game.goblins[id]) return s.name;
     const n = game.stacks[id] ?? 0;
+    // ★ A WORKS UNDER THE HAMMER SAYS SO, 2026-08-10. Buildings take time
+    // now, and a site that looks identical while it is being built is the
+    // instant-build complaint wearing a clock.
+    const up = raisingLeft(game, id);
+    if (up !== null) {
+      const kind = id === 0 ? 'Hut' : KIND_NAME[SITE.get(id)!.allows];
+      return `${kind} ×${n + 1} · ${MARK.time}${Math.ceil(up)}s`;
+    }
     if (id === 0) return n > 0 ? `Camp · Hut ×${n}` : 'The Camp';
     if (n <= 0) return s.name;
     const made = f.made.get(id) ?? 0;
@@ -232,21 +241,18 @@
     // there's no way to get the lumber needed."* There was, and nobody
     // could find it (the header button quietly changed meaning). Now the
     // chop is a deed ON the pines, where a person would look for it.
-    if (s.allows === 'lumber') {
-      out.push({
-        label: 'Chop logs by hand',
-        note: brim(game.logs)
-          ? `${MARK.waste} ${outOf('logs', game.logs, roomOf(game))}`
-          : `+${TAP_STONE} · ${amount('logs', Math.floor(game.logs))}`,
-        why: null,
-        go: () => act({ type: 'tap', kind: 'logs' }),
-      });
-    }
+    // ⚠️ THE CHOP BY HAND IS GONE WITH THE TAP, 2026-08-10. It was also the
+    // one source of goods in the game that obeyed no gate — the owner:
+    // *"I'm still able to chop logs in Tall Pines even though I don't have
+    // a road there."* Removing the hand answers both at once: logs come
+    // from a lumberworks, over a path, like everything else. The opening
+    // stock (START_LOGS) is what buys the first one.
     const have = game.stacks[s.id] ?? 0;
     const why = unraisable(game, s.id);
     out.push({
       label: `${KIND_NAME[s.allows]} ×${have + 1}`,
-      note: (why ?? price(costOf(s.allows, have)))
+      note: (why ?? `${price(costOf(s.allows, have))} `
+        + `${MARK.time}${buildSecs(game, s.id)}s`)
         + (have > 0 ? ` · ${times(have)}` : ''),
       why,
       go: () => act({ type: 'raise', id: s.id }),
@@ -550,13 +556,12 @@
          STARVING town (every works but the farms halts), and the tap rate
          on stone. A HUD that looks better and hides those is worse. -->
     <div class="hud">
-      <button class="cell tap" class:brim={brim(game.stone)}
-        data-q="stone" onclick={() => act({ type: 'tap' })}>
+      <div class="cell" class:brim={brim(game.stone)} data-q="stone">
         <span class="cap">STONE</span>
         <b>{Math.floor(game.stone)}<span class="cap-of">/{roomOf(game)}</span></b>
-        <em>🪨 {brim(game.stone) ? `full of ${roomOf(game)}`
-          : `+${TAP_STONE}${f.stone > 0 ? ` · +${f.stone.toFixed(1)}/s` : ''}`}</em>
-      </button>
+        <em>🪨 {brim(game.stone) ? 'full'
+          : f.stone > 0 ? `+${f.stone.toFixed(1)}/s` : '—'}</em>
+      </div>
       <div class="cell" class:brim={brim(game.logs)} data-q="logs">
         <span class="cap">LOGS</span>
         <b>{Math.floor(game.logs)}<span class="cap-of">/{roomOf(game)}</span></b>

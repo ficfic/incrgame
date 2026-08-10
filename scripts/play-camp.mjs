@@ -31,8 +31,11 @@ const panel = async () => (await page.locator('.panel').textContent())
 const cell = async (q) => (await page.locator(`[data-q="${q}"]`).textContent())
   .replace(/\s+/g, ' ').trim();
 /** The big number in a cell, ignoring its label and its rate line. */
-const cellNum = async (q) =>
-  Number((await page.locator(`[data-q="${q}"] b`).textContent()) ?? NaN);
+// ⚠️ THE FIRST NUMBER ONLY. The cell's <b> now reads "15/60" — amount over
+// ceiling — since the playtest asked for the cap to be visible before it is
+// reached, and Number("15/60") is NaN.
+const cellNum = async (q) => Number(
+  /(\d+)/.exec((await page.locator(`[data-q="${q}"] b`).textContent()) ?? '')?.[1] ?? NaN);
 const stoneNow = async () => cellNum('stone');
 
 /** Pixels of a named ink on the board, palette read OFF THE PAGE. */
@@ -72,8 +75,11 @@ await page.reload({ waitUntil: 'networkidle' });
 await page.waitForTimeout(700);
 const h0 = await header();
 console.log('  header  :', `"${h0.slice(0, 80)}"`);
-if (await cellNum('stone') !== 0 || !/\b2\/2\b/.test(await cell('people'))) {
-  misses.push(`a fresh city does not open at two people and no stone: `
+// ⚠️ REWRITTEN 2026-08-10: the hand is gone, so a fresh town no longer opens
+// at zero stone — it opens with a WAGON, which is what buys the first path
+// and the first pit. Two settlers still.
+if (!(await cellNum('stone') >= 8) || !/\b2\/2\b/.test(await cell('people'))) {
+  misses.push(`a fresh city does not open with a wagon and two people: `
     + `stone ${await cell('stone')}, people ${await cell('people')}`);
 }
 const sites0 = await page.$$eval('.map .node', (n) => n.length);
@@ -92,8 +98,7 @@ if (river < 150) misses.push(`only ${river}px of river — the bend has no water
 
 // -------------------------------------------------- the first stack, dead --
 console.log('\nTHE FIRST QUARRY');
-for (let t = 0; t < 14; t++) await page.locator('[data-q="stone"]').click();
-await page.waitForTimeout(250);
+// ⚠️ NO TAPPING ANY MORE — the opening stock is the bootstrap.
 await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(200);
 // ★ The path comes FIRST now — building on unreached ground is refused,
@@ -112,11 +117,19 @@ console.log('  laying  :', `"${laying.slice(0, 60)}"`);
 if (!/Laying · The Camp/.test(laying)) {
   misses.push(`the spade went in silently: "${laying.slice(0, 60)}"`);
 }
-for (let t = 0; t < 22; t++) await page.locator('[data-q="stone"]').click();
 await page.waitForTimeout(6800);
 await page.locator('.deed', { hasText: 'Quarry ×1' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed stacks the first quarry'));
-await page.waitForTimeout(600);
+// ★ A WORKS TAKES TIME NOW. It is ordered here and STANDS later — the
+// label must say so while the hammers are out, and the pit must not
+// produce until it lands.
+await page.waitForTimeout(500);
+const underway = await page.locator('.map .node[data-id="site:1"]').textContent();
+console.log('  raising :', `"${underway.trim()}"`);
+if (!/⏱\d+s/.test(underway)) {
+  misses.push(`a works under the hammer does not show its clock: "${underway.trim()}"`);
+}
+await page.waitForTimeout(11000);
 const flowing = await header();
 console.log('  header  :', `"${flowing.slice(0, 80)}"`);
 if (!/\+0\.3\/s/.test(await cell('stone'))) {
@@ -165,39 +178,43 @@ if (c0.cx < 0 || walk < 0.0005) {
   misses.push(`the carriers do not walk: sum ${c0.sx} → ${c1.sx} (${(walk * 100).toFixed(3)}%)`);
 }
 
-// -------------------------------------------- the pines, chopped by hand --
-console.log('\nTHE CHOP');
-// The soft-lock check: from a fresh-ish town, the FIRST lumberworks must
-// be reachable on screen — path to the pines, chop eight logs by hand,
-// raise. If the chop deed ever leaves the pines' panel, this goes red.
-for (let t = 0; t < 14; t++) await page.locator('[data-q="stone"]').click();
+// ------------------------------------------------ the pines, no hand -----
+console.log('\nTHE PINES');
+// ⚠️ REWRITTEN 2026-08-10. This was the soft-lock check for the hand-chop
+// deed: path to the pines, chop eight logs, raise. The hand is GONE — it
+// out-earned every building, and it was also the one source of goods that
+// obeyed no gate (the owner could chop at the pines with no road there).
+// The question the check existed for is unchanged and still load-bearing:
+// CAN THE FIRST LUMBERWORKS BE REACHED AT ALL? The opening stock is the
+// answer now, so that is what this proves.
+await page.evaluate(() => localStorage.removeItem('camp-save'));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(700);
+const openLogs = await cellNum('logs');
+console.log('  wagon   :', `${openLogs} logs in the wagon`);
+if (!(openLogs >= 8)) {
+  misses.push(`the wagon carries ${openLogs} logs — a lumberworks costs 8, soft-locked`);
+}
 await page.locator('.map .node[data-id="site:2"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
+if (await page.locator('.deed', { hasText: 'Chop logs' }).count() > 0) {
+  misses.push('the hand-chop deed is back at the pines');
+}
 await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
   .catch(() => misses.push('no path deed at the pines'));
-await page.waitForTimeout(200);
-const chopDeed = page.locator('.deed', { hasText: 'Chop logs by hand' });
-// The chopping itself outlasts the lay — no idle wait needed here.
-if (!(await chopDeed.count())) {
-  misses.push('the pines offer no hand-chop — the lumberworks is soft-locked again');
-} else {
-  for (let t = 0; t < 33; t++) await chopDeed.click({ timeout: 800 }).catch(() => {});
-  await page.waitForTimeout(4500);
-  const logsNow = await cellNum('logs');
-  console.log('  chopped :', `${logsNow} logs by hand`);
-  if (!(logsNow >= 8)) misses.push(`33 chops left only ${logsNow} logs`);
-  await page.locator('.deed', { hasText: 'Lumberworks ×1' }).click({ timeout: 2000 })
-    .catch(() => misses.push('eight logs in hand and the lumberworks still refuses'));
-  await page.waitForTimeout(250);
-  const raised = await page.locator('.panel h2').textContent();
-  console.log('  raised  :', `"${raised.trim()}"`);
-  if (!/Lumberworks ×1/.test(raised)) {
-    misses.push(`the first lumberworks did not stand: "${raised.trim()}"`);
-  }
+await page.waitForTimeout(7000);
+await page.locator('.deed', { hasText: 'Lumberworks ×1' }).click({ timeout: 2000 })
+  .catch(() => misses.push('the wagon holds eight logs and the lumberworks still refuses'));
+await page.waitForTimeout(11000);
+const raised = await page.locator('.panel h2').textContent();
+console.log('  raised  :', `"${raised.trim()}"`);
+if (!/Lumberworks ×1/.test(raised)) {
+  misses.push(`the first lumberworks did not stand: "${raised.trim()}"`);
 }
 
 // ------------------------------------------------------- THE CHOKE, drawn --
 console.log('\nTHE CHOKE');
-await seed({ version: 5, stacks: { 1: 4 }, paths: { '0|1': 1 },
+await seed({ version: 5, stacks: { 0: 3, 1: 4 }, paths: { '0|1': 1 },
   stone: 30, logs: 0, planks: 0, food: 500, pop: 12, popPart: 0 });
 // The board thins labels when the map is crowded, so the SPLIT is read
 // where it always stands: the site's own panel title.
@@ -226,7 +243,11 @@ await page.waitForTimeout(13000);
 const fixedLabel = await page.locator('.panel h2').textContent();
 const amberAfter = await inked('shut');
 console.log('  title   :', `"${fixedLabel.trim()}", choke ink ${amber} → ${amberAfter}px`);
-if (!/1\.8\/s/.test(fixedLabel)) {
+// ⚠️ THE NUMBER MOVED, NOT THE FACT. The fixture is housed now (unhoused
+// people do not staff), so the pit runs at its full four hands rather than
+// two — the check is that the label no longer SPLITS, which is what
+// widening bought.
+if (/carries/.test(fixedLabel)) {
   misses.push(`widened and the quarry still splits its label: "${fixedLabel.trim()}"`);
 }
 if (!(amberAfter < amber / 2)) {
@@ -256,7 +277,15 @@ console.log('  icons   :', `${icons} buildings drawn on the map`);
 if (icons !== 3) misses.push(`three works stand and the map draws ${icons} icons`);
 await page.locator('.deed', { hasText: 'Hut ×1' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed raises the first hut'));
-await page.waitForTimeout(400);
+// ⚠️ A HUT TAKES TIME NOW (BUILD_SECS.hut). Ordered above, standing below —
+// this used to read the map 400ms after the click and pass on an instant
+// build. Waiting is the point of the item, so the wait is the check.
+await page.waitForTimeout(1000);
+const midBuild = await page.$$eval('.map .node .icon', (n) => n.length);
+if (midBuild !== 3) {
+  misses.push(`a hut under the hammer already counts as standing: ${midBuild} icons`);
+}
+await page.waitForTimeout(9000);
 const hutIcon = await page.$$eval('.map .node .icon', (n) => n.length);
 if (hutIcon !== 4) misses.push(`the hut went up and the map draws ${hutIcon} icons — wanted 4`);
 if (!/\/6\b/.test(await cell('people'))) {
@@ -298,7 +327,7 @@ if (!/\b3\/6\b/.test(await cell('people'))) {
 
 // ------------------------------------------- the hero, beaten then armed --
 console.log('\nTHE HERO');
-await seed({ version: 5, stacks: { 1: 1 }, paths: { '0|1': 1 },
+await seed({ version: 5, stacks: { 0: 1, 1: 1 }, paths: { '0|1': 1 },
   stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0 });
 // The battle strip: one square left, three right — and MASH LOSES.
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
@@ -343,7 +372,7 @@ if (!/High Meadow/.test(namedStill)) {
 }
 // Armed and READ RIGHT, the same fight turns: aim past the wall, thin the
 // runts, take the wind-up on the wall alone — liberate, then BUILD there.
-await seed({ version: 5, stacks: { 1: 1 }, paths: { '0|1': 1 },
+await seed({ version: 5, stacks: { 0: 1, 1: 1 }, paths: { '0|1': 1 },
   stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 }, hero: { hp: 10, arms: 1, part: 0 }, fight: null });
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
@@ -577,7 +606,7 @@ await seed({ version: 5, stacks: { 0: 2, 1: 2 }, paths: { '0|1': 1 },
 // "it doesn't say anywhere what is my limit for the stone".
 const stoneCell = await cell('stone');
 console.log('  ceiling :', `"${stoneCell}"`);
-if (!/41\/60/.test(stoneCell)) {
+if (!/4\d\/60/.test(stoneCell)) {
   misses.push(`the stone cell hides its ceiling until it is full: "${stoneCell}"`);
 }
 
@@ -605,7 +634,7 @@ console.log('\nTHE DOCK FITS');
 // (the base `.deed` rule sets width:100% and this app has no border-box
 // reset, so each grid cell overflowed by 22px and cut the right-hand labels),
 // and no deed may be shorter than a thumb.
-await seed({ version: 5, stacks: { 0: 4, 1: 4, 2: 2, 3: 2 },
+await seed({ version: 5, stacks: { 0: 8, 1: 4, 2: 2, 3: 2 },
   paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
   stone: 900, logs: 90, planks: 900, food: 900, pop: 30, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
@@ -657,7 +686,7 @@ console.log('\nSTARVING READS DELIVERY');
 // The review's silent failure: a farm growing far more than the town eats,
 // with a quarry crowding the food off the one road home. The larder is
 // empty and NOTHING on screen said so.
-await seed({ version: 5, stacks: { 4: 6, 6: 6 },
+await seed({ version: 5, stacks: { 0: 10, 4: 6, 6: 6 },
   paths: { '0|4': 1, '4|6': 3 },
   stone: 0, logs: 0, planks: 0, food: 0, pop: 40, popPart: 0,
   goblins: {}, hero: { hp: 10, arms: 0, part: 0 }, fight: null,
@@ -685,38 +714,30 @@ if (!/· 0(\.0)?(\/s)?$/.test(quarryTitle)) {
 }
 
 // -------------------------------------------------- the hand ------------
-console.log('\nTHE HAND AT A FULL STORE');
-// The leak the coherence review found: the tap obeyed no gate. Spam it at
-// a full store and the whole storehouse ladder is skippable.
+console.log('\nTHERE IS NO HAND');
+// ⚠️ THIS PHASE USED TO SPAM THE TAP AT A FULL STORE, proving the hand
+// obeyed the storehouse ceiling. The hand is gone entirely — it out-earned
+// every building in the game — so the check that matters now is that it
+// STAYS gone: no tap target in the HUD but the gear, and clicking the
+// stone cell earns nothing.
 await seed({ version: 5, stacks: { 0: 1 }, paths: {},
   stone: 60, logs: 0, planks: 0, food: 90, pop: 4, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 0, carts: 0 });
+const hudButtons = await page.locator('header button').count();
+const gearOnly = await page.locator('header button.gear').count();
+console.log('  buttons :', `${hudButtons} in the HUD, ${gearOnly} of them the gear`);
+if (hudButtons !== gearOnly) {
+  misses.push(`the HUD has ${hudButtons - gearOnly} tap target(s) besides the gear`);
+}
 const tapFrom = await stoneNow();
-for (let i = 0; i < 30; i++) {
-  await page.locator('[data-q="stone"]').click({ timeout: 1500 }).catch(() => {});
+for (let i = 0; i < 20; i++) {
+  await page.locator('[data-q="stone"]').click({ timeout: 800 }).catch(() => {});
 }
 await page.waitForTimeout(300);
 const tapTo = await stoneNow();
-console.log('  30 taps :', `${tapFrom} → ${tapTo}`);
-if (tapTo > tapFrom) {
-  misses.push(`the hand taps past a full store: ${tapFrom} → ${tapTo} in 30 taps`);
-}
-// ...and the same hand still works the moment there is room.
-await seed({ version: 5, stacks: { 0: 1 }, paths: {},
-  stone: 60, logs: 0, planks: 0, food: 90, pop: 4, popPart: 0,
-  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
-  hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 1, carts: 0 });
-const roomFrom = await stoneNow();
-for (let i = 0; i < 8; i++) {
-  await page.locator('[data-q="stone"]').click({ timeout: 1500 }).catch(() => {});
-}
-await page.waitForTimeout(300);
-const roomTo = await stoneNow();
-console.log('  with room:', `${roomFrom} → ${roomTo}`);
-if (!(roomTo > roomFrom)) {
-  misses.push(`the hand is dead even with room to spare: ${roomFrom} → ${roomTo}`);
-}
+console.log('  20 taps :', `${tapFrom} → ${tapTo}`);
+if (tapTo > tapFrom) misses.push(`clicking the stone cell still earns: ${tapFrom} → ${tapTo}`);
 
 // -------------------------------------------------- the cartwright ------
 console.log('\nTHE CARTWRIGHT');
@@ -786,13 +807,13 @@ console.log('\nTHE STORE');
 // A town whose quarries have filled the camp: the chip must SAY full, and
 // raising a storehouse must let it climb again. Waste nobody can see is
 // the choke bug in a different currency.
-await seed({ version: 5, stacks: { 0: 1, 1: 4 }, paths: { '0|1': 3 },
+await seed({ version: 5, stacks: { 0: 3, 1: 4 }, paths: { '0|1': 3 },
   stone: 60, logs: 0, planks: 40, food: 400, pop: 12, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 0 });
 const brimmed = await header();
 console.log('  full    :', `"${brimmed.slice(0, 70)}"`);
-if (!/full of 60/.test(await cell('stone'))) {
+if (!/60\/60/.test(await cell('stone')) || !/full/.test(await cell('stone'))) {
   misses.push(`a full store does not say so on the chip: "${brimmed.slice(0, 70)}"`);
 }
 // The camp is pre-selected on boot, so the deed is already on the dock.
@@ -807,7 +828,7 @@ await storeDeed.click({ timeout: 2000 })
 await page.waitForTimeout(1400);
 const roomier = await header();
 console.log('  roomier :', `"${roomier.slice(0, 70)}"`);
-if (/full of/.test(await cell('stone'))) {
+if (/🪨 full/.test(await cell('stone'))) {
   misses.push(`the store was raised and the town is still full: "${roomier.slice(0, 70)}"`);
 }
 if (!/\+\d/.test(roomier.split('logs')[0])) {

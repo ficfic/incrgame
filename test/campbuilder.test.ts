@@ -7,7 +7,8 @@ import { describe, it, expect } from 'vitest';
 import { held } from '../src/camp/barrier';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
   unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
-  TAP_STONE, RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
+  RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
+  START_STONE, START_LOGS, BUILD_SECS, raisingLeft, buildSecs, housed,
   PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY, regenOf, catchUp, STEP_SECS, SITE,
   richOf, MAX_GAUGE, roomOf, storeCost, STORE_BASE, STORE_ROOM,
   carriesOf, cartCost, cartHaul, CART_GAIN,
@@ -18,19 +19,32 @@ import { honour } from '../src/camp/store';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
 
+/** ★★ ROOF ENOUGH FOR `pop`, 2026-08-10 — huts at the camp for a fixture that
+ *  wants hands. ONLY THE HOUSED WORK now (the playtest's item E), so a town
+ *  of 99 with no huts is a town of TWO workers and 97 people standing in the
+ *  rain. Every fixture below that wants a full crew has to pay for bunks;
+ *  where a fixture is about something else entirely, it is left alone and
+ *  its people are simply the two that fit. */
+const huts = (pop: number): number => Math.max(0, Math.ceil((pop - 2) / HUT_ROOM));
+
 /** A quarry chain: n copies at the rock face, pathed at the given gauge. */
 // Fixtures carry a stocked larder: 99 people un-fed would be a famine,
 // and these blocks are about rules 1-3, not rule starving.
 const quarried = (n: number, gauge = 1, pop = 99): City => ({
   ...initial(), pop, food: 999,
-  stacks: { 1: n },
+  stacks: { 0: huts(pop), 1: n },
   paths: { [pathKey(0, 1)]: gauge },
 });
 
 /** The full working chain, staffed rich. */
+// ⚠️ `stone: 0, logs: 0` ARE EXPLICIT (2026-08-10): `initial()` now arrives
+// with the opening in its pockets, and (a) a mill with anything in the log
+// pile saws at its FULL capacity rather than at what walks in, (b) the stock
+// this fixture's tests measure is PRODUCTION, not the wagon. Empty purse,
+// empty pile — the way this fixture always read.
 const chain = (pop = 99): City => ({
-  ...initial(), pop, food: 999,
-  stacks: { 1: 1, 2: 1, 3: 1 },
+  ...initial(), pop, food: 999, stone: 0, logs: 0,
+  stacks: { 0: huts(pop), 1: 1, 2: 1, 3: 1 },
   paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 },
 });
 
@@ -47,16 +61,21 @@ describe('★★ RULE 1 — buildings come in counts, on the compounding curve',
   });
 
   it('raising stacks the count and pays every part of the curve', () => {
-    let g: City = { ...initial(), stone: 99, paths: { [pathKey(0, 1)]: 1 } };
+    // ⚠️ UPDATED 2026-08-10 (build timers): a copy is ORDERED now, not
+    // conjured, so the second order waits for the first hammer to land. The
+    // fact this test protects is unchanged — two copies stand and BOTH rungs
+    // of the 1.35 curve were paid.
+    // (`crew: {1: 0}` holds the pit empty, so the ticks below advance the
+    // hammers without quarrying any stone into the arithmetic.)
+    let g: City = { ...initial(), stone: 99, crew: { 1: 0 },
+      paths: { [pathKey(0, 1)]: 1 } };
     g = apply(g, { type: 'raise', id: 1 });
+    expect(apply(g, { type: 'raise', id: 1 })).toBe(g);   // one hammer per site
+    g = tick(g, BUILD_SECS.quarry);
     g = apply(g, { type: 'raise', id: 1 });
+    g = tick(g, BUILD_SECS.quarry);
     expect(g.stacks[1]).toBe(2);
     expect(g.stone).toBeCloseTo(99 - costOf('quarry', 0).stone! - costOf('quarry', 1).stone!, 9);
-  });
-
-  it('★ hand-taps follow the ground: logs off the pines', () => {
-    expect(apply(initial(), { type: 'tap', kind: 'logs' }).logs).toBeCloseTo(TAP_STONE, 9);
-    expect(apply(initial(), { type: 'tap' }).stone).toBeCloseTo(TAP_STONE, 9);
   });
 
   it('★ a copy holds a CREW, and output is per worker', () => {
@@ -91,7 +110,7 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     // 3 people, one farm (4 slots) + quarries: every hand goes to the
     // fields first; the quarries get whoever is left — today, nobody.
     const g: City = { ...initial(), pop: 3, food: 999, goblins: {},
-      stacks: { 1: 4, 4: 1 },
+      stacks: { 0: huts(3), 1: 4, 4: 1 },
       paths: { [pathKey(0, 1)]: 3, [pathKey(0, 4)]: 3 } };
     const f = flow(g);
     expect(f.food).toBeCloseTo(3 * RATE.farm, 9);
@@ -102,9 +121,14 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     // ★ MARKS, NOT PROSE (2026-08-09): `🟫0/10` — have over need, the same
     // shape the HUD uses one row above. It must still name the right GOOD.
     expect(unraisable({ ...initial(), stone: 99 }, 0)).toMatch(/^🟫0\/10$/);
-    const g = apply({ ...initial(), planks: 12 }, { type: 'raise', id: 0 });
-    expect(g.stacks[0]).toBe(1);
+    // ⚠️ UPDATED 2026-08-10 (build timers): the planks are paid at the ORDER
+    // and the hut stands BUILD_SECS.hut later. Both halves of the fact this
+    // test protects survive — huts cost planks, and the hut goes up.
+    let g = apply({ ...initial(), planks: 12 }, { type: 'raise', id: 0 });
     expect(g.planks).toBeCloseTo(12 - BASE.hut.planks!, 9);
+    expect(g.stacks[0]).toBeUndefined();
+    g = tick(g, BUILD_SECS.hut);
+    expect(g.stacks[0]).toBe(1);
   });
 
   it('★ no works before a path reaches the ground', () => {
@@ -214,7 +238,7 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
     // The rock face's stone routes 1—2—0 alongside the pines' logs, both
     // over one gauge-1 edge — and together they bury it, so both feel it.
     const g: City = { ...initial(), pop: 99, food: 999,
-      stacks: { 1: 3, 2: 1 },
+      stacks: { 0: huts(99), 1: 3, 2: 1 },
       paths: { [pathKey(1, 2)]: 3, [pathKey(0, 2)]: 1 } };
     const f = flow(g);
     expect(f.choked.has(pathKey(0, 2))).toBe(true);
@@ -280,7 +304,7 @@ describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
   it('★ every hand is a whole person, placed round-robin after the farms', () => {
     // Five people over two quarry sites: 3 and 2, site order, no halves.
     const g: City = { ...initial(), pop: 5, food: 999, goblins: {},
-      stacks: { 1: 1, 5: 1 },
+      stacks: { 0: huts(5), 1: 1, 5: 1 },
       paths: { [pathKey(0, 1)]: 3, [pathKey(0, 3)]: 3, [pathKey(3, 5)]: 3 } };
     const f = flow(g);
     expect(f.hands.get(1)).toBe(3);
@@ -292,7 +316,7 @@ describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
     // 25 mouths eat 0.95/s; one farm's whole crew brings 0.8/s: STARVING,
     // and the posted quarry hands stand down with everyone else.
     const g: City = { ...initial(), pop: 25, food: 0, goblins: {},
-      stacks: { 1: 2, 4: 1 }, crew: { 1: 2 },
+      stacks: { 0: huts(25), 1: 2, 4: 1 }, crew: { 1: 2 },
       paths: { [pathKey(0, 1)]: 1, [pathKey(0, 4)]: 1 } };
     const f = flow(g);
     expect(f.starving).toBe(true);
@@ -309,9 +333,12 @@ describe('★★ POSTED HANDS — assign people, auto never babysits', () => {
 describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', () => {
   // Same buildings both times: lumber ×3 at the pines, one mill at the
   // river, every path gauge 1. Only the WIRING differs.
+  // ⚠️ `logs: 0`: the wagon's seed pile would let the mill saw at full
+  // capacity regardless of what the pines ship, which is the exact thing
+  // these tests measure. See `chain` above.
   const town = (paths: Record<string, number>): City => ({
-    ...initial(), pop: 99, food: 999,
-    stacks: { 2: 1, 3: 1 },
+    ...initial(), pop: 99, food: 999, logs: 0,
+    stacks: { 0: huts(99), 2: 1, 3: 1 },
     paths,
   });
 
@@ -330,7 +357,7 @@ describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', (
   });
 
   it('★ logs take the direct lane when both are wired', () => {
-    const heavy: City = { ...town({}), stacks: { 2: 2, 3: 1 },
+    const heavy: City = { ...town({}), stacks: { 0: huts(99), 2: 2, 3: 1 },
       paths: { [pathKey(0, 2)]: 1, [pathKey(2, 3)]: 1, [pathKey(0, 3)]: 1 } };
     const f = flow(heavy);
     // 1.6/s of logs into a gauge-1 direct lane: that lane chokes, the
@@ -342,7 +369,7 @@ describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', (
 
   it('with no mill standing, logs still pile home at the camp', () => {
     const f = flow({ ...initial(), pop: 99, food: 999,
-      stacks: { 2: 1 }, paths: { [pathKey(0, 2)]: 1 } });
+      stacks: { 0: huts(99), 2: 1 }, paths: { [pathKey(0, 2)]: 1 } });
     expect(f.logsIn).toBeCloseTo(CREW * RATE.lumber, 9);
     expect(f.planks).toBe(0);
   });
@@ -352,7 +379,7 @@ describe('★★ MESH ROUTING — logs travel to the mill, and topology pays', (
     // saws at capacity but almost nothing ships, and the tick banks only
     // what shipped.
     const g: City = { ...initial(), pop: 99, food: 999, logs: 50,
-      stacks: { 3: 1, 5: 2 },
+      stacks: { 0: huts(99), 3: 1, 5: 2 },
       paths: { [pathKey(0, 3)]: 1, [pathKey(3, 5)]: 3 } };
     const f = flow(g);
     // Scree's 1.2/s of stone crosses 3→0 and fills the gauge-1 road.
@@ -368,7 +395,7 @@ describe('★★ RULE 4 — the cascade: logs to planks to huts to people', () =
   it('the mill saws what arrives, the pile never goes phantom', () => {
     // One log banked, no cutters: an hour saws exactly one log.
     const g: City = { ...initial(), pop: 99, food: 9999, logs: 1,
-      stacks: { 3: 1 }, paths: { [pathKey(0, 3)]: 1 } };
+      stacks: { 0: huts(99), 3: 1 }, paths: { [pathKey(0, 3)]: 1 } };
     const out = tick(g, 3600);
     expect(out.logs).toBe(0);
     expect(out.planks).toBeCloseTo(1, 6);
@@ -384,12 +411,11 @@ describe('★★ RULE 4 — the cascade: logs to planks to huts to people', () =
 });
 
 describe('★ honest refusals and the save', () => {
-  it('a tap chips stone by hand', () => {
-    expect(apply(initial(), { type: 'tap' }).stone).toBeCloseTo(TAP_STONE, 9);
-  });
-
   it('refusals say why: price, danger, reach', () => {
-    expect(unraisable({ ...initial(), paths: { [pathKey(0, 1)]: 1 } }, 1))
+    // ⚠️ `stone: 0` IS NOW EXPLICIT (2026-08-10): `initial()` carries the
+    // opening in its pockets, so a bare `initial()` can AFFORD the first
+    // pit. The fact under test is the wording of a refusal, not the stock.
+    expect(unraisable({ ...initial(), stone: 0, paths: { [pathKey(0, 1)]: 1 } }, 1))
       .toMatch(/^🪨0\/5$/);
     expect(unraisable(initial(), 4)).toMatch(/^☠12$/);
     expect(unlayable(initial(), 1, 3)).toBe('nothing joins these');
@@ -487,7 +513,7 @@ describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town'
   const farmed = (copies: number, pop: number, food = 999): City => ({
     ...initial(), pop, food,
     goblins: { 5: 18, 6: 30 },
-    stacks: { 4: copies },
+    stacks: { 0: huts(pop), 4: copies },
     paths: { [pathKey(0, 4)]: 1 },
   });
 
@@ -508,7 +534,7 @@ describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town'
 
   it('★★ STARVING halts every works but the farms — and so it recovers', () => {
     // 25 mouths eat 0.95/s, one crewed farm brings 0.8/s, larder empty.
-    const g: City = { ...farmed(1, 25, 0), stacks: { 1: 2, 4: 1 },
+    const g: City = { ...farmed(1, 25, 0), stacks: { 0: huts(25), 1: 2, 4: 1 },
       paths: { [pathKey(0, 1)]: 1, [pathKey(0, 4)]: 1 } };
     const f = flow(g);
     expect(f.starving).toBe(true);
@@ -854,15 +880,17 @@ describe('★★ THE AWAY RUN — simulated, not estimated', () => {
   });
 
   it('★ a path two seconds from done carries for the rest of the night', () => {
-    const laying: City = { ...initial(), stacks: { 1: 1 }, pop: 4, food: 99,
+    const laying: City = { ...initial(), stacks: { 0: huts(4), 1: 1 },
+      pop: 4, food: 99,
       laying: { [pathKey(0, 1)]: { left: 2, secs: PATH_SECS } } };
     const away = catchUp(laying, 3600);
     expect(away.paths[pathKey(0, 1)]).toBe(1);
     // An hour of quarrying landed — up to the storehouse ceiling, which is
     // what an hour of that quarry now means.
     expect(away.stone).toBe(roomOf(laying));
-    // The single step lays the path at the END and carries nothing at all.
-    expect(tick(laying, 3600).stone).toBe(0);
+    // The single step lays the path at the END and carries nothing at all
+    // — the stock is exactly the wagon it started with, not a penny more.
+    expect(tick(laying, 3600).stone).toBe(START_STONE);
   });
 
   it('the chunking is invisible where nothing changes across the span', () => {
@@ -885,7 +913,7 @@ describe('★★ THE CARRIERS FOLLOW THE FLOW, not the id order', () => {
   it('★★ logs walk OUT to the mill; planks walk back to the camp', () => {
     // Pines(2) wired straight to the river mill(3), mill wired to camp(0).
     const g: City = { ...initial(), pop: 99, food: 999,
-      stacks: { 2: 1, 3: 1 },
+      stacks: { 0: huts(99), 2: 1, 3: 1 },
       paths: { [pathKey(2, 3)]: 3, [pathKey(0, 3)]: 3 } };
     const f = flow(g);
     // pathKey(2,3) is "2|3": +1 means 2 → 3, which is pines → mill. The old
@@ -922,9 +950,10 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
     expect(richOf(9)).toBe(3.5);          // Green Vale, the last holding
     // Same hands, same works, better ground: three times the stone.
     const plain: City = { ...initial(), pop: 99, food: 999, goblins: {},
-      stacks: { 1: 1 }, paths: { [pathKey(0, 1)]: 3 } };
+      stacks: { 0: huts(99), 1: 1 }, paths: { [pathKey(0, 1)]: 3 } };
     const deep: City = { ...initial(), pop: 99, food: 999, goblins: {},
-      stacks: { 8: 1 }, paths: { [pathKey(0, 5)]: 3, [pathKey(5, 8)]: 3 } };
+      stacks: { 0: huts(99), 8: 1 },
+      paths: { [pathKey(0, 5)]: 3, [pathKey(5, 8)]: 3 } };
     expect(flow(plain).made.get(1)).toBeCloseTo(CREW * RATE.quarry, 9);
     expect(flow(deep).made.get(8)).toBeCloseTo(CREW * RATE.quarry * 3, 9);
   });
@@ -969,7 +998,7 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
     // road from the knoll to the camp: the south still files through `0|4`.
     const viaMeadow: City = { ...initial(), pop: 99, food: 999, goblins: {},
       // Enough field at BOTH ends to saturate whatever road it is given.
-      stacks: { 4: 5, 9: 3 },
+      stacks: { 0: huts(99), 4: 5, 9: 3 },
       paths: { [pathKey(0, 4)]: 3, [pathKey(4, 6)]: 3, [pathKey(6, 7)]: 3,
         [pathKey(7, 9)]: 3 } };
     expect(flow(viaMeadow).food).toBeCloseTo(oneEdge, 6);      // capped at 3.0
@@ -986,8 +1015,8 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
 
   it('★★ the scree carries the east so the mill keeps its planks', () => {
     // Site 8's stone used to file down `0|3` behind the sawmill's output.
-    const g: City = { ...initial(), pop: 99, food: 999, goblins: {},
-      stacks: { 2: 1, 3: 3, 8: 2 },
+    const g: City = { ...initial(), pop: 99, food: 999, goblins: {}, logs: 0,
+      stacks: { 0: huts(99), 2: 1, 3: 3, 8: 2 },
       paths: { [pathKey(0, 2)]: 3, [pathKey(0, 3)]: 3, [pathKey(3, 5)]: 3,
         [pathKey(5, 8)]: 3 } };
     expect(flow(g).choked.has(pathKey(0, 3))).toBe(true);
@@ -1008,7 +1037,7 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
 describe('★★★ THE STOREHOUSE — a ceiling on every good', () => {
   const rich = (over: Partial<City> = {}): City => ({
     ...initial(), pop: 99, food: 999, goblins: {},
-    stacks: { 1: 4 }, paths: { [pathKey(0, 1)]: 3 }, ...over });
+    stacks: { 0: huts(99), 1: 4 }, paths: { [pathKey(0, 1)]: 3 }, ...over });
 
   it('★ a bare camp holds STORE_BASE of each; each house adds a flat room', () => {
     expect(roomOf(initial())).toBe(STORE_BASE);
@@ -1031,7 +1060,7 @@ describe('★★★ THE STOREHOUSE — a ceiling on every good', () => {
   it('★ every good has its own ceiling, not a shared purse', () => {
     const full: City = { ...initial(), pop: 99, food: 999, goblins: {},
       stone: STORE_BASE, logs: STORE_BASE, planks: STORE_BASE,
-      stacks: { 1: 2, 2: 2, 3: 2 },
+      stacks: { 0: huts(99), 1: 2, 2: 2, 3: 2 },
       paths: { [pathKey(0, 1)]: 3, [pathKey(0, 2)]: 3, [pathKey(0, 3)]: 3 } };
     const on = tick(full, 60);
     expect(on.stone).toBe(STORE_BASE);
@@ -1208,67 +1237,114 @@ describe('★★★ THE CARTWRIGHT — the one exponential that runs for the pla
 });
 
 // ---------------------------------------------------------------------------
-// ★★★ THE HAND OBEYS THE CEILING, 2026-08-08 — the coherence review's second
-// finding: the tap obeys no gate the rest of the game obeys. The storehouse
-// made it strictly worse, so this closes the gate it broke, and PINS the two
-// gates the hand must never obey.
+// ★★★ THE HAND IS GONE, 2026-08-10 — the PC playtest's top finding, and the
+// only one that voided the whole economy. The owner: *"there is no need for me
+// to build a quarry because I am able to much faster click on the thing… I
+// don't need a quarry ever"* / *"I can go and chop logs by hand faster than any
+// lumberworks can do it."* A 0.25 tap at thumb speed is ~1.0/s from nothing;
+// a quarry is 0.15/s PER HAND, housed, fed and hauled home under a 1.0/s cap.
+//
+// This block replaces "THE HAND OBEYS THE CEILING" (2026-08-08), which spent
+// four tests tuning the gates a tap should obey. The answer turned out to be
+// that it should not exist. What survives from it is the QUESTION it existed
+// to answer — how does a town with no paths, no works and no stock start? —
+// and the answer is now the wagon the settlers arrive with.
 // ---------------------------------------------------------------------------
-describe('★★★ THE HAND OBEYS THE CEILING — and the two gates it must not', () => {
-  it('★★★ a full store cannot be tapped past its own cap', () => {
-    // The leak: spam the button and the storehouse ladder is skippable.
-    let g: City = { ...initial(), stone: STORE_BASE - 0.25 };
-    g = apply(g, { type: 'tap' });
-    expect(g.stone).toBe(STORE_BASE);
-    for (let i = 0; i < 200; i++) g = apply(g, { type: 'tap' });
-    expect(g.stone).toBe(STORE_BASE);
-    // Logs too — the chop at the pines is the same hand.
-    let l: City = { ...initial(), logs: STORE_BASE };
-    for (let i = 0; i < 50; i++) l = apply(l, { type: 'tap', kind: 'logs' });
-    expect(l.logs).toBe(STORE_BASE);
-    // And a storehouse lifts the hand's ceiling with everything else's.
-    const roomier = apply({ ...initial(), stone: STORE_BASE, store: 1 }, { type: 'tap' });
-    expect(roomier.stone).toBe(STORE_BASE + 0.25);
+describe('★★★ THE HAND IS GONE — the wagon is the bootstrap', () => {
+  it('★★★ there is no tap action at all — stone cannot be minted by pressing', () => {
+    // The real guard is the type: `{ type: 'tap' }` is not an `Action` any
+    // more, so `npx tsc` is where a re-added tap shouts first. This pins the
+    // RUNTIME half — `apply` has no case to fall into, so it answers nothing
+    // rather than quietly handing back a richer town. Put the case back and
+    // this test goes red.
+    const fresh = initial();
+    expect(apply(fresh, { type: 'tap' } as never)).toBeUndefined();
+    expect(apply(fresh, { type: 'tap', kind: 'logs' } as never)).toBeUndefined();
   });
 
-  it('★ a stock over the ceiling is held by the hand too, never confiscated', () => {
-    const over = apply({ ...initial(), stone: STORE_BASE * 2 }, { type: 'tap' });
-    expect(over.stone).toBe(STORE_BASE * 2);
-  });
-
-  it('★★★ THE HAND STILL WORKS WITH NO PATHS — or the game cannot be started', () => {
-    // `initial()` has no paths, no works and nothing in store. If the tap
-    // were routed like production, there would be no way to earn the first
-    // 5 stone. This test is the reason that exemption exists.
+  it('★★★ THE WAGON BUYS THE OPENING — the arithmetic, checked not asserted', () => {
     const fresh = initial();
     expect(Object.keys(fresh.paths)).toHaveLength(0);
-    expect(apply(fresh, { type: 'tap' }).stone).toBe(TAP_STONE);
-    // The whole bootstrap, by hand: 5 stone buys the first quarry.
-    let g = fresh;
-    for (let i = 0; i < 20; i++) g = apply(g, { type: 'tap' });
+    expect(Object.keys(fresh.stacks)).toHaveLength(0);
+    // The first pit and its road: 3 + 5 = 8, comfortably inside the wagon.
+    expect(pathCostOf(0)).toBe(PATH_COST);
+    expect(fresh.stone).toBeGreaterThanOrEqual(pathCostOf(0) + BASE.quarry.stone!);
+    // The pines' road too, which is the whole first chain: 3 + 5 + 3 = 11.
+    expect(fresh.stone).toBeGreaterThanOrEqual(2 * pathCostOf(0) + BASE.quarry.stone!);
+    // ★ LOGS ARE A CLOSED LOOP WITHOUT THE HAND: a lumber camp costs logs,
+    // and only a lumber camp makes logs. The wagon carries the seed.
+    expect(BASE.lumber.logs).toBeGreaterThan(0);
+    expect(fresh.logs).toBeGreaterThanOrEqual(BASE.lumber.logs!);
+    // Nothing else is given: the mill, the huts and the larder are earned.
+    expect(fresh.planks).toBe(0);
+    expect(fresh.food).toBe(0);
+    // And the wagon fits in a bare camp's store, so none of it is wasted.
+    expect(fresh.stone).toBeLessThanOrEqual(roomOf(fresh));
+    expect(fresh.logs).toBeLessThanOrEqual(roomOf(fresh));
+  });
+
+  it('★★★ NO OPENING ORDER CAN STRAND THE TOWN — the anti-softlock number', () => {
+    // With no hand there is no way back from an empty purse, so START_STONE
+    // is sized against the WORST spend available at second zero: lay all
+    // three roads that leave the camp (the other three are goblin-held) and
+    // a quarry must still be affordable. 3 × 3 + 5 = 14 ≤ 15.
+    let g = initial();
+    for (const b of [1, 2, 3]) {
+      expect(unlayable(g, 0, b)).toBeNull();
+      g = apply(g, { type: 'lay', a: 0, b });
+    }
     expect(g.stone).toBeGreaterThanOrEqual(BASE.quarry.stone!);
+    g = tick(g, PATH_SECS);
+    expect(unraisable(g, 1)).toBeNull();
   });
 
-  it('★★★ THE HAND STILL WORKS WHILE STARVING — or a save can never recover', () => {
-    // An empty larder halts every works but the farms. A town with no farm
-    // needs 12 stone to build one; if the hand halted too, there would be
-    // no way to earn it. The hand is the floor under a starve, on purpose.
-    const starved: City = { ...initial(), pop: 20, food: 0, goblins: {},
-      stacks: { 1: 2 }, paths: { [pathKey(0, 1)]: 3 } };
-    expect(flow(starved).starving).toBe(true);
-    expect(flow(starved).stone).toBe(0);
-    expect(apply(starved, { type: 'tap' }).stone).toBe(TAP_STONE);
-    // ...and by hand alone the town can still buy its way out.
-    let g = starved;
-    for (let i = 0; i < 48; i++) g = apply(g, { type: 'tap' });
-    expect(g.stone).toBeGreaterThanOrEqual(BASE.farm.stone!);
-  });
+  it('★★★ THE WHOLE OPENING, PLAYED: road, pit, pines, mill — no clicking', () => {
+    // The item's own acceptance check, run as a test rather than a scratch
+    // file (CLAUDE.md rule 4 on phantom citations). From `initial()` and
+    // nothing else, with only the actions a player has, the town reaches a
+    // working quarry + path + lumberworks chain and then a sawmill.
+    let g = initial();
+    let secs = 0;
+    const wait = (n: number): void => { g = tick(g, n); secs += n; };
 
-  it('the hand and the carts agree on what full means — one helper, not two', () => {
-    // Both call `stow`, so a retune can never let one drift from the other.
-    const g: City = { ...initial(), store: 2, stone: roomOf({ ...initial(), store: 2 }) };
-    expect(apply(g, { type: 'tap' }).stone).toBe(g.stone);
-    expect(tick({ ...g, pop: 9, food: 99, goblins: {}, stacks: { 1: 4 },
-      paths: { [pathKey(0, 1)]: 3 } }, 60).stone).toBe(g.stone);
+    g = apply(g, { type: 'lay', a: 0, b: 1 });        // 3 stone → 12
+    wait(PATH_SECS);
+    g = apply(g, { type: 'raise', id: 1 });           // 5 stone → 7
+    wait(BUILD_SECS.quarry);
+    expect(g.stacks[1]).toBe(1);
+
+    g = apply(g, { type: 'lay', a: 0, b: 2 });        // 3 stone → 4
+    wait(PATH_SECS);
+    g = apply(g, { type: 'raise', id: 2 });           // 8 LOGS → 2
+    wait(BUILD_SECS.lumber);
+    expect(g.stacks[2]).toBe(1);
+
+    // The chain is live: two settlers, one on each works, both carried home.
+    const mid = flow(g);
+    expect(mid.stone).toBeCloseTo(RATE.quarry, 9);
+    expect(mid.logsIn).toBeCloseTo(RATE.lumber, 9);
+    expect(mid.choked.size).toBe(0);
+
+    // The mill is EARNED, not given: 8 stone and 12 logs off that chain.
+    g = apply(g, { type: 'lay', a: 0, b: 3 });
+    wait(PATH_SECS);
+    for (let i = 0; i < 300 && unraisable(g, 3); i++) wait(1);
+    expect(unraisable(g, 3)).toBeNull();
+    g = apply(g, { type: 'raise', id: 3 });
+    wait(BUILD_SECS.sawmill);
+    expect(g.stacks[3]).toBe(1);
+    // ★ TWO SETTLERS CANNOT RUN THREE WORKS, and that is the game rather
+    // than a defect: auto fills the pit and the pines and the mill stands
+    // idle until a hand is POSTED to it, sawing the pile the pines banked.
+    // (The way out is a hut, and the hut is what the planks are for.)
+    expect(flow(g).planks).toBe(0);
+    g = apply(g, { type: 'pin', id: 3, d: 1 });
+    expect(flow(g).hands.get(3)).toBe(1);
+    expect(flow(g).planks).toBeGreaterThan(0);
+    expect(tick(g, 10).planks).toBeGreaterThan(0);
+    // ★ The whole bootstrap, measured: about a hundred seconds of idling,
+    // no taps, and nobody ever had to be told to press anything.
+    expect(secs).toBeLessThan(150);
   });
 });
 
@@ -1284,7 +1360,7 @@ describe('★★★ STARVING READS DELIVERY, NOT HARVEST', () => {
    *  crowd the food off the road — the whole point of the finding. */
   const shared = (gauge: number, over: Partial<City> = {}): City => ({
     ...initial(), goblins: {}, food: 0, pop: 40,
-    stacks: { 4: 6, 6: 6 },
+    stacks: { 0: huts(40), 4: 6, 6: 6 },
     paths: { [pathKey(0, 4)]: gauge, [pathKey(4, 6)]: MAX_GAUGE },
     ...over });
 
@@ -1330,7 +1406,7 @@ describe('★★★ STARVING READS DELIVERY, NOT HARVEST', () => {
     // The other direction: delivery is what counts, so a small town on a
     // thin path is fine as long as enough arrives.
     const small: City = { ...initial(), goblins: {}, food: 0, pop: 12,
-      stacks: { 4: 2 }, paths: { [pathKey(0, 4)]: 1 } };
+      stacks: { 0: huts(12), 4: 2 }, paths: { [pathKey(0, 4)]: 1 } };
     const f = flow(small);
     expect(f.food).toBeGreaterThanOrEqual(hunger(small));
     expect(f.starving).toBe(false);
@@ -1339,7 +1415,7 @@ describe('★★★ STARVING READS DELIVERY, NOT HARVEST', () => {
   it('★ an unconnected farm feeds nobody, and the town knows', () => {
     // No path at all: the harvest is real and entirely unreachable.
     const cut: City = { ...initial(), goblins: {}, food: 0, pop: 40,
-      stacks: { 4: 8 }, paths: {} };
+      stacks: { 0: huts(40), 4: 8 }, paths: {} };
     expect(flow(cut).food).toBe(0);
     expect(flow(cut).starving).toBe(true);
   });
@@ -1553,5 +1629,179 @@ describe('★ taken ground reloads', () => {
     expect(honour({ game: overrun, savedAt: 1 })).not.toBeNull();
     // A site that does not exist is still a forgery.
     expect(honour({ game: { ...initial(), goblins: { 99: 12 } }, savedAt: 1 })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ BUILDINGS GO UP OVER TIME, 2026-08-10 — the PC playtest. The owner:
+// *"some mill got built as far as I understand instantly, although this is a
+// little bit strange. Actually, it should take time to build it."*
+// `docs/BRIEF.md` item 3 makes TIMERS the idle spine, and until this the only
+// timer in the game was on paths.
+// ---------------------------------------------------------------------------
+describe('★★★ A WORKS TAKES TIME TO RAISE', () => {
+  /** A pathed rock face with money in the purse and nobody to quarry with,
+   *  so the ticks below move hammers and nothing else. */
+  const site = (over: Partial<City> = {}): City => ({
+    ...initial(), stone: 99, logs: 99, planks: 99, crew: { 1: 0 },
+    paths: { [pathKey(0, 1)]: 1 }, ...over });
+
+  it('★★★ paid up front, standing BUILD_SECS later, producing NOTHING meanwhile', () => {
+    let g = site();
+    g = apply(g, { type: 'raise', id: 1 });
+    // Paid at the order — the stone is in the foundations.
+    expect(g.stone).toBe(99 - BASE.quarry.stone!);
+    // ...and the pit does not exist yet: not in `stacks`, not staffed, not
+    // making anything. This is the whole item.
+    expect(g.stacks[1]).toBeUndefined();
+    expect(g.raising[1]).toEqual({ left: BUILD_SECS.quarry, secs: BUILD_SECS.quarry });
+    expect(raisingLeft(g, 1)).toBe(BUILD_SECS.quarry);
+    expect(flow({ ...g, crew: {} }).stone).toBe(0);
+    expect(flow({ ...g, crew: {} }).hands.get(1)).toBeUndefined();
+    // Half way is half way.
+    g = tick(g, BUILD_SECS.quarry / 2);
+    expect(raisingLeft(g, 1)).toBeCloseTo(BUILD_SECS.quarry / 2, 6);
+    expect(g.stacks[1]).toBeUndefined();
+    // And then it stands, mid-tick, exactly as a finished path joins `paths`.
+    g = tick(g, BUILD_SECS.quarry);
+    expect(g.stacks[1]).toBe(1);
+    expect(g.raising[1]).toBeUndefined();
+    expect(raisingLeft(g, 1)).toBeNull();
+    expect(flow({ ...g, crew: {} }).stone).toBeGreaterThan(0);
+  });
+
+  it('★ one hammer per site — a second order is refused, not queued', () => {
+    const g = apply(site(), { type: 'raise', id: 1 });
+    expect(unraisable(g, 1)).toBe('already raising');
+    expect(apply(g, { type: 'raise', id: 1 })).toBe(g);
+    // ...and the price is not paid twice for a copy that does not stand yet.
+    expect(g.stone).toBe(99 - BASE.quarry.stone!);
+  });
+
+  it('★ every kind has its own clock, and a hut is quicker than a mill', () => {
+    expect(buildSecs(initial(), 0)).toBe(BUILD_SECS.hut);
+    expect(buildSecs(initial(), 3)).toBe(BUILD_SECS.sawmill);
+    expect(BUILD_SECS.hut).toBeLessThan(BUILD_SECS.sawmill);
+    // Heavier than a road, which is the pacing claim the numbers make.
+    for (const k of Object.values(BUILD_SECS)) expect(k).toBeGreaterThan(PATH_SECS);
+    // ⚠️ FLAT, NOT ON THE CURVE: copy #9 takes exactly as long as copy #1.
+    // The COST already climbs 1.35^n; taxing the clock too would wall the
+    // ladder. If that is ever reversed, this is the line that says so.
+    let g = site({ stacks: { 1: 8 }, stone: 9e5 });
+    g = apply(g, { type: 'raise', id: 1 });
+    expect(g.raising[1]!.secs).toBe(BUILD_SECS.quarry);
+  });
+
+  it('★★ a refused raise starts no job at all — the gates come first', () => {
+    // Too poor, no road, goblins on it: all three refuse before any hammer.
+    expect(apply({ ...site(), stone: 0 }, { type: 'raise', id: 1 }).raising).toEqual({});
+    expect(apply({ ...site(), paths: {} }, { type: 'raise', id: 1 }).raising).toEqual({});
+    expect(apply(site(), { type: 'raise', id: 4 }).raising).toEqual({});
+  });
+
+  it('★★★ THE POCKET TIME BUILDS TOO — catchUp lands the job, and only once', () => {
+    // "Timers bank work" (docs/BRIEF.md). A mill ordered and then put in a
+    // pocket is standing when you come back — and it is ONE mill, not a
+    // night's worth. Chunked away-ticks must treat hammers like spades.
+    const ordered = apply(site({ crew: {}, stone: BASE.quarry.stone! }),
+      { type: 'raise', id: 1 });
+    const away = catchUp(ordered, 12 * 3600);
+    expect(away.stacks[1]).toBe(1);
+    expect(away.raising).toEqual({});
+    // A single enormous step obeys the same rule.
+    expect(tick(ordered, 12 * 3600).stacks[1]).toBe(1);
+    // And a job two seconds from done finishes and QUARRIES for the rest of
+    // the night, rather than sitting out the span.
+    expect(away.stone).toBe(roomOf(away));
+  });
+
+  it('★ jobs survive the save, and junk is refused at the door', () => {
+    const g = apply(site(), { type: 'raise', id: 1 });
+    expect(honour({ game: g, savedAt: 1 })!.game.raising)
+      .toEqual({ 1: { left: BUILD_SECS.quarry, secs: BUILD_SECS.quarry } });
+    // Ground that does not exist would throw on the panel's first paint.
+    expect(honour({ game: { ...initial(), raising: { 99: { left: 1, secs: 2 } } },
+      savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), raising: { 1: { left: -1, secs: 2 } } },
+      savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), raising: { 1: 'x' } as never },
+      savedAt: 1 })).toBeNull();
+    // An old save with no jobs at all loads with none.
+    const { raising: _, ...old } = initial();
+    expect(honour({ game: old as never, savedAt: 1 })!.game.raising).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ ONLY THE HOUSED WORK, 2026-08-10 — the PC playtest. The owner, twice:
+// *"I have four out of two people… and I do not have any penalties for it"*
+// and *"six out of two people right now, by the way, and I do not have any
+// penalties."* Captives walk home into a camp with no room and it was free.
+// ---------------------------------------------------------------------------
+describe('★★★ PEOPLE OVER THE HUT CAP DO NOT WORK — but they still eat', () => {
+  /** Four quarry slots at the rock face, and a camp with `hutCount` huts. */
+  const camp = (pop: number, hutCount: number): City => ({
+    ...initial(), pop, food: 999, goblins: {},
+    stacks: { 0: hutCount, 1: 1 }, paths: { [pathKey(0, 1)]: 3 } });
+
+  it('★★★ THE PENALTY: unhoused people do not staff a works', () => {
+    // Six people, no huts: the camp sleeps two, so two hands turn up and the
+    // other four stand in the rain. Before this, all six worked for free.
+    const crowded = camp(6, 0);
+    expect(popCap(crowded)).toBe(2);
+    expect(housed(crowded)).toBe(2);
+    expect(flow(crowded).hands.get(1)).toBe(2);
+    expect(flow(crowded).stone).toBeCloseTo(2 * RATE.quarry, 9);
+    // One hut and the same six people fill the pit — the answer is a hut.
+    const roofed = camp(6, 1);
+    expect(popCap(roofed)).toBe(6);
+    expect(flow(roofed).hands.get(1)).toBe(4);   // the works' own crew caps it
+    expect(flow(roofed).stone).toBeCloseTo(CREW * RATE.quarry, 9);
+  });
+
+  it('★★★ AND THEY STILL EAT — a mouth with no hands is the cost', () => {
+    // The bite has to be felt somewhere, or "over the cap" is still free.
+    const crowded = camp(12, 0);
+    expect(hunger(crowded)).toBeCloseTo((12 - WILD_FED) * EAT, 9);
+    expect(hunger(crowded)).toBe(hunger({ ...crowded, stacks: { 0: 9, 1: 1 } }));
+    // Which the tick actually charges to the larder.
+    expect(tick({ ...crowded, food: 10 }, 10).food)
+      .toBeCloseTo(10 - hunger(crowded) * 10, 6);
+  });
+
+  it('★★ A PLATEAU, NEVER A LOSS — nobody dies, nobody leaves, nothing is taken', () => {
+    // docs/BRIEF.md, standing constraint. The over-cap people wait.
+    const crowded = tick(camp(6, 0), 600);
+    expect(crowded.pop).toBe(6);
+    expect(crowded.stone).toBeGreaterThan(camp(6, 0).stone);
+    // ...and go to work the second a roof exists.
+    expect(flow({ ...crowded, stacks: { 0: 1, 1: 1 } }).hands.get(1)).toBe(4);
+  });
+
+  it('★★ IT IS THE CAPTIVES THIS IS FOR — a liberation can overfill the camp', () => {
+    // The owner's actual screen: 4 of 2, then 6 of 2. Captives are the only
+    // way past the cap (growth already stops at it), and they arrive able
+    // to eat and unable to work until the mill has paid for a hut.
+    let g: City = { ...initial(), hero: { hp: 10, arms: 1, part: 0 } };
+    g = apply(g, { type: 'assail', id: 4 });
+    for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
+      { type: 'aim', at: 2 }, { type: 'strike' },
+      { type: 'strike' }, { type: 'strike' }] as const) g = apply(g, a);
+    expect(g.pop).toBe(2 + CAPTIVES);
+    expect(popCap(g)).toBe(2);
+    expect(housed(g)).toBe(2);           // 4 of 2 — and now it means something
+  });
+
+  it('★ a pin cannot smuggle an unhoused hand onto a works either', () => {
+    // The pool is the housed count, so posting hands by name hits the same
+    // wall as auto — otherwise the penalty would be one '+' away from void.
+    const posted: City = { ...camp(9, 0), crew: { 1: 4 } };
+    expect(flow(posted).hands.get(1)).toBe(2);
+  });
+
+  it('★ housed() never exceeds either the people or the roofs', () => {
+    expect(housed({ ...initial(), pop: 99, stacks: { 0: 1 } })).toBe(2 + HUT_ROOM);
+    expect(housed({ ...initial(), pop: 3, stacks: { 0: 9 } })).toBe(3);
+    expect(housed({ ...initial(), pop: 2.9, stacks: { 0: 9 } })).toBe(2);
   });
 });

@@ -198,6 +198,13 @@ export interface City {
    *  A path is LAID now, not conjured (owner's ruling): it fills on the
    *  board over a few seconds and carries nothing until it is done. */
   laying: Record<string, { left: number; secs: number }>;
+  /** ★★ WORKS UNDER CONSTRUCTION, 2026-08-10 — siteId → seconds left and
+   *  the whole job, exactly the shape `laying` uses. The owner, on the
+   *  first PC playtest: *"some mill got built as far as I understand
+   *  instantly, although this is a little bit strange. Actually, it should
+   *  take time to build it."* A site under the hammer is NOT in `stacks`
+   *  yet, so it staffs nobody and makes nothing until the job lands. */
+  raising: Record<number, { left: number; secs: number }>;
   stone: number;
   logs: number;
   planks: number;
@@ -252,13 +259,46 @@ export interface City {
 
 export const CITY_VERSION = 5;
 
+/** ★★★ THE WAGON YOU ARRIVED WITH, 2026-08-10 — and the reason there is no
+ *  tap any more. See THE HAND IS GONE below for the why; this is the how.
+ *
+ *  The old opening was: click a rock 20 times, buy a quarry. With the hand
+ *  removed something has to pay for the first works, so the settlers bring
+ *  it with them. The numbers are the opening priced out, not a vibe:
+ *
+ *    STONE — the whole first chain, in order:
+ *      pathCostOf(0) = PATH_COST × 1 =  3   camp → Rock Face
+ *      BASE.quarry                   =  5   the first pit
+ *      pathCostOf(0)                 =  3   camp → Tall Pines
+ *      ------------------------------- 11   and 4 over, which is the road
+ *      to the river (3) with 1 to spare. The mill's own 8 stone is EARNED —
+ *      one hand on the pit is 0.15/s, so it is about a minute of idling,
+ *      which is the point of an idle game.
+ *
+ *    ⚠️ 15 IS ALSO THE ANTI-SOFTLOCK NUMBER, and that is why it is not 11.
+ *      Three roads leave the camp that are not goblin-held (0|1, 0|2, 0|3),
+ *      3 stone each = 9. A player who lays all three before building
+ *      anything still has 6, and a quarry is 5. There is no opening order
+ *      that can strand a town with no hand to dig its way out.
+ *
+ *    LOGS — a lumber camp costs BASE.lumber = 8 LOGS, and logs come only
+ *      from a lumber camp: without the old chop-by-hand that is a closed
+ *      loop, so the wagon carries the seed. 10 buys the camp with 2 over.
+ *      The sawmill's 12 logs are earned at 0.2/s a hand.
+ *
+ *  Nothing else is given. No food (the wild feeds the first six), no
+ *  planks (that is the mill's whole job), no huts. */
+export const START_STONE = 15;
+export const START_LOGS = 10;
+
 export const initial = (): City => ({
   version: CITY_VERSION,
   stacks: {},
   paths: {},
   laying: {},
-  stone: 0,
-  logs: 0,
+  raising: {},
+  stone: START_STONE,
+  logs: START_LOGS,
   planks: 0,
   food: 0,
   crew: {},
@@ -327,8 +367,41 @@ export const armsCost = (have: number): { stone: number; planks: number } => ({
   planks: Math.ceil(4 * Math.pow(1.3, have)),
 });
 
-/** One tap chips this much stone by hand — the bootstrap and the thumb. */
-export const TAP_STONE = 0.25;
+/** ★★★ THE HAND IS GONE, 2026-08-10 — the PC playtest's top finding, and the
+ *  only one that voided the whole economy. The owner: *"there is no need for
+ *  me to build a quarry because I am able to much faster click on the thing…
+ *  I don't need a quarry ever"*, and again for the pines: *"I can go and chop
+ *  logs by hand faster than any lumberworks can do it."*
+ *
+ *  THE ARITHMETIC THAT KILLED IT: `TAP_STONE` was 0.25 a click, ungated by
+ *  paths, hands, food or storage. A thumb at ~4Hz is 1.0/s FROM NOTHING,
+ *  forever. A quarry is RATE.quarry = 0.15/s **per hand**, shared across a
+ *  population that has to be housed and fed and hauled home over a path with
+ *  a 1.0/s cap. One thumb therefore out-earned six fully-crewed pits — so
+ *  every ladder in this file (works, huts, carts, storehouses, the whole
+ *  logistics layer) was priced against an income the player beat by hand,
+ *  and none of them were worth buying.
+ *
+ *  The owner's own ruling: *"maybe clicking on the stone or clicking on the
+ *  logs doesn't make any sense. Maybe we should just give some initial
+ *  resources."* So the `tap` action is deleted outright and `initial()`
+ *  carries the opening — see START_STONE above.
+ *
+ *  ⚠️ TWO OLD EXEMPTIONS DIED WITH IT, on the record so nobody re-derives
+ *  them from the tests that used to pin them:
+ *
+ *    THE BOOTSTRAP — the hand was the only source of the first 5 stone in a
+ *    town with no paths and no works. That job now belongs to START_STONE,
+ *    which is sized so no opening order can strand the town.
+ *
+ *    THE FLOOR UNDER A STARVE — an empty larder halts every works but the
+ *    farms, and the hand was how a farmless starving town earned the 12
+ *    stone for a field. It cannot any more. That is survivable rather than
+ *    fatal ONLY because starving needs pop > WILD_FED, which without bread
+ *    needs captives, which needs `taken > 0`, which starts the raids — so a
+ *    starved town loses its valley and `found`s the next one. A slow end,
+ *    not a frozen save. If growth ever stops requiring bread, this becomes
+ *    a real softlock and wants a farm-of-last-resort. */
 
 /** ★★ THE STOREHOUSE, 2026-08-08 (owner: *"we'd need to do some storage
  *  capacity"*). Every good is capped; a full store WASTES what arrives,
@@ -449,6 +522,36 @@ export const PATH_COST = 3;
  *  point is a path GOING IN, not a wait. */
 export const PATH_SECS = 6;
 
+/** ★★★ WORKS TAKE TIME TO RAISE, 2026-08-10 (the PC playtest). The owner:
+ *  *"some mill got built as far as I understand instantly, although this is
+ *  a little bit strange. Actually, it should take time to build it."*
+ *  `docs/BRIEF.md` item 3 makes TIMERS the idle spine, and until now the
+ *  only timer in this game was on paths — everything else was a purchase
+ *  that landed the instant you could afford it, which is a shop, not an
+ *  idle game.
+ *
+ *  ⚠️ FLAT PER KIND, NOT ON THE CURVE, and that is deliberate. The COST
+ *  already climbs 1.35^n (CURVE), so putting the copy number into the clock
+ *  too would tax the same ladder twice and turn a deep site into a wall you
+ *  watch. Paths scale with gauge because there are only three gauges and
+ *  their price curve is a gentle ×(gauge+1); works have no such ceiling.
+ *  The clock's job here is "a building goes UP", not "a building is a wait".
+ *
+ *  The numbers are read against PATH_SECS = 6: a works is heavier than a
+ *  road, a mill is the heaviest thing in the valley, and a hut is the one
+ *  you buy over and over so it is the quickest. The opening chain is
+ *  therefore 6s of road + 10s of pit before the first stone moves. */
+export const BUILD_SECS: Record<Kind, number> = {
+  hut: 8, quarry: 10, lumber: 10, sawmill: 15, farm: 12,
+};
+/** Seconds left on this site's job, or null when nothing is going up —
+ *  what the board and the panel draw the progress from. */
+export const raisingLeft = (g: City, id: number): number | null =>
+  g.raising[id]?.left ?? null;
+/** How long this site's NEXT copy will take, for the deed's own label. */
+export const buildSecs = (g: City, id: number): number =>
+  BUILD_SECS[SITE.get(id)?.allows ?? 'quarry'];
+
 /** ★ THE CURVES: a works copy is a four-hand unit bought a handful of
  *  times per site — 1.35^n bites by the third copy. Huts are the one
  *  repeated purchase and the plank sink, so they stay on gentle 1.15. */
@@ -488,6 +591,24 @@ export const shown = (g: City): Site[] =>
   SITES.filter((s) => s.behind === undefined || !(s.behind in g.goblins));
 
 export const popCap = (g: City): number => 2 + (g.stacks[0] ?? 0) * HUT_ROOM;
+
+/** ★★★ ONLY THE HOUSED WORK, 2026-08-10 (the PC playtest). The owner, twice:
+ *  *"I have four out of two people… and I do not have any penalties for it"*
+ *  and *"six out of two people right now, by the way, and I do not have any
+ *  penalties."* Captives walk home from every liberation into a camp with no
+ *  room, and it was free — the hut ladder, which is the plank sink and the
+ *  whole reason to run the mill, could simply be skipped.
+ *
+ *  THE RULE, and it is the smallest one that bites: a person past the huts'
+ *  cap is NOT HOUSED, so they do not staff a works. They still eat — see
+ *  `hunger`, which reads `g.pop` whole — so an over-full camp is a mouth
+ *  with no hands, and the answer is a hut.
+ *
+ *  ⚠️ A PLATEAU, NEVER A LOSS (`docs/BRIEF.md`, standing constraint). Nobody
+ *  starves to death, nobody leaves, no stock is taken. The extra people wait
+ *  at the gate and go to work the second a roof exists. */
+export const housed = (g: City): number =>
+  Math.min(Math.floor(g.pop), popCap(g));
 
 /** ★ THE COMPONENT: every site a path chain joins to the camp. */
 export function component(g: City): Set<number> {
@@ -587,7 +708,10 @@ export function flow(g: City): Flow {
     .sort((a, b) => a - b);
   const capOf = (id: number): number => (g.stacks[id] ?? 0) * CREW;
   const hands = new Map<number, number>();
-  let pool = Math.floor(g.pop);
+  // ★ ONLY THE HOUSED WORK — see `housed()`. Everyone past the huts' cap is
+  // a mouth without a bunk, and a hand that has nowhere to sleep does not
+  // turn up. They still eat: `hunger()` reads the whole population.
+  let pool = housed(g);
   const autos: number[] = [];
   for (const id of worked) {
     if (g.crew[id] !== undefined) {
@@ -805,6 +929,10 @@ export function unraisable(g: City, id: number): string | null {
   // something before there's a path to that spot."* No works on ground
   // the town cannot reach.
   if (id !== 0 && !component(g).has(id)) return 'no path reaches here';
+  // ★ ONE HAMMER PER SITE, the same ruling `unlayable` makes about spades.
+  // It is also what keeps the price honest: with a job in flight `stacks`
+  // has not moved yet, so a second order would buy copy #n twice.
+  if (g.raising[id]) return 'already raising';
   return shortOf(g, costOf(s.allows, g.stacks[id] ?? 0));
 }
 
@@ -840,12 +968,10 @@ export type Action =
   /** `away` marks a tick that is being caught up from the clock rather than
    *  played. Menace still builds; raids do not land. */
   | { type: 'tick'; secs: number; away?: boolean }
-  /** Work by hand where you stand looking — stone off the rocks, logs off
-   *  the pines. The thumb follows the tapped site; the shell says which. */
-  | { type: 'tap'; kind?: 'stone' | 'logs' }
   /** Lay the path between neighbours, or widen it a gauge. */
   | { type: 'lay'; a: number; b: number }
-  /** Raise the NEXT copy of this site's works (a hut, at the camp). */
+  /** Put the NEXT copy of this site's works under construction (a hut, at
+   *  the camp). Paid now, standing in BUILD_SECS seconds. */
   | { type: 'raise'; id: number }
   /** Set a works' hands by ±1 — the first touch takes over from auto. */
   | { type: 'pin'; id: number; d: 1 | -1 }
@@ -971,6 +1097,25 @@ export function apply(g: City, a: Action): City {
         }
       }
 
+      // ★★ AND THE HAMMERS: every works under construction comes on by the
+      // same span, and a finished one JOINS `stacks` mid-tick — exactly the
+      // way a finished path joins `paths` one block up. `catchUp` chunks the
+      // away run at STEP_SECS, so a night in a pocket lands every build job
+      // it should and none of them early.
+      let stacks = g.stacks;
+      let raising = g.raising;
+      for (const [idStr, job] of Object.entries(g.raising)) {
+        const id = Number(idStr);
+        const left = job.left - s;
+        if (raising === g.raising) { raising = { ...g.raising }; stacks = { ...g.stacks }; }
+        if (left <= 0) {
+          stacks[id] = (stacks[id] ?? 0) + 1;
+          delete raising[id];
+        } else {
+          raising[id] = { left, secs: job.secs };
+        }
+      }
+
       // ★ Goblins regroup while nobody is on their ground — a bled holding
       // climbs back toward its spawn. Chip-flee-heal-repeat is dead.
       let goblins = g.goblins;
@@ -987,7 +1132,6 @@ export function apply(g: City, a: Action): City {
       // `docs/BRIEF.md` — "timers bank work; they never punish absence" — so
       // you come back to a raid about to break, never to a ruin.
       let menace = g.menace;
-      let stacks = g.stacks;
       const able = raiders(g);
       const canRaid = new Set(able);
       for (const id of Object.keys(g.menace).map(Number)) {
@@ -1044,33 +1188,12 @@ export function apply(g: City, a: Action): City {
         goblins,
         paths,
         laying,
+        raising,
         menace,
         stacks,
         lost,
       };
     }
-
-    // ★★★ THE HAND OBEYS THE CEILING, 2026-08-08. The coherence review:
-    // the tap obeys no gate the rest of the game obeys — and the storehouse
-    // made that strictly worse, because a full store could be tapped past
-    // its own cap forever, which makes the whole storehouse ladder
-    // skippable by spamming a button.
-    //
-    // ⚠️ IT DELIBERATELY DOES NOT OBEY THE OTHER TWO, and both exemptions
-    // are load-bearing rather than laziness:
-    //
-    //   THE PATHS — `initial()` has no paths and no works, so the hand is
-    //   the only source of the first 5 stone. Route the tap and the game
-    //   cannot be started at all.
-    //
-    //   STARVING — an empty larder halts every works but the farms. A town
-    //   with no farm yet needs 12 stone to build one, and if the hand
-    //   halted too there would be no way to earn it: a save that can never
-    //   recover. The hand is the floor under a starve, on purpose.
-    case 'tap':
-      return a.kind === 'logs'
-        ? { ...g, logs: stow(g, g.logs, g.logs + TAP_STONE) }
-        : { ...g, stone: stow(g, g.stone, g.stone + TAP_STONE) };
 
     case 'lay': {
       if (unlayable(g, a.a, a.b)) return g;
@@ -1217,17 +1340,24 @@ export function apply(g: City, a: Action): City {
         fight: null };
     }
 
+    // ★★★ RAISING TAKES TIME — see BUILD_SECS. THE COSTS ARE PAID WHEN THE
+    // JOB STARTS, not when it lands: the stone is in the foundations, and a
+    // price you could dodge by having the goods only at the end would make
+    // the timer a formality. `stacks` does not move until the tick finishes
+    // the job, so a works under construction staffs nobody and makes
+    // nothing — which is the whole point of the item.
     case 'raise': {
       if (unraisable(g, a.id)) return g;
       const s = SITE.get(a.id)!;
       const have = g.stacks[a.id] ?? 0;
       const price = costOf(s.allows, have);
+      const secs = BUILD_SECS[s.allows];
       return {
         ...g,
         stone: g.stone - (price.stone ?? 0),
         logs: g.logs - (price.logs ?? 0),
         planks: g.planks - (price.planks ?? 0),
-        stacks: { ...g.stacks, [a.id]: have + 1 },
+        raising: { ...g.raising, [a.id]: { left: secs, secs } },
       };
     }
   }
