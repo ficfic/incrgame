@@ -30,9 +30,23 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // Menace is a fraction per holding, 0..1 — never a count.
   if (g.taken !== undefined && !whole(g.taken, 0, 999)) return null;
   if (g.lost !== undefined && typeof g.lost !== 'boolean') return null;
+  // ★★ THE ARMOURY MAKES SPEARS NOW, 2026-08-10 — `arms` became `spears`
+  // when the abstract counter got a name (see engine.ts). The MIGRATION is
+  // two lines and saves are only breakable when the fix is dear, so an older
+  // save's `arms` is READ AS the spears it always was — on the hero and on
+  // the veteran both. The value is validated after the move, never before,
+  // so a junk `arms: 1.5` is still refused at the door.
+  const reword = <T extends object>(o: T): T => {
+    const { arms, ...rest } = o as T & { arms?: unknown };
+    return { ...rest, spears: arms } as unknown as T;
+  };
+  if (g.hero !== undefined && typeof g.hero === 'object' && g.hero !== null
+    && g.hero.spears === undefined) g.hero = reword(g.hero);
+  if (g.legacy !== undefined && typeof g.legacy === 'object' && g.legacy !== null
+    && g.legacy.spears === undefined) g.legacy = reword(g.legacy);
   if (g.legacy !== undefined) {
     if (typeof g.legacy !== 'object' || g.legacy === null) return null;
-    if (!whole(g.legacy.runs, 0, 9999) || !whole(g.legacy.arms, 0, 999)) return null;
+    if (!whole(g.legacy.runs, 0, 9999) || !whole(g.legacy.spears, 0, 999)) return null;
   }
   if (g.menace !== undefined) {
     if (typeof g.menace !== 'object' || g.menace === null) return null;
@@ -97,7 +111,7 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   }
   if (g.hero !== undefined) {
     if (typeof g.hero !== 'object' || g.hero === null) return null;
-    if (!num(g.hero.hp, 0, 99) || !num(g.hero.arms, 0, 99) || !num(g.hero.part, 0, 2)) return null;
+    if (!num(g.hero.hp, 0, 99) || !num(g.hero.spears, 0, 99) || !num(g.hero.part, 0, 2)) return null;
   }
   if (g.fight !== undefined && g.fight !== null) {
     // The battle strip's whole shape, or no fight at all: an old-shape or
@@ -116,8 +130,19 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
       // ⚠️ THE PACK IS THE RATION RULING. Missing, it read `undefined <= 0`
       // → false, spent to `NaN`, and `NaN <= 0` is false forever: unlimited
       // rations from any packless save.
-      && whole(f.packs, 0, RATION_PACK);
+      && whole(f.packs, 0, RATION_PACK)
+      // ★★ THE ORDER IN FLIGHT, 2026-08-10. A blow is a `{left, secs, act}`
+      // job like a path's or a works' — but keyed by an ACT, so an unknown
+      // verb must die at the door or `lands()` would fall through to a
+      // strike the player never called. Missing (an older save, or a save
+      // taken between orders) is the ordinary case: no blow in flight.
+      && (f.blow === undefined || f.blow === null
+        || (typeof f.blow === 'object'
+          && num(f.blow.left, 0, 1e6) && num(f.blow.secs, 0, 1e6)
+          && (f.blow.act === 'strike' || f.blow.act === 'guard'
+            || f.blow.act === 'ration')));
     if (!sound) g.fight = null;
+    else g.fight = { ...(f as NonNullable<City['fight']>), blow: f.blow ?? null };
   }
   return { game: { ...initial(), ...g }, savedAt: b.savedAt };
 }

@@ -699,19 +699,19 @@ what the engine already knows.
 
 ## A — THE TAP BEATS EVERYTHING, and that voids the game ★★★
 
-- [ ] **★★★ Clicking out-earns every building, so nothing you build matters.** *"there is no need for me to build a quarry because I am able to much faster click on the thing… I don't need a quarry ever"* and again for logs: *"I can go and chop logs by hand faster than any lumberworks can do it."* `TAP_STONE` is 0.25 a click; a quarry is 0.15/s **shared across its hands**. A thumb at 4Hz is 1.0/s from nothing, forever, ungated by paths, hands, food or storage. Every ladder in the game — works, huts, carts, the whole logistics layer — is priced against an income the player can trivially beat by hand. **This is the top item; nothing else in this list matters while it holds.** The owner's own suggestion: *"maybe clicking on the stone or clicking on the logs doesn't make any sense. Maybe we should just give some initial resources."*
-- [ ] **★★ Taking ground buys nothing you want.** *"the next item, high quarry. But what's the point? I can have one quarry, or I can just click. What is the point of me taking things with quarries?"* `rich` ×1.5–×3.5 multiplies a rate the tap already dwarfs. Falls out of A, but check it again after A is fixed.
+- [x] ✔ DONE 2026-08-10 **★★★ Clicking out-earns every building, so nothing you build matters.** *"there is no need for me to build a quarry because I am able to much faster click on the thing… I don't need a quarry ever"* and again for logs: *"I can go and chop logs by hand faster than any lumberworks can do it."* `TAP_STONE` is 0.25 a click; a quarry is 0.15/s **shared across its hands**. A thumb at 4Hz is 1.0/s from nothing, forever, ungated by paths, hands, food or storage. Every ladder in the game — works, huts, carts, the whole logistics layer — is priced against an income the player can trivially beat by hand. **This is the top item; nothing else in this list matters while it holds.** The owner's own suggestion: *"maybe clicking on the stone or clicking on the logs doesn't make any sense. Maybe we should just give some initial resources."*
+- [x] ✔ DONE 2026-08-10 — audited after the tap died: +0.30 to +2.00/s per liberation against **+0.00/s** for the same spend on safe copies, because hands bind. **★★ Taking ground buys nothing you want.** *"the next item, high quarry. But what's the point? I can have one quarry, or I can just click. What is the point of me taking things with quarries?"* `rich` ×1.5–×3.5 multiplies a rate the tap already dwarfs. Falls out of A, but check it again after A is fixed.
 - [x] ✔ DONE 2026-08-10 (67f22ec) **★ `quarry ×1.5` on held ground means nothing to a player.** *"Query one point five. What does it even mean?"* The prize line states a multiplier without saying what it multiplies.
 
 ## B — NOTHING TAKES TIME, so there is no idle game ★★★
 
-- [ ] **★★★ Buildings go up instantly.** *"some mill got built as far as I understand instantly, although this is a little bit strange. Actually, it should take time to build it."* Paths take time (`PATH_SECS`); nothing else does. `docs/BRIEF.md` item 3 — **timers are the idle spine** — and the only timer in the game is on paths.
-- [ ] **★★ Fights resolve instantly.** *"it is a little bit weird that these attacks are instant again."* Every strike is a button press with no clock, so a fight is a mash, not a decision.
+- [x] ✔ DONE 2026-08-10 **★★★ Buildings go up instantly.** *"some mill got built as far as I understand instantly, although this is a little bit strange. Actually, it should take time to build it."* Paths take time (`PATH_SECS`); nothing else does. `docs/BRIEF.md` item 3 — **timers are the idle spine** — and the only timer in the game is on paths.
+- [x] ✔ DONE 2026-08-10 **★★ Fights resolve instantly.** *"it is a little bit weird that these attacks are instant again."* Every strike is a button press with no clock, so a fight is a mash, not a decision.
 
 ## C — THE BOARD LIES ABOUT WHAT IT IS DRAWING ★★
 
 - [x] ✔ DONE 2026-08-10 (cc2d094) **★★★ Carrier dots do not match the rate they claim.** *"if it is point zero four per second, then I anticipate to see a dot moving from lumberworks to the camp at a rate of one per two seconds. At the moment, I see much more."* The dots are a `lineDashOffset` crawl with a fixed dash pattern — decoration, not a readout. **One dot should be one unit delivered.**
-- [ ] **★★ No `+1` when a good actually lands, and no icon on it.** *"I also don't see plus one pop up with the appropriate icon once the resource is mined."* There is a `+1` for whole stone at the camp only, unlabelled.
+- [x] ✔ DONE 2026-08-10 **★★ No `+1` when a good actually lands, and no icon on it.** *"I also don't see plus one pop up with the appropriate icon once the resource is mined."* There is a `+1` for whole stone at the camp only, unlabelled.
 - [x] ✔ DONE 2026-08-10 (cc2d094) **★★ Path colour says nothing.** *"the path color when it is building, it is blue. I don't understand why it is blue. And when it's finished, it's dark blue. I don't understand why it is dark blue."* Under construction and carrying are two different facts wearing nearly the same colour.
 - [ ] **★ The colours generally.** *"the colors are also a little bit strange."* Unspecific — needs the owner to point at one.
 
@@ -721,17 +721,17 @@ what the engine already knows.
 
 ## E — GATES THAT ARE NOT THERE ★★
 
-- [ ] **★★ You can chop logs at Tall Pines with no path to it.** *"I'm still able to chop logs in Tall Pines even though I don't have a road there."* The chop deed has `why: null` — no reach check, while every other source of goods obeys the graph.
-- [ ] **★ Population over the cap costs nothing.** *"I have four out of two people… and I do not have any penalties for it"* and later *"six out of two people right now, by the way, and I do not have any penalties."* Captives walk home into a camp with no room and it is free.
+- [x] ✔ DONE 2026-08-10 (the hand is gone) **★★ You can chop logs at Tall Pines with no path to it.** *"I'm still able to chop logs in Tall Pines even though I don't have a road there."* The chop deed has `why: null` — no reach check, while every other source of goods obeys the graph.
+- [x] ✔ DONE 2026-08-10 **★ Population over the cap costs nothing.** *"I have four out of two people… and I do not have any penalties for it"* and later *"six out of two people right now, by the way, and I do not have any penalties."* Captives walk home into a camp with no room and it is free.
 
 ## F — THE HUD ★
 
-- [ ] **★★ Stone is tappable, logs is not, and nothing says why.** *"while I can click the stone in the resource, I cannot click logs. This is weird."* Two cells that look identical behave differently. (Logs has a chop deed at the pines; the HUD does not say so.)
+- [x] ✔ DONE 2026-08-10 (neither is) **★★ Stone is tappable, logs is not, and nothing says why.** *"while I can click the stone in the resource, I cannot click logs. This is weird."* Two cells that look identical behave differently. (Logs has a chop deed at the pines; the HUD does not say so.)
 - [x] ✔ DONE 2026-08-10 (67f22ec) **★ The storage cap is invisible until you hit it.** *"I don't seem to have any storage capacity… it doesn't say anywhere what is my limit for the stone… I don't really have — sixty out of sixty. Okay."* The cell shows the rate, and only says `full of 60` once it is full. Should read `41/60` throughout.
 
 ## G — THE FICTION DOES NOT HOLD ★★
 
-- [ ] **★★ "Arms" is not a thing a player can picture, and its price makes no sense.** *"I don't understand why arms has swords ×4… the whole concept with making arms is a little bit strange. What does it even mean, making arms? … Maybe we are building leather armor and its pieces, or more daggers. But why does it take planks and stones then? It's a little bit unclear. We need hunters in the woods or something like this to get leather and process leather."* A real chain — hunters → hides → a workshop → gear — instead of an abstract counter bought with masonry.
+- [x] ✔ DONE 2026-08-10 (spears: stone head · plank shaft) **★★ "Arms" is not a thing a player can picture, and its price makes no sense.** *"I don't understand why arms has swords ×4… the whole concept with making arms is a little bit strange. What does it even mean, making arms? … Maybe we are building leather armor and its pieces, or more daggers. But why does it take planks and stones then? It's a little bit unclear. We need hunters in the woods or something like this to get leather and process leather."* A real chain — hunters → hides → a workshop → gear — instead of an abstract counter bought with masonry.
 
 ## H — NO GOAL ON SCREEN ★★
 
@@ -761,7 +761,7 @@ facts.
 
 ## ✔ CONFIRMED BY EXECUTION — must fix before this deploys
 
-- [ ] **★★★ PERMANENT SOFTLOCK, and it is reachable by ordinary play.** Lay all
+- [x] ✔ FIXED 2026-08-10 — a widen on a road nothing travels is refused **★★★ PERMANENT SOFTLOCK, and it is reachable by ordinary play.** Lay all
   three camp roads (−9, leaving 6), wait for them to finish, widen one
   (`pathCostOf(1)` = 6) → **0 stone, no works, no stone source, forever.**
   Verified: an hour of ticks later, still `0.00` stone; quarry (5) and
@@ -771,7 +771,7 @@ facts.
   hatch; removing it removed the escape.)* Fix candidate: **a widen on a path
   that carries nothing is a trap purchase in every case, not just the fatal
   one** — refuse it.
-- [ ] **★★★ THE SAWMILL MAKES NOTHING ON A DEFAULT SAVE.** Verified by
+- [x] ✔ FIXED 2026-08-10 — the camp itself shelters four **★★★ THE SAWMILL MAKES NOTHING ON A DEFAULT SAVE.** Verified by
   running the opening: with `pop 2`, the round-robin over sites [1,2,3] gives
   `Rock Face=1, Tall Pines=1, River Bend=0` and **`planks/s 0.000`**. Planks
   are the only route to a hut, a hut is the only route to pop, pop multiplies

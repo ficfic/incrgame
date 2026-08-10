@@ -6,9 +6,9 @@
   import { INK, TOL } from '../game/ink';
   import type { Box } from '../game/layout';
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
-    priceLine, unlayable, unraisable, unassailable, heroHit, armsCost, hunger,
+    priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
-    raisingLeft, buildSecs, housed,
+    raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP,
@@ -298,12 +298,16 @@
         go: () => act({ type: 'cart' }),
       });
       }
-      const p = armsCost(game.hero.arms);
+      const p = spearCost(game.hero.spears);
       const short = game.stone < p.stone || game.planks < p.planks;
       out.push({
-        label: `Arms ×${game.hero.arms + 1}`,
-        note: `${price(p)} → ${MARK.hero}${heroHit(game) + 1}`
-          + (game.hero.arms > 0 ? ` · ${times(game.hero.arms)}` : ''),
+        label: spearLabel(game.hero.spears + 1),
+        // ★ WHAT IT IS MADE OF, said on the deed — 2026-08-10 (playtest).
+        // The owner: *"why does it take planks and stones then? It's a
+        // little bit unclear."* A spear is a knapped stone head on a planed
+        // plank shaft, which is exactly the two goods charged.
+        note: `${price(p)} → ${MARK.hero}${heroHit(game) + 1} · ${SPEAR_MADE}`
+          + (game.hero.spears > 0 ? ` · ${times(game.hero.spears)}` : ''),
         why: short ? price(p) : null,
         go: () => act({ type: 'arm' }),
       });
@@ -543,11 +547,11 @@
          until they choose to walk out. -->
     <div class="gone">
       <h1>THE VALLEY IS LOST</h1>
-      <p class="note">{MARK.danger} the camp is overrun · {MARK.hero}{game.hero.arms} carried</p>
+      <p class="note">{MARK.danger} the camp is overrun · {MARK.hero}{game.hero.spears} carried</p>
       <p class="note">the works are gone · the veteran is not</p>
       <button class="deed row big" onclick={() => act({ type: 'found' })}>
         <span class="what">Found the next camp</span>
-        <em>{MARK.hero}{Math.max(game.legacy.arms, Math.floor(game.hero.arms / 2) + 1)}
+        <em>{MARK.hero}{Math.max(game.legacy.spears, Math.floor(game.hero.spears / 2) + 1)}
           · run {game.legacy.runs + 1}</em>
       </button>
     </div>
@@ -601,7 +605,7 @@
       <span class="cell" class:brim={game.pop >= cap} data-q="huts"
         aria-label="huts">🏠 {game.pop >= cap ? 'full' : `×${game.stacks[0] ?? 0}`}</span>
       <span class="cell" class:hurt={game.hero.hp < heroMax(game) / 3} data-q="hero"
-        aria-label="hero">⚔️ {game.hero.hp}/{heroMax(game)} · arms {game.hero.arms}</span>
+        aria-label="hero">⚔️ {game.hero.hp}/{heroMax(game)} · {spearLabel(game.hero.spears).toLowerCase()}</span>
       <span class="cell" data-q="carts" aria-label="carts">🛞 {game.carts}</span>
       <!-- ⚠️ THE GEAR LIVES IN THIS ROW, not pinned over the top corner. It
            was absolute, and it sat on the FOOD column and clipped its label
@@ -685,16 +689,27 @@
           : `their answer: ${fi.sq.reduce((n, q) => n + (q.hp > 0 ? q.poke : 0), 0)}${windup(fi.round + 1) ? ' · wind-up next' : ''}`}</p>
         <!-- ★ COMPACT VERBS, 2×2 — four stacked full-width deeds pushed the
              strip off small screens (the visual pass). -->
-        <div class="verbs">
-          <button class="deed" onclick={() => act({ type: 'strike' })}>
+        <!-- ★★ THE BLOW IN FLIGHT — 2026-08-10 (playtest). The owner: *"it is
+             a little bit weird that these attacks are instant again."* An
+             order now takes seconds, so the strip must SAY it is mid-swing
+             and refuse a second order, or the delay reads as a dead button. -->
+        {#if blowLeft(game) !== null}
+          <p class="note swinging">{MARK.time}{(blowLeft(game) ?? 0).toFixed(1)}s
+            · {game.fight?.blow?.act ?? ''}</p>
+        {/if}
+        <div class="verbs" class:mid={blowLeft(game) !== null}>
+          <button class="deed" disabled={blowLeft(game) !== null}
+            onclick={() => act({ type: 'strike' })}>
             Attack
             <em>{heroHit(game)} into the {fi.sq[aimedAt]?.kind ?? 'line'}</em>
           </button>
-          <button class="deed" onclick={() => act({ type: 'guard' })}>
+          <button class="deed" disabled={blowLeft(game) !== null}
+            onclick={() => act({ type: 'guard' })}>
             Guard
             <em>block their whole answer</em>
           </button>
-          <button class="deed" disabled={fi.packs <= 0 || game.food < RATION_FOOD}
+          <button class="deed"
+            disabled={blowLeft(game) !== null || fi.packs <= 0 || game.food < RATION_FOOD}
             onclick={() => act({ type: 'ration' })}>
             Rations ×{fi.packs}
             <em>{RATION_FOOD} food → +{RATION_HP} hero</em>
@@ -820,6 +835,10 @@
   .gone .note { margin: 0; }
   .gone .deed.row.big { align-items: center; min-height: 56px; max-width: 320px;
     background: #fdfaf2; border-color: #b3452f; margin-top: 8px; }
+
+  /* ⚠️ `flee` KEEPS ITS BUTTON MID-SWING ON PURPOSE — a safety valve you
+     have to wait for is not a safety valve. */
+  .swinging { color: #b3452f; font-weight: 700; text-align: center; margin: 2px 0; }
 
   .keep { font-size: 14px; color: #6b5d3f; font-weight: 600; }
   .keep.build { color: #b0a892; font-weight: 400; font-size: 12px; }

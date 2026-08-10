@@ -81,9 +81,9 @@ export const richOf = (id: number): number => SITE.get(id)?.rich ?? 1;
 export const GOBLINS: Record<number,
   { strength: number; bite: number; runt: number }> = {
   // ⚠️ RETUNED 2026-08-08 (chad-liquidity): 24 and 32 make the ladder a
-  // clean +2 of arms per fight — 1/2/4/6/8/10.
+  // clean +2 of spears per fight — 1/2/4/6/8/10.
   // ⚠️ RETUNED AGAIN 2026-08-08 (the battle strip): `runt` is each rear
-  // square's health, pegged to the ladder's hit (2+arms) — ONE aimed
+  // square's health, pegged to the ladder's hit (2+spears) — ONE aimed
   // strike drops a runt at tier, TWO at tier-minus-one, and those two
   // extra full-line answers are the whole gate. Re-simmed to optimal
   // play square by square (test: "THE LADDER HOLDS — solved, not felt",
@@ -155,11 +155,11 @@ export function raidTarget(g: City, id: number): number | null {
 /** ★ GOBLINS REGROUP: a bled, unengaged holding climbs back toward its
  *  spawn. Kills the never-arm exploit — chip, flee, heal free, repeat.
  *  (The old bare-hands two-sortie tutorial is void: the strip gates
- *  fight one at Arms ×1, which teaches arming.)
+ *  fight one at Spears ×1, which teaches arming.)
  *
  *  ⚠️ RETUNED 2026-08-08 (review finding): the rate was FLAT 0.05/s, so a
  *  cycle's cost was 0.75 strength per hp healed no matter which holding
- *  it was — while the damage a sortie deals grows with arms. The deep
+ *  it was — while the damage a sortie deals grows with spears. The deep
  *  rungs therefore ground out ONE RUNG UNDER the gate (+0.75, +2.50,
  *  +4.25 net per cycle at sites 7/8/9). Regen is now a FRACTION OF
  *  SPAWN a second, so a bigger holding closes its wounds faster and the
@@ -222,8 +222,9 @@ export interface City {
   crew: Record<number, number>;
   /** ★ Held ground: siteId → goblin strength LEFT. Absent = liberated. */
   goblins: Record<number, number>;
-  /** ★ THE HERO — one, the town's own. Arms come from the stores. */
-  hero: { hp: number; arms: number; part: number };
+  /** ★ THE HERO — one, the town's own. SPEARS come from the stores; see
+   *  THE ARMOURY MAKES SPEARS below for why the word changed. */
+  hero: { hp: number; spears: number; part: number };
   /** ★ STOREHOUSES at the camp — how many stand. They are the CAP on every
    *  good; a full store wastes what arrives, the same law the paths obey. */
   store: number;
@@ -240,8 +241,9 @@ export interface City {
   taken: number;
   /** ★ THE VALLEY IS LOST — the camp itself has been overrun. */
   lost: boolean;
-  /** ★ WHAT OUTLIVES A RUN. The infrastructure does not; the veteran does. */
-  legacy: { runs: number; arms: number };
+  /** ★ WHAT OUTLIVES A RUN. The infrastructure does not; the veteran does —
+   *  and what he carries out is the spears on his back. */
+  legacy: { runs: number; spears: number };
   /** ★ A FIGHT IN PROGRESS, or null — the owner's own screen: our square
    *  left, three goblin squares right. Turn-based: every round is yours.
    *  `sq` is the line — a BRUTE up front (the mash trap) and two RUNTS
@@ -254,8 +256,17 @@ export interface City {
     round: number;
     /** Rations left in the pack this sortie. */
     packs: number;
+    /** ★★★ THE ORDER IN FLIGHT — the act you called and the seconds before
+     *  it lands, or null when the hero is waiting on you. EXACTLY the
+     *  `{ left, secs }` shape `laying` and `raising` wear, because this
+     *  engine now has ONE way of saying "this takes time". */
+    blow: { left: number; secs: number; act: Blow } | null;
   } | null;
 }
+
+/** What can be ordered in a fight. `aim` is free and `flee` is instant —
+ *  neither is a blow. */
+export type Blow = 'strike' | 'guard' | 'ration';
 
 export const CITY_VERSION = 5;
 
@@ -302,18 +313,19 @@ export const initial = (): City => ({
   planks: 0,
   food: 0,
   crew: {},
-  // ★ Two people came with you. Zero people would be zero rates forever.
-  pop: 2,
+  // ★ FOUR came with you — see CAMP_ROOM. It was two, and two people cannot
+  // staff the three works the opening asks for, so the mill made nothing.
+  pop: 4,
   popPart: 0,
   goblins: Object.fromEntries(
     Object.entries(GOBLINS).map(([k, v]) => [k, v.strength])),
-  hero: { hp: 10, arms: 0, part: 0 },
+  hero: { hp: 10, spears: 0, part: 0 },
   store: 0,
   carts: 0,
   menace: {},
   taken: 0,
   lost: false,
-  legacy: { runs: 0, arms: 0 },
+  legacy: { runs: 0, spears: 0 },
   fight: null,
 });
 
@@ -324,10 +336,35 @@ export const HEAL_SECS = 15;
 export const WINDUP_EVERY = 3;
 /** Rations, mid-fight: the hero carries a PACK of them — two a sortie,
  *  3 food each, +4 health. Limited so a stocked larder cannot out-sit a
- *  fight the arms have not earned. */
+ *  fight the spears have not earned. */
 export const RATION_FOOD = 3;
 export const RATION_HP = 4;
 export const RATION_PACK = 2;
+
+/** ★★★ A BLOW TAKES TIME, 2026-08-10 (the PC playtest). The owner: *"it is a
+ *  little bit weird that these attacks are instant again."* Every strike was
+ *  a button press that resolved in the same frame, so a fight was a MASH —
+ *  the fastest thumb was the whole tactic and the wind-up warning arrived and
+ *  departed inside one tap.
+ *
+ *  ⚠️ ONE WAY OF SAYING "THIS TAKES TIME", not three. Paths (`laying`) and
+ *  works (`raising`) are both a job with `left` seconds that the tick counts
+ *  down; a blow is the third and wears the same `{ left, secs }`. You ORDER
+ *  an act, the strip shows it coming, and it lands on the clock — one order
+ *  in flight at a time, and no re-aiming a swing that has left the shoulder.
+ *
+ *  The number is read against PATH_SECS = 6 and BUILD_SECS (8–15): a swing is
+ *  the QUICKEST thing in the valley, because a fight is six to ten of them
+ *  and it has to stay a fight rather than an errand. Fight one is ~6 orders =
+ *  12 seconds; the deep rungs run 20–30.
+ *
+ *  ⚠️ AND IT NEVER PUNISHES ABSENCE (`docs/BRIEF.md`): see the tick. */
+export const BLOW_SECS = 2;
+/** Seconds left on the ordered blow, or null when the hero is waiting on
+ *  you — what the strip draws its beat from, the same way `raisingLeft`
+ *  feeds the site panel. */
+export const blowLeft = (g: City): number | null =>
+  g.fight?.blow?.left ?? null;
 
 /** ★ THE LINE a holding fields: a BRUTE up front — a wall of muscle,
  *  most of the strength, but it only pokes 1 — and two RUNTS behind with
@@ -353,16 +390,46 @@ export const windup = (round: number): boolean =>
   (round + 1) % WINDUP_EVERY === 0;
 
 /** ★ EVERY LIBERATION TOUGHENS THE HERO: +3 health per ground freed.
- *  The deep country's bites (5s and 6s) are priced against this — arms
+ *  The deep country's bites (5s and 6s) are priced against this — spears
  *  buy the strike, the fights already won buy the surviving. */
 export const heroMax = (g: City): number => HERO_HP + 3 * g.taken;
-/** What one strike lands: bare hands plus the armoury. */
-export const heroHit = (g: City): number => 2 + g.hero.arms;
-/** Arms price in BOTH currencies, on a steeper curve — the late fights
- *  are meant to want the whole town's economy behind them. */
-export const armsCost = (have: number): { stone: number; planks: number } => ({
-  // 1.30, not 1.25: at the old curve the last sword cost less than the
-  // heal it saved. Arms compete with hut planks now — real, not a week.
+/** What one strike lands: bare hands plus a spear for every one on his back. */
+export const heroHit = (g: City): number => 2 + g.hero.spears;
+
+/** ★★★ THE ARMOURY MAKES SPEARS, 2026-08-10 (the PC playtest). The owner:
+ *  *"I don't understand why arms has swords ×4… the whole concept with making
+ *  arms is a little bit strange. What does it even mean, making arms? … But
+ *  why does it take planks and stones then?"*
+ *
+ *  Both halves of that are one fault: **"arms" is not a thing, it is a
+ *  category**, and no category has a bill of materials — so the price could
+ *  never make sense however it was written. A SPEAR is a thing, and a spear
+ *  is precisely these two goods: a knapped STONE head on a planed PLANK
+ *  shaft. The price is therefore unchanged (8 stone · 4 planks, ×1.3 a rung)
+ *  — it was the right price all along for a noun nobody had said yet.
+ *
+ *  ⚠️ WHAT THIS DELIBERATELY IS NOT. The owner also said *"maybe we are
+ *  building leather armor… we need hunters in the woods or something like
+ *  this to get leather and process leather."* That is a NEW GOOD and a new
+ *  chain (hunters → hides → workshop → gear) — a design decision that is the
+ *  owner's to make, not a rename's to smuggle in. Nothing here invents a
+ *  resource; the spear is made of what the valley already produces.
+ *
+ *  ⚠️ THE VERB SURVIVED THE NOUN: the action is still `{ type: 'arm' }` —
+ *  you ARM the hero, and what you hand him is a spear. */
+export const SPEAR_NAME = 'Spear';
+/** What it is made of, in the player's own words — the line that answers
+ *  "why planks and stones?" on the deed itself. */
+export const SPEAR_MADE = 'stone head · plank shaft';
+/** `Spears ×4` — how the rack is named wherever it is counted. */
+export const spearLabel = (n: number): string =>
+  `${SPEAR_NAME}${n === 1 ? '' : 's'} ×${n}`;
+
+/** A spear costs BOTH goods, on a steeper curve — the late fights are meant
+ *  to want the whole town's economy behind them. */
+export const spearCost = (have: number): { stone: number; planks: number } => ({
+  // 1.30, not 1.25: at the old curve the last spear cost less than the
+  // heal it saved. Spears compete with hut planks now — real, not a week.
   stone: Math.ceil(8 * Math.pow(1.3, have)),
   planks: Math.ceil(4 * Math.pow(1.3, have)),
 });
@@ -412,7 +479,7 @@ export const armsCost = (have: number): { stone: number; planks: number } => ({
  *      thing that buys nothing; now the pocket time fills the store and
  *      the rest is spillage you can SEE and spend a building to stop.
  *    · The cap gates what you can SAVE FOR. Hut #13 costs 81 planks and
- *      Arms ×10 costs 85 stone — both over a bare 60 — so the store is
+ *      Spears ×10 costs 85 stone — both over a bare 60 — so the store is
  *      not a nicety, it is the thing standing between the town and the
  *      end of either ladder.
  *
@@ -468,7 +535,7 @@ export const MAX_GAUGE = 3;
 
 /** ★★★ THE CARTWRIGHT, 2026-08-08 — THE ONE EXPONENTIAL THAT RUNS FOR THE
  *  PLAYER. The coherence review's finding was that there is no player-side
- *  exponential anywhere: `CURVE` and `armsCost` compound against you, while
+ *  exponential anywhere: `CURVE` and `spearCost` compound against you, while
  *  output is strictly LINEAR in a hard-capped population.
  *
  *  ⚠️ THE BACKLOG ASKED FOR A PRODUCTION MULTIPLIER AND IT WOULD HAVE BEEN
@@ -590,7 +657,19 @@ export const pathCostOf = (gauge: number): number => PATH_COST * (gauge + 1);
 export const shown = (g: City): Site[] =>
   SITES.filter((s) => s.behind === undefined || !(s.behind in g.goblins));
 
-export const popCap = (g: City): number => 2 + (g.stacks[0] ?? 0) * HUT_ROOM;
+/** ★★★ THE CAMP ITSELF SHELTERS FOUR, 2026-08-10 — it was two, and two is
+ *  not enough to run the opening. Verified by playing it: the auto-staffer
+ *  round-robins one hand at a time over the worked sites in id order, so a
+ *  town of TWO with a pit, a lumber camp and a mill gives `Rock Face=1,
+ *  Tall Pines=1, River Bend=0` — **planks/s 0.000**. Planks are the only
+ *  route to a hut, a hut is the only route to people, and people multiply
+ *  everything, so an unpinned player had a dead game eighty seconds in,
+ *  staring at a mill they had just earned that produced nothing and no
+ *  words on screen to say why. Four hands cover the opening three works.
+ *  Costs nothing at a hundred people; it is the first minute this buys. */
+export const CAMP_ROOM = 4;
+export const popCap = (g: City): number =>
+  CAMP_ROOM + (g.stacks[0] ?? 0) * HUT_ROOM;
 
 /** ★★★ ONLY THE HOUSED WORK, 2026-08-10 (the PC playtest). The owner, twice:
  *  *"I have four out of two people… and I do not have any penalties for it"*
@@ -951,8 +1030,26 @@ export function unlayable(g: City, a: number, b: number): string | null {
     const comp = component(g);
     if (!comp.has(a) && !comp.has(b)) return 'no path reaches either end';
   }
+  // ★★★ A WIDEN ON A ROAD THAT CARRIES NOTHING IS REFUSED, 2026-08-10.
+  //
+  // ⚠️ THIS PLUGS A PERMANENT SOFTLOCK, verified by running it: lay all three
+  // camp roads (−9 of the wagon's 15, leaving 6), wait for them to finish,
+  // widen one (`pathCostOf(1)` is 6) and you are at ZERO STONE with no works
+  // standing. An hour of ticks later, still 0.00 — a quarry costs 5 and a
+  // sawmill 8, and there is no other stone on the map. You cannot even lose
+  // your way out, because `raiders()` needs `taken > 0`, so `lost` never
+  // fires and `found` is refused. The save is dead forever.
+  //
+  // The hand used to be the escape hatch and removing it removed the escape,
+  // so the fix belongs where the trap is. And it is a trap in EVERY case,
+  // not just the fatal one: widening a road nothing travels buys exactly
+  // nothing, at any point in the game. A widen relieves a choke; if there is
+  // no traffic there is no choke.
+  if (gauge >= 1 && (flow(g).loads.get(pathKey(a, b)) ?? 0) <= 1e-9) {
+    return 'nothing travels this road';
+  }
   const price = pathCostOf(gauge);
-  if (g.stone < price) return `${price} stone — you have ${Math.floor(g.stone)}`;
+  if (g.stone < price) return outOf('stone', g.stone, price);
   return null;
 }
 
@@ -977,7 +1074,7 @@ export type Action =
   | { type: 'pin'; id: number; d: 1 | -1 }
   /** Give a hand-set works back to the auto staffing. */
   | { type: 'free'; id: number }
-  /** Buy the next tier of the hero's arms, from the stores. */
+  /** Make the hero another SPEAR, from the stores. */
   | { type: 'arm' }
   /** Raise the next storehouse at the camp — room for every good. */
   | { type: 'stow' }
@@ -987,15 +1084,18 @@ export type Action =
   | { type: 'found' }
   /** Send the hero at held ground — the battle strip opens. */
   | { type: 'assail'; id: number }
-  /** Attack the targeted square. The line answers. */
+  // ★★ THE THREE ORDERS take BLOW_SECS to land — they are CALLED here and
+  // the tick resolves them. One in flight at a time.
+  /** Call a blow at the targeted square. Lands, then the line answers. */
   | { type: 'strike' }
-  /** Deal nothing, block this answer whole — the wind-up's counter. */
+  /** Deal nothing, block the answer whole — the wind-up's counter. */
   | { type: 'guard' }
-  /** 3 food → +4 health, and the line still answers. */
+  /** 3 food and a pack now, +4 health when it lands, and the line answers. */
   | { type: 'ration' }
-  /** Pick which square the next attack lands on. Free — no round. */
+  /** Pick which square the next blow lands on. Free — no round, no clock —
+   *  but refused while an order is already in flight. */
   | { type: 'aim'; at: number }
-  /** Break off the fight and walk home to heal. */
+  /** Break off the fight and walk home to heal. Instant, even mid-swing. */
   | { type: 'flee' };
 
 /** ★ THE LINE ANSWERS: every living square pokes (double on the wind-up),
@@ -1014,6 +1114,67 @@ function answered(g: City, f: NonNullable<City['fight']>,
   }
   return { ...g, hero: { ...g.hero, hp },
     fight: { ...f, round: f.round + 1 } };
+}
+
+/** ★★ ORDER A BLOW — the act is called now and lands BLOW_SECS later on the
+ *  tick. Nothing about the fight moves here: no damage, no answer, no round.
+ *
+ *  ⚠️ THE RATION IS PAID UP FRONT, exactly the way `raise` pays for a works
+ *  when the job starts and not when it lands ("the stone is in the
+ *  foundations"). The food leaves the larder and the pack when you call for
+ *  it; what arrives seconds later is the health. Otherwise a ration ordered
+ *  on a full larder could be spent by hunger before it landed, and the act
+ *  would silently fizzle mid-swing. */
+function order(g: City, act: Blow): City {
+  const f = g.fight;
+  if (!f || f.blow) return g;                    // one order in flight
+  if (act === 'ration') {
+    if (f.packs <= 0 || g.food < RATION_FOOD) return g;
+    return { ...g, food: g.food - RATION_FOOD,
+      fight: { ...f, packs: f.packs - 1,
+        blow: { left: BLOW_SECS, secs: BLOW_SECS, act } } };
+  }
+  return { ...g, fight: { ...f, blow: { left: BLOW_SECS, secs: BLOW_SECS, act } } };
+}
+
+/** ★★ THE BLOW LANDS — the whole of what `strike`/`guard`/`ration` used to do
+ *  the instant they were pressed, moved to the far side of the clock. Called
+ *  from the tick and nowhere else. */
+function lands(g: City): City {
+  const f = g.fight;
+  if (!f?.blow) return g;
+  const now = { ...f, blow: null };
+  if (f.blow.act === 'guard') {
+    // Deal nothing, take nothing — the wind-up's counter, at the price of a
+    // round the line spends closing back up.
+    return answered(g, now, true);
+  }
+  if (f.blow.act === 'ration') {
+    // The food went when it was ordered; the health arrives now, and the
+    // line still gets its answer.
+    const fed = { ...g, hero: { ...g.hero,
+      hp: Math.min(heroMax(g), g.hero.hp + RATION_HP) } };
+    return answered(fed, now, false);
+  }
+  // ★★ Your blow falls on the TARGET (or the first square standing, if the
+  // target fell while the swing was in the air). Deterministic — no dice;
+  // whether you can win was decided by the town that armed you.
+  const at = (now.sq[now.target]?.hp ?? 0) > 0
+    ? now.target : now.sq.findIndex((q) => q.hp > 0);
+  if (at < 0) return { ...g, fight: now };
+  const sq = now.sq.map((q, i) =>
+    i === at ? { ...q, hp: Math.max(0, q.hp - heroHit(g)) } : q);
+  if (sq.every((q) => q.hp <= 0)) {
+    // ★ LIBERATED: the ground joins the town, hurt and all — and two
+    // captives walk home with the hero, hungry and ready to work.
+    const goblins = { ...g.goblins };
+    delete goblins[now.site];
+    const menace = { ...g.menace };
+    delete menace[now.site];
+    return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES,
+      taken: g.taken + 1 };
+  }
+  return answered(g, { ...now, sq, target: at }, false);
 }
 
 /** ★ THE LONGEST A SINGLE TICK MAY STAND FOR. One `tick` is one Euler
@@ -1176,7 +1337,7 @@ export function apply(g: City, a: Action): City {
       // just the only thing holding it) is left alone rather than
       // confiscated; it simply cannot grow.
       const hold = (was: number, now: number): number => stow(g, was, now);
-      return {
+      const out: City = {
         ...g,
         stone: hold(g.stone, g.stone + f.stone * s),
         logs: hold(g.logs, cut - sawn),
@@ -1193,6 +1354,30 @@ export function apply(g: City, a: Action): City {
         stacks,
         lost,
       };
+
+      // ★★★ AND THE SWING COMES DOWN — last, on the town the rest of this
+      // tick already built, so a ration lands into the larder this second
+      // filled and a liberation counts against this second's population.
+      //
+      // ⚠️ THE AWAY RULE, and it is the RAID'S RULE word for word
+      // (`docs/BRIEF.md`: *"timers bank work; they never punish absence"*).
+      // The seconds BANK while you are away — `left` runs down to 0 and
+      // stops there — but the blow does not LAND until a tick you are
+      // actually watching. Landing it in a pocket would answer with the
+      // whole line's bite and could beat the hero home from a fight the
+      // player never saw, on a 60-second `catchUp` chunk they could not
+      // react to: absence, punished. So you come back to a swing about to
+      // fall, never to a hero already carried home.
+      //
+      // (A fight left standing overnight is frozen either way: the hero does
+      // not heal mid-fight and the engaged holding does not regroup.)
+      if (!out.fight?.blow) return out;
+      const left = Math.max(0, out.fight.blow.left - s);
+      if (left > 0 || a.away) {
+        return { ...out,
+          fight: { ...out.fight, blow: { ...out.fight.blow, left } } };
+      }
+      return lands(out);
     }
 
     case 'lay': {
@@ -1225,13 +1410,13 @@ export function apply(g: City, a: Action): City {
     }
 
     case 'arm': {
-      const price = armsCost(g.hero.arms);
+      const price = spearCost(g.hero.spears);
       if (g.stone < price.stone || g.planks < price.planks) return g;
       return {
         ...g,
         stone: g.stone - price.stone,
         planks: g.planks - price.planks,
-        hero: { ...g.hero, arms: g.hero.arms + 1 },
+        hero: { ...g.hero, spears: g.hero.spears + 1 },
       };
     }
 
@@ -1261,18 +1446,18 @@ export function apply(g: City, a: Action): City {
     // stronger."* Everything you built is gone — that is what losing the
     // valley means — and the ONE thing that walks out is the veteran.
     //
-    // The carry is `floor(arms/2) + 1`, taken as a MAXIMUM against what you
+    // The carry is `floor(spears/2) + 1`, taken as a MAXIMUM against what you
     // already had, so a run that ends early can never make you weaker than
     // the run before it. Failure is a plateau, never a loss: `docs/BRIEF.md`.
     case 'found': {
       if (!g.lost) return g;
       const legacy = {
         runs: g.legacy.runs + 1,
-        arms: Math.max(g.legacy.arms, Math.floor(g.hero.arms / 2) + 1),
+        spears: Math.max(g.legacy.spears, Math.floor(g.hero.spears / 2) + 1),
       };
       const next = initial();
       return { ...next, legacy,
-        hero: { ...next.hero, arms: legacy.arms } };
+        hero: { ...next.hero, spears: legacy.spears } };
     }
 
     case 'assail': {
@@ -1284,55 +1469,33 @@ export function apply(g: City, a: Action): City {
         target: 0,
         round: 0,
         packs: RATION_PACK,
+        blow: null,
       } };
     }
 
-    case 'strike': {
-      // ★★ Your blow falls on the TARGET (or the first square standing,
-      // if the target already fell). Deterministic — no dice; whether you
-      // can win was decided by the town that armed you.
-      if (!g.fight) return g;
-      const f = g.fight;
-      const at = (f.sq[f.target]?.hp ?? 0) > 0
-        ? f.target : f.sq.findIndex(q => q.hp > 0);
-      if (at < 0) return g;
-      const sq = f.sq.map((q, i) =>
-        i === at ? { ...q, hp: Math.max(0, q.hp - heroHit(g)) } : q);
-      if (sq.every(q => q.hp <= 0)) {
-        // ★ LIBERATED: the ground joins the town, hurt and all — and two
-        // captives walk home with the hero, hungry and ready to work.
-        const goblins = { ...g.goblins };
-        delete goblins[f.site];
-        const menace = { ...g.menace };
-        delete menace[g.fight.site];
-        return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES,
-          taken: g.taken + 1 };
-      }
-      return answered(g, { ...f, sq, target: at }, false);
-    }
-
+    // ★★★ THE THREE ORDERS. Each one is CALLED here and LANDS on the tick
+    // BLOW_SECS later — see `order`, `lands`, and BLOW_SECS for why.
+    case 'strike':
     case 'guard':
-      // Deal nothing, take nothing — the wind-up's counter, at the price
-      // of a round the line spends closing back up.
-      return g.fight ? answered(g, g.fight, true) : g;
-
-    case 'ration': {
-      if (!g.fight || g.fight.packs <= 0 || g.food < RATION_FOOD) return g;
-      const fed = { ...g, food: g.food - RATION_FOOD,
-        hero: { ...g.hero,
-          hp: Math.min(heroMax(g), g.hero.hp + RATION_HP) } };
-      return answered(fed, { ...g.fight, packs: g.fight.packs - 1 }, false);
-    }
+    case 'ration':
+      return order(g, a.type);
 
     case 'aim': {
       // Free — picking a square costs no round; reading is rewarded.
       if (!g.fight) return g;
+      // ★ BUT NOT MID-SWING: an order in flight cannot be re-aimed, or the
+      // seconds would buy a take-back instead of a decision and the beat
+      // would be pure delay. Aim, then call it.
+      if (g.fight.blow) return g;
       const q = g.fight.sq[a.at];
       if (!q || q.hp <= 0 || g.fight.target === a.at) return g;
       return { ...g, fight: { ...g.fight, target: a.at } };
     }
 
     case 'flee': {
+      // ★ INSTANT, EVEN MID-SWING — breaking off is the safety valve, and a
+      // valve you have to wait two seconds for is not one. Any ordered blow
+      // is dropped with the fight.
       if (!g.fight) return g;
       // Every square keeps its wounds — the ground regroups from here.
       const left = g.fight.sq.reduce((n, q) => n + Math.max(0, q.hp), 0);

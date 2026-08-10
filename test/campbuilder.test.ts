@@ -6,18 +6,35 @@
 import { describe, it, expect } from 'vitest';
 import { held } from '../src/camp/barrier';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
-  unlayable, unraisable, unassailable, component, heroHit, armsCost, hunger,
+  unlayable, unraisable, unassailable, component, heroHit, spearCost, hunger,
   RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
   START_STONE, START_LOGS, BUILD_SECS, raisingLeft, buildSecs, housed,
   PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY, regenOf, catchUp, STEP_SECS, SITE,
   richOf, MAX_GAUGE, roomOf, storeCost, STORE_BASE, STORE_ROOM,
   carriesOf, cartCost, cartHaul, CART_GAIN,
-  raiders, raidTarget, RAID_SECS,
+  raiders, raidTarget, RAID_SECS, CAMP_ROOM,
   RATION_FOOD, RATION_HP, RATION_PACK,
-  HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES, type City } from '../src/camp/engine';
+  BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
+  HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
+  type City, type Action } from '../src/camp/engine';
 import { honour } from '../src/camp/store';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
+
+/** ★★★ A BLOW TAKES SECONDS NOW, 2026-08-10 — `strike`/`guard`/`ration` are
+ *  ORDERED and land BLOW_SECS later on the tick (engine: BLOW_SECS). So every
+ *  fight in this file orders the act and then runs the clock out.
+ *
+ *  ⚠️ THE CLOCK CANNOT CHANGE THE ANSWER, which is why the fights below still
+ *  prove what they always proved: every fight fixture is a town of 2 with no
+ *  huts (pop = cap, so nobody grows), no works (nothing is made), pop below
+ *  WILD_FED (nothing is eaten), `taken` 0 (nobody raids), and the engaged
+ *  holding cannot regroup while the hero stands on it. The seconds pass and
+ *  the valley is exactly as it was — the only thing that moves is the swing. */
+const settle = (g: City): City =>
+  g.fight?.blow ? tick(g, g.fight.blow.left) : g;
+/** Order an act and let it land — one whole beat of a fight. */
+const beat = (g: City, a: Action): City => settle(apply(g, a));
 
 /** ★★ ROOF ENOUGH FOR `pop`, 2026-08-10 — huts at the camp for a fixture that
  *  wants hands. ONLY THE HOUSED WORK now (the playtest's item E), so a town
@@ -89,14 +106,14 @@ describe('★★ RULE 1 — buildings come in counts, on the compounding curve',
 describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
   it('huts raise the cap; people grow toward it on the clock', () => {
     const g: City = { ...initial(), stacks: { 0: 2 } };
-    expect(popCap(g)).toBe(2 + 2 * HUT_ROOM);
+    expect(popCap(g)).toBe(CAMP_ROOM + 2 * HUT_ROOM);
     expect(HUT_ROOM).toBe(CREW);   // one hut houses one crew
     const grown = tick(g, GROW_SECS * 2 + 0.5);
-    expect(grown.pop).toBe(4);
+    expect(grown.pop).toBe(CAMP_ROOM + 2);
   });
 
   it('people never grow past the huts', () => {
-    expect(tick(initial(), 3600).pop).toBe(2);
+    expect(tick(initial(), 3600).pop).toBe(CAMP_ROOM);
   });
 
   it('★ understaffed works run at pop/slots — evenly, never babysat', () => {
@@ -161,22 +178,22 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     const g: City = { ...initial(), goblins: rest, taken: 2 };
     expect(heroMax(g)).toBe(HERO_HP + 6);
     // And the heal fills to the GROWN max.
-    const hurt: City = { ...g, hero: { hp: 0, arms: 0, part: 0 } };
+    const hurt: City = { ...g, hero: { hp: 0, spears: 0, part: 0 } };
     expect(tick(hurt, HEAL_SECS * 40).hero.hp).toBe(HERO_HP + 6);
   });
 
-  it('★ the deep country is winnable at the ladder: arms 6, read the line', () => {
+  it('★ the deep country is winnable at the ladder: spears 6, read the line', () => {
     // Dark Pines (32 strong, bites 5) with the first valley won (hp 19)
-    // and Arms ×6 (hit 8): thin both runts, then two blows on the wall —
+    // and Spears ×6 (hit 8): thin both runts, then two blows on the wall —
     // home at 10. Chad's +2-per-fight cadence, on the strip.
     const start = { ...initial().goblins };
     delete start[4]; delete start[5]; delete start[6];
     let g: City = { ...initial(), goblins: start,
-      hero: { hp: 19, arms: 6, part: 0 } };
+      hero: { hp: 19, spears: 6, part: 0 } };
     g = apply(g, { type: 'assail', id: 7 });
     for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
       { type: 'aim', at: 2 }, { type: 'strike' },
-      { type: 'strike' }, { type: 'strike' }] as const) g = apply(g, a);
+      { type: 'strike' }, { type: 'strike' }] as const) g = beat(g, a);
     expect(g.goblins[7]).toBeUndefined();
     expect(g.hero.hp).toBe(10);
   });
@@ -223,7 +240,12 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
   });
 
   it('widening pays the gauge curve, takes longer, and stops at the widest', () => {
-    let g: City = { ...initial(), stone: 99, paths: { [pathKey(0, 1)]: 1 } };
+    // ⚠️ `stacks: {1: 1}` IS LOAD-BEARING (2026-08-10): a widen on a road
+    // nothing travels is refused now, because it is a trap purchase in every
+    // case and in one case it freezes the save. This test is about the CURVE,
+    // so the road needs traffic to be widened at all.
+    let g: City = { ...initial(), stone: 99, stacks: { 1: 1 },
+      paths: { [pathKey(0, 1)]: 1 } };
     g = apply(g, { type: 'lay', a: 0, b: 1 });
     expect(g.stone).toBeCloseTo(99 - pathCostOf(1), 9);
     expect(g.laying[pathKey(0, 1)]!.secs).toBe(PATH_SECS * 2);
@@ -431,14 +453,14 @@ describe('★ honest refusals and the save', () => {
     expect(honour(null)).toBeNull();
     expect(honour({ game: { version: 4 }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), pop: -1 }, savedAt: 1 })).toBeNull();
-    expect(honour({ game: { ...initial(), hero: { hp: -1, arms: 0, part: 0 } },
+    expect(honour({ game: { ...initial(), hero: { hp: -1, spears: 0, part: 0 } },
       savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), goblins: { 4: Infinity } },
       savedAt: 1 })).toBeNull();
   });
 
   it('★ a mid-fight save round-trips; an old-shape fight drops, the town stays', () => {
-    const mid = apply({ ...initial(), hero: { hp: 10, arms: 1, part: 0 } },
+    const mid = apply({ ...initial(), hero: { hp: 10, spears: 1, part: 0 } },
       { type: 'assail', id: 4 });
     expect(honour({ game: mid, savedAt: 1 })!.game.fight).toEqual(mid.fight);
     // The pre-strip shape ({site} alone) is not a fight any more — the
@@ -455,7 +477,7 @@ describe('★ honest refusals and the save', () => {
   // a hand-made object reaches the engine, and it was letting four kinds of
   // nonsense through. Each of these crashed, cheated, or ate the town.
   it('★★ a fight at ground that does not exist is refused, not rendered', () => {
-    const mid = apply({ ...initial(), hero: { hp: 10, arms: 1, part: 0 } },
+    const mid = apply({ ...initial(), hero: { hp: 10, spears: 1, part: 0 } },
       { type: 'assail', id: 4 });
     // `site: 99` used to pass (an integer is an integer) and the panel's
     // `SITE.get(99)!.name` then threw on first paint — a dead screen.
@@ -468,7 +490,7 @@ describe('★ honest refusals and the save', () => {
   });
 
   it('★★ a packless fight is refused — no unlimited rations', () => {
-    const mid = apply({ ...initial(), food: 99, hero: { hp: 10, arms: 1, part: 0 } },
+    const mid = apply({ ...initial(), food: 99, hero: { hp: 10, spears: 1, part: 0 } },
       { type: 'assail', id: 4 });
     const { packs: _, ...packless } = mid.fight!;
     // `undefined <= 0` is false, so ration() spent it to NaN, and `NaN <= 0`
@@ -554,15 +576,16 @@ describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town'
 });
 
 describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', () => {
-  const strike = (g: City): City => apply(g, { type: 'strike' });
-  const aim = (g: City, at: number): City => apply(g, { type: 'aim', at });
-  const armed = (arms: number, extra: Partial<City> = {}): City =>
-    apply({ ...initial(), hero: { hp: 10, arms, part: 0 }, ...extra },
+  const strike = (g: City): City => beat(g, { type: 'strike' });
+  const aim = (g: City, at: number): City => beat(g, { type: 'aim', at });
+  const armed = (spears: number, extra: Partial<City> = {}): City =>
+    apply({ ...initial(), hero: { hp: 10, spears, part: 0 }, ...extra },
       { type: 'assail', id: 4 });
 
   it('★ assail fields THE LINE: a wall up front, two biters behind', () => {
     const g = armed(1);
     expect(g.fight).toEqual({ site: 4, target: 0, round: 0, packs: RATION_PACK,
+      blow: null,                              // nothing ordered yet
       sq: [{ hp: 6, poke: 1, kind: 'brute' },
         { hp: 3, poke: 2, kind: 'runt' }, { hp: 3, poke: 2, kind: 'runt' }] });
     // The squares carry the whole strength; bled ground fields less wall.
@@ -614,7 +637,7 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     let g = strike(aim(armed(1), 1));
     g = strike(aim(g, 2));
     const before = g.hero.hp;
-    g = apply(g, { type: 'guard' });          // the wind-up hits a shield
+    g = beat(g, { type: 'guard' });           // the wind-up hits a shield
     expect(g.hero.hp).toBe(before);
     expect(g.fight!.round).toBe(3);
     expect(g.fight!.sq[0]!.hp).toBe(6);       // and dealt nothing
@@ -622,9 +645,10 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
 
   it('★ rations: 3 food for 4 health, from a pack — capped, answered, finite', () => {
     const mid: City = { ...initial(), food: 99,
-      hero: { hp: 8, arms: 1, part: 0 },
-      fight: { site: 4, sq: lineOf(12, 2, 3), target: 0, round: 0, packs: 1 } };
-    const g = apply(mid, { type: 'ration' });
+      hero: { hp: 8, spears: 1, part: 0 },
+      fight: { site: 4, sq: lineOf(12, 2, 3), target: 0, round: 0, packs: 1,
+        blow: null } };
+    const g = beat(mid, { type: 'ration' });
     expect(g.food).toBe(99 - RATION_FOOD);
     // 8+4 caps at the max of 10 — then the full answer of 5 lands.
     expect(g.hero.hp).toBe(10 - 5);
@@ -635,11 +659,11 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     expect(armed(1).fight!.packs).toBe(RATION_PACK);       // stocked at the gate
   });
 
-  it('★★ FIGHT ONE, played readably at Arms ×1: thin the runts, win at 4', () => {
+  it('★★ FIGHT ONE, played readably at Spears ×1: thin the runts, win at 4', () => {
     let g = armed(1);
     for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
       { type: 'aim', at: 2 }, { type: 'strike' },
-      { type: 'strike' }, { type: 'strike' }] as const) g = apply(g, a);
+      { type: 'strike' }, { type: 'strike' }] as const) g = beat(g, a);
     // ★ LIBERATED: goblins gone, captives home, the ground takes works.
     expect(g.goblins[4]).toBeUndefined();
     expect(g.fight).toBeNull();
@@ -659,26 +683,26 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     expect(g.goblins[4]).toBe(3);             // the ground keeps its wounds
   });
 
-  it('★ bare hands lose even played well — Arms ×1 is fight one\'s gate', () => {
+  it('★ bare hands lose even played well — Spears ×1 is fight one\'s gate', () => {
     let g = armed(0);
     for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
       { type: 'strike' }, { type: 'guard' },
-      { type: 'aim', at: 2 }, { type: 'strike' }] as const) g = apply(g, a);
+      { type: 'aim', at: 2 }, { type: 'strike' }] as const) g = beat(g, a);
     expect(g.fight).toBeNull();               // the fourth answer ends it
     expect(g.hero.hp).toBe(0);
     expect(g.goblins[4]).toBe(6 + 1);         // wall whole, runt bled
   });
 
-  it('★ FIGHT TWO holds the +2 cadence: Arms ×2 wins the slope read right', () => {
+  it('★ FIGHT TWO holds the +2 cadence: Spears ×2 wins the slope read right', () => {
     const { 4: _, ...rest } = initial().goblins;
     let g: City = { ...initial(), goblins: rest,
-      hero: { hp: 13, arms: 2, part: 0 } };
+      hero: { hp: 13, spears: 2, part: 0 } };
     g = apply(g, { type: 'assail', id: 5 });
     expect(g.fight!.sq).toEqual([{ hp: 10, poke: 1, kind: 'brute' },
       { hp: 4, poke: 3, kind: 'runt' }, { hp: 4, poke: 3, kind: 'runt' }]);
     for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
       { type: 'aim', at: 2 }, { type: 'strike' }, { type: 'strike' },
-      { type: 'strike' }, { type: 'strike' }] as const) g = apply(g, a);
+      { type: 'strike' }, { type: 'strike' }] as const) g = beat(g, a);
     expect(g.goblins[5]).toBeUndefined();
     expect(g.hero.hp).toBe(5);
   });
@@ -701,11 +725,11 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     expect(tick(fighting, 100).goblins[4]).toBe(2);        // pinned by the fight
   });
 
-  it('arms cost both currencies on a steeper curve, and arm() pays it', () => {
-    expect(armsCost(0)).toEqual({ stone: 8, planks: 4 });
-    expect(armsCost(3).stone).toBe(Math.ceil(8 * 1.3 ** 3));
+  it('a spear costs both currencies on a steeper curve, and arm() pays it', () => {
+    expect(spearCost(0)).toEqual({ stone: 8, planks: 4 });
+    expect(spearCost(3).stone).toBe(Math.ceil(8 * 1.3 ** 3));
     const g = apply({ ...initial(), stone: 20, planks: 10 }, { type: 'arm' });
-    expect(g.hero.arms).toBe(1);
+    expect(g.hero.spears).toBe(1);
     expect(g.stone).toBe(12);
     expect(g.planks).toBe(6);
     expect(heroHit(g)).toBe(3);
@@ -718,7 +742,7 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     const mid = apply(initial(), { type: 'assail', id: 4 });
     expect(unassailable(mid, 5)).toBe('the hero is already fighting');
     expect(apply(mid, { type: 'assail', id: 5 })).toBe(mid);
-    const hurt: City = { ...initial(), hero: { hp: 3, arms: 0, part: 0 } };
+    const hurt: City = { ...initial(), hero: { hp: 3, spears: 0, part: 0 } };
     expect(unassailable(hurt, 4)).toMatch(/^the hero heals — 3 of 10/);
   });
 
@@ -727,6 +751,157 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     expect(g.hero.hp).toBe(5);        // full line answers a wall-strike
     g = tick(g, 300);
     expect(g.hero.hp).toBe(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ A BLOW TAKES TIME, 2026-08-10 — the PC playtest, item B2. The owner:
+// *"it is a little bit weird that these attacks are instant again."* An act is
+// ORDERED and lands BLOW_SECS later on the tick, wearing the same `{left,
+// secs}` job shape paths (`laying`) and works (`raising`) already wear.
+// ---------------------------------------------------------------------------
+describe('★★★ A BLOW TAKES TIME — ordered, clocked, landed', () => {
+  const engaged = (over: Partial<City> = {}): City => ({
+    ...initial(), hero: { hp: 10, spears: 1, part: 0 }, ...over,
+    fight: { site: 4, sq: lineOf(12, 2, 3), target: 0, round: 0,
+      packs: RATION_PACK, blow: null } });
+
+  it('★★★ ORDERED, NOT INSTANT: nothing moves until the tick lands it', () => {
+    const swung = apply(engaged(), { type: 'strike' });
+    // The order is a job of seconds, exactly like a path or a works.
+    expect(blowLeft(swung)).toBe(BLOW_SECS);
+    expect(swung.fight!.blow!.act).toBe('strike');
+    // And NOTHING else has happened: no damage, no answer, no round.
+    expect(swung.fight!.sq[0]!.hp).toBe(6);
+    expect(swung.hero.hp).toBe(10);
+    expect(swung.fight!.round).toBe(0);
+    // Halfway through, still nothing.
+    const half = tick(swung, BLOW_SECS - 1);
+    expect(blowLeft(half)).toBe(1);
+    expect(half.fight!.sq[0]!.hp).toBe(6);
+    expect(half.hero.hp).toBe(10);
+    // And on the beat it lands whole: hit 3 into the wall, full line answers.
+    const landed = tick(half, 1);
+    expect(landed.fight!.sq[0]!.hp).toBe(3);
+    expect(landed.hero.hp).toBe(10 - (1 + 2 + 2));
+    expect(landed.fight!.round).toBe(1);
+    expect(blowLeft(landed)).toBeNull();       // and the hero waits on you
+  });
+
+  it('★★ ONE ORDER IN FLIGHT — and a swing cannot be re-aimed', () => {
+    const swung = apply(engaged(), { type: 'strike' });
+    // Every other order is refused while this one is in the air…
+    expect(apply(swung, { type: 'strike' })).toBe(swung);
+    expect(apply(swung, { type: 'guard' })).toBe(swung);
+    expect(apply({ ...swung, food: 99 }, { type: 'ration' }).fight!.blow!.act)
+      .toBe('strike');
+    // …and so is aiming: the seconds buy a DECISION, never a take-back.
+    expect(apply(swung, { type: 'aim', at: 1 })).toBe(swung);
+    expect(settle(swung).fight!.sq[0]!.hp).toBe(3);   // it lands on the wall
+    // Aim first and the same order lands on the runt instead.
+    const read = beat(apply(engaged(), { type: 'aim', at: 1 }), { type: 'strike' });
+    expect(read.fight!.sq[1]!.hp).toBe(0);
+  });
+
+  it('★★★ THE SWING BANKS WHILE YOU ARE AWAY, and lands when you watch', () => {
+    // ⚠️ docs/BRIEF.md: "timers bank work; they never punish absence" — the
+    // raid's own rule. A hero on 1 health with a full line in front of him is
+    // beaten home the moment this blow lands; a pocket must not be where it
+    // happens, because the player cannot answer a 60-second catchUp chunk.
+    const swung = apply(engaged({ hero: { hp: 1, spears: 1, part: 0 } }),
+      { type: 'strike' });
+    const night = catchUp(swung, 12 * 3600);
+    expect(night.fight).not.toBeNull();          // still standing there
+    expect(night.hero.hp).toBe(1);               // untouched by the night
+    expect(blowLeft(night)).toBe(0);             // the seconds BANKED, full
+    // And on the first tick the player is actually watching, it falls.
+    const watched = tick(night, 0.2);
+    expect(watched.fight).toBeNull();
+    expect(watched.hero.hp).toBe(0);
+    expect(watched.goblins[4]).toBe(12 - 3);     // the ground keeps its wounds
+  });
+
+  it('★ the ration is paid when it is CALLED and heals when it LANDS', () => {
+    // The same law `raise` obeys: the stone is in the foundations. Otherwise
+    // hunger could eat a ration mid-swing and the act would fizzle.
+    const called = apply(engaged({ food: 99, hero: { hp: 4, spears: 1, part: 0 } }),
+      { type: 'ration' });
+    expect(called.food).toBe(99 - RATION_FOOD);
+    expect(called.fight!.packs).toBe(RATION_PACK - 1);
+    expect(called.hero.hp).toBe(4);                    // not yet
+    const landed = settle(called);
+    expect(landed.hero.hp).toBe(4 + RATION_HP - 5);    // fed, then answered
+  });
+
+  it('★ flee is instant, even mid-swing — the safety valve is not a wait', () => {
+    const swung = apply(engaged(), { type: 'strike' });
+    const home = apply(swung, { type: 'flee' });
+    expect(home.fight).toBeNull();
+    expect(home.goblins[4]).toBe(12);        // the ordered blow never landed
+    expect(home.hero.hp).toBe(10);
+  });
+
+  it('★ a swing in flight survives the save; a nonsense act does not', () => {
+    const swung = apply(engaged(), { type: 'strike' });
+    const back = honour({ game: swung, savedAt: 1 })!.game;
+    expect(back.fight!.blow).toEqual({ left: BLOW_SECS, secs: BLOW_SECS, act: 'strike' });
+    expect(settle(back).fight!.sq[0]!.hp).toBe(3);
+    // An act nobody can land drops the FIGHT, never the town.
+    const forged = { ...swung,
+      fight: { ...swung.fight!, blow: { left: 1, secs: 2, act: 'nuke' } } };
+    const kept = honour({ game: forged, savedAt: 1 })!.game;
+    expect(kept.fight).toBeNull();
+    expect(kept.stone).toBe(swung.stone);
+    // An older save, taken before blows had a clock, simply has none.
+    const { blow: _b, ...noBlow } = swung.fight!;
+    const old = honour({ game: { ...swung, fight: noBlow }, savedAt: 1 })!.game;
+    expect(old.fight!.blow).toBeNull();
+    expect(apply(old, { type: 'strike' }).fight!.blow!.act).toBe('strike');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE ARMOURY MAKES SPEARS, 2026-08-10 — the PC playtest, item G. The
+// owner: *"what does it even mean, making arms? … But why does it take planks
+// and stones then?"* A category has no bill of materials; a spear does.
+// ---------------------------------------------------------------------------
+describe('★★★ WHAT THE TOWN MAKES IS A SPEAR', () => {
+  it('★★★ THE PRICE IS THE THING: every good it charges is part of a spear', () => {
+    // A knapped STONE head on a planed PLANK shaft — so the two goods the
+    // price asks for are the two the object is made of, and the deed can say
+    // so. This is the whole fix: the numbers never changed, the noun did.
+    expect(Object.keys(spearCost(0)).sort()).toEqual(['planks', 'stone']);
+    for (const good of Object.keys(spearCost(0))) {
+      expect(SPEAR_MADE, `${good} is charged for but never named`)
+        .toMatch(new RegExp(good.replace(/s$/, '')));
+    }
+    expect(spearCost(0)).toEqual({ stone: 8, planks: 4 });   // unchanged
+    expect(SPEAR_NAME).toBe('Spear');
+    expect(spearLabel(4)).toBe('Spears ×4');
+    expect(spearLabel(1)).toBe('Spear ×1');
+  });
+
+  it('★★ a spear on the rack is a point of hit, and arm() makes one', () => {
+    const g = apply({ ...initial(), stone: 20, planks: 10 }, { type: 'arm' });
+    expect(g.hero.spears).toBe(1);
+    expect(heroHit(g)).toBe(2 + 1);
+    expect(heroHit({ ...g, hero: { ...g.hero, spears: 6 } })).toBe(8);
+  });
+
+  it('★★ an older save\'s `arms` ARE the spears — the veteran too', () => {
+    // Saves are breakable, but this migration is two lines, so nobody loses
+    // an armoury to a rename. The value is checked AFTER the move.
+    const old = { ...initial(), hero: { hp: 10, arms: 5, part: 0 },
+      legacy: { runs: 2, arms: 3 } };
+    const back = honour({ game: old, savedAt: 1 })!.game;
+    expect(back.hero.spears).toBe(5);
+    expect(heroHit(back)).toBe(7);
+    expect(back.legacy).toEqual({ runs: 2, spears: 3 });
+    // And junk is still junk, whichever word it arrives under.
+    expect(honour({ game: { ...old, hero: { hp: 10, arms: -1, part: 0 } },
+      savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...old, legacy: { runs: 2, arms: 1.5 } },
+      savedAt: 1 })).toBeNull();
   });
 });
 
@@ -753,15 +928,20 @@ describe('★★★ THE LADDER HOLDS — solved, not felt', () => {
       if (got !== undefined) return got;
       memo.set(key, -1);          // a revisited position is never an improvement
       let top = -1;
+      // ⚠️ EVERY BRANCH RUNS THE CLOCK OUT (2026-08-10): an order is a
+      // `{left, secs}` job now, so `apply` alone would hand the solver a
+      // position with a swing frozen in the air and it would explore
+      // nothing. `beat` orders and lands, which is one whole move — the
+      // same tree this solver always walked.
       for (let i = 0; i < 3; i++) {
         if ((f.sq[i]?.hp ?? 0) <= 0) continue;
         const aimed = f.target === i ? g : apply(g, { type: 'aim', at: i });
-        top = Math.max(top, best(apply(aimed, { type: 'strike' })));
+        top = Math.max(top, best(beat(aimed, { type: 'strike' })));
       }
       if (f.packs > 0 && g.food >= RATION_FOOD) {
-        top = Math.max(top, best(apply(g, { type: 'ration' })));
+        top = Math.max(top, best(beat(g, { type: 'ration' })));
       }
-      top = Math.max(top, best(apply(g, { type: 'guard' })));
+      top = Math.max(top, best(beat(g, { type: 'guard' })));
       memo.set(key, top);
       return top;
     };
@@ -769,39 +949,39 @@ describe('★★★ THE LADDER HOLDS — solved, not felt', () => {
   }
 
   /** The rung: every earlier ground freed, the hero full, the larder deep. */
-  const rung = (site: number, arms: number): City => {
+  const rung = (site: number, spears: number): City => {
     const order = [4, 5, 6, 7, 8, 9];
     const goblins: Record<number, number> = {};
     for (const s of order.slice(order.indexOf(site))) goblins[s] = GOBLINS[s]!.strength;
     const base: City = { ...initial(), goblins, food: 99 };
-    return apply({ ...base, hero: { hp: heroMax(base), arms, part: 0 } },
+    return apply({ ...base, hero: { hp: heroMax(base), spears, part: 0 } },
       { type: 'assail', id: site });
   };
 
   /** Mash-attack: never aim, never guard, never eat. */
   const mash = (g: City): City => {
     let s = g;
-    for (let i = 0; i < 200 && s.fight; i++) s = apply(s, { type: 'strike' });
+    for (let i = 0; i < 200 && s.fight; i++) s = beat(s, { type: 'strike' });
     return s;
   };
 
-  // ★ THE ARMS GATE, the whole design in one table: the ladder's own arms
+  // ★ THE SPEAR GATE, the whole design in one table: the ladder's own spears
   // win it, one tier under LOSES however well you play, and mashing loses
   // even fully armed. Change a goblin number and this is what shouts.
-  const LADDER: Array<[site: number, arms: number]> =
+  const LADDER: Array<[site: number, spears: number]> =
     [[4, 1], [5, 2], [6, 4], [7, 6], [8, 8], [9, 10]];
 
-  for (const [site, arms] of LADDER) {
-    it(`★ ${SITE.get(site)!.name}: Arms ×${arms} wins it read right`, () => {
-      expect(solve(rung(site, arms))).toBeGreaterThan(0);
+  for (const [site, spears] of LADDER) {
+    it(`★ ${SITE.get(site)!.name}: Spears ×${spears} wins it read right`, () => {
+      expect(solve(rung(site, spears))).toBeGreaterThan(0);
     });
 
-    it(`★★ ${SITE.get(site)!.name}: Arms ×${arms - 1} cannot win it AT ALL`, () => {
-      expect(solve(rung(site, arms - 1))).toBe(-1);
+    it(`★★ ${SITE.get(site)!.name}: Spears ×${spears - 1} cannot win it AT ALL`, () => {
+      expect(solve(rung(site, spears - 1))).toBe(-1);
     });
 
-    it(`★★ ${SITE.get(site)!.name}: mash-attack loses at Arms ×${arms}`, () => {
-      expect(mash(rung(site, arms)).goblins[site]).toBeGreaterThan(0);
+    it(`★★ ${SITE.get(site)!.name}: mash-attack loses at Spears ×${spears}`, () => {
+      expect(mash(rung(site, spears)).goblins[site]).toBeGreaterThan(0);
     });
   }
 });
@@ -809,19 +989,19 @@ describe('★★★ THE LADDER HOLDS — solved, not felt', () => {
 // ---------------------------------------------------------------------------
 // ★★ THE GRIND, PRICED — the review's finding: a flat regen made
 // chip-flee-heal-repeat PAY at the deep rungs, because a sortie's damage
-// grows with arms and the wound's price did not. Regen is a fraction of
+// grows with spears and the wound's price did not. Regen is a fraction of
 // SPAWN now, so no holding can be ground down one rung under its gate.
 // ---------------------------------------------------------------------------
 describe('★★ THE FLEE-REGROUP GRIND PAYS NOTHING, at every rung', () => {
-  /** One cycle at `arms`: fight until beaten home or won, then heal all the
+  /** One cycle at `spears`: fight until beaten home or won, then heal all the
    *  way back while the ground regroups. Net strength removed, per cycle. */
-  const cycle = (site: number, arms: number): number => {
+  const cycle = (site: number, spears: number): number => {
     const order = [4, 5, 6, 7, 8, 9];
     const goblins: Record<number, number> = {};
     for (const s of order.slice(order.indexOf(site))) goblins[s] = GOBLINS[s]!.strength;
     const base: City = { ...initial(), goblins, food: 0 };
     const max = heroMax(base);
-    let g = apply({ ...base, hero: { hp: max, arms, part: 0 } },
+    let g = apply({ ...base, hero: { hp: max, spears, part: 0 } },
       { type: 'assail', id: site });
     const before = g.fight!.sq.reduce((n, q) => n + q.hp, 0);
     // The grinder's best sortie: always hit the softest live square, and
@@ -832,7 +1012,7 @@ describe('★★ THE FLEE-REGROUP GRIND PAYS NOTHING, at every rung', () => {
       const answer = live.reduce((n, q) => n + q.poke, 0) * (windup(f.round) ? 2 : 1);
       if (answer >= g.hero.hp) { g = apply(g, { type: 'flee' }); break; }
       const soft = live.reduce((a, b) => (a.hp <= b.hp ? a : b));
-      g = apply(apply(g, { type: 'aim', at: soft.at }), { type: 'strike' });
+      g = beat(apply(g, { type: 'aim', at: soft.at }), { type: 'strike' });
     }
     const bled = g.goblins[site] ?? 0;
     if (bled === 0) return before;                 // took it outright
@@ -842,10 +1022,10 @@ describe('★★ THE FLEE-REGROUP GRIND PAYS NOTHING, at every rung', () => {
   };
 
   it('★★ one rung under the gate, every holding out-heals the grinder', () => {
-    for (const [site, arms] of [[4, 1], [5, 2], [6, 4], [7, 6], [8, 8], [9, 10]] as const) {
+    for (const [site, spears] of [[4, 1], [5, 2], [6, 4], [7, 6], [8, 8], [9, 10]] as const) {
       // ⚠️ THE OLD FLAT 0.05 PAID +0.75, +2.50 and +4.25 a cycle at 7, 8, 9.
-      expect(cycle(site, arms - 1),
-        `site ${site} at Arms ×${arms - 1} grinds ${cycle(site, arms - 1)} a cycle`)
+      expect(cycle(site, spears - 1),
+        `site ${site} at Spears ×${spears - 1} grinds ${cycle(site, spears - 1)} a cycle`)
         .toBeLessThanOrEqual(0);
     }
   });
@@ -1088,17 +1268,17 @@ describe('★★★ THE STOREHOUSE — a ceiling on every good', () => {
   });
 
   it('★★★ THE CAP GATES WHAT YOU CAN SAVE FOR — the point of the building', () => {
-    // Arms ×9 (66 stone) and Hut #15 (71 planks) both cost more than a
+    // Spears ×9 (66 stone) and Hut #15 (71 planks) both cost more than a
     // bare camp can HOLD, so the storehouse is not a nicety: it stands
     // between the town and the top of either ladder.
-    expect(armsCost(8).stone).toBeGreaterThan(STORE_BASE);
+    expect(spearCost(8).stone).toBeGreaterThan(STORE_BASE);
     expect(costOf('hut', 14).planks!).toBeGreaterThan(STORE_BASE);
     // The rungs BELOW them fit in a bare camp, so nothing is walled early
-    // — the first eight swords and a dozen huts never see the ceiling.
-    expect(armsCost(7).stone).toBeLessThanOrEqual(STORE_BASE);
+    // — the first eight spears and a dozen huts never see the ceiling.
+    expect(spearCost(7).stone).toBeLessThanOrEqual(STORE_BASE);
     expect(costOf('hut', 12).planks!).toBeLessThan(STORE_BASE);
-    // And one house clears both, with the last sword (85) inside it.
-    expect(armsCost(9).stone).toBeLessThan(STORE_BASE + STORE_ROOM);
+    // And one house clears both, with the last spear (85) inside it.
+    expect(spearCost(9).stone).toBeLessThan(STORE_BASE + STORE_ROOM);
     expect(costOf('hut', 14).planks!).toBeLessThan(STORE_BASE + STORE_ROOM);
   });
 
@@ -1321,8 +1501,8 @@ describe('★★★ THE HAND IS GONE — the wagon is the bootstrap', () => {
 
     // The chain is live: two settlers, one on each works, both carried home.
     const mid = flow(g);
-    expect(mid.stone).toBeCloseTo(RATE.quarry, 9);
-    expect(mid.logsIn).toBeCloseTo(RATE.lumber, 9);
+    expect(mid.stone).toBeCloseTo(RATE.quarry * 2, 9);
+    expect(mid.logsIn).toBeCloseTo(RATE.lumber * 2, 9);
     expect(mid.choked.size).toBe(0);
 
     // The mill is EARNED, not given: 8 stone and 12 logs off that chain.
@@ -1333,13 +1513,22 @@ describe('★★★ THE HAND IS GONE — the wagon is the bootstrap', () => {
     g = apply(g, { type: 'raise', id: 3 });
     wait(BUILD_SECS.sawmill);
     expect(g.stacks[3]).toBe(1);
-    // ★ TWO SETTLERS CANNOT RUN THREE WORKS, and that is the game rather
-    // than a defect: auto fills the pit and the pines and the mill stands
-    // idle until a hand is POSTED to it, sawing the pile the pines banked.
-    // (The way out is a hut, and the hut is what the planks are for.)
-    expect(flow(g).planks).toBe(0);
+    // ⚠️ THIS FACT INVERTED ON 2026-08-10 AND THE TEST KEPT ITS JOB. It read
+    // "two settlers cannot run three works, and that is the game rather than
+    // a defect" — the mill got no hands and sawed nothing. Playing the
+    // opening showed it was a defect after all: planks are the only route to
+    // a hut, so an unpinned player was simply dead. The camp shelters FOUR
+    // now, and what this test protects is the thing that actually matters —
+    // that the auto-staffer leaves no works empty.
+    expect(flow(g).planks).toBeGreaterThan(0);
+    for (const id of [1, 2, 3]) {
+      expect(flow(g).hands.get(id) ?? 0, `site ${id} unstaffed`).toBeGreaterThan(0);
+    }
+    // A pin still moves a hand — it just starts from a staffed mill now
+    // rather than an empty one.
+    const millBefore = flow(g).hands.get(3) ?? 0;
     g = apply(g, { type: 'pin', id: 3, d: 1 });
-    expect(flow(g).hands.get(3)).toBe(1);
+    expect(flow(g).hands.get(3)).toBe(millBefore + 1);
     expect(flow(g).planks).toBeGreaterThan(0);
     expect(tick(g, 10).planks).toBeGreaterThan(0);
     // ★ The whole bootstrap, measured: about a hundred seconds of idling,
@@ -1572,18 +1761,18 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
 
   it('★★★ THE VETERAN WALKS OUT, and the next run is never weaker', () => {
     const dead: City = { ...war(), lost: true,
-      hero: { hp: 3, arms: 7, part: 0 }, legacy: { runs: 0, arms: 0 } };
+      hero: { hp: 3, spears: 7, part: 0 }, legacy: { runs: 0, spears: 0 } };
     const next = apply(dead, { type: 'found' });
     expect(next.lost).toBe(false);
-    expect(next.legacy).toEqual({ runs: 1, arms: 4 });
-    expect(next.hero.arms).toBe(4);
+    expect(next.legacy).toEqual({ runs: 1, spears: 4 });
+    expect(next.hero.spears).toBe(4);
     // Everything else is gone — that is what losing the valley means.
     expect(next.stacks).toEqual({});
     expect(next.taken).toBe(0);
     expect(Object.keys(next.goblins)).toHaveLength(Object.keys(GOBLINS).length);
     // ★ AND IT NEVER GOES BACKWARDS: a short run cannot undo a long one.
-    const short: City = { ...next, lost: true, hero: { hp: 1, arms: 0, part: 0 } };
-    expect(apply(short, { type: 'found' }).hero.arms).toBe(4);
+    const short: City = { ...next, lost: true, hero: { hp: 1, spears: 0, part: 0 } };
+    expect(apply(short, { type: 'found' }).hero.spears).toBe(4);
     expect(apply(short, { type: 'found' }).legacy.runs).toBe(2);
   });
 
@@ -1604,11 +1793,11 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
   it('the run fields hold at the save door', () => {
     expect(honour({ game: { ...initial(), taken: 3 }, savedAt: 1 })).not.toBeNull();
     expect(honour({ game: { ...initial(), taken: -1 }, savedAt: 1 })).toBeNull();
-    expect(honour({ game: { ...initial(), legacy: { runs: 1, arms: 2 } }, savedAt: 1 })).not.toBeNull();
-    expect(honour({ game: { ...initial(), legacy: { runs: 1, arms: 1.5 } }, savedAt: 1 })).toBeNull();
+    expect(honour({ game: { ...initial(), legacy: { runs: 1, spears: 2 } }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), legacy: { runs: 1, spears: 1.5 } }, savedAt: 1 })).toBeNull();
     const { legacy: _, taken: __, lost: ___, ...old } = initial();
     const back = honour({ game: old as never, savedAt: 1 })!.game;
-    expect(back.legacy).toEqual({ runs: 0, arms: 0 });
+    expect(back.legacy).toEqual({ runs: 0, spears: 0 });
     expect(back.taken).toBe(0);
   });
 });
@@ -1748,13 +1937,13 @@ describe('★★★ PEOPLE OVER THE HUT CAP DO NOT WORK — but they still eat',
     // Six people, no huts: the camp sleeps two, so two hands turn up and the
     // other four stand in the rain. Before this, all six worked for free.
     const crowded = camp(6, 0);
-    expect(popCap(crowded)).toBe(2);
-    expect(housed(crowded)).toBe(2);
-    expect(flow(crowded).hands.get(1)).toBe(2);
-    expect(flow(crowded).stone).toBeCloseTo(2 * RATE.quarry, 9);
+    expect(popCap(crowded)).toBe(CAMP_ROOM);
+    expect(housed(crowded)).toBe(CAMP_ROOM);
+    expect(flow(crowded).hands.get(1)).toBe(CAMP_ROOM);
+    expect(flow(crowded).stone).toBeCloseTo(CAMP_ROOM * RATE.quarry, 9);
     // One hut and the same six people fill the pit — the answer is a hut.
     const roofed = camp(6, 1);
-    expect(popCap(roofed)).toBe(6);
+    expect(popCap(roofed)).toBe(CAMP_ROOM + HUT_ROOM);
     expect(flow(roofed).hands.get(1)).toBe(4);   // the works' own crew caps it
     expect(flow(roofed).stone).toBeCloseTo(CREW * RATE.quarry, 9);
   });
@@ -1782,26 +1971,90 @@ describe('★★★ PEOPLE OVER THE HUT CAP DO NOT WORK — but they still eat',
     // The owner's actual screen: 4 of 2, then 6 of 2. Captives are the only
     // way past the cap (growth already stops at it), and they arrive able
     // to eat and unable to work until the mill has paid for a hut.
-    let g: City = { ...initial(), hero: { hp: 10, arms: 1, part: 0 } };
+    let g: City = { ...initial(), hero: { hp: 10, spears: 1, part: 0 } };
     g = apply(g, { type: 'assail', id: 4 });
     for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
       { type: 'aim', at: 2 }, { type: 'strike' },
-      { type: 'strike' }, { type: 'strike' }] as const) g = apply(g, a);
-    expect(g.pop).toBe(2 + CAPTIVES);
-    expect(popCap(g)).toBe(2);
-    expect(housed(g)).toBe(2);           // 4 of 2 — and now it means something
+      { type: 'strike' }, { type: 'strike' }] as const) g = beat(g, a);
+    expect(g.pop).toBe(CAMP_ROOM + CAPTIVES);
+    expect(popCap(g)).toBe(CAMP_ROOM);
+    expect(housed(g)).toBe(CAMP_ROOM);   // 6 of 4 — and now it means something
   });
 
   it('★ a pin cannot smuggle an unhoused hand onto a works either', () => {
     // The pool is the housed count, so posting hands by name hits the same
     // wall as auto — otherwise the penalty would be one '+' away from void.
     const posted: City = { ...camp(9, 0), crew: { 1: 4 } };
-    expect(flow(posted).hands.get(1)).toBe(2);
+    expect(flow(posted).hands.get(1)).toBe(4);
   });
 
   it('★ housed() never exceeds either the people or the roofs', () => {
-    expect(housed({ ...initial(), pop: 99, stacks: { 0: 1 } })).toBe(2 + HUT_ROOM);
+    expect(housed({ ...initial(), pop: 99, stacks: { 0: 1 } })).toBe(CAMP_ROOM + HUT_ROOM);
     expect(housed({ ...initial(), pop: 3, stacks: { 0: 9 } })).toBe(3);
     expect(housed({ ...initial(), pop: 2.9, stacks: { 0: 9 } })).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE TWO BLOCKERS THE TAP LEFT BEHIND, 2026-08-10. Both were found by a
+// balance audit and then VERIFIED BY RUNNING THEM before either was touched.
+// ---------------------------------------------------------------------------
+describe('★★★ THE WAGON CANNOT BE SPENT INTO A DEAD SAVE', () => {
+  it('★★★ THE SOFTLOCK: three roads and a widen used to end the run forever', () => {
+    // Lay all three camp roads, wait for them, widen one: 9 + 6 = the whole
+    // wagon. No works, no stone source, and `raiders()` needs `taken > 0` so
+    // you cannot even lose your way out. Verified dead an hour later.
+    let g: City = initial();
+    for (const b of [1, 2, 3]) g = apply(g, { type: 'lay', a: 0, b });
+    g = tick(g, 30);
+    expect(g.stone).toBeCloseTo(START_STONE - 9, 6);
+    // THE FIX: the widen is refused, because nothing travels that road yet.
+    expect(unlayable(g, 0, 1)).toBe('nothing travels this road');
+    const after = apply(g, { type: 'lay', a: 0, b: 1 });
+    expect(after).toBe(g);
+    // And the stone that would have gone into it still buys the opening.
+    expect(unraisable(g, 1)).toBeNull();
+  });
+
+  it('★★ a road that DOES carry can still be widened', () => {
+    // The gate must not wall the real mechanic: a working pit's road widens.
+    let g: City = initial();
+    g = apply(g, { type: 'lay', a: 0, b: 1 });
+    g = tick(g, 20);
+    g = apply(g, { type: 'raise', id: 1 });
+    g = tick(g, 40);
+    expect(flow(g).loads.get(pathKey(0, 1)) ?? 0).toBeGreaterThan(0);
+    expect(unlayable({ ...g, stone: 99 }, 0, 1)).toBeNull();
+  });
+
+  it('★★★ THE MILL IS STAFFED ON A DEFAULT SAVE — planks are not zero', () => {
+    // The auto-staffer round-robins one hand at a time in site-id order, so
+    // a town of TWO running three works gave the mill nothing at all, and
+    // planks are the only route to a hut.
+    let g: City = initial();
+    for (const b of [1, 2, 3]) g = apply(g, { type: 'lay', a: 0, b });
+    g = tick(g, 30);
+    g = apply(g, { type: 'raise', id: 1 });
+    g = apply(g, { type: 'raise', id: 2 });
+    g = tick(g, 200);
+    // The mill's own price is earned in the opening test above; this one is
+    // about STAFFING, so hand it the stock rather than re-proving the clock.
+    g = apply({ ...g, stone: 99, logs: 99 }, { type: 'raise', id: 3 });
+    g = tick(g, BUILD_SECS.sawmill + 5);
+    expect(g.stacks[3]).toBe(1);
+    // Every works has at least one pair of hands...
+    for (const id of [1, 2, 3]) {
+      expect(flow(g).hands.get(id) ?? 0, `site ${id} unstaffed`).toBeGreaterThan(0);
+    }
+    // ...and the mill actually saws.
+    expect(flow(g).planks).toBeGreaterThan(0);
+  });
+
+  it('★ the camp shelters four, so the opening works are covered', () => {
+    expect(popCap(initial())).toBe(CAMP_ROOM);
+    expect(initial().pop).toBe(CAMP_ROOM);
+    expect(housed(initial())).toBe(CAMP_ROOM);
+    // A hut still adds its room on top.
+    expect(popCap({ ...initial(), stacks: { 0: 1 } })).toBe(CAMP_ROOM + HUT_ROOM);
   });
 });

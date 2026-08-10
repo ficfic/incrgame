@@ -78,8 +78,11 @@ console.log('  header  :', `"${h0.slice(0, 80)}"`);
 // ⚠️ REWRITTEN 2026-08-10: the hand is gone, so a fresh town no longer opens
 // at zero stone — it opens with a WAGON, which is what buys the first path
 // and the first pit. Two settlers still.
-if (!(await cellNum('stone') >= 8) || !/\b2\/2\b/.test(await cell('people'))) {
-  misses.push(`a fresh city does not open with a wagon and two people: `
+// ⚠️ FOUR, NOT TWO (2026-08-10): the camp itself shelters four now, because
+// two settlers could not staff the three works the opening asks for and the
+// mill sawed nothing at all.
+if (!(await cellNum('stone') >= 8) || !/\b4\/4\b/.test(await cell('people'))) {
+  misses.push(`a fresh city does not open with a wagon and four people: `
     + `stone ${await cell('stone')}, people ${await cell('people')}`);
 }
 const sites0 = await page.$$eval('.map .node', (n) => n.length);
@@ -132,7 +135,8 @@ if (!/⏱\d+s/.test(underway)) {
 await page.waitForTimeout(11000);
 const flowing = await header();
 console.log('  header  :', `"${flowing.slice(0, 80)}"`);
-if (!/\+0\.3\/s/.test(await cell('stone'))) {
+// The pit runs on the camp's own four hands now, so the rate doubled.
+if (!/\+0\.6\/s/.test(await cell('stone'))) {
   misses.push(`pathed quarry, no rate on the stone cell: "${await cell('stone')}"`);
 }
 // The label carries the count — RULE 1 on screen.
@@ -260,8 +264,8 @@ await seed({ version: 5, stacks: { 1: 1, 2: 1, 3: 1 }, paths: { '0|1': 1, '0|2':
   stone: 10, logs: 6, planks: 20, pop: 2, popPart: 0 });
 const before = await header();
 console.log('  header  :', `"${before.slice(0, 90)}"`);
-if (!/\b2\/2\b/.test(await cell('people'))) {
-  misses.push(`seeded city not at 2/2 people: "${await cell('people')}"`);
+if (!/\b2\/4\b/.test(await cell('people'))) {
+  misses.push(`seeded city not at two people in a camp that sleeps four: "${await cell('people')}"`);
 }
 // Three jobs, two people: the camp's own panel must say it is understaffed.
 // The camp is PRE-SELECTED on boot (a design point) — tapping it again
@@ -288,7 +292,8 @@ if (midBuild !== 3) {
 await page.waitForTimeout(9000);
 const hutIcon = await page.$$eval('.map .node .icon', (n) => n.length);
 if (hutIcon !== 4) misses.push(`the hut went up and the map draws ${hutIcon} icons — wanted 4`);
-if (!/\/6\b/.test(await cell('people'))) {
+// The camp's four plus the hut's four.
+if (!/\/8\b/.test(await cell('people'))) {
   misses.push(`a hut went up and the cap did not: "${await cell('people')}"`);
 }
 // ★ HANDS, WHOLE AND SPOKEN: take over the mill by hand, watch the pull
@@ -321,7 +326,7 @@ console.log('  grows   : waiting one growth beat…');
 await page.waitForTimeout(13000);
 const grown = await header();
 console.log('  header  :', `"${grown.slice(0, 90)}"`);
-if (!/\b3\/6\b/.test(await cell('people'))) {
+if (!/\b[3-9]\/8\b/.test(await cell('people'))) {
   misses.push(`nobody arrived after a growth beat: "${await cell('people')}"`);
 }
 
@@ -353,7 +358,7 @@ for (let i = 0; i < 4; i++) {
   const bt = page.locator('.deed', { hasText: 'Attack' });
   if (!(await bt.count())) break;
   await bt.click({ timeout: 1500 }).catch(() => {});
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(2400);
 }
 const beaten = await header();
 console.log('  mashed  :', `"${beaten.slice(30, 110)}"`);
@@ -383,7 +388,7 @@ for (const at of [1, 2]) {
   await page.locator(`.strip .sq.them >> nth=${at}`).click({ timeout: 1500 }).catch(() => {});
   await page.waitForTimeout(120);
   await attack.click({ timeout: 1500 }).catch(() => {});
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(2400);
 }
 // Both runts down; the third answer is the wind-up — the strip says so.
 const warn = await panel();
@@ -393,7 +398,7 @@ if (!/WIND UP/.test(warn)) {
 }
 for (let i = 0; i < 2; i++) {
   await attack.click({ timeout: 1500 }).catch(() => {});
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(2400);
 }
 await page.waitForTimeout(300);
 const heldNow = await page.$$eval('.map .node[data-kind="foe"]', (n) => n.length);
@@ -405,8 +410,12 @@ console.log('  rescued :', `"${rescued.slice(30, 100)}"`);
 // Six people in a camp with room for two — the captives walked home into a
 // town that has not built for them yet, which is why huts reads full. The
 // old check read "6 people · huts full" and could not see the cap at all.
+// ⚠️ THE FACT IS THE CAPTIVES, NOT THE CROWDING. This used to also require
+// `huts full`, which was true only because the camp slept two; with four it
+// no longer overfills, and the thing the check exists for is that two people
+// walked home from the fight.
 const popHome = Number(/(\d+)\//.exec(await cell('people'))?.[1] ?? NaN);
-if (popHome !== 6 || !/full/.test(await cell('huts'))) {
+if (popHome !== 6) {
   misses.push(`no captives came home from the liberation: `
     + `people ${await cell('people')}, huts ${await cell('huts')}`);
 }
@@ -587,7 +596,7 @@ await page.locator('.gone button').click({ timeout: 2000 })
 await page.waitForTimeout(900);
 const armsAfter = await cell('hero');
 console.log('  founded :', `"${armsAfter}"`);
-if (!/arms 4\b/.test(armsAfter)) {
+if (!/spears ×4/.test(armsAfter)) {
   misses.push(`the veteran did not walk out of the lost valley: "${armsAfter}"`);
 }
 if (await page.locator('.gone').count() > 0) {
