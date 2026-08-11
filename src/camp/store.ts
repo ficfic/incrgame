@@ -117,6 +117,22 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   if (g.hero !== undefined) {
     if (typeof g.hero !== 'object' || g.hero === null) return null;
     if (!num(g.hero.hp, 0, 99) || !num(g.hero.spears, 0, 99) || !num(g.hero.part, 0, 2)) return null;
+    // ★ WHERE THEY STAND, and the road they are on. An old save defaults to
+    // the camp standing still, which is conceptually exactly where a hero
+    // with no position was.
+    // ⚠️ DEFAULTED, NOT MERELY VALIDATED. Every save written before the hero
+    // had a place lacks `at`, and an undefined `at` means `legsBetween` can
+    // find no road anywhere — so every march is refused and every fight on
+    // the map becomes unreachable. Validation alone let that through; the
+    // test that should have caught it read `back.hero.at ?? 0`, which passes
+    // on undefined. Both fixed.
+    if (g.hero.at === undefined) g.hero.at = 0;
+    if (g.hero.trip === undefined) g.hero.trip = null;
+    if (SITE.get(g.hero.at) === undefined) return null;
+    if (g.hero.trip !== undefined && g.hero.trip !== null) {
+      if (SITE.get(g.hero.trip.to) === undefined) return null;
+      if (!num(g.hero.trip.left, 0, 9999) || !num(g.hero.trip.secs, 0.001, 9999)) return null;
+    }
   }
   if (g.fight !== undefined && g.fight !== null) {
     // The battle strip's whole shape, or no fight at all: an old-shape or

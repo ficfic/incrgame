@@ -10,6 +10,7 @@
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
+    unmarchable, marchSecs, onWatchAt,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP,
@@ -55,12 +56,14 @@
   /** ★ THE NEAREST RAID: whichever holding is fullest, and what it is
    *  coming for. `null` before first blood, when there is no war yet. */
   const worst = $derived((() => {
-    let best: { m: number; at: string } | null = null;
+    let best: { m: number; at: string; gate: number | null } | null = null;
     for (const id of raiders(game)) {
       const m = game.menace[id] ?? 0;
       const t = raidTarget(game, id);
       if (t === null) continue;
-      if (best === null || m > best.m) best = { m, at: SITE.get(t)?.name ?? '' };
+      if (best === null || m > best.m) {
+        best = { m, at: SITE.get(t)?.name ?? '', gate: t };
+      }
     }
     return best;
   })());
@@ -152,6 +155,21 @@
     return `${kind} · ${made.toFixed(1)}/s`;
   }
 
+  /** ★★ WHERE THE HERO IS, in world coordinates — interpolated along the road
+   *  while they walk. ⚠️ CANVAS-SIDE ONLY, never a DOM tap target:
+   *  `docs/MAP_RECIPE.md` §9 — a thing that drifts is a thing a thumb cannot
+   *  hit, and that bug took two sessions to close. */
+  const heroAt = $derived((() => {
+    const from = SITE.get(game.hero.at);
+    if (!from) return null;
+    const trip = game.hero.trip;
+    if (!trip) return { x: from.x, y: from.y };
+    const to = SITE.get(trip.to);
+    if (!to) return { x: from.x, y: from.y };
+    const done = 1 - trip.left / trip.secs;
+    return { x: from.x + (to.x - from.x) * done, y: from.y + (to.y - from.y) * done };
+  })());
+
   const dots = $derived<Dot[]>(shown(game).map((s) => ({
     id: siteId(s.id),
     name: nameOf(s.id),
@@ -240,9 +258,29 @@
     return [
       { s: 'path', pts, ink: 'ward', close: true, curve: true,
         w: 2, dash: [7, 6], alpha: 0.55 },
+      ...heroMark(),
       ...CAMP_SHAPES,
     ];
   })());
+
+  /** ★ THE HERO'S MARK: a ring where they stand, brighter while on watch.
+   *  Two discs so it reads against terrain, ground and the barrier alike. */
+  function heroMark(): Shape[] {
+    if (!heroAt || game.lost) return [];
+    const watching = onWatch(game);
+    // ⚠️ OFFSET AND BIG ENOUGH TO SEE. Drawn at the site's own centre it sat
+    // exactly under the node dot and the graph painted straight over it — 0px
+    // of hero ink on the board, which the probe caught. It stands BESIDE the
+    // dot now, and the probe holds it above 20px.
+    const x = heroAt.x + 13;
+    const y = heroAt.y - 13;
+    return [
+      { s: 'disc', x, y, r: 11, ink: 'back', alpha: 0.9 },
+      { s: 'disc', x, y, r: 8,
+        ink: watching ? 'you' : 'known', ring: 'casing', rw: 2,
+        alpha: game.hero.trip ? 0.8 : 1 },
+    ];
+  }
 
   const box = $derived<Box>((() => {
     const xs = shown(game).map((s) => s.x);
@@ -261,6 +299,21 @@
     const out: Deed[] = [];
     // ★ HELD GROUND: the only deed is the hero. Everything else waits.
     if (game.goblins[s.id]) {
+      // ★★ MARCH, THEN FIGHT — 2026-08-10. A fight is a place now, so the
+      // deed on held ground you are not standing on is the WALK, priced in
+      // seconds, and the sword is drawn on arrival.
+      if (game.hero.at !== s.id) {
+        const why = unmarchable(game, s.id);
+        const secs = marchSecs(game, s.id);
+        out.push({
+          label: `March on ${s.name}`,
+          note: why ?? `${MARK.time}${secs}s → ${MARK.hero}${heroHit(game)}`
+            + ` · ${MARK.bite}${GOBLINS[s.id]?.bite ?? 2}`,
+          why,
+          go: () => act({ type: 'march', to: s.id }),
+        });
+        return out;
+      }
       const why = unassailable(game, s.id);
       out.push({
         label: 'Send the hero',
@@ -269,6 +322,18 @@
         go: () => act({ type: 'assail', id: s.id }),
       });
       return out;
+    }
+    // ★ AND ANYWHERE ELSE YOU HOLD: walking there is what puts the hero on
+    // that gate, which is the only way to defend it now.
+    if (game.hero.at !== s.id && marchSecs(game, s.id) !== null) {
+      const why = unmarchable(game, s.id);
+      out.push({
+        label: `Stand at ${s.name}`,
+        note: why ?? `${MARK.time}${marchSecs(game, s.id)}s`
+          + `${(game.menace[s.id] ?? 0) > 0 ? ` · ${MARK.waste}` : ''}`,
+        why,
+        go: () => act({ type: 'march', to: s.id }),
+      });
     }
     // ★ HAND WORK AT THE TREES — the owner: *"lumberworks is soft locked…
     // there's no way to get the lumber needed."* There was, and nobody
@@ -674,7 +739,11 @@
     <div class="warline" class:hot={worst !== null && worst.m > 0.6} data-q="war">
       {#if worst !== null}
         {MARK.waste}{Math.round(worst.m * 100)}% → {worst.at}
-        · {onWatch(game) ? `${MARK.hero} on watch` : `${MARK.hero} away`}
+        · {worst.gate !== null && onWatchAt(game, worst.gate)
+          ? `${MARK.hero} holding it`
+          : game.hero.trip
+            ? `${MARK.hero}→${SITE.get(game.hero.trip.to)?.name ?? ''}`
+            : `${MARK.hero} ${SITE.get(game.hero.at)?.name ?? ''}`}
         · {MARK.danger}{holdings} left
       {:else if holdings > 0}
         {MARK.danger}{holdings} holdings · they come once you take one

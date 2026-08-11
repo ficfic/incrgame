@@ -872,3 +872,52 @@ exactly what one healed hero can hold off, so a town that keeps its hero home
 holds one gate indefinitely and loses the others. That fell out of the
 numbers rather than being designed, and it is why several test fixtures now
 have to send the hero away explicitly to make a raid land at all.
+
+
+## ★★★ THE HERO HAS A PLACE — 2026-08-10, steps 1–2 of `docs/RAIDS.md`
+
+> *"it's not even visible anywhere… the hero must have travel times between his
+> attacks and home… and all must be visible on map"*
+
+**The war was invisible for a structural reason.** `hero` was
+`{ hp, spears, part }` — no position at all. So "on watch" was a boolean over
+the whole valley, a raid was an event with no path, and a fight was a screen
+that appeared. Nothing about the war was on the map because nothing about the
+war *had* a place.
+
+- **`hero.at` and `hero.trip`.** Marching walks the **laid roads** at
+  `WALK_SECS` 12 a leg, banks like every other timer, and lands on an away
+  tick — walking is work you are owed, not a threat held over you.
+- **Arriving on held ground draws the sword.** A march is the whole act;
+  `assail` now refuses unless the hero is standing on the ground, and the
+  line is read from the holding's strength **at arrival**.
+- **The watch is where they stand** (the owner's call). Three holdings can be
+  filling and the hero can be at one of them — the roads decide which you can
+  reach in time.
+- **The hero is drawn on the map**, sliding along the road while walking.
+
+### Two bugs this shook out, one of which would have broken the game
+
+⚠️ **A path can never be LAID to goblin ground** (`unlayable` refuses it), so
+requiring a road for the last step made **every fight on the map unreachable**
+the moment marching became the only way to one. The final step onto adjacent
+held ground needs no road — walking to a battle is cross-country; walking
+*through* a holding is still impossible. **Caught by the browser probe and by
+no unit test**, so a test now covers it.
+
+⚠️ **`honour()` validated `hero.at` but never defaulted it**, so every save
+written before this change loaded with `at: undefined` — and an undefined
+place means no road reaches anywhere, i.e. every march refused. The test that
+should have caught it read `back.hero.at ?? 0`, which passes on `undefined`.
+Both fixed, and the `??` is gone.
+
+⚠️ **The marker is canvas-side only** — `docs/MAP_RECIPE.md` §9: a thing that
+drifts is a thing a thumb cannot hit. It also had to be **offset from the
+site's centre**, because drawn on the dot the graph painted straight over it:
+0px of hero ink on the board, which the probe caught.
+
+### Still to come, from the design
+
+Red dotted threat lines and muster rings (step 3), and the ambush on the road
+(step 4). **The fight ladder is still tuned to an always-available hero** —
+travel time is a real nerf to every rung and `chad-liquidity` should re-run it.

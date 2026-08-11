@@ -20,6 +20,20 @@ page.on('pageerror', (e) => misses.push(`page error: ${e.message.slice(0, 90)}`)
 await page.goto(URL, { waitUntil: 'networkidle' });
 await page.waitForTimeout(900);
 
+
+/** ★ MARCH, THEN FIGHT — 2026-08-10. A fight is a PLACE now, so the deed on
+ *  held ground you are not standing on is the walk. Click it, let the hero
+ *  arrive (the sword is drawn on arrival), and the strip opens. */
+const marchTo = async (site) => {
+  const march = page.locator('.deed', { hasText: 'March on' });
+  if (await march.count()) {
+    await march.first().click({ timeout: 2000 }).catch(() => {});
+    // WALK_SECS per laid leg, plus slack for the tick that lands it.
+    await page.waitForTimeout(15000);
+  }
+  void site;
+};
+
 const header = async () => (await page.locator('header').textContent())
   .replace(/\s+/g, ' ').trim();
 const panel = async () => (await page.locator('.panel').textContent())
@@ -342,8 +356,13 @@ console.log('  offers  :', `"${sendNote.slice(0, 70)}"`);
 if (!/⚔️2 · 🩸2/.test(sendNote)) {
   misses.push(`the held ground does not quote the fight: "${sendNote.slice(0, 60)}"`);
 }
-await page.locator('.deed', { hasText: 'Send the hero' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no deed sends the hero'));
+// ⚠️ THE MARCH IS THE WHOLE ACT NOW. Arriving on held ground draws the sword
+// on the landing tick, so there is no second button — if the strip is not up
+// after the walk, the march itself failed.
+await marchTo(4);
+if (!(await page.locator('.strip').count())) {
+  misses.push('the hero marched onto held ground and no fight started');
+}
 await page.waitForTimeout(250);
 const squares = await page.$$eval('.strip .sq', (n) => n.length);
 console.log('  strip   :', `${squares} squares on the strip`);
@@ -385,7 +404,7 @@ await seed({ version: 5, stacks: { 0: 1, 1: 1 }, paths: { '0|1': 1 },
   stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 }, hero: { hp: 10, arms: 1, part: 0 }, fight: null });
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
-await page.locator('.deed', { hasText: 'Send the hero' }).click({ timeout: 2000 }).catch(() => {});
+await marchTo(4);
 await page.waitForTimeout(200);
 const attack = page.locator('.deed', { hasText: 'Attack' });
 for (const at of [1, 2]) {
@@ -644,8 +663,11 @@ console.log('  war     :', `"${warLine}"`);
 if (!/⚠\d+% →/.test(warLine) || !/☠\d+/.test(warLine)) {
   misses.push(`the raid clock and the goal are not on screen: "${warLine}"`);
 }
-if (!/(on watch|away)/.test(warLine)) {
-  misses.push(`the war line does not say whether the hero can stop it: "${warLine}"`);
+// ★ WHERE THE HERO IS, and whether that is the gate under threat — the
+// watch is positional since 2026-08-10, so "at home" is no longer the
+// question; "on the right ground" is.
+if (!/⚔️/.test(warLine)) {
+  misses.push(`the war line does not say where the hero is: "${warLine}"`);
 }
 
 // ★ ITEM I — a second tap does not clear the selection.
@@ -684,6 +706,28 @@ if (!floated) {
 } else if (!/[🪨🪵🟫🌾]/.test(floated)) {
   misses.push(`the +1 does not name what landed: "${floated}"`);
 }
+
+// -------------------------------------------------- the march -----------
+console.log('\nTHE HERO HAS A PLACE');
+await seed({ version: 5, stacks: { 0: 3, 1: 2 }, paths: { '0|1': 2 },
+  stone: 30, logs: 6, planks: 20, food: 90, pop: 10, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 13, spears: 2, part: 0, at: 0, trip: null },
+  fight: null, store: 1, carts: 0, menace: {}, taken: 1, famine: 0,
+  forage: null, forays: 0, lost: false, legacy: { runs: 0, spears: 0 } });
+// ★ Held ground you are not standing on offers the WALK, priced in seconds.
+await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(250);
+const marchDeed = page.locator('.deed', { hasText: 'March on' });
+const marchNote = (await marchDeed.textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
+console.log('  offers  :', `"${marchNote.slice(0, 60)}"`);
+if (!/⏱\d+s →/.test(marchNote)) {
+  misses.push(`held ground does not price the march: "${marchNote.slice(0, 60)}"`);
+}
+// ★ AND THE HERO IS DRAWN ON THE MAP. Canvas-side, so it is counted in ink.
+const heroInk = await inked('you');
+console.log('  drawn   :', `${heroInk}px of hero on the board`);
+if (heroInk < 20) misses.push(`the hero is not visible on the map: ${heroInk}px`);
 
 // -------------------------------------------------- the dock ------------
 console.log('\nTHE DOCK FITS');

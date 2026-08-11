@@ -14,6 +14,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   carriesOf, cartCost, cartHaul, CART_GAIN,
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
+  WALK_SECS, marchSecs, legsBetween, unmarchable,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -65,6 +66,13 @@ const chain = (pop = 99): City => ({
   stacks: { 0: huts(pop), 1: 1, 2: 1, 3: 1 },
   paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 },
 });
+
+/** ★ A FIGHT IS A PLACE NOW (2026-08-10). `assail` refuses unless the hero is
+ *  standing on the ground, so every fight fixture puts them there first. In
+ *  play you get there by marching, which takes `WALK_SECS` per laid edge;
+ *  these tests are about the FIGHT, so they skip the walk deliberately. */
+const atSite = (g: City, id: number): City =>
+  ({ ...g, hero: { ...g.hero, at: id, trip: null } });
 
 describe('★★ RULE 1 — buildings come in counts, on the compounding curve', () => {
   it('works climb 1.35^n; huts stay gentle at 1.15 — the plank sink', () => {
@@ -179,7 +187,7 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     const g: City = { ...initial(), goblins: rest, taken: 2 };
     expect(heroMax(g)).toBe(HERO_HP + 6);
     // And the heal fills to the GROWN max.
-    const hurt: City = { ...g, hero: { hp: 0, spears: 0, part: 0 } };
+    const hurt: City = { ...g, hero: { hp: 0, spears: 0, part: 0, at: 0, trip: null } };
     expect(tick(hurt, HEAL_SECS * 40).hero.hp).toBe(HERO_HP + 6);
   });
 
@@ -190,8 +198,8 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
     const start = { ...initial().goblins };
     delete start[4]; delete start[5]; delete start[6];
     let g: City = { ...initial(), goblins: start,
-      hero: { hp: 19, spears: 6, part: 0 } };
-    g = apply(g, { type: 'assail', id: 7 });
+      hero: { hp: 19, spears: 6, part: 0, at: 0, trip: null } };
+    g = apply(atSite(g, 7), { type: 'assail', id: 7 });
     for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
       { type: 'aim', at: 2 }, { type: 'strike' },
       { type: 'strike' }, { type: 'strike' }] as const) g = beat(g, a);
@@ -458,14 +466,14 @@ describe('★ honest refusals and the save', () => {
     expect(honour(null)).toBeNull();
     expect(honour({ game: { version: 4 }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), pop: -1 }, savedAt: 1 })).toBeNull();
-    expect(honour({ game: { ...initial(), hero: { hp: -1, spears: 0, part: 0 } },
+    expect(honour({ game: { ...initial(), hero: { hp: -1, spears: 0, part: 0, at: 0, trip: null } },
       savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), goblins: { 4: Infinity } },
       savedAt: 1 })).toBeNull();
   });
 
   it('★ a mid-fight save round-trips; an old-shape fight drops, the town stays', () => {
-    const mid = apply({ ...initial(), hero: { hp: 10, spears: 1, part: 0 } },
+    const mid = apply({ ...initial(), hero: { hp: 10, spears: 1, part: 0, at: 0, trip: null } },
       { type: 'assail', id: 4 });
     expect(honour({ game: mid, savedAt: 1 })!.game.fight).toEqual(mid.fight);
     // The pre-strip shape ({site} alone) is not a fight any more — the
@@ -482,7 +490,7 @@ describe('★ honest refusals and the save', () => {
   // a hand-made object reaches the engine, and it was letting four kinds of
   // nonsense through. Each of these crashed, cheated, or ate the town.
   it('★★ a fight at ground that does not exist is refused, not rendered', () => {
-    const mid = apply({ ...initial(), hero: { hp: 10, spears: 1, part: 0 } },
+    const mid = apply({ ...initial(), hero: { hp: 10, spears: 1, part: 0, at: 0, trip: null } },
       { type: 'assail', id: 4 });
     // `site: 99` used to pass (an integer is an integer) and the panel's
     // `SITE.get(99)!.name` then threw on first paint — a dead screen.
@@ -495,7 +503,8 @@ describe('★ honest refusals and the save', () => {
   });
 
   it('★★ a packless fight is refused — no unlimited rations', () => {
-    const mid = apply({ ...initial(), food: 99, hero: { hp: 10, spears: 1, part: 0 } },
+    const mid = apply({ ...initial(), food: 99,
+      hero: { hp: 10, spears: 1, part: 0, at: 4, trip: null } },
       { type: 'assail', id: 4 });
     const { packs: _, ...packless } = mid.fight!;
     // `undefined <= 0` is false, so ration() spent it to NaN, and `NaN <= 0`
@@ -586,7 +595,7 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
   const strike = (g: City): City => beat(g, { type: 'strike' });
   const aim = (g: City, at: number): City => beat(g, { type: 'aim', at });
   const armed = (spears: number, extra: Partial<City> = {}): City =>
-    apply({ ...initial(), hero: { hp: 10, spears, part: 0 }, ...extra },
+    apply({ ...initial(), hero: { hp: 10, spears, part: 0, at: 4, trip: null }, ...extra },
       { type: 'assail', id: 4 });
 
   it('★ assail fields THE LINE: a wall up front, two biters behind', () => {
@@ -652,7 +661,7 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
 
   it('★ rations: 3 food for 4 health, from a pack — capped, answered, finite', () => {
     const mid: City = { ...initial(), food: 99,
-      hero: { hp: 8, spears: 1, part: 0 },
+      hero: { hp: 8, spears: 1, part: 0, at: 0, trip: null },
       fight: { site: 4, sq: lineOf(12, 2, 3), target: 0, round: 0, packs: 1,
         blow: null } };
     const g = beat(mid, { type: 'ration' });
@@ -703,8 +712,8 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
   it('★ FIGHT TWO holds the +2 cadence: Spears ×2 wins the slope read right', () => {
     const { 4: _, ...rest } = initial().goblins;
     let g: City = { ...initial(), goblins: rest,
-      hero: { hp: 13, spears: 2, part: 0 } };
-    g = apply(g, { type: 'assail', id: 5 });
+      hero: { hp: 13, spears: 2, part: 0, at: 0, trip: null } };
+    g = apply(atSite(g, 5), { type: 'assail', id: 5 });
     expect(g.fight!.sq).toEqual([{ hp: 10, poke: 1, kind: 'brute' },
       { hp: 4, poke: 3, kind: 'runt' }, { hp: 4, poke: 3, kind: 'runt' }]);
     for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
@@ -727,7 +736,7 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     const bled: City = { ...initial(), goblins: { ...initial().goblins, 4: 2 } };
     expect(tick(bled, 100).goblins[4]).toBeCloseTo(2 + regenOf(4) * 100, 6);
     expect(tick(bled, 9999).goblins[4]).toBe(12);          // capped at spawn
-    const fighting = apply({ ...bled, goblins: { ...bled.goblins, 4: 2 } },
+    const fighting = apply(atSite({ ...bled, goblins: { ...bled.goblins, 4: 2 } }, 4),
       { type: 'assail', id: 4 });
     expect(tick(fighting, 100).goblins[4]).toBe(2);        // pinned by the fight
   });
@@ -746,10 +755,14 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
 
   it('the hero is refused where sense refuses: free ground, mid-fight, hurt', () => {
     expect(unassailable(initial(), 1)).toBe('nothing to fight here');
-    const mid = apply(initial(), { type: 'assail', id: 4 });
+    const mid = apply(atSite(initial(), 4), { type: 'assail', id: 4 });
     expect(unassailable(mid, 5)).toBe('the hero is already fighting');
-    expect(apply(mid, { type: 'assail', id: 5 })).toBe(mid);
-    const hurt: City = { ...initial(), hero: { hp: 3, spears: 0, part: 0 } };
+    const stood = atSite(mid, 5);
+    expect(apply(stood, { type: 'assail', id: 5 })).toBe(stood);
+    // ⚠️ Standing on it: "the hero is not there" now outranks the heal
+    // refusal, and this test is about the HEAL.
+    const hurt: City = { ...initial(),
+      hero: { hp: 3, spears: 0, part: 0, at: 4, trip: null } };
     expect(unassailable(hurt, 4)).toMatch(/^the hero heals — 3 of 10/);
   });
 
@@ -769,7 +782,7 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
 // ---------------------------------------------------------------------------
 describe('★★★ A BLOW TAKES TIME — ordered, clocked, landed', () => {
   const engaged = (over: Partial<City> = {}): City => ({
-    ...initial(), hero: { hp: 10, spears: 1, part: 0 }, ...over,
+    ...initial(), hero: { hp: 10, spears: 1, part: 0, at: 0, trip: null }, ...over,
     fight: { site: 4, sq: lineOf(12, 2, 3), target: 0, round: 0,
       packs: RATION_PACK, blow: null } });
 
@@ -815,7 +828,7 @@ describe('★★★ A BLOW TAKES TIME — ordered, clocked, landed', () => {
     // raid's own rule. A hero on 1 health with a full line in front of him is
     // beaten home the moment this blow lands; a pocket must not be where it
     // happens, because the player cannot answer a 60-second catchUp chunk.
-    const swung = apply(engaged({ hero: { hp: 1, spears: 1, part: 0 } }),
+    const swung = apply(engaged({ hero: { hp: 1, spears: 1, part: 0, at: 0, trip: null } }),
       { type: 'strike' });
     const night = catchUp(swung, 12 * 3600);
     expect(night.fight).not.toBeNull();          // still standing there
@@ -831,7 +844,7 @@ describe('★★★ A BLOW TAKES TIME — ordered, clocked, landed', () => {
   it('★ the ration is paid when it is CALLED and heals when it LANDS', () => {
     // The same law `raise` obeys: the stone is in the foundations. Otherwise
     // hunger could eat a ration mid-swing and the act would fizzle.
-    const called = apply(engaged({ food: 99, hero: { hp: 4, spears: 1, part: 0 } }),
+    const called = apply(engaged({ food: 99, hero: { hp: 4, spears: 1, part: 0, at: 0, trip: null } }),
       { type: 'ration' });
     expect(called.food).toBe(99 - RATION_FOOD);
     expect(called.fight!.packs).toBe(RATION_PACK - 1);
@@ -961,7 +974,7 @@ describe('★★★ THE LADDER HOLDS — solved, not felt', () => {
     const goblins: Record<number, number> = {};
     for (const s of order.slice(order.indexOf(site))) goblins[s] = GOBLINS[s]!.strength;
     const base: City = { ...initial(), goblins, food: 99 };
-    return apply({ ...base, hero: { hp: heroMax(base), spears, part: 0 } },
+    return apply({ ...base, hero: { hp: heroMax(base), spears, part: 0, at: site, trip: null } },
       { type: 'assail', id: site });
   };
 
@@ -1008,7 +1021,7 @@ describe('★★ THE FLEE-REGROUP GRIND PAYS NOTHING, at every rung', () => {
     for (const s of order.slice(order.indexOf(site))) goblins[s] = GOBLINS[s]!.strength;
     const base: City = { ...initial(), goblins, food: 0 };
     const max = heroMax(base);
-    let g = apply({ ...base, hero: { hp: max, spears, part: 0 } },
+    let g = apply({ ...base, hero: { hp: max, spears, part: 0, at: site, trip: null } },
       { type: 'assail', id: site });
     const before = g.fight!.sq.reduce((n, q) => n + q.hp, 0);
     // The grinder's best sortie: always hit the softest live square, and
@@ -1653,7 +1666,7 @@ describe('★★★ THE RAID — held ground takes something back', () => {
   // means a fixture about a raid LANDING has to keep them genuinely away.
   const pressed = (over: Partial<City> = {}): City => ({
     ...initial(), pop: 12, food: 900, taken: 1,
-    hero: { hp: 0, spears: 0, part: 0 }, forage: { left: 9e8, secs: 9e8 },
+    hero: { hp: 0, spears: 0, part: 0, at: 0, trip: null }, forage: { left: 9e8, secs: 9e8 },
     stacks: { 0: 4, 1: 2 }, paths: { [pathKey(0, 1)]: 2 },
     goblins: { 4: 12 }, ...over });
 
@@ -1745,7 +1758,7 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
   // ⚠️ Out on a foray — see `pressed` above.
   const war = (over: Partial<City> = {}): City => ({
     ...initial(), pop: 12, food: 900, taken: 1,
-    hero: { hp: 0, spears: 0, part: 0 }, forage: { left: 9e8, secs: 9e8 },
+    hero: { hp: 0, spears: 0, part: 0, at: 0, trip: null }, forage: { left: 9e8, secs: 9e8 },
     stacks: { 0: 1 }, goblins: { 4: 12 }, ...over });
 
   it('★★★ FIRST BLOOD STARTS THE WAR — an untouched camp is never raided', () => {
@@ -1799,7 +1812,7 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
 
   it('★★★ THE VETERAN WALKS OUT, and the next run is never weaker', () => {
     const dead: City = { ...war(), lost: true,
-      hero: { hp: 3, spears: 7, part: 0 }, legacy: { runs: 0, spears: 0 } };
+      hero: { hp: 3, spears: 7, part: 0, at: 0, trip: null }, legacy: { runs: 0, spears: 0 } };
     const next = apply(dead, { type: 'found' });
     expect(next.lost).toBe(false);
     expect(next.legacy).toEqual({ runs: 1, spears: 4 });
@@ -1809,7 +1822,7 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
     expect(next.taken).toBe(0);
     expect(Object.keys(next.goblins)).toHaveLength(Object.keys(GOBLINS).length);
     // ★ AND IT NEVER GOES BACKWARDS: a short run cannot undo a long one.
-    const short: City = { ...next, lost: true, hero: { hp: 1, spears: 0, part: 0 } };
+    const short: City = { ...next, lost: true, hero: { hp: 1, spears: 0, part: 0, at: 0, trip: null } };
     expect(apply(short, { type: 'found' }).hero.spears).toBe(4);
     expect(apply(short, { type: 'found' }).legacy.runs).toBe(2);
   });
@@ -2009,8 +2022,8 @@ describe('★★★ PEOPLE OVER THE HUT CAP DO NOT WORK — but they still eat',
     // The owner's actual screen: 4 of 2, then 6 of 2. Captives are the only
     // way past the cap (growth already stops at it), and they arrive able
     // to eat and unable to work until the mill has paid for a hut.
-    let g: City = { ...initial(), hero: { hp: 10, spears: 1, part: 0 } };
-    g = apply(g, { type: 'assail', id: 4 });
+    let g: City = { ...initial(), hero: { hp: 10, spears: 1, part: 0, at: 0, trip: null } };
+    g = apply(atSite(g, 4), { type: 'assail', id: 4 });
     for (const a of [{ type: 'aim', at: 1 }, { type: 'strike' },
       { type: 'aim', at: 2 }, { type: 'strike' },
       { type: 'strike' }, { type: 'strike' }] as const) g = beat(g, a);
@@ -2151,8 +2164,9 @@ describe('★★★ THE FORAY — you can always dig yourself out', () => {
     // ⚠️ hp must be FULL or `unassailable` refuses — the hero heals first,
     // and `heroMax` is 13 once a holding has been taken.
     let g: City = { ...ruined(), goblins: { 4: 12 },
-      hero: { hp: heroMax({ ...ruined(), goblins: { 4: 12 } }), spears: 9, part: 0 } };
-    g = apply(g, { type: 'assail', id: 4 });
+      hero: { hp: heroMax({ ...ruined(), goblins: { 4: 12 } }), spears: 9,
+        part: 0, at: 4, trip: null } };
+    g = apply(atSite(g, 4), { type: 'assail', id: 4 });
     expect(unforageable(g)).toBe('the hero is fighting');
     expect(apply(g, { type: 'forage' }).forage).toBeNull();
     const out = apply(ruined(), { type: 'forage' });
@@ -2289,7 +2303,7 @@ describe('★★★ RAIDS EAT THE WORKS, NOT THE ROOF', () => {
   const town = (over: Partial<City> = {}): City => ({ ...initial(), taken: 1,
     pop: 20, food: 9e5, stacks: { 0: 5, 1: 3, 2: 3, 3: 2 },
     paths: { [pathKey(0, 1)]: 2, [pathKey(0, 2)]: 2, [pathKey(0, 3)]: 2 },
-    hero: { hp: 0, spears: 1, part: 0 }, ...over });
+    hero: { hp: 0, spears: 1, part: 0, at: 0, trip: null }, ...over });
 
   it('★★★ THE HUT BUG: the camp was the fullest pile, so every raid ate it', () => {
     // This is what "my huts kept disappearing" was. The rule said "come for
@@ -2316,9 +2330,13 @@ describe('★★★ RAIDS EAT THE WORKS, NOT THE ROOF', () => {
   it('★★★ THE ANSWER: a hero at home turns a raid away', () => {
     // "What can you do about it" had no answer but "conquer faster", which
     // a town under three raiders often cannot.
-    const away: City = { ...town(), hero: { hp: 0, spears: 1, part: 0 } };
+    const away: City = { ...town(), hero: { hp: 0, spears: 1, part: 0, at: 0, trip: null } };
     expect(onWatch(away)).toBe(false);
-    const home: City = { ...town(), hero: { hp: heroMax(town()), spears: 1, part: 0 } };
+    // ⚠️ THE WATCH IS POSITIONAL (the owner's call, 2026-08-10): the hero must
+    // stand on the ground the raid is coming FOR, not merely be at home.
+    const gate = raidTarget(town(), 4)!;
+    const home: City = { ...town(),
+      hero: { hp: heroMax(town()), spears: 1, part: 0, at: gate, trip: null } };
     expect(onWatch(home)).toBe(true);
     const hit = tick(away, RAID_SECS + 1);
     const held = tick(home, RAID_SECS + 1);
@@ -2332,7 +2350,11 @@ describe('★★★ RAIDS EAT THE WORKS, NOT THE ROOF', () => {
   it('★★★ ONE HERO, ONE GATE — standing watch is not a wall', () => {
     // A single idle hero used to repel every holding on the map in the same
     // instant, which is the mechanic deleting itself.
-    const home: City = { ...town(), hero: { hp: heroMax(town()), spears: 1, part: 0 } };
+    // ⚠️ THE WATCH IS POSITIONAL (the owner's call, 2026-08-10): the hero must
+    // stand on the ground the raid is coming FOR, not merely be at home.
+    const gate = raidTarget(town(), 4)!;
+    const home: City = { ...town(),
+      hero: { hp: heroMax(town()), spears: 1, part: 0, at: gate, trip: null } };
     expect(raiders(home).length).toBeGreaterThan(1);
     const after = tick(home, RAID_SECS + 1);
     const lost = [0, 1, 2, 3]
@@ -2342,11 +2364,142 @@ describe('★★★ RAIDS EAT THE WORKS, NOT THE ROOF', () => {
   });
 
   it('★★ the watch costs the foray and the march — you cannot do both', () => {
-    const home: City = { ...town(), hero: { hp: heroMax(town()), spears: 1, part: 0 } };
+    // ⚠️ THE WATCH IS POSITIONAL (the owner's call, 2026-08-10): the hero must
+    // stand on the ground the raid is coming FOR, not merely be at home.
+    const gate = raidTarget(town(), 4)!;
+    const home: City = { ...town(),
+      hero: { hp: heroMax(town()), spears: 1, part: 0, at: gate, trip: null } };
     expect(onWatch(apply(home, { type: 'forage' }))).toBe(false);
     expect(onWatch({ ...home, fight: { site: 4, sq: [], round: 0, packs: 0,
       target: 0, blow: null } as never })).toBe(false);
     // And a hero beaten home cannot hold the walls either.
-    expect(onWatch({ ...home, hero: { hp: 0, spears: 1, part: 0 } })).toBe(false);
+    expect(onWatch({ ...home, hero: { hp: 0, spears: 1, part: 0, at: 0, trip: null } })).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE HERO HAS A PLACE, 2026-08-10 — step 1 and 2 of docs/RAIDS.md. The
+// owner: *"it's not even visible anywhere… the hero must have travel times
+// between his attacks and home… and all must be visible on map."* The war was
+// invisible because it had no geography: `hero` was `{hp, spears, part}`, so
+// "on watch" was a boolean over the whole valley and a raid had no path.
+// ---------------------------------------------------------------------------
+describe('★★★ THE HERO WALKS, AND HOLDS ONE GATE', () => {
+  const roaded = (over: Partial<City> = {}): City => ({ ...initial(),
+    paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(1, 2)]: 1 },
+    ...over });
+
+  it('★★★ THEY START AT THE CAMP, AND GETTING ANYWHERE TAKES TIME', () => {
+    const g = roaded();
+    expect(g.hero.at).toBe(0);
+    expect(g.hero.trip).toBeNull();
+    expect(marchSecs(g, 1)).toBe(WALK_SECS);
+    const out = apply(g, { type: 'march', to: 1 });
+    expect(out.hero.trip).toEqual({ to: 1, left: WALK_SECS, secs: WALK_SECS });
+    // Still on the road half way...
+    expect(tick(out, WALK_SECS / 2).hero.at).toBe(0);
+    // ...and arrived at the end of it.
+    const there = tick(out, WALK_SECS + 1);
+    expect(there.hero.at).toBe(1);
+    expect(there.hero.trip).toBeNull();
+  });
+
+  it('★★ they walk the LAID roads, and held ground is a wall not a corridor', () => {
+    const g = roaded();
+    // Two legs the long way round is still two legs.
+    expect(legsBetween(g, 1, 2)).toBe(1);
+    expect(legsBetween({ ...g, paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1 } }, 1, 2)).toBe(2);
+    // No road at all: unreachable, and the march is refused with a reason.
+    expect(marchSecs(initial(), 1)).toBeNull();
+    expect(unmarchable(initial(), 1)).toBe('no road reaches there');
+    const roadless = initial();
+    expect(apply(roadless, { type: 'march', to: 1 })).toBe(roadless);
+    // ★★★ AND ONTO ADJACENT HELD GROUND WITH NO ROAD AT ALL. This is not a
+    // nicety: `unlayable` refuses to lay a path to goblin ground, so if the
+    // last step needed a road then EVERY fight on the map would be
+    // unreachable the moment marching became the only way to one. Caught by
+    // the browser probe and not by any test, which is why this exists.
+    expect(legsBetween(initial(), 0, 4)).toBe(1);
+    expect(marchSecs(initial(), 4)).toBe(WALK_SECS);
+    expect(unmarchable(initial(), 4)).toBeNull();
+    // You may march ONTO held ground, but never THROUGH it.
+    const walled: City = { ...roaded(), goblins: { 1: 12 },
+      paths: { [pathKey(0, 1)]: 1, [pathKey(1, 2)]: 1 } };
+    expect(legsBetween(walled, 0, 1)).toBe(1);
+    expect(legsBetween(walled, 0, 2)).toBeNull();
+  });
+
+  it('★★★ ARRIVING ON HELD GROUND DRAWS THE SWORD', () => {
+    const g: City = { ...roaded(), goblins: { 1: 12 },
+      hero: { hp: 10, spears: 3, part: 0, at: 0, trip: null } };
+    const out = apply(g, { type: 'march', to: 1 });
+    expect(out.fight).toBeNull();
+    const there = tick(out, WALK_SECS + 1);
+    expect(there.hero.at).toBe(1);
+    expect(there.fight).not.toBeNull();
+    expect(there.fight!.site).toBe(1);
+    // ★ And the line is read from the holding's strength AT ARRIVAL, so a
+    // bled holding fields a smaller line than a whole one. (Reading it when
+    // they set out would let a long walk fight a garrison that is no longer
+    // there — in either direction.)
+    const bled: City = { ...g, goblins: { 1: 4 } };
+    const small = tick(apply(bled, { type: 'march', to: 1 }), WALK_SECS + 1);
+    expect(small.fight!.sq.reduce((n, q) => n + q.hp, 0))
+      .toBeLessThan(there.fight!.sq.reduce((n, q) => n + q.hp, 0));
+  });
+
+  it('★★ a fight is a PLACE — you cannot swing at ground you are not on', () => {
+    const g: City = { ...roaded(), goblins: { 1: 12 } };
+    expect(unassailable(g, 1)).toBe('the hero is not there');
+    expect(apply(g, { type: 'assail', id: 1 })).toBe(g);
+    const walking = apply(g, { type: 'march', to: 1 });
+    expect(unassailable(walking, 1)).toMatch(/^⏱/);
+  });
+
+  it('★★★ THE WATCH IS WHERE THEY STAND — one gate, chosen', () => {
+    const war: City = { ...roaded(), taken: 1, pop: 12, food: 9e5,
+      stacks: { 0: 2, 1: 2, 2: 2 }, goblins: { 4: 12 } };
+    const gate = raidTarget(war, 4)!;
+    // Standing on the gate turns it away and bleeds the holding...
+    const held = tick({ ...war, hero: { ...war.hero, at: gate } }, RAID_SECS + 1);
+    expect(held.goblins[4]!).toBeLessThan(war.goblins[4]!);
+    expect(held.stacks[gate]).toBe(war.stacks[gate]);
+    // ...standing somewhere ELSE does not, however healthy they are.
+    const elsewhere = [0, 1, 2].find((n) => n !== gate)!;
+    const missed = tick({ ...war, hero: { ...war.hero, at: elsewhere } }, RAID_SECS + 1);
+    expect(missed.stacks[gate]!).toBeLessThan(war.stacks[gate]!);
+  });
+
+  it('★ walking banks while you are away, like every other timer', () => {
+    const out = apply(roaded(), { type: 'march', to: 1 });
+    const home = catchUp(out, 3600);
+    expect(home.hero.at).toBe(1);
+    expect(home.hero.trip).toBeNull();
+  });
+
+  it('★ a hero on the road cannot forage, fight or march again', () => {
+    const out = apply(roaded(), { type: 'march', to: 1 });
+    expect(onWatch(out)).toBe(false);
+    expect(unforageable(out)).not.toBeNull();
+    expect(unmarchable(out, 2)).toMatch(/^⏱/);
+    // ⚠️ A second march is refused outright — the state comes back unchanged,
+    // so the ORIGINAL trip is still the one running.
+    expect(apply(out, { type: 'march', to: 2 })).toBe(out);
+    expect(out.hero.trip!.to).toBe(1);
+  });
+
+  it('the hero place holds at the save door, and old saves start at the camp', () => {
+    const ok: City = { ...initial(),
+      hero: { hp: 5, spears: 1, part: 0, at: 3, trip: { to: 1, left: 4, secs: 12 } } };
+    expect(honour({ game: ok, savedAt: 1 })).not.toBeNull();
+    const nowhere = { ...initial(),
+      hero: { hp: 5, spears: 1, part: 0, at: 99, trip: null } } as never;
+    expect(honour({ game: nowhere, savedAt: 1 })).toBeNull();
+    const old = { ...initial(), hero: { hp: 5, spears: 1, part: 0 } } as never;
+    const back = honour({ game: old, savedAt: 1 })!.game;
+    // ⚠️ NO `?? 0` HERE. That is exactly how this slipped through: an
+    // undefined `at` satisfied `?? 0` while making every road unreachable.
+    expect(back.hero.at).toBe(0);
+    expect(back.hero.trip).toBeNull();
   });
 });

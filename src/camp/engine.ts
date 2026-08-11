@@ -243,7 +243,13 @@ export interface City {
   goblins: Record<number, number>;
   /** ★ THE HERO — one, the town's own. SPEARS come from the stores; see
    *  THE ARMOURY MAKES SPEARS below for why the word changed. */
-  hero: { hp: number; spears: number; part: number };
+  hero: {
+    hp: number; spears: number; part: number;
+    /** ★ WHERE THEY STAND — a site id. The war had no geography without it. */
+    at: number;
+    /** ★ ON THE ROAD: where to, and how long is left. */
+    trip: { to: number; left: number; secs: number } | null;
+  };
   /** ★ STOREHOUSES at the camp — how many stand. They are the CAP on every
    *  good; a full store wastes what arrives, the same law the paths obey. */
   store: number;
@@ -345,7 +351,7 @@ export const initial = (): City => ({
   popPart: 0,
   goblins: Object.fromEntries(
     Object.entries(GOBLINS).map(([k, v]) => [k, v.strength])),
-  hero: { hp: 10, spears: 0, part: 0 },
+  hero: { hp: 10, spears: 0, part: 0, at: 0, trip: null },
   store: 0,
   carts: 0,
   famine: 0,
@@ -584,6 +590,66 @@ export const faminePinch = (g: City): number => {
   return 1 - (FAMINE_SHALLOW + (FAMINE_DEEP_CUT - FAMINE_SHALLOW) * deep);
 };
 
+/** ★★★ THE HERO WALKS, 2026-08-10. The owner: *"the hero must have travel
+ *  times between his attacks and home… and all must be visible on map."*
+ *
+ *  The complaint underneath was that the war is invisible, and the reason was
+ *  structural rather than cosmetic: the hero had NO POSITION, so "on watch"
+ *  was a boolean about the whole valley, a raid was an event with no path,
+ *  and there was nothing to draw. Giving them a place is the spine — travel,
+ *  interception and every drawn line fall out of it.
+ *
+ *  ⚠️ THEY WALK THE LAID ROADS. An unroaded site cannot be reached at all,
+ *  which makes the path network defensive as well as economic, and gives the
+ *  spade a second reason to exist. */
+export const WALK_SECS = 12;
+/** How many laid edges from `a` to `b`, or null if no road joins them.
+ *  Goblin ground is walkable — that is where the fighting is — but only as a
+ *  DESTINATION, never as a road to somewhere else. */
+export function legsBetween(g: City, a: number, b: number): number | null {
+  if (a === b) return 0;
+  const seen = new Set([a]);
+  let edge = [a];
+  for (let d = 1; d <= SITES.length; d++) {
+    const next: number[] = [];
+    for (const at of edge) {
+      for (const n of SITE.get(at)?.near ?? []) {
+        if (seen.has(n)) continue;
+        // ★★ THE LAST STEP ONTO HELD GROUND NEEDS NO ROAD, and this is not a
+        // nicety — a path can never be LAID to a holding (`unlayable` refuses
+        // goblin ground), so requiring one made every fight on the map
+        // unreachable the moment marching became the only way to a fight.
+        // Walking to a battle is cross-country; walking THROUGH a holding is
+        // still impossible.
+        if (n === b && g.goblins[n]) return d;
+        if (!(g.paths[pathKey(at, n)] ?? 0)) continue;
+        if (n === b) return d;
+        if (g.goblins[n]) continue;   // held ground is a wall, not a corridor
+        seen.add(n);
+        next.push(n);
+      }
+    }
+    if (next.length === 0) return null;
+    edge = next;
+  }
+  return null;
+}
+/** Seconds to march there from where the hero stands, or null if no road. */
+export const marchSecs = (g: City, to: number): number | null => {
+  const legs = legsBetween(g, g.hero.at, to);
+  return legs === null ? null : legs * WALK_SECS;
+};
+/** Why the hero cannot set out for this site, or null. */
+export function unmarchable(g: City, to: number): string | null {
+  if (g.lost) return 'the valley is lost';
+  if (g.fight) return 'the hero is fighting';
+  if (g.forage) return `${MARK.time}${Math.ceil(g.forage.left)}s`;
+  if (g.hero.trip) return `${MARK.time}${Math.ceil(g.hero.trip.left)}s`;
+  if (g.hero.at === to) return 'already there';
+  if (marchSecs(g, to) === null) return 'no road reaches there';
+  return null;
+}
+
 export const FORAGE_SECS = 45;
 export interface Foray { name: string; loot: Partial<Record<Good, number>> }
 export const FORAYS: readonly Foray[] = [
@@ -602,8 +668,17 @@ export const nextForay = (g: City): Foray => FORAYS[g.forays % FORAYS.length]!;
  *  which a town under three raiders often cannot do. A hero kept at home
  *  turns raids away, so the player's real choice is now what to spend the
  *  hero's time ON: loot, ground, or the walls. */
+/** ★★★ THE WATCH IS WHERE THEY STAND, 2026-08-10 (the owner's call). It was a
+ *  boolean over the whole valley — one hero turning away a raid anywhere,
+ *  which is the last non-spatial thing in the war. Now three holdings can be
+ *  filling and the hero can be at ONE of them, and the roads decide which
+ *  ones you can reach in time. */
+export const onWatchAt = (g: City, site: number): boolean =>
+  !g.lost && !g.fight && !g.forage && !g.hero.trip
+  && g.hero.hp > 0 && g.hero.at === site;
+/** Standing watch anywhere at all — for the HUD, not for resolving a raid. */
 export const onWatch = (g: City): boolean =>
-  !g.lost && !g.fight && !g.forage && g.hero.hp > 0;
+  !g.lost && !g.fight && !g.forage && !g.hero.trip && g.hero.hp > 0;
 
 /** Seconds left on the hero's foray, or null when they are home. */
 export const forageLeft = (g: City): number | null => g.forage?.left ?? null;
@@ -612,6 +687,8 @@ export function unforageable(g: City): string | null {
   if (g.lost) return 'the valley is lost';
   if (g.fight) return 'the hero is fighting';
   if (g.forage) return `${MARK.time}${Math.ceil(g.forage.left)}s`;
+  // ★ NOR FROM THE ROAD (2026-08-10). One hero, one job — walking is a job.
+  if (g.hero.trip) return `${MARK.time}${Math.ceil(g.hero.trip.left)}s`;
   return null;
 }
 
@@ -1173,6 +1250,9 @@ export function unlayable(g: City, a: number, b: number): string | null {
 export function unassailable(g: City, id: number): string | null {
   if (!g.goblins[id]) return 'nothing to fight here';
   if (g.fight) return 'the hero is already fighting';
+  // ★ YOU HAVE TO BE THERE. A fight is a place now, not a screen.
+  if (g.hero.trip) return `${MARK.time}${Math.ceil(g.hero.trip.left)}s`;
+  if (g.hero.at !== id) return 'the hero is not there';
   if (g.hero.hp < heroMax(g)) return `the hero heals — ${g.hero.hp} of ${heroMax(g)}`;
   return null;
 }
@@ -1200,6 +1280,8 @@ export type Action =
   | { type: 'found' }
   /** Send the hero out for whatever the country will give up. */
   | { type: 'forage' }
+  /** Set the hero walking to a site. Held ground starts a fight on arrival. */
+  | { type: 'march'; to: number }
   /** Send the hero at held ground — the battle strip opens. */
   | { type: 'assail'; id: number }
   // ★★ THE THREE ORDERS take BLOW_SECS to land — they are CALLED here and
@@ -1425,6 +1507,17 @@ export function apply(g: City, a: Action): City {
         if (menace === g.menace) menace = { ...g.menace };
         menace[id] = next;
       }
+      // ★★ THE MARCH. It banks like every other timer and lands on an away
+      // tick — walking is work you are owed, not a threat held over you.
+      // Arriving on held ground starts the fight, which is why a march is
+      // the only way a fight ever begins.
+      let arrived: number | null = null;
+      if (hero.trip) {
+        const left = hero.trip.left - s;
+        if (left > 0) hero = { ...hero, trip: { ...hero.trip, left } };
+        else { arrived = hero.trip.to; hero = { ...hero, at: arrived, trip: null }; }
+      }
+
       // ★ THE FORAY COMES HOME, and it lands on an away tick too. A raid and
       // a blow are held until you are watching because they can COST you
       // something; banking work you are owed is the opposite, and is what
@@ -1468,7 +1561,10 @@ export function apply(g: City, a: Action): City {
           // the march, which is the price: you cannot loot, take ground and
           // hold the walls with one person. A repelled raid BLEEDS the
           // holding, so defending is also slow progress toward taking it.
-          if (watch) {
+          // ★★★ ONLY WHERE THEY STAND. The watch used to be a boolean over
+          // the whole valley; the owner chose positional, so a raid is turned
+          // away only if the hero is on the ground it is coming for.
+          if (watch && onWatchAt(g, t)) {
             watch = false;
             if (goblins === g.goblins) goblins = { ...goblins };
             goblins[id] = Math.max(1, (goblins[id] ?? 1) - heroHit(g));
@@ -1517,6 +1613,18 @@ export function apply(g: City, a: Action): City {
         forage,
         forays,
         famine,
+        // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
+        // `march` because the arrival is a tick event, and the holding's
+        // strength must be read at the moment they get there — not when they
+        // set out, which may have been a long walk ago.
+        ...(arrived !== null && goblins[arrived]
+          ? { fight: {
+              site: arrived,
+              sq: lineOf(goblins[arrived]!, GOBLINS[arrived]?.bite ?? 2,
+                GOBLINS[arrived]?.runt ?? 0),
+              target: 0, round: 0, packs: RATION_PACK, blow: null,
+            } }
+          : {}),
       };
 
       // ★★★ AND THE SWING COMES DOWN — last, on the town the rest of this
@@ -1627,6 +1735,15 @@ export function apply(g: City, a: Action): City {
     case 'forage': {
       if (unforageable(g) !== null) return g;
       return { ...g, forage: { left: FORAGE_SECS, secs: FORAGE_SECS } };
+    }
+
+    // ★★ MARCHING IS THE ONLY WAY ANYWHERE NOW. `assail` still exists and
+    // still starts a fight, but only from the ground itself — the UI sends a
+    // march, and arriving on held ground is what draws the sword.
+    case 'march': {
+      if (unmarchable(g, a.to) !== null) return g;
+      const secs = marchSecs(g, a.to)!;
+      return { ...g, hero: { ...g.hero, trip: { to: a.to, left: secs, secs } } };
     }
 
     case 'assail': {
