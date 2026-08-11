@@ -318,17 +318,32 @@
   function heroMark(): Shape[] {
     if (!heroAt || game.lost) return [];
     const watching = onWatch(game);
-    // ⚠️ OFFSET AND BIG ENOUGH TO SEE. Drawn at the site's own centre it sat
-    // exactly under the node dot and the graph painted straight over it — 0px
-    // of hero ink on the board, which the probe caught. It stands BESIDE the
-    // dot now, and the probe holds it above 20px.
-    const x = heroAt.x + 13;
-    const y = heroAt.y - 13;
+    // ⚠️ A DIAMOND, NOT A DISC — and this is the second time this marker has
+    // been wrong. Drawn at the site's own centre it sat under the node dot
+    // and the graph painted over it (0px of hero ink, caught by the probe).
+    // Drawn as a fat red disc beside it, the owner called it a bug on sight:
+    // `you` (#d63b26) and `foe` (#8f2f22) are BOTH red, so a disc bigger than
+    // a site dot, sitting on open ground, reads as a goblin holding camped
+    // next to you. `docs/RAIDS.md` warned about exactly these three reds.
+    //
+    // Hue alone cannot fix that at this size, so the shape does it: NO SITE
+    // DOT IS A DIAMOND. It is also smaller than every dot on the board now,
+    // because the hero is a marker, not a place.
+    const x = heroAt.x + 10;
+    const y = heroAt.y - 10;
+    // r=6: a diamond of this half-diagonal covers 2r² = 72px² against a site
+    // dot of πr² = 113px², so it stays visibly the smaller mark while sitting
+    // comfortably above the probe s 20px floor. At r=5 it measured 15px and
+    // the guard failed, which is the guard working.
+    const r = 6;
+    const kite = [
+      { x, y: y - r }, { x: x + r, y }, { x, y: y + r }, { x: x - r, y },
+    ];
     return [
-      { s: 'disc', x, y, r: 11, ink: 'back', alpha: 0.9 },
-      { s: 'disc', x, y, r: 8,
-        ink: watching ? 'you' : 'known', ring: 'casing', rw: 2,
-        alpha: game.hero.trip ? 0.8 : 1 },
+      { s: 'disc', x, y, r: r + 2.5, ink: 'back', alpha: 0.9 },
+      { s: 'path', pts: kite, ink: watching ? 'you' : 'known',
+        close: true, fill: true, alpha: game.hero.trip ? 0.85 : 1 },
+      { s: 'path', pts: kite, ink: 'casing', close: true, w: 1.2, alpha: 0.9 },
     ];
   }
 
