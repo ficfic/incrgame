@@ -970,3 +970,31 @@ Both were caught by sabotage, not by writing them:
 **The fight ladder is still tuned to an always-available hero.** Travel time
 plus ambush risk is a real nerf to every rung, and `chad-liquidity` should
 re-run the ladder rather than anyone trusting it.
+
+
+## ⚠️ THE HERO MARKER, WRONG THREE TIMES — 2026-08-10/11
+
+Worth recording because each fix produced the next bug, and the third one
+undid all the invention.
+
+1. **Drawn at the site's own centre** → the graph painted over it. 0px of hero
+   ink, caught by the probe.
+2. **Drawn as a disc beside it** → `you` (#d63b26) and `foe` (#8f2f22) are
+   both red, and it was *larger* than a site dot, so it read as a goblin
+   holding camped inside your own country. Reported from live play: *"there's
+   a big red circle near the camp… that's a bug."*
+3. **Drawn as a diamond, still as decor** → decor paints at the zoom factor
+   `k`. Zoom in and it inflated into a red lozenge bigger than the camp, adrift
+   from the dot it belonged to. Reported again: *"now there's a red diamond…"*
+
+**The board already had the answer.** `Dot.you` renders a screen-space
+you-are-here teardrop — added when the owner asked for *"an icon for our
+character"* — and this screen had it hard-coded to `false`. Setting it on the
+hero's site gets the right mark for free, at the right size, unable to drift
+because it *is* the dot. Mid-march the same teardrop is handed to the board as
+a loose `mark` at the interpolated point.
+
+**The lesson is `k`.** Decor scales with the map because scenery and the
+barrier belong to the country. A marker points *at* the country and must not.
+Anything screen-fixed goes in the dot/mark pass, painted at scale 1 — `disc`
+already worked this way, which is why the dots never had this bug.

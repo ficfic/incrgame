@@ -89,7 +89,7 @@
       + 'C7.3 6 8.9 4.7 11.9 4.5 11.7 7 10 8.6 7.6 8.8 L7.6 13 Z',
   };
 
-  let { dots, lines, box, label, onTap, onGround, decor = [], drag = true, inset = 0,
+  let { dots, lines, box, label, onTap, onGround, decor = [], mark = null, drag = true, inset = 0,
     feed = null, pulse = 0, pulseMark = '', fog = null }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
     onTap: (id: string) => void;
@@ -127,6 +127,19 @@
      *  The graph itself stays separate because its nodes need DOM twins to be
      *  tappable and readable; decor is never tapped, so it is pure canvas. */
     decor?: Shape[];
+    /** ★★★ A MARK BETWEEN THE STOPS — a world point drawn with the same
+     *  you-are-here teardrop as a `you` dot, at the same FIXED SCREEN SIZE.
+     *  For the hero mid-march, who is at no stop at all.
+     *
+     *  ⚠️ IT IS NOT DECOR, AND THAT IS THE WHOLE POINT. Decor paints at the
+     *  zoom factor `k` — right for scenery and the barrier, which belong to
+     *  the country and should grow with it; wrong for a marker. The hero was
+     *  decor for two commits: first drawn under the dot where the graph
+     *  painted over it, then beside it as a shape that ballooned into a red
+     *  lozenge larger than the camp the moment the owner zoomed in, adrift
+     *  from the dot it was meant to sit on. A pin points AT the map.
+     *  ⚠️ Canvas-side only, never a tap target — `docs/MAP_RECIPE.md` §9. */
+    mark?: { x: number; y: number } | null;
     /** ⚠️ OFF ON THE JOURNEY. The owner: "I am able to reposition the graph
      *  nodes on the Journey tab. I don't think it makes sense because this is
      *  kind of a map, right?" Tapping still works — see `onUp`. */
@@ -652,6 +665,32 @@
       ctx.restore();
     }
 
+    /** ★ THE YOU-ARE-HERE TEARDROP, at a screen point. Lifted out of the dot
+     *  loop so a hero BETWEEN two stops can be drawn with the same mark —
+     *  see `mark` below. Screen coordinates and screen sizes throughout: a
+     *  marker must not grow with the zoom. */
+    function teardrop(c: CanvasRenderingContext2D, X: number, Y: number): void {
+      c.beginPath();
+      c.arc(X, Y, 11, 0, Math.PI * 2);
+      c.strokeStyle = 'rgba(214,59,38,.20)';   // the halo round where you stand
+      c.lineWidth = 6;
+      c.stroke();
+      c.beginPath();
+      c.moveTo(X, Y);                                      // the point, on the stop
+      c.bezierCurveTo(X - 8.5, Y - 9, X - 6.5, Y - 19, X, Y - 19);
+      c.bezierCurveTo(X + 6.5, Y - 19, X + 8.5, Y - 9, X, Y);
+      c.closePath();
+      c.fillStyle = INK.you;
+      c.fill();
+      c.strokeStyle = INK.back;
+      c.lineWidth = 1.5;
+      c.stroke();
+      c.beginPath();                                       // the pin's eye
+      c.arc(X, Y - 13, 2.6, 0, Math.PI * 2);
+      c.fillStyle = INK.back;
+      c.fill();
+    }
+
     for (const d of dots) {
       if (d.you) {
         // ★ THE YOU-ARE-HERE PIN, asked for by name: *"i also want an icon for
@@ -660,35 +699,19 @@
         // ground. Drawn in place of the disc, not over it: two marks in the
         // same spot was how the old boards got muddy.
         const p = posOf.get(d.id)!;
-        const X = sx(p.x), Y = sy(p.y);
-        ctx.beginPath();
-        ctx.arc(X, Y, 11, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(214,59,38,.20)';   // the halo round where you stand
-        ctx.lineWidth = 6;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(X, Y);                                      // the point, on the stop
-        ctx.bezierCurveTo(X - 8.5, Y - 9, X - 6.5, Y - 19, X, Y - 19);
-        ctx.bezierCurveTo(X + 6.5, Y - 19, X + 8.5, Y - 9, X, Y);
-        ctx.closePath();
-        ctx.fillStyle = INK.you;
-        ctx.fill();
-        ctx.strokeStyle = INK.back;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.beginPath();                                       // the pin's eye
-        ctx.arc(X, Y - 13, 2.6, 0, Math.PI * 2);
-        ctx.fillStyle = INK.back;
-        ctx.fill();
+        teardrop(ctx, sx(p.x), sy(p.y));
         continue;
       }
       paint(ctx, discOf(d), sx, sy, 1);
     }
+
+    // ★ AND THE HERO BETWEEN THE STOPS, last so nothing paints over them.
+    if (mark) teardrop(ctx, sx(mark.x), sy(mark.y));
   }
 
   $effect(() => {
     // Re-read everything the picture depends on so the effect tracks it.
-    void dots; void lines; void decor; void k; void tx; void ty; void moved; void cssW; void cssH;
+    void dots; void lines; void decor; void mark; void k; void tx; void ty; void moved; void cssW; void cssH;
     void phase; void feed; void fog;
     draw();
   });

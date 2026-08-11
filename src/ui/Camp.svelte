@@ -179,7 +179,13 @@
     icon: !game.goblins[s.id] && (game.stacks[s.id] ?? 0) > 0
       ? s.allows : undefined,
     wx: s.x, wy: s.y,
-    place: true, you: false,
+    place: true,
+    // ★★★ THE HERO STANDS HERE — the board's own you-are-here teardrop, which
+    // it has had all along and this screen never used. It replaces the disc
+    // rather than sitting beside it (two marks in one spot is how the old
+    // boards got muddy), it is drawn in SCREEN space so it never grows with
+    // the zoom, and it cannot drift off its dot because it IS its dot.
+    you: game.hero.at === s.id && game.hero.trip === null,
     open: f.comp.has(s.id) && (game.stacks[s.id] ?? 0) > 0,
     shut: false,
     known: true,
@@ -259,7 +265,6 @@
       { s: 'path', pts, ink: 'ward', close: true, curve: true,
         w: 2, dash: [7, 6], alpha: 0.55 },
       ...musterShapes(),
-      ...heroMark(),
       ...CAMP_SHAPES,
     ];
   })());
@@ -313,39 +318,10 @@
     return out;
   }
 
-  /** ★ THE HERO'S MARK: a ring where they stand, brighter while on watch.
-   *  Two discs so it reads against terrain, ground and the barrier alike. */
-  function heroMark(): Shape[] {
-    if (!heroAt || game.lost) return [];
-    const watching = onWatch(game);
-    // ⚠️ A DIAMOND, NOT A DISC — and this is the second time this marker has
-    // been wrong. Drawn at the site's own centre it sat under the node dot
-    // and the graph painted over it (0px of hero ink, caught by the probe).
-    // Drawn as a fat red disc beside it, the owner called it a bug on sight:
-    // `you` (#d63b26) and `foe` (#8f2f22) are BOTH red, so a disc bigger than
-    // a site dot, sitting on open ground, reads as a goblin holding camped
-    // next to you. `docs/RAIDS.md` warned about exactly these three reds.
-    //
-    // Hue alone cannot fix that at this size, so the shape does it: NO SITE
-    // DOT IS A DIAMOND. It is also smaller than every dot on the board now,
-    // because the hero is a marker, not a place.
-    const x = heroAt.x + 10;
-    const y = heroAt.y - 10;
-    // r=6: a diamond of this half-diagonal covers 2r² = 72px² against a site
-    // dot of πr² = 113px², so it stays visibly the smaller mark while sitting
-    // comfortably above the probe s 20px floor. At r=5 it measured 15px and
-    // the guard failed, which is the guard working.
-    const r = 6;
-    const kite = [
-      { x, y: y - r }, { x: x + r, y }, { x, y: y + r }, { x: x - r, y },
-    ];
-    return [
-      { s: 'disc', x, y, r: r + 2.5, ink: 'back', alpha: 0.9 },
-      { s: 'path', pts: kite, ink: watching ? 'you' : 'known',
-        close: true, fill: true, alpha: game.hero.trip ? 0.85 : 1 },
-      { s: 'path', pts: kite, ink: 'casing', close: true, w: 1.2, alpha: 0.9 },
-    ];
-  }
+  /** ★ MID-MARCH THEY ARE AT NO STOP AT ALL, so the same teardrop is handed
+   *  to the board as a loose `mark` at the interpolated point. Null while
+   *  standing, because then the dot itself carries the pin. */
+  const heroMark = $derived(game.hero.trip === null ? null : heroAt);
 
   const box = $derived<Box>((() => {
     const xs = shown(game).map((s) => s.x);
@@ -844,7 +820,7 @@
   {#if ready}
     <div class="map">
       <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false}
-        decor={scene} pulse={pops} pulseMark={popMark} />
+        decor={scene} mark={heroMark} pulse={pops} pulseMark={popMark} />
     </div>
     <section class="panel">
       {#if awayLine}
