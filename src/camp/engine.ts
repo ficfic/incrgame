@@ -110,6 +110,18 @@ export const GOBLINS: Record<number,
  *  you are away and CANNOT LAND — a raid that comes due offline waits at the
  *  gate, full, and resolves on the first tick you are actually watching.
  *  Come back to a raid about to break, never to a ruin. */
+/** ★ WHEN A MUSTER STARTS DRAWING ITS LINE (step 3, 2026-08-10). Below this
+ *  a gathering is a ring only; from here the board says what it is coming
+ *  FOR. Half, so the warning arrives with time to march but not so early
+ *  that the map is permanently strung with red. */
+export const MUSTER_SHOWS = 0.5;
+/** ★ WHAT AN AMBUSH COSTS, as a multiple of the raider's bite. Caught in the
+ *  open there is no guard and no aim, so it hurts more than meeting them on
+ *  ground you chose. */
+export const AMBUSH_BITE = 1.5;
+/** How long the board keeps saying they were caught. Long enough to look up
+ *  from whatever you were tapping and see it. */
+export const AMBUSH_TELL = 12;
 export const RAID_SECS = 300;
 /** Which holdings are in a position to raid: those touching ground you hold
  *  that has something on it worth taking. A holding with nothing in reach
@@ -273,6 +285,10 @@ export interface City {
   taken: number;
   /** ★ THE VALLEY IS LOST — the camp itself has been overrun. */
   lost: boolean;
+  /** ★ CAUGHT IN THE OPEN, and for how much longer the board says so. An
+   *  ambush that only moved a number would be exactly the invisibility this
+   *  whole item exists to end. */
+  ambush: { at: number; left: number } | null;
   /** ★ WHAT OUTLIVES A RUN. The infrastructure does not; the veteran does —
    *  and what he carries out is the spears on his back. */
   legacy: { runs: number; spears: number };
@@ -360,6 +376,7 @@ export const initial = (): City => ({
   menace: {},
   taken: 0,
   lost: false,
+  ambush: null,
   legacy: { runs: 0, spears: 0 },
   fight: null,
 });
@@ -1512,6 +1529,11 @@ export function apply(g: City, a: Action): City {
       // Arriving on held ground starts the fight, which is why a march is
       // the only way a fight ever begins.
       let arrived: number | null = null;
+      /** Where the hero was caught on the road this tick, for the board. */
+      let ambushed: number | null = null;
+      // The previous mark ages out; a fresh ambush below replaces it.
+      let ambush = g.ambush === null ? null
+        : g.ambush.left - s > 0 ? { ...g.ambush, left: g.ambush.left - s } : null;
       if (hero.trip) {
         const left = hero.trip.left - s;
         if (left > 0) hero = { ...hero, trip: { ...hero.trip, left } };
@@ -1564,6 +1586,33 @@ export function apply(g: City, a: Action): City {
           // ★★★ ONLY WHERE THEY STAND. The watch used to be a boolean over
           // the whole valley; the owner chose positional, so a raid is turned
           // away only if the hero is on the ground it is coming for.
+          // ★★★ AMBUSH ON THE ROAD — step 4 of `docs/RAIDS.md`, built last
+          // because it is the one that can feel unfair and wanted the other
+          // three on screen first. A raid whose target sits at either end of
+          // the road the hero is walking CATCHES THEM IN THE OPEN: they take
+          // the bite with no guard and no aim, the holding is not bled, and
+          // the raid lands anyway. This is the cost of marching through a
+          // war, and it is what makes keeping the hero home a real sacrifice
+          // rather than the obvious default.
+          // ⚠️ It cannot kill on its own — a walk that ends the run with no
+          // fight shown and no decision made is not a defeat a player can
+          // learn from. It floors at 1 and the next raid finishes the job.
+          if (hero.trip && (hero.trip.to === t || hero.at === t)) {
+            hero = { ...hero,
+              hp: Math.max(1, hero.hp - Math.ceil((GOBLINS[id]?.bite ?? 2) * AMBUSH_BITE)) };
+            ambushed = t;
+            if ((stacks[t] ?? 0) > 0) {
+              if (stacks === g.stacks) stacks = { ...g.stacks };
+              stacks[t] = stacks[t]! - 1;
+              continue;
+            }
+            if (goblins === g.goblins) goblins = { ...goblins };
+            goblins[t] = goblins[id] ?? GOBLINS[id]?.strength ?? 12;
+            if (menace === g.menace) menace = { ...g.menace };
+            menace[t] = 0;
+            if (t === 0) lost = true;
+            continue;
+          }
           if (watch && onWatchAt(g, t)) {
             watch = false;
             if (goblins === g.goblins) goblins = { ...goblins };
@@ -1613,6 +1662,7 @@ export function apply(g: City, a: Action): City {
         forage,
         forays,
         famine,
+        ambush: ambushed === null ? ambush : { at: ambushed, left: AMBUSH_TELL },
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
         // `march` because the arrival is a tick event, and the holding's
         // strength must be read at the moment they get there — not when they

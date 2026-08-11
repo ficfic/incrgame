@@ -14,7 +14,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   carriesOf, cartCost, cartHaul, CART_GAIN,
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
-  WALK_SECS, marchSecs, legsBetween, unmarchable,
+  WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -2501,5 +2501,89 @@ describe('★★★ THE HERO WALKS, AND HOLDS ONE GATE', () => {
     // undefined `at` satisfied `?? 0` while making every road unreachable.
     expect(back.hero.at).toBe(0);
     expect(back.hero.trip).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE AMBUSH ON THE ROAD — step 4 of `docs/RAIDS.md`, 2026-08-10. Built
+// last on purpose: it is the one that can feel unfair, and it wanted travel,
+// the positional watch and the drawn lines on screen first to be legible.
+// ---------------------------------------------------------------------------
+describe('★★★ CAUGHT IN THE OPEN', () => {
+  // ⚠️ Its own fixture: `town()` lives inside the raid describe above and a
+  // shared one would couple two suites that are tuned for different things.
+  const war = (over: Partial<City> = {}): City => ({ ...initial(), taken: 1,
+    pop: 20, food: 9e5, stacks: { 0: 5, 1: 3, 2: 3, 3: 2 },
+    paths: { [pathKey(0, 1)]: 2, [pathKey(0, 2)]: 2, [pathKey(0, 3)]: 2 },
+    goblins: { 4: 12 },
+    hero: { hp: 13, spears: 1, part: 0, at: 0, trip: null }, ...over });
+
+  it('★★★ a raid on the road you are walking CATCHES YOU — no guard, no aim', () => {
+    const g = war();
+    const gate = raidTarget(g, 4)!;
+    const walking: City = { ...g, menace: { 4: 0.99 },
+      hero: { ...g.hero, hp: heroMax(g), at: gate,
+        trip: { to: 5, left: 9999, secs: 9999 } } };
+    const out = tick(walking, RAID_SECS + 1);
+    // Bitten harder than a fight they chose...
+    expect(out.hero.hp).toBeLessThan(heroMax(g) - (GOBLINS[4]?.bite ?? 2));
+    // ...the holding is NOT bled, because there was no aim...
+    expect(out.goblins[4]).toBe(g.goblins[4]);
+    // ...and the raid lands anyway.
+    expect(out.stacks[gate]!).toBeLessThan(g.stacks[gate]!);
+    expect(out.ambush).not.toBeNull();
+    expect(out.ambush!.at).toBe(gate);
+  });
+
+  it('★★ it cannot kill on its own — a walk is not a defeat you can learn from', () => {
+    const g = war();
+    const gate = raidTarget(g, 4)!;
+    // ⚠️ A TINY TICK ON A FULL MUSTER. Across a long one the hero HEALS more
+    // than the ambush takes, so hp never approaches the floor and the test
+    // passes with the floor deleted — which is exactly what the sabotage
+    // pass caught. At 0.1s the healing is nothing and the floor is the only
+    // thing holding them up.
+    const nearly: City = { ...g, menace: { 4: 1 },
+      hero: { ...g.hero, hp: 1, at: gate, trip: { to: 5, left: 9999, secs: 9999 } } };
+    const out = tick(nearly, 0.1);
+    expect(out.ambush).not.toBeNull();      // it landed...
+    expect(out.hero.hp).toBeGreaterThanOrEqual(1);   // ...and did not finish them
+    expect(out.lost).toBe(false);
+  });
+
+  it('★★ standing still is never an ambush — that is the watch, and it repels', () => {
+    const g = war();
+    const gate = raidTarget(g, 4)!;
+    const stood: City = { ...g, menace: { 4: 0.99 },
+      hero: { ...g.hero, hp: heroMax(g), at: gate, trip: null } };
+    const out = tick(stood, RAID_SECS + 1);
+    expect(out.ambush).toBeNull();
+    expect(out.goblins[4]!).toBeLessThan(g.goblins[4]!);   // bled: they aimed
+    expect(out.stacks[gate]).toBe(g.stacks[gate]);         // and it was turned away
+  });
+
+  it('★ walking somewhere the raid is not going is safe', () => {
+    const g = war();
+    const gate = raidTarget(g, 4)!;
+    const elsewhere = [0, 1, 2, 3].find((n) => n !== gate)!;
+    const away: City = { ...g, menace: { 4: 0.99 },
+      hero: { ...g.hero, hp: heroMax(g), at: elsewhere,
+        trip: { to: 5, left: 9999, secs: 9999 } } };
+    const out = tick(away, RAID_SECS + 1);
+    expect(out.ambush).toBeNull();
+    expect(out.hero.hp).toBe(heroMax(g));
+  });
+
+  it('★ the mark ages out, and survives the save door', () => {
+    const marked: City = { ...war(), ambush: { at: 1, left: AMBUSH_TELL } };
+    expect(tick(marked, AMBUSH_TELL - 1).ambush).not.toBeNull();
+    expect(tick(marked, AMBUSH_TELL + 1).ambush).toBeNull();
+    expect(honour({ game: marked, savedAt: 1 })).not.toBeNull();
+    const bad = { ...war(), ambush: { at: 99, left: 3 } } as never;
+    expect(honour({ game: bad, savedAt: 1 })).toBeNull();
+    // ⚠️ DEFAULTED for saves written before it existed — the `hero.at` trap.
+    const { ambush: _drop, ...older } = war();
+    const back = honour({ game: older as City, savedAt: 1 })!.game;
+    expect(back.ambush).toBeNull();
   });
 });

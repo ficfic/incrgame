@@ -53,6 +53,50 @@ const cellNum = async (q) => Number(
 const stoneNow = async () => cellNum('stone');
 
 /** Pixels of a named ink on the board, palette read OFF THE PAGE. */
+
+/** ★ INK ON THE SEGMENT BETWEEN TWO SITES — the threat line, measured where
+ *  it actually is. ⚠️ A global `inked('foe')` count CANNOT see this: menace
+ *  reveals the holding, so the fog lifting swamps the line (110px of it), and
+ *  the force layout moves every dot between runs (±50px). Both made the naive
+ *  check pass with the entire drawing deleted. This samples the straight run
+ *  between the two dots, skipping the ends so the dots themselves cannot
+ *  count, which is the one thing only the line can explain. */
+const onLine = async (fromSel, toSel) => {
+  const box = async (sel) => {
+    const b = await page.locator(sel).boundingBox().catch(() => null);
+    return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null;
+  };
+  const a = await box(fromSel), b = await box(toSel);
+  if (!a || !b) return -1;
+  return page.evaluate(([a, b]) => {
+    const INK = window.__INK ?? {};
+    const hex = INK.foe;
+    const cv = document.querySelector('.map canvas');
+    if (!cv || !hex) return -1;
+    const cb = cv.getBoundingClientRect();
+    const sx = cv.width / cb.width, sy = cv.height / cb.height;
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16),
+      bl = parseInt(hex.slice(5, 7), 16);
+    const d = cv.getContext('2d', { willReadFrequently: true })
+      .getImageData(0, 0, cv.width, cv.height).data;
+    let hits = 0;
+    // Skip the outer quarter at each end: those are the dots.
+    for (let i = 25; i <= 75; i++) {
+      const t = i / 100;
+      const px = Math.round(((a.x + (b.x - a.x) * t) - cb.left) * sx);
+      const py = Math.round(((a.y + (b.y - a.y) * t) - cb.top) * sy);
+      // A dotted line is thin and the layout is not pixel-exact, so look in a
+      // small neighbourhood rather than at one pixel.
+      for (let ox = -3; ox <= 3; ox++) for (let oy = -3; oy <= 3; oy++) {
+        const k = ((py + oy) * cv.width + (px + ox)) * 4;
+        if (d[k + 3] > 40 && Math.abs(d[k] - r) <= 20 && Math.abs(d[k + 1] - g) <= 20
+          && Math.abs(d[k + 2] - bl) <= 20) { hits++; ox = 9; oy = 9; }
+      }
+    }
+    return hits;
+  }, [a, b]);
+};
+
 const inked = async (name) => page.evaluate(([name]) => {
   const INK = window.__INK ?? {};
   const TOL = window.__TOL ?? {};
@@ -728,6 +772,52 @@ if (!/⏱\d+s →/.test(marchNote)) {
 const heroInk = await inked('you');
 console.log('  drawn   :', `${heroInk}px of hero on the board`);
 if (heroInk < 20) misses.push(`the hero is not visible on the map: ${heroInk}px`);
+
+// -------------------------------------------------- the war, drawn ------
+console.log('\nTHE WAR IS DRAWN');
+// ★ A muster past MUSTER_SHOWS must put BOTH marks on the board: a ring that
+// says how close, and a dotted line that says what it is coming FOR. Menace
+// was a percentage in one line of text and nothing else — that was the
+// complaint. Ink is `foe`, deliberately not a fourth red.
+await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },
+  paths: { '0|1': 2, '0|2': 2 }, stone: 30, logs: 6, planks: 20, food: 9e5,
+  pop: 12, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 13, spears: 2, part: 0, at: 0, trip: null },
+  fight: null, store: 1, carts: 0, famine: 0, menace: { 4: 0.9 },
+  taken: 1, lost: false, forage: null, forays: 0, ambush: null,
+  legacy: { runs: 0, spears: 0 } });
+const hotLine = await onLine('.map .node[data-id="site:4"]', '.map .node[data-id="site:1"]');
+console.log('  at 90%  :', `${hotLine}/51 samples of foe ink on the run to its target`);
+// ⚠️ THE BASELINE IS A BARELY-GATHERING RAID, NOT A QUIET VALLEY. Menace
+// REVEALS the holding, so 90%-vs-empty measures the fog lifting and passed
+// with the whole drawing deleted; the layout also moves between runs. Same
+// site, same fog, below MUSTER_SHOWS — so only the line differs.
+await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },
+  paths: { '0|1': 2, '0|2': 2 }, stone: 30, logs: 6, planks: 20, food: 9e5,
+  pop: 12, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 13, spears: 2, part: 0, at: 0, trip: null },
+  fight: null, store: 1, carts: 0, famine: 0, menace: { 4: 0.02 },
+  taken: 1, lost: false, forage: null, forays: 0, ambush: null,
+  legacy: { runs: 0, spears: 0 } });
+const coldLine = await onLine('.map .node[data-id="site:4"]', '.map .node[data-id="site:1"]');
+console.log('  at 2%   :', `${coldLine}/51 — a bare ring, and no line yet`);
+if (hotLine < 12) misses.push(`no threat line is drawn at 90%: ${hotLine}/51 samples`);
+if (coldLine > 4) misses.push(`a threat line is drawn below MUSTER_SHOWS: ${coldLine}/51`);
+
+// ★ AND BEING CAUGHT ON THE ROAD IS SAID OUT LOUD.
+await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },
+  paths: { '0|1': 2, '0|2': 2 }, stone: 30, logs: 6, planks: 20, food: 9e5,
+  pop: 12, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 9, spears: 2, part: 0, at: 0, trip: { to: 1, left: 30, secs: 60 } },
+  fight: null, store: 1, carts: 0, famine: 0, menace: {},
+  taken: 1, lost: false, forage: null, forays: 0,
+  ambush: { at: 1, left: 10 }, legacy: { runs: 0, spears: 0 } });
+const ambushLine = (await page.locator('[data-q="war"]').textContent()
+  .catch(() => '')).trim().replace(/\s+/g, ' ');
+console.log('  ambushed:', `"${ambushLine}"`);
+if (!/ambushed/.test(ambushLine)) {
+  misses.push(`being caught on the road is not said: "${ambushLine}"`);
+}
 
 // -------------------------------------------------- the dock ------------
 console.log('\nTHE DOCK FITS');

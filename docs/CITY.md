@@ -921,3 +921,52 @@ site's centre**, because drawn on the dot the graph painted straight over it:
 Red dotted threat lines and muster rings (step 3), and the ambush on the road
 (step 4). **The fight ladder is still tuned to an always-available hero** —
 travel time is a real nerf to every rung and `chad-liquidity` should re-run it.
+
+
+## ★★★ THE WAR, DRAWN — 2026-08-10, steps 3–4 of `docs/RAIDS.md`
+
+**Step 3 — the muster and the threat.** A gathering holding wears a **ring
+that fills 0→1**, so *how close* is a shape rather than a number in a line of
+text you have to go and read. From `MUSTER_SHOWS` (0.5) a **dotted line** runs
+from the holding to what it is coming *for*, brightening as it fills — this
+was the actually-missing part, because menace said *how much* and never *at
+what*. When the hero holds the target the line **stops at their marker**:
+"they were stopped, and by what", drawn.
+
+⚠️ **THE INK IS `foe`, NOT A FOURTH RED.** `docs/RAIDS.md` warned that a new
+red must be measured against every counted ink *and* against `foe` under
+colour blindness first. `foe` already means "held against you" and is already
+measured in `test/palette.test.ts`; the line is told apart by being **dotted**
+and by moving, not by hue. A fourth red buys nothing and costs a palette check.
+
+**Step 4 — the ambush.** A raid whose target sits at either end of the road
+the hero is walking **catches them in the open**: they take `AMBUSH_BITE` ×1.5
+of the bite with no guard and no aim, the holding is *not* bled, and the raid
+lands anyway. This is what makes keeping the hero home a real sacrifice rather
+than the obvious default. It **cannot kill on its own** (floors at 1) — a walk
+that ends the run with no fight shown and no decision made is not a defeat
+anyone can learn from. `ambush` marks the board for `AMBUSH_TELL` 12s, because
+an ambush that only moved a number would be the very invisibility this item
+exists to end.
+
+### ⚠️ TWO CHECKS THAT PASSED WITH THE FEATURE DELETED
+
+Both were caught by sabotage, not by writing them:
+
+1. **`inked('foe')` could not see the threat line at all.** Menace *reveals*
+   the holding, so counting red across the whole board measured **the fog
+   lifting** (~110px of it), and the force layout moves every dot between runs
+   (±50px). The check passed with `musterShapes()` deleted entirely. It now
+   samples the **straight run between the two dots**, ends skipped so the dots
+   cannot count: **45/51 at 90%, 0/51 at 2%**, and deleting the drawing gives
+   0/51.
+2. **"An ambush cannot kill" passed with the floor removed** — across a long
+   tick the hero *heals* more than the ambush takes, so `hp` never approached
+   the floor. It now uses a 0.1s tick on a full muster, where healing is
+   nothing and the floor is the only thing holding them up.
+
+### Still open
+
+**The fight ladder is still tuned to an always-available hero.** Travel time
+plus ambush risk is a real nerf to every rung, and `chad-liquidity` should
+re-run the ladder rather than anyone trusting it.

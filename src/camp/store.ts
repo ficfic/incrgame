@@ -114,6 +114,12 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
       if (SITE.get(Number(k)) === undefined || !num(v, 0, 9999)) return null;
     }
   }
+  // ★ THE AMBUSH MARK (2026-08-10). Defaulted, not merely validated — the
+  // same trap that left `hero.at` undefined and made every road unreachable.
+  if (g.ambush === undefined || g.ambush === null) g.ambush = null;
+  else if (typeof g.ambush !== 'object'
+    || SITE.get(g.ambush.at) === undefined
+    || !num(g.ambush.left, 0, 999)) return null;
   if (g.hero !== undefined) {
     if (typeof g.hero !== 'object' || g.hero === null) return null;
     if (!num(g.hero.hp, 0, 99) || !num(g.hero.spears, 0, 99) || !num(g.hero.part, 0, 2)) return null;

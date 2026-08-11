@@ -10,7 +10,7 @@
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
-    unmarchable, marchSecs, onWatchAt,
+    unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP,
@@ -258,10 +258,60 @@
     return [
       { s: 'path', pts, ink: 'ward', close: true, curve: true,
         w: 2, dash: [7, 6], alpha: 0.55 },
+      ...musterShapes(),
       ...heroMark(),
       ...CAMP_SHAPES,
     ];
   })());
+
+  /** ★★★ THE WAR, DRAWN — step 3 of `docs/RAIDS.md`, 2026-08-10. The owner:
+   *  *"it's not even visible anywhere."* Two marks, both canvas-side:
+   *
+   *  - **the muster** — a ring round a holding's dot that FILLS 0→1 as it
+   *    gathers, so "how close" is a shape rather than a number in a line of
+   *    text you have to go and read;
+   *  - **the threat** — a dotted line from the holding to what it is coming
+   *    FOR, from `MUSTER_SHOWS` on, brightening as it fills. This is the
+   *    part that was actually missing: menace said *how much* and never
+   *    *at what*.
+   *
+   *  ⚠️ THE INK IS `foe`, NOT A FOURTH RED. `docs/RAIDS.md` warns that a new
+   *  red must be measured against every counted ink AND against `foe` under
+   *  colour blindness before a line of it is drawn. `foe` already means
+   *  "held against you", is already measured in `test/palette.test.ts`, and
+   *  the line is told apart by being DOTTED and by moving — not by hue.
+   *  A fourth red buys nothing here and costs a vacuous palette check. */
+  function musterShapes(): Shape[] {
+    if (game.lost) return [];
+    const out: Shape[] = [];
+    for (const id of raiders(game)) {
+      const m = game.menace[id] ?? 0;
+      const from = SITE.get(id);
+      if (!from || m <= 0) continue;
+      // The ring: a swept arc, because `Shape` has no arc and a partial
+      // circle of points is one. Starts at twelve o'clock and fills round.
+      const r = 11;
+      const steps = Math.max(2, Math.round(28 * Math.min(1, m)));
+      const pts = Array.from({ length: steps + 1 }, (_, i) => {
+        const a = -Math.PI / 2 + (i / steps) * Math.min(1, m) * Math.PI * 2;
+        return { x: from.x + Math.cos(a) * r, y: from.y + Math.sin(a) * r };
+      });
+      out.push({ s: 'path', pts, ink: 'foe', w: 2.5, alpha: 0.35 + 0.65 * Math.min(1, m) });
+      // The line: only once it is worth naming, and it STOPS AT THE HERO if
+      // the hero is standing on the ground it wants — "they were stopped,
+      // and by what", drawn.
+      if (m < MUSTER_SHOWS) continue;
+      const t = raidTarget(game, id);
+      const to = t === null ? null : SITE.get(t);
+      if (!to) continue;
+      const held = t !== null && onWatchAt(game, t);
+      const end = held && heroAt ? heroAt : to;
+      out.push({ s: 'path', pts: [{ x: from.x, y: from.y }, { x: end.x, y: end.y }],
+        ink: 'foe', w: 2, dash: [5, 5],
+        alpha: 0.3 + 0.6 * Math.min(1, (m - MUSTER_SHOWS) / (1 - MUSTER_SHOWS)) });
+    }
+    return out;
+  }
 
   /** ★ THE HERO'S MARK: a ring where they stand, brighter while on watch.
    *  Two discs so it reads against terrain, ground and the barrier alike. */
@@ -737,7 +787,12 @@
            WHAT — the hero stops one raid by being HOME, and taking the
                   holding stops its clock for good -->
     <div class="warline" class:hot={worst !== null && worst.m > 0.6} data-q="war">
-      {#if worst !== null}
+      {#if game.ambush !== null}
+        <!-- ★ CAUGHT IN THE OPEN outranks every other war news for as long as
+             it lasts: it is the one thing that happened TO you. -->
+        {MARK.waste}ambushed on the road
+        · {MARK.hero}{game.hero.hp}/{heroMax(game)}
+      {:else if worst !== null}
         {MARK.waste}{Math.round(worst.m * 100)}% → {worst.at}
         · {worst.gate !== null && onWatchAt(game, worst.gate)
           ? `${MARK.hero} holding it`
