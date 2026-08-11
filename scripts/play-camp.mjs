@@ -97,6 +97,38 @@ const onLine = async (fromSel, toSel) => {
   }, [a, b]);
 };
 
+
+/** ★ INK IN A BOX AROUND A NODE. For the hero figure, which is drawn in the
+ *  board's yours-green — an ink the dots and the terrain also use, so a
+ *  whole-board count cannot see it. Comparing the SAME box with the hero
+ *  standing there and with them standing elsewhere leaves only the figure. */
+const patch = async (sel, inkName, half = 34) => {
+  const b = await page.locator(sel).boundingBox().catch(() => null);
+  if (!b) return -1;
+  return page.evaluate(([cx, cy, inkName, half]) => {
+    const hex = (window.__INK ?? {})[inkName];
+    const cv = document.querySelector('.map canvas');
+    if (!cv || !hex) return -1;
+    const cb = cv.getBoundingClientRect();
+    const sx = cv.width / cb.width, sy = cv.height / cb.height;
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16),
+      bl = parseInt(hex.slice(5, 7), 16);
+    const d = cv.getContext('2d', { willReadFrequently: true })
+      .getImageData(0, 0, cv.width, cv.height).data;
+    const px = Math.round((cx - cb.left) * sx), py = Math.round((cy - cb.top) * sy);
+    let n = 0;
+    for (let x = px - half; x <= px + half; x++) {
+      for (let y = py - half; y <= py + half; y++) {
+        if (x < 0 || y < 0 || x >= cv.width || y >= cv.height) continue;
+        const k = (y * cv.width + x) * 4;
+        if (d[k + 3] > 40 && Math.abs(d[k] - r) <= 18 && Math.abs(d[k + 1] - g) <= 18
+          && Math.abs(d[k + 2] - bl) <= 18) n++;
+      }
+    }
+    return n;
+  }, [b.x + b.width / 2, b.y + b.height / 2, inkName, half]);
+};
+
 const inked = async (name) => page.evaluate(([name]) => {
   const INK = window.__INK ?? {};
   const TOL = window.__TOL ?? {};
@@ -768,10 +800,26 @@ console.log('  offers  :', `"${marchNote.slice(0, 60)}"`);
 if (!/⏱\d+s →/.test(marchNote)) {
   misses.push(`held ground does not price the march: "${marchNote.slice(0, 60)}"`);
 }
-// ★ AND THE HERO IS DRAWN ON THE MAP. Canvas-side, so it is counted in ink.
-const heroInk = await inked('you');
-console.log('  drawn   :', `${heroInk}px of hero on the board`);
-if (heroInk < 20) misses.push(`the hero is not visible on the map: ${heroInk}px`);
+// ★★★ AND THE HERO IS DRAWN ON THE MAP — as a person, in yours-green, after
+// the owner asked *"why is it red… why is it a diamond… why is it a shape…"*
+// and none of the three had an answer. Measured as the difference between the
+// same patch of board with them standing there and standing elsewhere: green
+// is the dots' and the terrain's colour too, so a whole-board count is blind
+// to this and an earlier version of this check passed with the marker gone.
+const heroHere = await patch('.map .node[data-id="site:0"]', 'open');
+await seed({ version: 5, stacks: { 0: 3, 1: 3 }, paths: { '0|1': 2 },
+  stone: 30, logs: 6, planks: 20, food: 9e5, pop: 12, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 13, spears: 2, part: 0, at: 1, trip: null },
+  fight: null, store: 1, carts: 0, menace: {}, taken: 1, famine: 0,
+  forage: null, forays: 0, lost: false, ambush: null,
+  legacy: { runs: 0, spears: 0 } });
+const heroGone = await patch('.map .node[data-id="site:0"]', 'open');
+console.log('  drawn   :', `${heroHere}px of green at the camp with them there,`
+  + ` ${heroGone}px with them away`);
+if (heroHere - heroGone < 60) {
+  misses.push(`the hero figure is not drawn: ${heroHere}px there vs ${heroGone}px away`);
+}
 
 // -------------------------------------------------- the war, drawn ------
 console.log('\nTHE WAR IS DRAWN');

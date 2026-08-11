@@ -139,7 +139,7 @@
      *  lozenge larger than the camp the moment the owner zoomed in, adrift
      *  from the dot it was meant to sit on. A pin points AT the map.
      *  ⚠️ Canvas-side only, never a tap target — `docs/MAP_RECIPE.md` §9. */
-    mark?: { x: number; y: number } | null;
+    mark?: { x: number; y: number; atStop?: boolean } | null;
     /** ⚠️ OFF ON THE JOURNEY. The owner: "I am able to reposition the graph
      *  nodes on the Journey tab. I don't think it makes sense because this is
      *  kind of a map, right?" Tapping still works — see `onUp`. */
@@ -665,48 +665,68 @@
       ctx.restore();
     }
 
-    /** ★ THE YOU-ARE-HERE TEARDROP, at a screen point. Lifted out of the dot
-     *  loop so a hero BETWEEN two stops can be drawn with the same mark —
-     *  see `mark` below. Screen coordinates and screen sizes throughout: a
-     *  marker must not grow with the zoom. */
-    function teardrop(c: CanvasRenderingContext2D, X: number, Y: number): void {
-      c.beginPath();
-      c.arc(X, Y, 11, 0, Math.PI * 2);
-      c.strokeStyle = 'rgba(214,59,38,.20)';   // the halo round where you stand
+    /** ★★★ THE HERO, AS A PERSON — 2026-08-11, the owner's call after three
+     *  wrong marks in a row. They asked three questions in a row: *"why is it
+     *  red… why is it a diamond… why is it a shape…"* and none of the three
+     *  had a good answer.
+     *
+     *  RED was `you` (#d63b26) — "the red pin every map has" — on a board
+     *  where red IS the enemy (`foe` #8f2f22). A DIAMOND was an attempt to
+     *  fix that collision with geometry instead of fixing the colour. And a
+     *  SHAPE at all was reaching for map-marker convention when what was
+     *  asked for, by name, was *"an icon for our character"* — on a board
+     *  that already draws a hut, a quarry, a sawmill and a farm as little
+     *  pictograms.
+     *
+     *  So: a small standing figure, in the green this board uses for what is
+     *  yours. Screen space and screen sizes, feet planted on the point, drawn
+     *  paper-first so it reads against terrain, ground and fog alike. */
+    function figure(c: CanvasRenderingContext2D, X: number, Y: number): void {
+      c.beginPath();                                   // the ground they hold
+      c.arc(X, Y - 7, 12, 0, Math.PI * 2);
+      c.strokeStyle = 'rgba(31,122,63,.18)';
       c.lineWidth = 6;
       c.stroke();
-      c.beginPath();
-      c.moveTo(X, Y);                                      // the point, on the stop
-      c.bezierCurveTo(X - 8.5, Y - 9, X - 6.5, Y - 19, X, Y - 19);
-      c.bezierCurveTo(X + 6.5, Y - 19, X + 8.5, Y - 9, X, Y);
-      c.closePath();
-      c.fillStyle = INK.you;
-      c.fill();
-      c.strokeStyle = INK.back;
-      c.lineWidth = 1.5;
-      c.stroke();
-      c.beginPath();                                       // the pin's eye
-      c.arc(X, Y - 13, 2.6, 0, Math.PI * 2);
-      c.fillStyle = INK.back;
-      c.fill();
+      // Paper underneath, then the ink on top: the same two-pass trick the
+      // roads use, and the only reason this reads on dark terrain.
+      for (const pass of [{ ink: INK.back, w: 5 }, { ink: INK.open, w: 2.4 }]) {
+        c.strokeStyle = pass.ink;
+        c.lineWidth = pass.w;
+        c.lineCap = 'round';
+        c.beginPath();
+        c.moveTo(X, Y - 11); c.lineTo(X, Y - 5);       // body
+        c.moveTo(X - 4.5, Y - 8.5); c.lineTo(X + 4.5, Y - 8.5);   // arms
+        c.moveTo(X, Y - 5); c.lineTo(X - 3.5, Y);      // legs, standing on it
+        c.moveTo(X, Y - 5); c.lineTo(X + 3.5, Y);
+        c.stroke();
+        c.beginPath();
+        c.arc(X, Y - 14, 3.1, 0, Math.PI * 2);         // head
+        c.fillStyle = pass.ink;
+        c.fill();
+      }
     }
 
     for (const d of dots) {
       if (d.you) {
-        // ★ THE YOU-ARE-HERE PIN, asked for by name: *"i also want an icon for
-        // our character."* The teardrop every paper map uses — a circle head, a
-        // point standing ON the stop, a paper ring so it reads against any
-        // ground. Drawn in place of the disc, not over it: two marks in the
-        // same spot was how the old boards got muddy.
+        // The older screens still put the walker ON the stop in place of its
+        // disc; only the camp keeps both, via `mark`.
         const p = posOf.get(d.id)!;
-        teardrop(ctx, sx(p.x), sy(p.y));
+        figure(ctx, sx(p.x), sy(p.y));
         continue;
       }
       paint(ctx, discOf(d), sx, sy, 1);
     }
 
-    // ★ AND THE HERO BETWEEN THE STOPS, last so nothing paints over them.
-    if (mark) teardrop(ctx, sx(mark.x), sy(mark.y));
+    // ★★ THE HERO BESIDE THE STOP — offset in SCREEN pixels, which is the one
+    // thing world-space decor could never do (a world offset grows with the
+    // zoom, which is how the last marker ended up adrift). Two reasons for
+    // the offset, both found only by looking at it: a site's icon is DOM,
+    // drawn OVER the canvas, so a figure on the dot is a figure behind a hut;
+    // and standing them on the dot means the dot cannot also be there.
+    // Mid-march there is no stop to stand beside, so no offset — they are
+    // exactly where they are on the road.
+    if (mark) figure(ctx, sx(mark.x) + (mark.atStop ? 13 : 0),
+      sy(mark.y) + (mark.atStop ? 6 : 0));
   }
 
   $effect(() => {

@@ -180,12 +180,12 @@
       ? s.allows : undefined,
     wx: s.x, wy: s.y,
     place: true,
-    // ★★★ THE HERO STANDS HERE — the board's own you-are-here teardrop, which
-    // it has had all along and this screen never used. It replaces the disc
-    // rather than sitting beside it (two marks in one spot is how the old
-    // boards got muddy), it is drawn in SCREEN space so it never grows with
-    // the zoom, and it cannot drift off its dot because it IS its dot.
-    you: game.hero.at === s.id && game.hero.trip === null,
+    // ⚠️ NOT `you`. That flag also switches the DOT'S OWN LOOK to `you` ink
+    // (the table in `ink.ts`), which turned the camp's dot red — the exact
+    // enemy-red confusion this whole thread has been about. The hero comes
+    // in on `mark` instead, so the stop keeps its dot, its colour and its
+    // icon, and the figure stands beside it.
+    you: false,
     open: f.comp.has(s.id) && (game.stacks[s.id] ?? 0) > 0,
     shut: false,
     known: true,
@@ -318,10 +318,11 @@
     return out;
   }
 
-  /** ★ MID-MARCH THEY ARE AT NO STOP AT ALL, so the same teardrop is handed
-   *  to the board as a loose `mark` at the interpolated point. Null while
-   *  standing, because then the dot itself carries the pin. */
-  const heroMark = $derived(game.hero.trip === null ? null : heroAt);
+  /** ★ WHERE THE FIGURE GOES: beside the dot while standing, and on the road
+   *  itself while marching. `atStop` is what tells the board which, because
+   *  only the standing case needs to step aside for a dot and its icon. */
+  const heroMark = $derived(heroAt === null ? null
+    : { ...heroAt, atStop: game.hero.trip === null });
 
   const box = $derived<Box>((() => {
     const xs = shown(game).map((s) => s.x);

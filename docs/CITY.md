@@ -994,6 +994,31 @@ hero's site gets the right mark for free, at the right size, unable to drift
 because it *is* the dot. Mid-march the same teardrop is handed to the board as
 a loose `mark` at the interpolated point.
 
+**Then the owner asked the three questions that ended it:** *"why is it red…
+why is it a diamond… why is it a shape…"* — and none of the three had an
+answer. Red was `you` (#d63b26), "the red pin every map has", on a board where
+red **is** the enemy. The diamond was an attempt to fix that collision with
+geometry instead of fixing the colour. And a shape at all was reaching for
+map-marker convention when what was asked for, by name, was *"an icon for our
+character"* — on a board that already draws a hut, a quarry, a sawmill and a
+farm as little pictograms.
+
+**The hero is now a small standing figure in yours-green**, drawn paper-first
+so it reads on any ground, beside the dot rather than on it — the site keeps
+its dot, its colour and its icon (which is DOM, drawn *over* the canvas, so a
+figure on the dot is a figure behind a hut). Mid-march there is no dot to step
+aside from, so the figure walks the road itself.
+
+⚠️ `Dot.you` was the wrong hook: it also switches the **dot's own look** to
+`you` ink, which turned the camp's dot red — the very confusion this thread
+was about. `Game.svelte` still uses it; the camp passes `mark` instead.
+
+⚠️ **And its check had to change with it.** Green is the dots' and the
+terrain's colour too, so a whole-board `inked('open')` is blind to the figure
+— it passed with the marker gone. It now compares the same patch of board with
+the hero standing there and standing elsewhere: **485px vs 131px**, and 132 vs
+131 with the figure unhooked.
+
 **The lesson is `k`.** Decor scales with the map because scenery and the
 barrier belong to the country. A marker points *at* the country and must not.
 Anything screen-fixed goes in the dot/mark pass, painted at scale 1 — `disc`
