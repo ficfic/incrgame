@@ -1,5 +1,104 @@
 # NEXT — the queue
 
+## ★★★ THE FIRST FULL PLAYTHROUGH, 2026-08-11 — the owner played it start to
+## finish and this is what came back. EVERYTHING BELOW THIS BLOCK IS OLDER.
+
+Verdict, in their words: *"labels are very hard to understand. There's not much
+to do."* They finished the valley. The game is completable and nearly
+illegible, so **comprehension outranks content** in this queue.
+
+⚠️ **One item per session (WIP=1).** Take the top unfinished one, ship it, stop.
+
+---
+
+### 0. THE TRAP: A HERO CAN BE STRANDED — defect, blocks play
+
+*"I can go there without a road, but I cannot return without a road, which is
+very strange."*
+
+Real, and mine. `legsBetween` waives the road requirement **only for the last
+step onto goblin-held ground** — otherwise no fight would be reachable, since
+`unlayable` refuses to lay a path to a holding. But the moment you WIN, the
+site stops being goblin-held, the waiver stops applying, and the way home needs
+a road that could never have been laid. You can walk in and not out.
+
+Fix: taken ground stays walkable from wherever you walked in from. The rule
+wants to be about ADJACENCY, not about who holds it — one leg of open country
+either side, roads for anything longer.
+
+### 1. THE LEGIBILITY PASS — the biggest complaint in the transcript
+
+*"the UI is very hard to understand. I don't understand what any of the icons
+mean… all the label text is weird."* Named specifically:
+
+| what they saw | what it is |
+|---|---|
+| ⚔️ 10/10 | the hero's health — read as a sword count |
+| the wheel with 0 | *"the circle with the pentagram"* — asked about twice, never resolved |
+| spears ×0 | ok, but sits beside ⚔️ and blurs into it |
+| ☠ 6 holdings · they come once you take one | *"is a meta"* — a rule, printed as if it were a reading |
+| ☠12 on a path deed | a cost? a strength? unexplained |
+| "Stand at Tall Pines" | *"a weird choice of words"* |
+
+**And the name goes missing.** Once a site has works, the panel titles it
+*"Lumberworks"* and the site's own name is gone — *"I cannot… it doesn't say
+the name of locations. But goblins attack named locations. So it's hard to
+understand what are they attacking."* That one is a comprehension BUG, not a
+wording preference: the attack messages and the panel disagree about what
+things are called.
+
+### 2. WIDEN: DELETE IT
+
+*"we need to cut the functionality of widening the roads hundred percent. It's
+stupid that it is there."* Not a nerf — a removal. It also clutters the deed
+list, which is what pushes the camp's own label off the board (see 7).
+
+### 3. ONE WORKS PER SITE, AND PUT PEOPLE THERE INSTEAD
+
+*"there is no point in having new locations… because I'm able to build multiple
+lumber works at the initial sites. So we should limit the number to one per
+location. And then we should allow to add more people there."*
+
+This is the change that gives the map a reason to exist: a site's output comes
+from ONE works plus the hands you assign, so more output means more GROUND,
+not more buildings on the ground you already hold.
+
+### 4. THE MAP IS BLAND
+
+*"we have icons only near the locations… we should have distinct icons near the
+locations while having normal icons to display the land around."* Two tiers:
+a site's own mark reads as a place you can tap; the land around it carries
+ordinary scenery. The terrain bake already exists to draw the second cheaply.
+
+### 5. THE BATTLES ARE BORING
+
+*"the hero doesn't have any skills, so the battles are boring, and there is no
+point."* Three separate things, in order of payoff:
+- **skills** — anything to choose between beyond strike/aim
+- **the cooldown between actions is too long** — *"it's boring to watch. If it
+  takes time, then something fun should happen during that time"*
+- **variety** — every fight is the same line of squares
+
+### 6. DEFENSIVE ASSIGNMENTS
+
+*"we need to allow to have defensive job assignments for the units because the
+hero running around everywhere cannot save everyone."* The positional watch
+made the hero's presence matter; this is the answer to it. One hero cannot hold
+three gates and was never meant to.
+
+### 7. THE SMALL ONES, all from the same playthrough
+
+- **The camp's label is clipped by the map** when the deed list is long.
+- **Travel ignores terrain** — *"it just goes through everything"*, rivers
+  included.
+- **Storehouse builds instantly**, with no cooldown, unlike everything else.
+- **The barrier does nothing** — *"doesn't serve any function"*.
+- **The path colour** — *"the road color is weird… the part is still blue"*.
+
+---
+
+# NEXT — the queue
+
 ## ★★★ EVERYTHING BELOW THIS LINE IS SUPERSEDED, 2026-08-02
 
 The game is **King's Roads**. `docs/KINGS_ROADS.md` is the design and it is the
