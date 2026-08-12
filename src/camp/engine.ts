@@ -289,6 +289,9 @@ export interface City {
    *  ambush that only moved a number would be exactly the invisibility this
    *  whole item exists to end. */
   ambush: { at: number; left: number } | null;
+  /** ★★★ POSTED TO DEFEND — 2026-08-11, queue item 6. Site id → people
+   *  standing watch there instead of working. */
+  guard: Record<number, number>;
   /** ★ WHAT OUTLIVES A RUN. The infrastructure does not; the veteran does —
    *  and what he carries out is the spears on his back. */
   legacy: { runs: number; spears: number };
@@ -389,6 +392,7 @@ export const initial = (): City => ({
   taken: 0,
   lost: false,
   ambush: null,
+  guard: {},
   legacy: { runs: 0, spears: 0 },
   fight: null,
 });
@@ -737,6 +741,26 @@ export const nextForay = (g: City): Foray => FORAYS[g.forays % FORAYS.length]!;
  *  which is the last non-spatial thing in the war. Now three holdings can be
  *  filling and the hero can be at ONE of them, and the roads decide which
  *  ones you can reach in time. */
+/** ★★★ WHAT IT TAKES TO TURN A RAID AWAY WITHOUT THE HERO — queue item 6,
+ *  2026-08-11. The owner: *"we need to allow to have defensive job
+ *  assignments for the units because the hero running around everywhere
+ *  cannot save everyone."* They are right, and it is the direct consequence
+ *  of making the watch positional: one hero cannot hold three gates.
+ *
+ *  Three posted hands turn one raid away, and it COSTS one of them — they do
+ *  not fight for free, and a wall you never have to maintain is a wall that
+ *  ends the war. The people come out of the working pool, so a guarded valley
+ *  produces less: that is the whole trade, and it is why this is a decision
+ *  rather than a tax. Unlike the hero, they do not BLEED the holding — they
+ *  hold a gate, they do not take ground. */
+export const GUARD_STOP = 3;
+/** People standing watch at a site. */
+export const guardsAt = (g: City, id: number): number =>
+  Math.max(0, Math.floor(g.guard[id] ?? 0));
+/** Everyone posted anywhere — they are not available to work. */
+export const guardsTotal = (g: City): number =>
+  Object.keys(g.guard).reduce((n, k) => n + guardsAt(g, Number(k)), 0);
+
 export const onWatchAt = (g: City, site: number): boolean =>
   !g.lost && !g.fight && !g.forage && !g.hero.trip
   && g.hero.hp > 0 && g.hero.at === site;
@@ -1061,7 +1085,9 @@ export function flow(g: City): Flow {
   // ★ ONLY THE HOUSED WORK — see `housed()`. Everyone past the huts' cap is
   // a mouth without a bunk, and a hand that has nowhere to sleep does not
   // turn up. They still eat: `hunger()` reads the whole population.
-  let pool = housed(g);
+  // ★ AND THE POSTED ARE NOT AVAILABLE (2026-08-11). Standing watch is a job;
+  // the valley that guards itself makes less, which is the entire trade.
+  let pool = Math.max(0, housed(g) - guardsTotal(g));
   const autos: number[] = [];
   for (const id of worked) {
     if (g.crew[id] !== undefined) {
@@ -1366,6 +1392,8 @@ export type Action =
   | { type: 'found' }
   /** Send the hero out for whatever the country will give up. */
   | { type: 'forage' }
+  /** ★ Post or unpost a defender at a site (2026-08-11). */
+  | { type: 'post'; id: number; by: number }
   /** Set the hero walking to a site. Held ground starts a fight on arrival. */
   | { type: 'march'; to: number }
   /** Send the hero at held ground — the battle strip opens. */
@@ -1613,6 +1641,7 @@ export function apply(g: City, a: Action): City {
       let arrived: number | null = null;
       /** Where the hero was caught on the road this tick, for the board. */
       let ambushed: number | null = null;
+      let guard = g.guard;
       // The previous mark ages out; a fresh ambush below replaces it.
       let ambush = g.ambush === null ? null
         : g.ambush.left - s > 0 ? { ...g.ambush, left: g.ambush.left - s } : null;
@@ -1695,6 +1724,14 @@ export function apply(g: City, a: Action): City {
             if (t === 0) lost = true;
             continue;
           }
+          // ★★★ THE POSTED HANDS HOLD THE GATE. Checked before the hero, so
+          // a guarded gate frees them to be somewhere else — which is the
+          // point of being able to post anyone at all.
+          if (guardsAt({ ...g, guard }, t) >= GUARD_STOP) {
+            guard = guard === g.guard ? { ...g.guard } : guard;
+            guard[t] = guardsAt(g, t) - 1;      // one does not come back
+            continue;
+          }
           if (watch && onWatchAt(g, t)) {
             watch = false;
             if (goblins === g.goblins) goblins = { ...goblins };
@@ -1745,6 +1782,7 @@ export function apply(g: City, a: Action): City {
         forays,
         famine,
         ambush: ambushed === null ? ambush : { at: ambushed, left: AMBUSH_TELL },
+        guard,
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
         // `march` because the arrival is a tick event, and the holding's
         // strength must be read at the moment they get there — not when they
@@ -1872,6 +1910,20 @@ export function apply(g: City, a: Action): City {
     // ★★ MARCHING IS THE ONLY WAY ANYWHERE NOW. `assail` still exists and
     // still starts a fight, but only from the ground itself — the UI sends a
     // march, and arriving on held ground is what draws the sword.
+    case 'post': {
+      if (g.lost || !SITE.get(a.id) || g.goblins[a.id]) return g;
+      const now = guardsAt(g, a.id);
+      // ⚠️ ONLY THE HOUSED CAN BE POSTED, and only those not already posted
+      // somewhere else — the pool is one pool, and a person cannot both
+      // stand a watch and swing a pick.
+      const spare = Math.max(0, housed(g) - guardsTotal(g));
+      const next = Math.max(0, Math.min(now + a.by, now + spare));
+      if (next === now) return g;
+      const guard = { ...g.guard };
+      if (next <= 0) delete guard[a.id]; else guard[a.id] = next;
+      return { ...g, guard };
+    }
+
     case 'march': {
       if (unmarchable(g, a.to) !== null) return g;
       const secs = marchSecs(g, a.to)!;

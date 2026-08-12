@@ -15,7 +15,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
-  walkSecs, ROUGH, SWEEP_SHARE,
+  walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -2675,5 +2675,75 @@ describe('★★★ A SECOND WAY TO SWING', () => {
     // And a second order mid-swing is still refused.
     const mid = apply(g, { type: 'sweep' });
     expect(apply(mid, { type: 'strike' })).toBe(mid);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE POSTED WATCH — 2026-08-11, queue item 6. The owner: *"we need to
+// allow to have defensive job assignments for the units because the hero
+// running around everywhere cannot save everyone."* Which is the direct
+// consequence of making the watch positional: one hero, three gates.
+// ---------------------------------------------------------------------------
+describe('★★★ HANDS ON THE GATE', () => {
+  const town = (over: Partial<City> = {}): City => ({ ...initial(), taken: 1,
+    pop: 30, food: 9e5, stacks: { 0: 9, 1: 1, 2: 1, 3: 1 },
+    paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 },
+    goblins: { 4: 12 },
+    hero: { hp: 0, spears: 1, part: 0, at: 9, trip: null }, ...over });
+
+  it('★★★ THREE POSTED HANDS TURN A RAID AWAY, and it costs one of them', () => {
+    const g = town();
+    const gate = raidTarget(g, 4)!;
+    const posted: City = { ...g, menace: { 4: 0.99 },
+      guard: { [gate]: GUARD_STOP } };
+    const out = tick(posted, RAID_SECS + 1);
+    expect(out.stacks[gate]).toBe(g.stacks[gate]);        // nothing taken
+    expect(guardsAt(out, gate)).toBe(GUARD_STOP - 1);     // one did not return
+    // ⚠️ AND THE HOLDING IS NOT BLED. They hold a gate; they do not take
+    // ground. That is the hero's job and the reason to still have one.
+    expect(out.goblins[4]).toBe(g.goblins[4]);
+  });
+
+  it('★★ two hands are not enough — the raid lands', () => {
+    const g = town();
+    const gate = raidTarget(g, 4)!;
+    const thin: City = { ...g, menace: { 4: 0.99 },
+      guard: { [gate]: GUARD_STOP - 1 } };
+    const out = tick(thin, RAID_SECS + 1);
+    expect(out.stacks[gate]!).toBeLessThan(g.stacks[gate]!);
+  });
+
+  it('★★★ IT IS A TRADE: the posted do not work', () => {
+    // ⚠️ THE POOL HAS TO BIND for this to measure anything. With 30 people
+    // and 12 slots the sites are the constraint, so posting six changes
+    // nothing and the test passes with the whole rule deleted. Twelve people
+    // into twelve slots makes every posted hand a hand not quarrying.
+    const g = town({ pop: 12, stacks: { 0: 3, 1: 1, 2: 1, 3: 1 } });
+    const free = flow(g);
+    const busy = flow({ ...g, guard: { 1: 6 } });
+    const hands = (f: ReturnType<typeof flow>): number =>
+      [...f.hands.values()].reduce((n, h) => n + h, 0);
+    expect(hands(busy)).toBeLessThan(hands(free));
+    expect(hands(free) - hands(busy)).toBe(6);
+  });
+
+  it('★ you cannot post more people than you have, nor onto held ground', () => {
+    const g = town({ pop: 4, stacks: { 0: 1 } });
+    const many = apply(g, { type: 'post', id: 1, by: 999 });
+    expect(guardsAt(many, 1)).toBeLessThanOrEqual(housed(g));
+    expect(apply(g, { type: 'post', id: 4, by: 1 })).toBe(g);   // goblins hold it
+    // And they come home again.
+    const one = apply(g, { type: 'post', id: 1, by: 1 });
+    expect(guardsAt(one, 1)).toBe(1);
+    expect(guardsAt(apply(one, { type: 'post', id: 1, by: -1 }), 1)).toBe(0);
+  });
+
+  it('★ the watch survives the save door, and older saves post nobody', () => {
+    expect(honour({ game: { ...town(), guard: { 1: 3 } }, savedAt: 1 })!
+      .game.guard[1]).toBe(3);
+    expect(honour({ game: { ...town(), guard: { 99: 1 } } as never,
+      savedAt: 1 })).toBeNull();
+    const { guard: _drop, ...older } = town();
+    expect(honour({ game: older as City, savedAt: 1 })!.game.guard).toEqual({});
   });
 });

@@ -9,6 +9,7 @@
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE, SWEEP_SHARE,
+    guardsAt, guardsTotal, GUARD_STOP,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
     unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
@@ -946,6 +947,20 @@
         {#if picked !== 0 && (game.stacks[picked] ?? 0) > 0 && !game.goblins[picked]}
           <!-- ★ POSTED HANDS — the owner's ask. Pins win the pool; freeing
                them returns everyone to farms-first auto. -->
+          <!-- ★★★ THE POSTED WATCH, 2026-08-11 — queue item 6. The owner:
+               *"we need to allow to have defensive job assignments for the
+               units because the hero running around everywhere cannot save
+               everyone."* They come out of the same pool as the workers, so
+               the row sits with the hands: it is the same people, and the
+               choice between digging and standing is the mechanic. -->
+          <div class="crew">
+            <button onclick={() => act({ type: 'post', id: picked!, by: -1 })}
+              disabled={guardsAt(game, picked) <= 0}>−</button>
+            <span>watch {guardsAt(game, picked)} of {GUARD_STOP} needed{
+              guardsAt(game, picked) >= GUARD_STOP ? ' · holds' : ''}</span>
+            <button onclick={() => act({ type: 'post', id: picked!, by: 1 })}
+              disabled={housed(game) - guardsTotal(game) <= 0}>+</button>
+          </div>
           <div class="crew">
             <button onclick={() => pinAt(picked!, -1)}
               disabled={(f.hands.get(picked) ?? 0) <= 0 && game.crew[picked] !== undefined}>−</button>
