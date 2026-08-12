@@ -79,7 +79,7 @@ export const richOf = (id: number): number => SITE.get(id)?.rich ?? 1;
  *  town's ONE hero clears it a fight at a time. Farther is stronger, and
  *  stronger BITES harder. */
 export const GOBLINS: Record<number,
-  { strength: number; bite: number; runt: number }> = {
+  { strength: number; bite: number; runt: number; screen?: number }> = {
   // ⚠️ RETUNED 2026-08-08 (chad-liquidity): 24 and 32 make the ladder a
   // clean +2 of spears per fight — 1/2/4/6/8/10.
   // ⚠️ RETUNED AGAIN 2026-08-08 (the battle strip): `runt` is each rear
@@ -88,6 +88,26 @@ export const GOBLINS: Record<number,
   // extra full-line answers are the whole gate. Re-simmed to optimal
   // play square by square (test: "THE LADDER HOLDS — solved, not felt",
   // which runs the solver itself on every push).
+  // ★★★ `screen` — HOW MANY REAR SQUARES. The lever for fight variety, and
+  // MEASURED TO BE A RETUNE RATHER THAN A SETTING, 2026-08-11.
+  //
+  // The owner, having fought every rung: *"the variety is also not there at
+  // the moment."* They are right — every line in the valley is brute + runt
+  // + runt, so only the numbers move and every fight asks the same question.
+  // `lineOf` takes a screen width now and keeps each holding's TOTAL health
+  // identical (the brute takes whatever the screen does not), so the ladder's
+  // arithmetic is untouched.
+  //
+  // ⚠️ AND IT STILL BREAKS THE LADDER. Changing the shape changes which
+  // squares must die first, which changes how many full-line answers you eat,
+  // which is the entire gate. Measured one holding at a time against the
+  // solver test: a screen of 3 on site 5 breaks 2 rungs, on site 7 breaks 2,
+  // on site 8 breaks 1, on site 9 breaks 1. Not one of them is free.
+  //
+  // So every holding is left at the tuned default and the variety is a
+  // BALANCE JOB — the ladder wants re-solving alongside it, with
+  // `chad-liquidity` and the solver test, not a value poked in at the end of
+  // a session. `docs/NEXT.md` carries it as the next item.
   4: { strength: 12, bite: 2, runt: 3 },
   5: { strength: 18, bite: 3, runt: 4 },
   6: { strength: 24, bite: 4, runt: 6 },
@@ -452,14 +472,18 @@ export const blowLeft = (g: City): number | null =>
  *  mash trap: wail on the wall and the runts eat you. A reader aims past
  *  it, thins the runts, and guards the wind-ups. Rebuilt from CURRENT
  *  strength, so bled ground fields less — the runts fill first. */
-export function lineOf(strength: number, bite: number, runt: number):
-  Array<{ hp: number; poke: number; kind: 'brute' | 'runt' }> {
+export function lineOf(strength: number, bite: number, runt: number,
+  screen = 2): Array<{ hp: number; poke: number; kind: 'brute' | 'runt' }> {
   const s = Math.max(1, Math.ceil(strength));
-  const r = Math.max(0, Math.min(runt, Math.floor((s - 1) / 2)));
+  const k = Math.max(0, Math.min(4, Math.round(screen)));
+  // The screen cannot eat the wall: the brute keeps at least one health per
+  // rear square, which is what stops a wide screen from being a free win.
+  const r = k === 0 ? 0
+    : Math.max(0, Math.min(runt, Math.floor((s - 1) / Math.max(1, k))));
   return [
-    { hp: s - 2 * r, poke: 1, kind: 'brute' },
-    { hp: r, poke: r > 0 ? bite : 0, kind: 'runt' },
-    { hp: r, poke: r > 0 ? bite : 0, kind: 'runt' },
+    { hp: s - k * r, poke: 1, kind: 'brute' as const },
+    ...Array.from({ length: k }, () => (
+      { hp: r, poke: r > 0 ? bite : 0, kind: 'runt' as const })),
   ];
 }
 
@@ -1860,7 +1884,7 @@ export function apply(g: City, a: Action): City {
           ? { fight: {
               site: arrived,
               sq: lineOf(goblins[arrived]!, GOBLINS[arrived]?.bite ?? 2,
-                GOBLINS[arrived]?.runt ?? 0),
+                GOBLINS[arrived]?.runt ?? 0, GOBLINS[arrived]?.screen),
               target: 0, round: 0, packs: RATION_PACK, blow: null,
             } }
           : {}),
@@ -2016,7 +2040,7 @@ export function apply(g: City, a: Action): City {
       const spec = GOBLINS[a.id];
       return { ...g, fight: {
         site: a.id,
-        sq: lineOf(g.goblins[a.id] ?? 0, spec?.bite ?? 2, spec?.runt ?? 0),
+        sq: lineOf(g.goblins[a.id] ?? 0, spec?.bite ?? 2, spec?.runt ?? 0, spec?.screen),
         target: 0,
         round: 0,
         packs: RATION_PACK,

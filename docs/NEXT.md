@@ -25,11 +25,26 @@ illegible, so **comprehension outranks content** in this queue.
 | 6 | defensive assignments | **post hands to a gate.** Three turn a raid away and it costs one of them; they come out of the working pool, so a guarded valley makes less. |
 | 7 | small ones | storehouse takes 14s like everything else · road is packed earth, not teal · the meaningless barrier ring is gone · the camp label fits again |
 
-**⚠️ ONE ITEM LEFT, and it is left on purpose.** The hero still walks a
-straight line between sites and will cross the river to do it. The *cost* of
-rough country is real now, but the drawn route bends around nothing. Doing it
-properly wants per-edge terrain in the site data rather than a guess in the
-renderer.
+### ⚠️ WHAT IS STILL OPEN, with the reasons
+
+**1. Fight variety — a retune, not a setting.** *"The variety is also not
+there at the moment."* Every line in the valley is brute + runt + runt: only
+the numbers move, so every fight asks the same question. `lineOf` now takes a
+**screen width** and keeps each holding's total health identical, so the
+arithmetic is untouched — and it *still* breaks the ladder, because the shape
+decides which squares must die first, which decides how many full-line answers
+you eat, which is the whole gate. Measured one holding at a time against the
+solver test: screen 3 on site 5 breaks **2** rungs, site 7 **2**, site 8 **1**,
+site 9 **1**. None of them is free. This wants `chad-liquidity` and the solver
+re-run together, as its own session.
+
+**2. Terrain-aware travel.** The hero still walks a straight line
+between sites and will cross the river to do it. The *cost* of rough country is
+real now, but the drawn route bends around nothing. Wants per-edge terrain in
+the site data rather than a guess in the renderer.
+
+**3. "There's not much to do."** The valley is completable in one sitting.
+That is a content question, not a defect, and it is the biggest one left.
 
 **Everything above was proven red before it was trusted** — nine sabotages
 across the session, each restored from a byte-exact backup. Three checks were
