@@ -11,6 +11,34 @@ illegible, so **comprehension outranks content** in this queue.
 
 ---
 
+## ✅ WORKED THROUGH 2026-08-11 — the owner: *"execute until all my feedback
+## is addressed in a substantial way."* Seven of the eight items shipped.
+
+| # | item | what shipped |
+|---|---|---|
+| 0 | stranded hero | **roads are speed, not permission** — anywhere is walkable, open country at `ROUGH` 2.5× a laid road. A holding is still a wall you may march onto but never through. |
+| 1 | legibility | `hero 13/13`, `spears ×2`, `carts 4` in **words**; "6 goblin camps · take one and the rest raid you"; **every place keeps its name** — and that uncovered Rock Face rendering with *no label at all* once a pit stood on it, because the rates in the label lost their collision fight and the solver dropped it. Rates moved to the panel. |
+| 2 | widen | **deleted.** `CARRY` deliberately untouched so the choke and the reason to mesh both survive; **carts** are the relief. Old saves keep their widened roads, clamped not refused. |
+| 3 | one works per site | a second is refused, naming the alternative. The camp is exempt (huts are housing). `CREW` left at 4 — see the note in the code for why that is a decision to revisit **in play** rather than a guess. |
+| 4 | bland map | 182 land marks in four kinds where there were 46 in one; clusters still belong to their sites; bog confined to the low ground. Baked, so it costs one blit. |
+| 5 | boring battles | the beat is **1s**, down from 2. **Sweep** — same swing across every standing square at half each: worse on one, better on many. A decision, not a button. |
+| 6 | defensive assignments | **post hands to a gate.** Three turn a raid away and it costs one of them; they come out of the working pool, so a guarded valley makes less. |
+| 7 | small ones | storehouse takes 14s like everything else · road is packed earth, not teal · the meaningless barrier ring is gone · the camp label fits again |
+
+**⚠️ ONE ITEM LEFT, and it is left on purpose.** The hero still walks a
+straight line between sites and will cross the river to do it. The *cost* of
+rough country is real now, but the drawn route bends around nothing. Doing it
+properly wants per-edge terrain in the site data rather than a guess in the
+renderer.
+
+**Everything above was proven red before it was trusted** — nine sabotages
+across the session, each restored from a byte-exact backup. Three checks were
+found vacuous and rewritten: a whole-board ink count that could not see the
+threat line, an ambush floor that healing hid, and a guard-labour test whose
+fixture never made the population bind.
+
+---
+
 ### 0. THE TRAP: A HERO CAN BE STRANDED — defect, blocks play
 
 *"I can go there without a road, but I cannot return without a road, which is
