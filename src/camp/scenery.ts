@@ -61,6 +61,11 @@ const RIVER: Pt[] = [
   { x: VALLEY.x + VALLEY.w + 6, y: 118 },
 ];
 
+/** Is this point in the low ground the river runs through? */
+function nearRiver(x: number, y: number): boolean {
+  return RIVER.some((p) => Math.hypot(p.x - x, p.y - y) < 46);
+}
+
 function marks(): Mark[] {
   const rand = seeded(0xc17b);
   const out: Mark[] = [];
@@ -81,14 +86,41 @@ function marks(): Mark[] {
       out.push({ x, y, g: c.g, r: 2.6 + rand() * 2.2, a: rand() * Math.PI });
     }
   }
-  // Ambient moor grass across the whole valley, thin, keeping the camp's
-  // clearing and every site's label legible.
-  for (let i = 0; i < 46; i++) {
-    const x = VALLEY.x + 14 + rand() * (VALLEY.w - 28);
-    const y = VALLEY.y + 14 + rand() * (VALLEY.h - 28);
-    if (!clearOf(x, y)) continue;
-    if (Math.hypot(x - 200, y - 205) < 44) continue;   // the clearing
-    out.push({ x, y, g: 'moor', r: 2 + rand() * 1.6, a: 0 });
+  // ★★★ THE LAND BETWEEN, 2026-08-11 — queue item 4. The owner, having played
+  // the valley through: *"the map is bland because we have icons only near
+  // the locations. And I feel like we should have distinct icons near the
+  // locations while having normal icons to display the land around."*
+  //
+  // Two tiers, and the distinction is the point. The CLUSTERS above are a
+  // place's own character — pines at Tall Pines, crags at the Rock Face —
+  // and they stay tight around their site so they read as belonging to it.
+  // This is the rest of the country: four kinds of ordinary ground scattered
+  // wide, so the valley looks like somewhere rather than like a diagram with
+  // six decorated dots on it.
+  //
+  // ⚠️ IT IS BAKED (`CAMP_SHAPES` blits it), so the count is close to free at
+  // render time — the cost is one bitmap, not 190 shapes a frame. And it
+  // still yields to the graph: `clearOf` keeps 16 units around every site so
+  // no label ever fights a tuft for its pixels, and the camp's clearing stays
+  // clear because that is where the deed list points.
+  const GROUND = [
+    { g: 'moor' as const, n: 96, r: 1.8, jitter: 1.6 },
+    { g: 'crag' as const, n: 34, r: 1.6, jitter: 1.2 },
+    { g: 'wood' as const, n: 30, r: 2.2, jitter: 1.5 },
+    { g: 'bog' as const, n: 22, r: 2.0, jitter: 1.2 },
+  ];
+  for (const kind of GROUND) {
+    for (let i = 0; i < kind.n; i++) {
+      const x = VALLEY.x + 10 + rand() * (VALLEY.w - 20);
+      const y = VALLEY.y + 10 + rand() * (VALLEY.h - 20);
+      if (!clearOf(x, y)) continue;
+      if (Math.hypot(x - 200, y - 205) < 44) continue;   // the clearing
+      // Bog belongs to the low ground by the river; anywhere else it reads
+      // as a mistake rather than as marsh.
+      if (kind.g === 'bog' && !nearRiver(x, y)) continue;
+      out.push({ x, y, g: kind.g,
+        r: kind.r + rand() * kind.jitter, a: rand() * Math.PI });
+    }
   }
   return out;
 }

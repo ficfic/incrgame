@@ -15,7 +15,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
-  walkSecs, ROUGH,
+  walkSecs, ROUGH, SWEEP_SHARE,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -2618,5 +2618,62 @@ describe('★★★ CAUGHT IN THE OPEN', () => {
     const { ambush: _drop, ...older } = war();
     const back = honour({ game: older as City, savedAt: 1 })!.game;
     expect(back.ambush).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE SWEEP — 2026-08-11, queue item 5. The owner, having played every
+// fight in the valley: *"the hero doesn't have any skills, so the battles are
+// boring, and there is no point… the variety is also not there."*
+// ---------------------------------------------------------------------------
+describe('★★★ A SECOND WAY TO SWING', () => {
+  const fought = (spears: number): City => {
+    const g: City = { ...initial(), food: 9e5,
+      hero: { hp: 30, spears, part: 0, at: 4, trip: null } };
+    return apply(g, { type: 'assail', id: 4 });
+  };
+  const land = (g: City, act: 'strike' | 'sweep'): City =>
+    tick(apply(g, { type: act }), BLOW_SECS + 0.01);
+
+  it('★★★ a sweep hits EVERY square standing, a strike hits one', () => {
+    const g = fought(6);
+    const swept = land(g, 'sweep');
+    const struck = land(g, 'strike');
+    const hurtBy = (x: City): number =>
+      x.fight!.sq.filter((q, i) => q.hp < g.fight!.sq[i]!.hp).length;
+    expect(hurtBy(swept)).toBe(g.fight!.sq.length);
+    expect(hurtBy(struck)).toBe(1);
+  });
+
+  it('★★★ IT IS A TRADE, NOT A BETTER BUTTON: worse on one, better on many', () => {
+    const g = fought(6);
+    const gone = (x: City): number => x.fight!.sq.reduce((n, q) => n + q.hp, 0);
+    // Across the whole line a sweep takes more off...
+    expect(gone(land(g, 'sweep'))).toBeLessThan(gone(land(g, 'strike')));
+    // ...but on any ONE square it takes strictly less, which is what makes a
+    // wall the wrong thing to sweep.
+    const one = (x: City): number => x.fight!.sq[0]!.hp;
+    expect(one(land(g, 'sweep'))).toBeGreaterThan(one(land(g, 'strike')));
+  });
+
+  it('★ a sweep can finish a fight, and the ground is liberated by it', () => {
+    // ⚠️ This is why `liberate` was lifted out of the strike: a sweep that
+    // killed the last square used to fall through to `answered` and leave a
+    // fight standing with nothing alive in it.
+    const g = fought(99);
+    let x = g;
+    for (let i = 0; i < 12 && x.fight; i++) x = land(x, 'sweep');
+    expect(x.fight).toBeNull();
+    expect(x.goblins[4]).toBeUndefined();
+    expect(x.taken).toBe(1);
+  });
+
+  it('★ the beat is shorter than it was — a fight is not a wait', () => {
+    expect(BLOW_SECS).toBeLessThanOrEqual(1);
+    const g = fought(4);
+    expect(blowLeft(apply(g, { type: 'sweep' }))).toBe(BLOW_SECS);
+    // And a second order mid-swing is still refused.
+    const mid = apply(g, { type: 'sweep' });
+    expect(apply(mid, { type: 'strike' })).toBe(mid);
   });
 });

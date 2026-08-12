@@ -314,7 +314,19 @@ export interface City {
 
 /** What can be ordered in a fight. `aim` is free and `flee` is instant —
  *  neither is a blow. */
-export type Blow = 'strike' | 'guard' | 'ration';
+/** ★★★ SWEEP, 2026-08-11 — the owner: *"the hero doesn't have any skills, so
+ *  the battles are boring, and there is no point… the variety is also not
+ *  there."*
+ *
+ *  A strike puts everything into ONE square, which is right against a wall
+ *  and wrong against a line of runts — and every fight in the valley opens
+ *  with runts behind a wall. A sweep spends the same swing across EVERY
+ *  living square at `SWEEP_SHARE` of the damage each, so it is worse than a
+ *  strike against one big thing and better against three small ones. That is
+ *  a decision rather than a button: read the line, then choose. */
+export type Blow = 'strike' | 'guard' | 'ration' | 'sweep';
+/** What each square takes from a sweep, against a strike's whole blow. */
+export const SWEEP_SHARE = 0.5;
 
 export const CITY_VERSION = 5;
 
@@ -411,7 +423,11 @@ export const RATION_PACK = 2;
  *  12 seconds; the deep rungs run 20–30.
  *
  *  ⚠️ AND IT NEVER PUNISHES ABSENCE (`docs/BRIEF.md`): see the tick. */
-export const BLOW_SECS = 2;
+/** ★ ONE, SINCE 2026-08-11. The owner watched a fight through: *"the cool
+ *  down between actions… should be shorter because it's boring to watch."*
+ *  Two seconds × six to ten orders is twenty seconds of waiting for a
+ *  decision you already made. */
+export const BLOW_SECS = 1;
 /** Seconds left on the ordered blow, or null when the hero is waiting on
  *  you — what the strip draws its beat from, the same way `raisingLeft`
  *  feeds the site panel. */
@@ -1356,6 +1372,8 @@ export type Action =
   | { type: 'assail'; id: number }
   // ★★ THE THREE ORDERS take BLOW_SECS to land — they are CALLED here and
   // the tick resolves them. One in flight at a time.
+  /** ★ Sweep every standing square for a share each — 2026-08-11. */
+  | { type: 'sweep' }
   /** Call a blow at the targeted square. Lands, then the line answers. */
   | { type: 'strike' }
   /** Deal nothing, block the answer whole — the wind-up's counter. */
@@ -1426,6 +1444,14 @@ function lands(g: City): City {
       hp: Math.min(heroMax(g), g.hero.hp + RATION_HP) } };
     return answered(fed, now, false);
   }
+  // ★★ A SWEEP FALLS ON EVERYTHING STANDING, for a share each.
+  if (f.blow.act === 'sweep') {
+    const hit = Math.max(1, Math.floor(heroHit(g) * SWEEP_SHARE));
+    const swept = now.sq.map((q) =>
+      q.hp > 0 ? { ...q, hp: Math.max(0, q.hp - hit) } : q);
+    if (swept.every((q) => q.hp <= 0)) return liberate(g, now);
+    return answered(g, { ...now, sq: swept }, false);
+  }
   // ★★ Your blow falls on the TARGET (or the first square standing, if the
   // target fell while the swing was in the air). Deterministic — no dice;
   // whether you can win was decided by the town that armed you.
@@ -1434,17 +1460,20 @@ function lands(g: City): City {
   if (at < 0) return { ...g, fight: now };
   const sq = now.sq.map((q, i) =>
     i === at ? { ...q, hp: Math.max(0, q.hp - heroHit(g)) } : q);
-  if (sq.every((q) => q.hp <= 0)) {
-    // ★ LIBERATED: the ground joins the town, hurt and all — and two
-    // captives walk home with the hero, hungry and ready to work.
-    const goblins = { ...g.goblins };
-    delete goblins[now.site];
-    const menace = { ...g.menace };
-    delete menace[now.site];
-    return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES,
-      taken: g.taken + 1 };
-  }
+  if (sq.every((q) => q.hp <= 0)) return liberate(g, now);
   return answered(g, { ...now, sq, target: at }, false);
+}
+
+/** ★ LIBERATED: the ground joins the town, hurt and all — and two captives
+ *  walk home with the hero, hungry and ready to work. (Lifted out of the
+ *  strike on 2026-08-11 so a sweep can finish a fight too.) */
+function liberate(g: City, now: NonNullable<City['fight']>): City {
+  const goblins = { ...g.goblins };
+  delete goblins[now.site];
+  const menace = { ...g.menace };
+  delete menace[now.site];
+  return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES,
+    taken: g.taken + 1 };
 }
 
 /** ★ THE LONGEST A SINGLE TICK MAY STAND FOR. One `tick` is one Euler
@@ -1867,6 +1896,7 @@ export function apply(g: City, a: Action): City {
     case 'strike':
     case 'guard':
     case 'ration':
+    case 'sweep':
       return order(g, a.type);
 
     case 'aim': {

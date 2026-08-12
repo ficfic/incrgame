@@ -8,7 +8,7 @@
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
-    raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE,
+    raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE, SWEEP_SHARE,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
     unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
@@ -908,6 +908,17 @@
             onclick={() => act({ type: 'strike' })}>
             Attack
             <em>{heroHit(game)} into the {fi.sq[aimedAt]?.kind ?? 'line'}</em>
+          </button>
+          <!-- ★★★ A SECOND WAY TO SWING, 2026-08-11 — the owner: *"the hero
+               doesn't have any skills, so the battles are boring."* Attack
+               puts everything into one square, which is right against a wall
+               and wrong against a line of runts. Sweep spends the same swing
+               across all of them. Reading the line is now the decision. -->
+          <button class="deed" disabled={blowLeft(game) !== null}
+            onclick={() => act({ type: 'sweep' })}>
+            Sweep
+            <em>{Math.max(1, Math.floor(heroHit(game) * SWEEP_SHARE))} into
+              every one of the {fi.sq.filter((q) => q.hp > 0).length} standing</em>
           </button>
           <button class="deed" disabled={blowLeft(game) !== null}
             onclick={() => act({ type: 'guard' })}>
