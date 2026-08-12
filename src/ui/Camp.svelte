@@ -409,7 +409,9 @@
     const have = game.stacks[s.id] ?? 0;
     const why = unraisable(game, s.id);
     out.push({
-      label: `${KIND_NAME[s.allows]} ×${have + 1}`,
+      // ★ ONE WORKS PER PLACE (2026-08-11), so this deed only ever raises the
+      // FIRST one and the count in the label had nothing left to count.
+      label: s.id === 0 ? `Hut ×${have + 1}` : `Build ${KIND_NAME[s.allows]}`,
       note: (why ?? `${price(costOf(s.allows, have))} `
         + `${MARK.time}${buildSecs(game, s.id)}s`)
         + (have > 0 ? ` · ${times(have)}` : ''),
@@ -774,9 +776,21 @@
         aria-label="people">👤 {Math.floor(game.pop)}/{cap}</span>
       <span class="cell" class:brim={game.pop >= cap} data-q="huts"
         aria-label="huts">🏠 {game.pop >= cap ? 'full' : `×${game.stacks[0] ?? 0}`}</span>
+      <!-- ★★★ THE WORDS WENT BACK IN, 2026-08-11. From the playthrough:
+           *"I don't understand the swords. I think it's hp of the hero"* —
+           it is, and the crossed swords never said so. And of the cart
+           wheel: *"the weird symbol with a zero and a pentagram… I don't
+           understand the wheel sign at all"*, asked twice and never answered.
+           An emoji is a decoration on a word, never a replacement for it. -->
       <span class="cell" class:hurt={game.hero.hp < heroMax(game) / 3} data-q="hero"
-        aria-label="hero">⚔️ {game.hero.hp}/{heroMax(game)} · {spearLabel(game.hero.spears).toLowerCase()}</span>
-      <span class="cell" data-q="carts" aria-label="carts">🛞 {game.carts}</span>
+        aria-label="hero">hero {game.hero.hp}/{heroMax(game)}</span>
+      <!-- ⚠️ NO EMOJI ON THESE THREE. With the words in, the marks pushed the
+           row into a second line and left the gear stranded on its own. The
+           word is the part that was missing; the picture was never the part
+           that was working. -->
+      <span class="cell" data-q="spears" aria-label="spears"
+        >{spearLabel(game.hero.spears).toLowerCase()}</span>
+      <span class="cell" data-q="carts" aria-label="carts">carts {game.carts}</span>
       <!-- ⚠️ THE GEAR LIVES IN THIS ROW, not pinned over the top corner. It
            was absolute, and it sat on the FOOD column and clipped its label
            to "FOO" — caught in the first screenshot. A trailing `auto`
@@ -809,9 +823,12 @@
           : game.hero.trip
             ? `${MARK.hero}→${SITE.get(game.hero.trip.to)?.name ?? ''}`
             : `${MARK.hero} ${SITE.get(game.hero.at)?.name ?? ''}`}
-        · {MARK.danger}{holdings} left
+        · {MARK.danger}{holdings} camps left
       {:else if holdings > 0}
-        {MARK.danger}{holdings} holdings · they come once you take one
+        <!-- ★ WHAT A HOLDING IS, not just how many. The owner: *"why holdings
+             are with skull and bones is not quite well understood by me…
+             What is a holding? They come once you take one — who comes?"* -->
+        {MARK.danger}{holdings} goblin camps · take one and the rest raid you
       {:else}
         {MARK.danger}0 · the valley is yours
       {/if}
@@ -1010,7 +1027,10 @@
        uneven in length — "🛞 3" against "⚔️ 8/10 · arms 1" — and equal shares
        clipped the hero's arms count to "arms" with nothing after it. The
        short ones take what they need; the hero takes the slack. */
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto; }
+    /* ★ SIX COLUMNS SINCE 2026-08-11: spears left the hero's cell so the
+       hero's could say "hero 10/10" in words. Five columns left the gear
+       wrapping onto a row of its own. */
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto auto; }
   .standings .cell { padding-left: 8px; padding-right: 8px; }
   .standings .cell { flex-direction: row; justify-content: center; gap: 4px;
     padding: 6px 2px; font-size: 13px; color: #6b5d3f; font-weight: 600;

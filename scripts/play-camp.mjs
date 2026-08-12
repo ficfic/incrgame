@@ -215,7 +215,7 @@ if (!/Laying · The Camp/.test(laying)) {
   misses.push(`the spade went in silently: "${laying.slice(0, 60)}"`);
 }
 await page.waitForTimeout(6800);
-await page.locator('.deed', { hasText: 'Quarry ×1' }).click({ timeout: 2000 })
+await page.locator('.deed', { hasText: 'Build Quarry' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed stacks the first quarry'));
 // ★ A WORKS TAKES TIME NOW. It is ordered here and STANDS later — the
 // label must say so while the hammers are out, and the pit must not
@@ -301,7 +301,7 @@ if (await page.locator('.deed', { hasText: 'Chop logs' }).count() > 0) {
 await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
   .catch(() => misses.push('no path deed at the pines'));
 await page.waitForTimeout(7000);
-await page.locator('.deed', { hasText: 'Lumberworks ×1' }).click({ timeout: 2000 })
+await page.locator('.deed', { hasText: 'Build Lumberworks' }).click({ timeout: 2000 })
   .catch(() => misses.push('the wagon holds eight logs and the lumberworks still refuses'));
 await page.waitForTimeout(11000);
 const raised = await page.locator('.panel h2').textContent();
@@ -443,7 +443,7 @@ if (!/TAKEN — \+2 settlers/.test(cheer)) {
 await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
   .catch(() => misses.push('liberated ground refuses the path'));
 await page.waitForTimeout(6800);
-await page.locator('.deed', { hasText: 'Farm ×1' }).click({ timeout: 2000 })
+await page.locator('.deed', { hasText: 'Build Farm' }).click({ timeout: 2000 })
   .catch(() => misses.push('liberated ground refuses the works'));
 await page.waitForTimeout(600);
 const freedTitle = await page.locator('.panel h2').textContent();
@@ -627,7 +627,9 @@ if (!covers) misses.push('the end-of-run screen does not cover the board');
 await page.locator('.gone button').click({ timeout: 2000 })
   .catch(() => misses.push('no button founds the next camp'));
 await page.waitForTimeout(900);
-const armsAfter = await cell('hero');
+// ★ SPEARS HAVE THEIR OWN CELL SINCE 2026-08-11 — the hero cell says health
+// in words now, because the crossed swords were being read as a sword count.
+const armsAfter = await cell('spears');
 console.log('  founded :', `"${armsAfter}"`);
 if (!/spears ×4/.test(armsAfter)) {
   misses.push(`the veteran did not walk out of the lost valley: "${armsAfter}"`);

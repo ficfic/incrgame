@@ -87,22 +87,24 @@ describe('★★ RULE 1 — buildings come in counts, on the compounding curve',
     expect(BASE.hut.planks).toBeGreaterThan(0);
   });
 
-  it('raising stacks the count and pays every part of the curve', () => {
-    // ⚠️ UPDATED 2026-08-10 (build timers): a copy is ORDERED now, not
-    // conjured, so the second order waits for the first hammer to land. The
-    // fact this test protects is unchanged — two copies stand and BOTH rungs
-    // of the 1.35 curve were paid.
-    // (`crew: {1: 0}` holds the pit empty, so the ticks below advance the
-    // hammers without quarrying any stone into the arithmetic.)
+  it('★★★ ONE WORKS PER PLACE (2026-08-11) — the second is refused', () => {
+    // ⚠️ REWRITTEN 2026-08-11. It used to prove that two copies stand and
+    // both rungs of the 1.35 curve get paid. Stacking works is gone — the
+    // owner, having put four quarries on one rock: *"there is no point in
+    // having new locations… we should limit the number to one per location."*
+    // More output means more GROUND now.
     let g: City = { ...initial(), stone: 99, crew: { 1: 0 },
       paths: { [pathKey(0, 1)]: 1 } };
     g = apply(g, { type: 'raise', id: 1 });
     expect(apply(g, { type: 'raise', id: 1 })).toBe(g);   // one hammer per site
     g = tick(g, BUILD_SECS.quarry);
-    g = apply(g, { type: 'raise', id: 1 });
-    g = tick(g, BUILD_SECS.quarry);
-    expect(g.stacks[1]).toBe(2);
-    expect(g.stone).toBeCloseTo(99 - costOf('quarry', 0).stone! - costOf('quarry', 1).stone!, 9);
+    expect(g.stacks[1]).toBe(1);
+    expect(g.stone).toBeCloseTo(99 - costOf('quarry', 0).stone!, 9);
+    // ★ AND THE SECOND WORKS IS REFUSED, in words, with the alternative named.
+    expect(unraisable(g, 1)).toBe('one works per place — post hands instead');
+    expect(apply(g, { type: 'raise', id: 1 })).toBe(g);
+    // ⚠️ THE CAMP IS EXEMPT: its works are HUTS, and huts are housing.
+    expect(unraisable({ ...initial(), planks: 9e5 }, 0)).toBeNull();
   });
 
   it('★ a copy holds a CREW, and output is per worker', () => {
@@ -1954,9 +1956,11 @@ describe('★★★ A WORKS TAKES TIME TO RAISE', () => {
     // ⚠️ FLAT, NOT ON THE CURVE: copy #9 takes exactly as long as copy #1.
     // The COST already climbs 1.35^n; taxing the clock too would wall the
     // ladder. If that is ever reversed, this is the line that says so.
-    let g = site({ stacks: { 1: 8 }, stone: 9e5 });
-    g = apply(g, { type: 'raise', id: 1 });
-    expect(g.raising[1]!.secs).toBe(BUILD_SECS.quarry);
+    // ⚠️ MEASURED AT THE CAMP SINCE 2026-08-11: only huts stack now, so the
+    // camp is the only place a second order can be placed at all.
+    let g = site({ stacks: { 0: 8 }, planks: 9e5 });
+    g = apply(g, { type: 'raise', id: 0 });
+    expect(g.raising[0]!.secs).toBe(BUILD_SECS.hut);
   });
 
   it('★★ a refused raise starts no job at all — the gates come first', () => {

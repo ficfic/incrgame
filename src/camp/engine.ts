@@ -563,6 +563,25 @@ export const storeCost = (have: number): { stone: number; planks: number } => ({
  *  are capacity. Two hands on quarry #1 is exactly the old copy, so
  *  minute zero is untouched; a full crew is twice it. */
 export const CREW = 4;
+/** ★★★ ONE WORKS PER SITE, 2026-08-11. The owner, having built four quarries
+ *  on one rock: *"there is no point in having new locations… because I'm able
+ *  to build multiple lumber works at the initial sites. So we should limit
+ *  the number to one per location. And then we should allow to add more
+ *  people there."*
+ *
+ *  That is the change that gives the MAP a reason to exist: with a site
+ *  capped at one works, more output has to mean more GROUND — which means
+ *  roads, fights and holdings — rather than another building on the rock you
+ *  already own.
+ *
+ *  ⚠️ `CREW` STAYS AT 4, AND THAT IS A DECISION TO REVISIT IN PLAY. Raising
+ *  it to 12 "so one works absorbs the hands the buildings used to" was tried
+ *  and reverted: it rescales every tuned number in the economy at once, on a
+ *  guess, and the whole valley is only ten sites — forty working slots, which
+ *  is a lot of hands. If a grown town ends up with people standing idle, the
+ *  fix is to raise the per-site cap THEN, with the town in front of us.
+ *  ⚠️ The camp is exempt: its "works" are HUTS, and huts are housing. */
+export const WORKS_MAX = 1;
 
 /** Output per WORKER per second. */
 export const RATE = { quarry: 0.15, lumber: 0.2, sawmill: 0.25, farm: 0.2 } as const;
@@ -1253,6 +1272,9 @@ export function unraisable(g: City, id: number): string | null {
   // It is also what keeps the price honest: with a job in flight `stacks`
   // has not moved yet, so a second order would buy copy #n twice.
   if (g.raising[id]) return 'already raising';
+  // ★ ONE WORKS PER SITE (2026-08-11) — see WORKS_MAX. More output means more
+  // ground now, not more buildings on the ground you hold.
+  if (id !== 0 && (g.stacks[id] ?? 0) >= WORKS_MAX) return 'one works per place — post hands instead';
   return shortOf(g, costOf(s.allows, g.stacks[id] ?? 0));
 }
 
