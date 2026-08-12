@@ -141,18 +141,37 @@
     const up = raisingLeft(game, id);
     if (up !== null) {
       const kind = id === 0 ? 'Hut' : KIND_NAME[SITE.get(id)!.allows];
-      return `${kind} ×${n + 1} · ${MARK.time}${Math.ceil(up)}s`;
+      return `${s.name} · ${kind} ×${n + 1} · ${MARK.time}${Math.ceil(up)}s`;
     }
-    if (id === 0) return n > 0 ? `Camp · Hut ×${n}` : 'The Camp';
+    // ★★★ THE PLACE KEEPS ITS NAME, 2026-08-11. It used to lose it the moment
+    // anything was built on it — the owner: *"as soon as I build something…
+    // it doesn't tell me how it's called anymore. So it's just a sawmill for
+    // me… But goblins attack named locations. So it's hard to understand what
+    // are they attacking."* That is not a wording preference, it is the
+    // attack messages and the board disagreeing about what things are called.
+    // The name leads, always; the works follow it.
     if (n <= 0) return s.name;
+    // ⚠️ AND IT STAYS SHORT. The rates used to live here — "Quarry ×3 · makes
+    // 1.9 · carries 1.0" — and a label that long loses its collision fight
+    // with its neighbours and is DROPPED by the layout solver entirely. That
+    // is why Rock Face rendered with no label at all once a pit stood on it,
+    // and it is the same failure as the owner's *"the label of camp is being
+    // cut by the map"*. The board says WHERE and WHAT; `worksLine` below says
+    // how much, in the panel, where there is room for it.
+    return `${s.name} · ${id === 0 ? 'Hut' : KIND_NAME[s.allows]} ×${n}`;
+  }
+
+  /** The numbers that used to crowd the map label, for the panel. */
+  function worksLine(id: number): string | null {
+    const n = game.stacks[id] ?? 0;
+    if (id === 0 || n <= 0 || game.goblins[id]) return null;
     const made = f.made.get(id) ?? 0;
     const carried = f.carried.get(id) ?? 0;
-    const kind = `${KIND_NAME[s.allows]} ×${n}`;
-    if (!f.comp.has(id)) return `${kind} · 0`;
+    if (!f.comp.has(id)) return 'no road home · 0/s';
     if (carried < made - 1e-9) {
-      return `${kind} · makes ${made.toFixed(1)} · carries ${carried.toFixed(1)}`;
+      return `makes ${made.toFixed(1)}/s · carries ${carried.toFixed(1)}/s`;
     }
-    return `${kind} · ${made.toFixed(1)}/s`;
+    return `${made.toFixed(1)}/s`;
   }
 
   /** ★★ WHERE THE HERO IS, in world coordinates — interpolated along the road
@@ -477,14 +496,13 @@
       if (gauge >= MAX_GAUGE) continue;
       const w = unlayable(game, s.id, n);
       out.push({
-        // ⚠️ THE GAUGE MOVED OUT OF THE LABEL. "Widen · Rock Face (1 of 3)"
-        // did not fit a half-width card and ellipsised to "Widen · Rock Face
-        // (…", which cut the one number the label was carrying. The name is
-        // what you scan for; the count belongs with the other numbers.
-        label: gauge === 0 ? `Path · ${t.name}` : `Widen · ${t.name}`,
-        note: w ?? `${gauge}/${MAX_GAUGE} · ${amount('stone', pathCostOf(gauge))} `
-          + `${MARK.time}${PATH_SECS * (gauge + 1)}s`
-          + ` → ${((gauge + 1) * CARRY * cartHaul(game)).toFixed(1)}/s`,
+        // ★ WIDENING IS GONE (2026-08-11) — `gauge >= MAX_GAUGE` above now
+        // means "already laid", so this deed only ever offers a NEW road and
+        // the gauge count has nothing left to say.
+        label: `Path · ${t.name}`,
+        note: w ?? `${amount('stone', pathCostOf(gauge))} `
+          + `${MARK.time}${PATH_SECS}s`
+          + ` → ${(CARRY * cartHaul(game)).toFixed(1)}/s · ${MARK.hero}faster`,
         why: w,
         go: () => act({ type: 'lay', a: s.id, b: n }),
       });
@@ -579,7 +597,7 @@
     const made = f.made.get(picked) ?? 0;
     const carried = f.carried.get(picked) ?? 0;
     if (carried < made - 1e-9) {
-      return `choked · ${(made - carried).toFixed(1)}/s wasted — widen the path`;
+      return `choked · ${(made - carried).toFixed(1)}/s wasted — build a cart`;
     }
     return '';
   })());
@@ -892,6 +910,10 @@
         </div>
       {:else if picked !== null && SITE.has(picked)}
         <h2>{nameOf(picked)}</h2>
+        <!-- ★ THE NUMBERS THE MAP LABEL NO LONGER CARRIES (2026-08-11). They
+             lived in the label and made it long enough to lose its collision
+             fight and be dropped altogether. -->
+        {#if worksLine(picked)}<p class="note">{worksLine(picked)}</p>{/if}
         {#if status}<p class="note">{status}</p>{/if}
         {#if picked !== 0 && (game.stacks[picked] ?? 0) > 0 && !game.goblins[picked]}
           <!-- ★ POSTED HANDS — the owner's ask. Pins win the pool; freeing

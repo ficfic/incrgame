@@ -100,7 +100,15 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
       // gauge is unreachable ink the component walk will never see.
       const [a, b] = k.split('|').map(Number);
       const near = SITE.get(a!)?.near.includes(b!);
-      if (!near || pathKey(a!, b!) !== k || !whole(v, 1, MAX_GAUGE)) return null;
+      if (!near || pathKey(a!, b!) !== k || !whole(v, 1, 9)) return null;
+      // ★★ WIDENED ROADS COME HOME NARROW (2026-08-11). Widening was deleted,
+      // so `MAX_GAUGE` is 1 — and every save written before today has gauge
+      // 2s and 3s in it, including the owner's, who widened Rock Face on the
+      // playthrough that ordered the deletion. Rejecting those saves would
+      // have thrown the run away over a number that is now cosmetic, so they
+      // are CLAMPED instead. The road stays; it is simply as wide as roads
+      // get now.
+      if (v > MAX_GAUGE) g.paths[k] = MAX_GAUGE;
     }
   }
   if (g.goblins !== undefined) {

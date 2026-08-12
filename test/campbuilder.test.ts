@@ -15,6 +15,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
+  walkSecs, ROUGH,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -217,18 +218,28 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
   });
 
   it('★★ production past the path CHOKES: capped, named, drawn', () => {
-    // Two crewed copies make 1.2/s into a 1.0 path: 1.0 arrives, 0.2 wasted.
-    const f = flow(quarried(2, 1));
-    expect(f.made.get(1)).toBeCloseTo(1.2, 9);
-    expect(f.carried.get(1)).toBeCloseTo(CARRY, 9);
+      // Two crewed copies make 1.2/s into a 1.0 path: 1.0 arrives, 0.2 wasted.
+      // ⚠️ Unchanged by the deletion of widening (2026-08-11) ON PURPOSE —
+      // `CARRY` was deliberately left alone so the choke lands exactly where
+      // it always did. Only the relief moved.
+      const f = flow(quarried(2, 1));
+      expect(f.made.get(1)).toBeCloseTo(1.2, 9);
+      expect(f.carried.get(1)).toBeCloseTo(CARRY, 9);
     expect(f.stone).toBeCloseTo(CARRY, 9);
     expect(f.choked.has(pathKey(0, 1))).toBe(true);
   });
 
-  it('★ widening the path is the fix', () => {
-    const f = flow(quarried(2, 2));
-    expect(f.stone).toBeCloseTo(1.2, 9);
-    expect(f.choked.size).toBe(0);
+  it('★ CARTS are the fix now — widening is gone (2026-08-11)', () => {
+    // ⚠️ This test used to widen the road. Widening was deleted at the
+    // owner's word; the same relief comes from carts, which multiply every
+    // path at once instead of asking for the same deed on each of them.
+    const buried = quarried(2, 1);
+    expect(flow(buried).choked.size).toBe(1);
+    // One cart lifts every road at once, which is what widening did one road
+    // at a time — the same relief, bought once instead of per path.
+    const carted: City = { ...buried, carts: 1 };
+    expect(flow(carted).choked.size).toBe(0);
+    expect(flow(carted).stone).toBeCloseTo(1.2, 9);
   });
 
   it('★ a path takes TIME: paid up front, filling on the tick, carrying nothing yet', () => {
@@ -248,21 +259,18 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
     expect(flow(g).stone).toBeGreaterThan(0);
   });
 
-  it('widening pays the gauge curve, takes longer, and stops at the widest', () => {
-    // ⚠️ `stacks: {1: 1}` IS LOAD-BEARING (2026-08-10): a widen on a road
-    // nothing travels is refused now, because it is a trap purchase in every
-    // case and in one case it freezes the save. This test is about the CURVE,
-    // so the road needs traffic to be widened at all.
-    let g: City = { ...initial(), stone: 99, stacks: { 1: 1 },
+  it('★★★ WIDENING IS GONE (2026-08-11) — a laid road is finished', () => {
+    // The owner: *"we need to cut the functionality of widening the roads
+    // hundred percent. It's stupid that it is there."* A road is laid or it
+    // is not. ⚠️ `CARRY` was deliberately NOT raised to compensate, so the
+    // choke and the reason to mesh a town both survive exactly as tuned; the
+    // relief moved to CARTS, which lift every road at once.
+    const laid: City = { ...initial(), stone: 99, stacks: { 1: 1 },
       paths: { [pathKey(0, 1)]: 1 } };
-    g = apply(g, { type: 'lay', a: 0, b: 1 });
-    expect(g.stone).toBeCloseTo(99 - pathCostOf(1), 9);
-    expect(g.laying[pathKey(0, 1)]!.secs).toBe(PATH_SECS * 2);
-    g = tick(g, PATH_SECS * 2 + 1);
-    expect(g.paths[pathKey(0, 1)]).toBe(2);
-    g = apply(g, { type: 'lay', a: 0, b: 1 });
-    g = tick(g, PATH_SECS * 3 + 1);
-    expect(unlayable(g, 0, 1)).toBe('as wide as it goes');
+    expect(MAX_GAUGE).toBe(1);
+    expect(unlayable(laid, 0, 1)).toBe('the road is laid');
+    expect(apply(laid, { type: 'lay', a: 0, b: 1 })).toBe(laid);
+    expect(laid.stone).toBe(99);
   });
 
   it('a shared edge chokes EVERYONE routed over it', () => {
@@ -528,7 +536,14 @@ describe('★ honest refusals and the save', () => {
     // A path between sites that do not touch is ink no walk can ever reach.
     expect(honour({ game: { ...initial(), paths: { '1|3': 1 } }, savedAt: 1 })).toBeNull();
     expect(honour({ game: { ...initial(), paths: { '1|0': 1 } }, savedAt: 1 })).toBeNull();
-    expect(honour({ game: { ...initial(), paths: { '0|1': 9 } }, savedAt: 1 })).toBeNull();
+    // ⚠️ REVERSED 2026-08-11 for gauges ABOVE the maximum. Widening was
+    // deleted, so `MAX_GAUGE` is 1 and every save written before that day has
+    // 2s and 3s in it — including the owner's. Those are CLAMPED, not
+    // refused: a run is not worth throwing away over a number that is now
+    // cosmetic. Nonsense outside any gauge that ever existed is still junk.
+    expect(honour({ game: { ...initial(), paths: { '0|1': 3 } }, savedAt: 1 })!
+      .game.paths['0|1']).toBe(MAX_GAUGE);
+    expect(honour({ game: { ...initial(), paths: { '0|1': 99 } }, savedAt: 1 })).toBeNull();
     // ⚠️ REVERSED 2026-08-09: goblins on Rock Face used to be a forgery,
     // because only the six original holdings could hold any. A raid can now
     // TAKE ground, so that is an ordinary mid-run state and refusing it
@@ -1193,24 +1208,24 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
   it('★★★ THE FOOD ARTERY DOUBLES when the knoll falls — the 66-pop wall', () => {
     // The wall, measured: all food over one 3.0/s edge feeds 6 + 3.0/EAT.
     const oneEdge = MAX_GAUGE * CARRY;
-    expect(WILD_FED + oneEdge / EAT).toBe(WILD_FED + 60);
+      expect(WILD_FED + oneEdge / EAT).toBe(WILD_FED + 20);
     // Both farms, deep country freed, EVERY path at full gauge — but no
     // road from the knoll to the camp: the south still files through `0|4`.
     const viaMeadow: City = { ...initial(), pop: 99, food: 999, goblins: {},
       // Enough field at BOTH ends to saturate whatever road it is given.
       stacks: { 0: huts(99), 4: 5, 9: 3 },
-      paths: { [pathKey(0, 4)]: 3, [pathKey(4, 6)]: 3, [pathKey(6, 7)]: 3,
-        [pathKey(7, 9)]: 3 } };
-    expect(flow(viaMeadow).food).toBeCloseTo(oneEdge, 6);      // capped at 3.0
+        paths: { [pathKey(0, 4)]: 1, [pathKey(4, 6)]: 1, [pathKey(6, 7)]: 1,
+          [pathKey(7, 9)]: 1 } };
+      expect(flow(viaMeadow).food).toBeCloseTo(oneEdge, 6);      // capped at 1.0
     expect(flow(viaMeadow).choked.has(pathKey(0, 4))).toBe(true);
     // Now lay the knoll's own road. The deep country reroutes down it and
     // the two arteries carry together.
     const viaBoth: City = { ...viaMeadow,
-      paths: { ...viaMeadow.paths, [pathKey(0, 6)]: 3 } };
+        paths: { ...viaMeadow.paths, [pathKey(0, 6)]: 1 } };
     expect(flow(viaBoth).food).toBeGreaterThan(oneEdge + 1e-6);
     expect(flow(viaBoth).food).toBeCloseTo(2 * oneEdge, 6);
     // ★ Which is the wall moving from 66 people to 126.
-    expect(WILD_FED + 2 * oneEdge / EAT).toBe(WILD_FED + 120);
+      expect(WILD_FED + 2 * oneEdge / EAT).toBe(WILD_FED + 40);
   });
 
   it('★★ the scree carries the east so the mill keeps its planks', () => {
@@ -1380,7 +1395,11 @@ describe('★★★ THE CARTWRIGHT — the one exponential that runs for the pla
       expect(now).toBeGreaterThan(last);
       last = now;
     }
-    expect(totals(maxed(0)).carried).toBeGreaterThan(13);
+      // ⚠️ 4 rather than 13 since widening died (2026-08-11): every edge is
+      // stuck at gauge 1, so a maxed valley moves a third of what it did on
+      // roads alone. The LADDER is the point — carts still multiply it, and
+      // eight of them still treble the whole town.
+      expect(totals(maxed(0)).carried).toBeGreaterThan(4);
     expect(totals(maxed(8)).carried).toBeGreaterThan(totals(maxed(0)).carried * 3);
   });
 
@@ -1614,19 +1633,27 @@ describe('★★★ STARVING READS DELIVERY, NOT HARVEST', () => {
     // still crowd the road. As it deepens they get out of the way and the
     // bread gets home. Measured at both ends.
     expect(f.food).toBeLessThan(hunger(g));
-    const deep = flow({ ...g, famine: FAMINE_DEEP });
+      // ⚠️ CARTS ADDED (2026-08-11): with widening gone a bare road carries
+      // 1.0/s, which is too small for this fixture's bread to get home at
+      // any depth of famine. Two carts restore the capacity a gauge-3 road
+      // used to have, so the test measures the FAMINE again and not the road.
+      const deep = flow({ ...g, famine: FAMINE_DEEP, carts: 3 });
     expect(deep.food).toBeGreaterThan(hunger(g));
     // ⚠️ NOT ON THE FIRST TICK ANY MORE, and that is the change. Under the
     // old binary halt the quarries stopped dead and the bread got through
     // immediately. A squeeze has to bite before it frees the road, so the
     // town digs out over half a minute rather than in one frame — which is
     // the whole point of making it gradual. Measured, not assumed.
-    let out = g;
+      let out: City = { ...g, carts: 3 };
     let secs = 0;
     while (secs < 200 && out.food <= 0) { out = tick(out, 1); secs++; }
     expect(out.food, 'the town never dug itself out').toBeGreaterThan(0);
     expect(secs).toBeGreaterThan(1);
-    expect(secs).toBeLessThan(90);
+      // ⚠️ 150, not 90, since widening died (2026-08-11): the artery is a
+      // third of the road it was, so a starving town genuinely takes longer
+      // to dig out. What this guards is the SHAPE — it digs out at all, and
+      // not in a single frame.
+      expect(secs).toBeLessThan(150);
   });
 
   it('★ a town whose food gets home is not starving, however narrow the road', () => {
@@ -2059,23 +2086,25 @@ describe('★★★ THE WAGON CANNOT BE SPENT INTO A DEAD SAVE', () => {
     for (const b of [1, 2, 3]) g = apply(g, { type: 'lay', a: 0, b });
     g = tick(g, 30);
     expect(g.stone).toBeCloseTo(START_STONE - 9, 6);
-    // THE FIX: the widen is refused, because nothing travels that road yet.
-    expect(unlayable(g, 0, 1)).toBe('nothing travels this road');
-    const after = apply(g, { type: 'lay', a: 0, b: 1 });
+      // THE FIX: laying again is refused, because the road is already there.
+      expect(unlayable(g, 0, 1)).toBe('the road is laid');
+      const after = apply(g, { type: 'lay', a: 0, b: 1 });
     expect(after).toBe(g);
     // And the stone that would have gone into it still buys the opening.
     expect(unraisable(g, 1)).toBeNull();
   });
 
-  it('★★ a road that DOES carry can still be widened', () => {
-    // The gate must not wall the real mechanic: a working pit's road widens.
+  it('★★ the traffic gate does not wall a SECOND road out of a working pit', () => {
+    // ⚠️ WAS "a road that does carry can still be widened". Widening is gone
+    // (2026-08-11), so what the gate must not wall is laying another road
+    // from a site that is already shipping.
     let g: City = initial();
     g = apply(g, { type: 'lay', a: 0, b: 1 });
     g = tick(g, 20);
     g = apply(g, { type: 'raise', id: 1 });
     g = tick(g, 40);
     expect(flow(g).loads.get(pathKey(0, 1)) ?? 0).toBeGreaterThan(0);
-    expect(unlayable({ ...g, stone: 99 }, 0, 1)).toBeNull();
+    expect(unlayable({ ...g, stone: 99 }, 1, 2)).toBeNull();
   });
 
   it('★★★ THE MILL IS STAFFED ON A DEFAULT SAVE — planks are not zero', () => {
@@ -2404,29 +2433,29 @@ describe('★★★ THE HERO WALKS, AND HOLDS ONE GATE', () => {
     expect(there.hero.trip).toBeNull();
   });
 
-  it('★★ they walk the LAID roads, and held ground is a wall not a corridor', () => {
+  it('★★★ ROADS ARE SPEED, NOT PERMISSION (2026-08-11)', () => {
+    // The owner walked onto a holding with no road, won it, and could not
+    // walk home: *"I can go there without a road, but I cannot return without
+    // a road, which is very strange."* The old rule made a road PERMISSION,
+    // with one exception for the last step onto held ground — and winning the
+    // fight deleted the exception. Now open country is simply slower.
     const g = roaded();
-    // Two legs the long way round is still two legs.
-    expect(legsBetween(g, 1, 2)).toBe(1);
-    expect(legsBetween({ ...g, paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1 } }, 1, 2)).toBe(2);
-    // No road at all: unreachable, and the march is refused with a reason.
-    expect(marchSecs(initial(), 1)).toBeNull();
-    expect(unmarchable(initial(), 1)).toBe('no road reaches there');
-    const roadless = initial();
-    expect(apply(roadless, { type: 'march', to: 1 })).toBe(roadless);
-    // ★★★ AND ONTO ADJACENT HELD GROUND WITH NO ROAD AT ALL. This is not a
-    // nicety: `unlayable` refuses to lay a path to goblin ground, so if the
-    // last step needed a road then EVERY fight on the map would be
-    // unreachable the moment marching became the only way to one. Caught by
-    // the browser probe and not by any test, which is why this exists.
-    expect(legsBetween(initial(), 0, 4)).toBe(1);
-    expect(marchSecs(initial(), 4)).toBe(WALK_SECS);
-    expect(unmarchable(initial(), 4)).toBeNull();
-    // You may march ONTO held ground, but never THROUGH it.
-    const walled: City = { ...roaded(), goblins: { 1: 12 },
-      paths: { [pathKey(0, 1)]: 1, [pathKey(1, 2)]: 1 } };
-    expect(legsBetween(walled, 0, 1)).toBe(1);
-    expect(legsBetween(walled, 0, 2)).toBeNull();
+    expect(walkSecs(g, 0, 1)).toBe(WALK_SECS);              // laid: one leg
+    expect(walkSecs(initial(), 0, 1)).toBe(WALK_SECS * ROUGH);   // rough: slower
+    expect(ROUGH).toBeGreaterThan(1);
+    // ★ THE TRAP ITSELF: onto held ground with no road, and home again.
+    expect(walkSecs(initial(), 0, 4)).toBe(WALK_SECS * ROUGH);
+    const taken: City = { ...initial(), goblins: {},
+      hero: { hp: 10, spears: 0, part: 0, at: 4, trip: null } };
+    expect(walkSecs(taken, 4, 0)).toBe(WALK_SECS * ROUGH);
+    expect(unmarchable(taken, 0)).toBeNull();     // ★ they can come home
+    // ★ A road beats open country, which is the whole reason to lay one.
+    expect(walkSecs(g, 0, 1)!).toBeLessThan(walkSecs(initial(), 0, 1)!);
+    // ⚠️ A HOLDING IS STILL A WALL. Every deep site starts held, so the
+    // knoll at the far end has no route that does not cross one — and the
+    // walk is refused outright rather than quietly cutting through.
+    expect(walkSecs(initial(), 0, 9)).toBeNull();
+    expect(unmarchable(initial(), 9)).toBe('no way through — a holding blocks it');
   });
 
   it('★★★ ARRIVING ON HELD GROUND DRAWS THE SWORD', () => {

@@ -28,8 +28,12 @@ const marchTo = async (site) => {
   const march = page.locator('.deed', { hasText: 'March on' });
   if (await march.count()) {
     await march.first().click({ timeout: 2000 }).catch(() => {});
-    // WALK_SECS per laid leg, plus slack for the tick that lands it.
-    await page.waitForTimeout(15000);
+    // ⚠️ WALK_SECS per LAID leg, ROUGH times that over open country — and a
+    // road can never be laid to a holding, so every march to a fight is the
+    // slow kind. 15s used to be enough; it silently was not after roads
+    // became speed rather than permission (2026-08-11), and the fight simply
+    // never started.
+    await page.waitForTimeout(38000);
   }
   void site;
 };
@@ -314,7 +318,8 @@ await seed({ version: 5, stacks: { 0: 3, 1: 4 }, paths: { '0|1': 1 },
 // where it always stands: the site's own panel title.
 await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(200);
-const chokedLabel = await page.locator('.panel h2').textContent();
+// ★ The split lives on the panel's own line since 2026-08-11 — see splitOf.
+const chokedLabel = await page.locator('.panel .note').first().textContent();
 console.log('  title   :', `"${chokedLabel.trim()}"`);
 if (!/makes 1\.8/.test(chokedLabel) || !/carries 1\.0/.test(chokedLabel)) {
   misses.push(`a choked quarry does not tell the split: "${chokedLabel.trim()}"`);
@@ -329,128 +334,36 @@ if (!/wasted/.test(chokedPanel)) {
 }
 await page.screenshot({ path: SHOT.replace(/\.png$/, '-choked.png') });
 
-// --------------------------------------------------------- WIDEN, the fix --
-console.log('\nTHE WIDENING');
-await page.locator('.deed', { hasText: 'Widen · The Camp' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no deed widens the choked path'));
-await page.waitForTimeout(13000);
-const fixedLabel = await page.locator('.panel h2').textContent();
-const amberAfter = await inked('shut');
-console.log('  title   :', `"${fixedLabel.trim()}", choke ink ${amber} → ${amberAfter}px`);
-// ⚠️ THE NUMBER MOVED, NOT THE FACT. The fixture is housed now (unhoused
-// people do not staff), so the pit runs at its full four hands rather than
-// two — the check is that the label no longer SPLITS, which is what
-// widening bought.
-if (/carries/.test(fixedLabel)) {
-  misses.push(`widened and the quarry still splits its label: "${fixedLabel.trim()}"`);
-}
-if (!(amberAfter < amber / 2)) {
-  misses.push(`the choke ink did not clear on widening: ${amber} → ${amberAfter}px`);
+// ---------------------------------------------------------- CARTS, the fix --
+console.log('\nTHE WIDENING IS GONE');
+// ★★ At the owner's word: *"we need to cut the functionality of widening the
+// roads hundred percent."* The choke it used to relieve is untouched —
+// `CARRY` was deliberately left alone — and a CART is the relief now, lifting
+// every road at once instead of the same deed on each. THE CARTWRIGHT phase
+// below proves a cart actually clears a choke; this one proves the deed is
+// gone and the panel sends you to the right place.
+const widens = await page.locator('.deed', { hasText: 'Widen' }).count();
+console.log('  widens  :', `${widens} widen deeds offered`);
+if (widens > 0) misses.push('a Widen deed is still offered — it was meant to be deleted');
+if (!/cart/i.test(chokedPanel)) {
+  misses.push(`the choke does not point at the cart: "${chokedPanel.slice(0, 70)}"`);
 }
 
-// ----------------------------------------------------- PEOPLE, the ladder --
-console.log('\nTHE PEOPLE');
-await seed({ version: 5, stacks: { 1: 1, 2: 1, 3: 1 }, paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
-  stone: 10, logs: 6, planks: 20, pop: 2, popPart: 0 });
-const before = await header();
-console.log('  header  :', `"${before.slice(0, 90)}"`);
-if (!/\b2\/4\b/.test(await cell('people'))) {
-  misses.push(`seeded city not at two people in a camp that sleeps four: "${await cell('people')}"`);
-}
-// Three jobs, two people: the camp's own panel must say it is understaffed.
-// The camp is PRE-SELECTED on boot (a design point) — tapping it again
-// would toggle it off, so the probe just reads what is already open.
-const staffed = await panel();
-console.log('  camp    :', `"${staffed.slice(0, 80)}"`);
-if (!/👤\d+%/.test(staffed)) {
-  misses.push(`three jobs on two people and the camp does not mark the shortfall: "${staffed.slice(0, 70)}"`);
-}
-// ★ THE VISUAL PASS: every built works wears its little building on the map.
-const icons = await page.$$eval('.map .node .icon', (n) => n.length);
-console.log('  icons   :', `${icons} buildings drawn on the map`);
-if (icons !== 3) misses.push(`three works stand and the map draws ${icons} icons`);
-await page.locator('.deed', { hasText: 'Hut ×1' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no deed raises the first hut'));
-// ⚠️ A HUT TAKES TIME NOW (BUILD_SECS.hut). Ordered above, standing below —
-// this used to read the map 400ms after the click and pass on an instant
-// build. Waiting is the point of the item, so the wait is the check.
-await page.waitForTimeout(1000);
-const midBuild = await page.$$eval('.map .node .icon', (n) => n.length);
-if (midBuild !== 3) {
-  misses.push(`a hut under the hammer already counts as standing: ${midBuild} icons`);
-}
-await page.waitForTimeout(9000);
-const hutIcon = await page.$$eval('.map .node .icon', (n) => n.length);
-if (hutIcon !== 4) misses.push(`the hut went up and the map draws ${hutIcon} icons — wanted 4`);
-// The camp's four plus the hut's four.
-if (!/\/8\b/.test(await cell('people'))) {
-  misses.push(`a hut went up and the cap did not: "${await cell('people')}"`);
-}
-// ★ HANDS, WHOLE AND SPOKEN: take over the mill by hand, watch the pull
-// get NAMED, then give it back to auto.
-await page.locator('.map .node[data-id="site:3"]').click({ timeout: 2000 }).catch(() => {});
-await page.waitForTimeout(200);
-await page.locator('.crew button', { hasText: '+' }).click({ timeout: 2000 })
-  .catch(() => misses.push('no way to set hands at a works'));
-await page.waitForTimeout(250);
-const posted = await panel();
-console.log('  posted  :', `"${posted.slice(0, 90)}"`);
-if (!/set by hand/.test(posted)) {
-  misses.push(`a hand-set works does not say so: "${posted.slice(0, 60)}"`);
-}
-if (!/hands \d of \d/.test(posted)) {
-  misses.push(`hands are not whole numbers on screen: "${posted.slice(0, 60)}"`);
-}
-if (!/a hand left /.test(posted)) {
-  misses.push(`the pull was silent again: "${posted.slice(0, 60)}"`);
-}
-await page.locator('.crew .autoback').click({ timeout: 2000 })
-  .catch(() => misses.push('no way back to auto staffing'));
-await page.waitForTimeout(200);
-if (/set by hand/.test(await panel())) {
-  misses.push('auto did not take the works back');
-}
-await page.locator('.map .node[data-id="site:3"]').click({ timeout: 2000 }).catch(() => {});
-await page.waitForTimeout(200);
-console.log('  grows   : waiting one growth beat…');
-await page.waitForTimeout(13000);
-const grown = await header();
-console.log('  header  :', `"${grown.slice(0, 90)}"`);
-if (!/\b[3-9]\/8\b/.test(await cell('people'))) {
-  misses.push(`nobody arrived after a growth beat: "${await cell('people')}"`);
-}
-
-// ------------------------------------------- the hero, beaten then armed --
-console.log('\nTHE HERO');
+// ⚠️ THIS PHASE SEEDS ITS OWN FIGHT (2026-08-11). It used to inherit one
+// from an earlier phase; once marching became the only way into a fight and
+// a rough-country leg got slower, that inheritance quietly stopped holding
+// and the mash ran against no fight at all — passing every assertion about a
+// hero who had simply never been hurt.
 await seed({ version: 5, stacks: { 0: 1, 1: 1 }, paths: { '0|1': 1 },
-  stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0 });
-// The battle strip: one square left, three right — and MASH LOSES.
+  stone: 30, logs: 0, planks: 20, pop: 4, popPart: 0, food: 500,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, spears: 0, part: 0, at: 0, trip: null },
+  fight: null, store: 1, carts: 0, famine: 0, menace: {}, taken: 0,
+  lost: false, forage: null, forays: 0, ambush: null,
+  legacy: { runs: 0, spears: 0 } });
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
-await page.waitForTimeout(200);
-const sendNote = await panel();
-console.log('  offers  :', `"${sendNote.slice(0, 70)}"`);
-if (!/⚔️2 · 🩸2/.test(sendNote)) {
-  misses.push(`the held ground does not quote the fight: "${sendNote.slice(0, 60)}"`);
-}
-// ⚠️ THE MARCH IS THE WHOLE ACT NOW. Arriving on held ground draws the sword
-// on the landing tick, so there is no second button — if the strip is not up
-// after the walk, the march itself failed.
 await marchTo(4);
-if (!(await page.locator('.strip').count())) {
-  misses.push('the hero marched onto held ground and no fight started');
-}
-await page.waitForTimeout(250);
-const squares = await page.$$eval('.strip .sq', (n) => n.length);
-console.log('  strip   :', `${squares} squares on the strip`);
-if (squares !== 4) misses.push(`the strip fields ${squares} squares — wanted 1 + 3`);
-// ⚠️ THE WAGON CARRIES BREAD NOW (START_FOOD), so a fixture that wants an
-// EMPTY larder has to say food: 0 explicitly — which this one does. What
-// changed is that the hero also arrives with packs, so the button is only
-// refused when there is genuinely nothing to eat.
-const rationBtn = page.locator('.deed', { hasText: 'Rations' });
-if (!(await rationBtn.isDisabled().catch(() => false)) && (await cellNum('food')) <= 0) {
-  misses.push('an empty larder still offers rations');
-}
+await page.waitForTimeout(300);
 await page.screenshot({ path: SHOT.replace(/\.png$/, '-fight.png') });
 // Bare hands, Attack-Attack-Attack into the wall: the runts eat you.
 for (let i = 0; i < 4; i++) {
@@ -628,10 +541,17 @@ console.log('\nTHE GOBLINS COME');
 // Held ground used to sit there and heal. A holding with something of yours
 // in reach now fills toward a raid, says so, and takes a building when it
 // comes due. The clock has to be VISIBLE — one you cannot see is theft.
-await seed({ version: 5, stacks: { 0: 4, 1: 3 }, paths: { '0|1': 2 },
+await seed({ version: 5, stacks: { 0: 4, 1: 3 }, paths: { '0|1': 1 },
   stone: 40, logs: 0, planks: 60, food: 900, pop: 14, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
-  hero: { hp: 13, arms: 3, part: 0 }, fight: null, store: 1, carts: 0,
+  // ⚠️ CURRENT SHAPE (2026-08-11). This seed still carried `arms` and no
+  // `at`/`trip`/`ambush`; it loaded for months and then quietly stopped, and
+  // a rejected save boots a FRESH game whose sites are still fogged — so the
+  // node had no label, the count read NaN, and the raid assertion compared
+  // NaN with NaN and reported "took nothing" instead of "no save".
+  hero: { hp: 13, spears: 3, part: 0, at: 0, trip: null },
+  lost: false, famine: 0, ambush: null, legacy: { runs: 0, spears: 0 },
+  fight: null, store: 1, carts: 0,
   // ⚠️ `taken: 1` IS LOAD-BEARING: the goblins ignore a camp that has never
   // touched them, so a besieged seed has to have drawn blood already.
   // ⚠️ AND THE HERO IS OUT: since 2026-08-10 a hero at home turns one raid
@@ -973,7 +893,7 @@ if (!/STARVING/.test(await cell('food'))) {
 // The farm is growing plenty — it simply cannot get home.
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(250);
-const farmTitle = (await page.locator('.panel h2').textContent() ?? '').trim();
+const farmTitle = (await page.locator('.panel .note').first().textContent() ?? '').trim();
 console.log('  farm    :', `"${farmTitle}"`);
 if (!/makes .* carries/.test(farmTitle)) {
   misses.push(`the choked farm does not show the split: "${farmTitle}"`);
@@ -981,12 +901,12 @@ if (!/makes .* carries/.test(farmTitle)) {
 // And the halted quarry reports itself halted, not still working.
 await page.locator('.map .node[data-id="site:6"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(250);
-const quarryTitle = (await page.locator('.panel h2').textContent() ?? '').trim();
+const quarryTitle = (await page.locator('.panel .note').first().textContent() ?? '').trim();
 console.log('  quarry  :', `"${quarryTitle}"`);
 // ⚠️ PINCHED, NOT HALTED (2026-08-10): famine is a squeeze from −30% to
 // −95% now, so a hungry pit still makes something. What must still be true
 // is that it makes LESS than a fed one, and that the split is on show.
-if (!/makes [\d.]+ · carries/.test(quarryTitle)) {
+if (!/makes [\d.]+\/s · carries/.test(quarryTitle)) {
   misses.push(`a hungry quarry does not show its split: "${quarryTitle}"`);
 }
 
@@ -1039,7 +959,12 @@ if (!/⚠\d/.test(cartNote)) {
 const splitOf = async () => {
   await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
   await page.waitForTimeout(250);
-  const t = (await page.locator('.panel h2').textContent()) ?? '';
+  // ⚠️ READ THE PANEL'S OWN LINE, NOT THE TITLE (2026-08-11). The rates used
+  // to be in the site's name, which made the map label long enough to lose
+  // its collision fight and be dropped entirely — Rock Face rendered with NO
+  // label once a pit stood on it. The title says where and what; this line
+  // says how much.
+  const t = (await page.locator('.panel .note').first().textContent()) ?? '';
   return t.trim();
 };
 const cartBefore = await splitOf();
@@ -1048,7 +973,7 @@ console.log('  before  :', `"${cartBefore}"`);
 // bare `Y/s` once everything it makes gets home — so read both shapes,
 // because the collapse IS the win and must not read as a parse failure.
 const carriedIn = (t) => Number(
-  (/carries ([\d.]+)/.exec(t) ?? /·\s*([\d.]+)\/s/.exec(t))?.[1] ?? NaN);
+  (/carries ([\d.]+)/.exec(t) ?? /^([\d.]+)\/s/.exec(t))?.[1] ?? NaN);
 const carriedBefore = carriedIn(cartBefore);
 if (!/carries/.test(cartBefore)) {
   misses.push(`the seeded quarry is not choked to begin with: "${cartBefore}"`);

@@ -620,41 +620,53 @@ export const faminePinch = (g: City): number => {
  *  which makes the path network defensive as well as economic, and gives the
  *  spade a second reason to exist. */
 export const WALK_SECS = 12;
-/** How many laid edges from `a` to `b`, or null if no road joins them.
- *  Goblin ground is walkable — that is where the fighting is — but only as a
- *  DESTINATION, never as a road to somewhere else. */
-export function legsBetween(g: City, a: number, b: number): number | null {
+/** ★ WHAT ROUGH COUNTRY COSTS, against a laid road. */
+export const ROUGH = 2.5;
+/** ★★★ SECONDS TO WALK FROM `a` TO `b` — 2026-08-11, and the rule changed
+ *  here. It used to be that a road was PERMISSION: no road, no journey, with
+ *  one exception carved out for the last step onto a holding (or no fight
+ *  would ever have been reachable). That exception evaporated the moment you
+ *  won the fight, and the owner walked straight into it: *"I can go there
+ *  without a road, but I cannot return without a road, which is very
+ *  strange."* Patching the exception to cover both directions only moved the
+ *  problem — with any adjacent site one free step away, roads stop mattering
+ *  for movement at all on a map this small.
+ *
+ *  So a road is SPEED, not permission. Anywhere can be walked to; a laid road
+ *  is `WALK_SECS` a leg and open country is `ROUGH` times that. Roads are
+ *  still worth laying, being still the only way to move GOODS, and now also
+ *  the difference between reaching a gate in time and watching it fall.
+ *
+ *  ⚠️ A HOLDING IS STILL A WALL. You may march ONTO held ground — that is
+ *  what starting a fight is — but never THROUGH it. */
+export function walkSecs(g: City, a: number, b: number): number | null {
   if (a === b) return 0;
-  const seen = new Set([a]);
-  let edge = [a];
-  for (let d = 1; d <= SITES.length; d++) {
-    const next: number[] = [];
-    for (const at of edge) {
-      for (const n of SITE.get(at)?.near ?? []) {
-        if (seen.has(n)) continue;
-        // ★★ THE LAST STEP ONTO HELD GROUND NEEDS NO ROAD, and this is not a
-        // nicety — a path can never be LAID to a holding (`unlayable` refuses
-        // goblin ground), so requiring one made every fight on the map
-        // unreachable the moment marching became the only way to a fight.
-        // Walking to a battle is cross-country; walking THROUGH a holding is
-        // still impossible.
-        if (n === b && g.goblins[n]) return d;
-        if (!(g.paths[pathKey(at, n)] ?? 0)) continue;
-        if (n === b) return d;
-        if (g.goblins[n]) continue;   // held ground is a wall, not a corridor
-        seen.add(n);
-        next.push(n);
-      }
+  const best = new Map<number, number>([[a, 0]]);
+  const seen = new Set<number>();
+  for (;;) {
+    let at = -1, cost = Infinity;
+    for (const [id, c] of best) if (!seen.has(id) && c < cost) { at = id; cost = c; }
+    if (at === -1) return null;
+    if (at === b) return cost;
+    seen.add(at);
+    // Held ground is a destination, never a corridor.
+    if (g.goblins[at] && at !== a) continue;
+    for (const n of SITE.get(at)?.near ?? []) {
+      if (seen.has(n)) continue;
+      const step = WALK_SECS * ((g.paths[pathKey(at, n)] ?? 0) ? 1 : ROUGH);
+      if (cost + step < (best.get(n) ?? Infinity)) best.set(n, cost + step);
     }
-    if (next.length === 0) return null;
-    edge = next;
   }
-  return null;
 }
-/** Seconds to march there from where the hero stands, or null if no road. */
+/** Legs walked, for anything that wants a count rather than a clock. */
+export function legsBetween(g: City, a: number, b: number): number | null {
+  const secs = walkSecs(g, a, b);
+  return secs === null ? null : Math.max(1, Math.round(secs / WALK_SECS));
+}
+/** Seconds to march there from where the hero stands, or null if unreachable. */
 export const marchSecs = (g: City, to: number): number | null => {
-  const legs = legsBetween(g, g.hero.at, to);
-  return legs === null ? null : legs * WALK_SECS;
+  const secs = walkSecs(g, g.hero.at, to);
+  return secs === null ? null : Math.round(secs);
 };
 /** Why the hero cannot set out for this site, or null. */
 export function unmarchable(g: City, to: number): string | null {
@@ -663,7 +675,7 @@ export function unmarchable(g: City, to: number): string | null {
   if (g.forage) return `${MARK.time}${Math.ceil(g.forage.left)}s`;
   if (g.hero.trip) return `${MARK.time}${Math.ceil(g.hero.trip.left)}s`;
   if (g.hero.at === to) return 'already there';
-  if (marchSecs(g, to) === null) return 'no road reaches there';
+  if (marchSecs(g, to) === null) return 'no way through — a holding blocks it';
   return null;
 }
 
@@ -734,9 +746,26 @@ export const hunger = (g: City): number => Math.max(0, g.pop - WILD_FED) * EAT;
  *  walk home from every liberation, hungry and ready to work. */
 export const CAPTIVES = 2;
 
-/** What one path-gauge carries, per second, of everything put together. */
+/** What a laid path carries, per second, of everything put together.
+ *  ⚠️ STAYS AT 1.0 THROUGH THE DELETION OF WIDENING (2026-08-11). Tripling it
+ *  to "replace" the three gauges was tried and reverted within the hour: it
+ *  made a single road big enough for anything, which silently deleted BOTH
+ *  the choke and the reason to mesh a town instead of starring it — the most
+ *  interesting thing the map does, and drawn on it. The owner asked for one
+ *  tedious deed to go, not for the economy behind it. CARTS are the relief
+ *  now, and they lift every road at once. */
 export const CARRY = 1.0;
-export const MAX_GAUGE = 3;
+/** ★★★ ONE, SINCE 2026-08-11. Widening is GONE — *"we need to cut the
+ *  functionality of widening the roads hundred percent. It's stupid that it
+ *  is there."* A path is laid or it is not.
+ *
+ *  ⚠️ THE CHOKE AND THE MESH SURVIVE UNTOUCHED, which is the whole trick.
+ *  Capacity is `gauge × CARRY × carts`; leaving CARRY alone means a laid road
+ *  carries exactly what a laid road always carried, so chokes appear where
+ *  they always did and meshing a town still beats starring it. What changes
+ *  is only the RELIEF: carts, one global upgrade lifting every road at once,
+ *  instead of the same deed repeated on every path in the valley. */
+export const MAX_GAUGE = 1;
 
 /** ★★★ THE CARTWRIGHT, 2026-08-08 — THE ONE EXPONENTIAL THAT RUNS FOR THE
  *  PLAYER. The coherence review's finding was that there is no player-side
@@ -853,7 +882,9 @@ export const shortOf = (g: City, p: Price): string | null => {
   return null;
 };
 
-/** Widening: the next gauge costs the path price over again, times gauge. */
+/** ★ Laying costs the path price. (It took a gauge when widening existed;
+ *  the shape is kept so callers and saves need no surgery, and gauge is
+ *  always 0 now.) */
 export const pathCostOf = (gauge: number): number => PATH_COST * (gauge + 1);
 
 /** What the map shows: the first valley whole (held ground drawn red IS
@@ -1235,7 +1266,7 @@ export function unlayable(g: City, a: number, b: number): string | null {
   }
   if (g.laying[pathKey(a, b)]) return 'already laying';
   const gauge = g.paths[pathKey(a, b)] ?? 0;
-  if (gauge >= MAX_GAUGE) return 'as wide as it goes';
+  if (gauge >= MAX_GAUGE) return 'the road is laid';
   if (gauge === 0) {
     const comp = component(g);
     if (!comp.has(a) && !comp.has(b)) return 'no path reaches either end';
