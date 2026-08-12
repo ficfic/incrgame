@@ -125,6 +125,10 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // ★ THE AMBUSH MARK (2026-08-10). Defaulted, not merely validated — the
   // same trap that left `hero.at` undefined and made every road unreachable.
   // ★ THE POSTED WATCH (2026-08-11), defaulted for every older save.
+  // ★ THE STOREHOUSE'S HAMMER (2026-08-11), defaulted for older saves.
+  if (g.stowing === undefined) g.stowing = null;
+  else if (g.stowing !== null
+    && (!num(g.stowing.left, 0, 9999) || !num(g.stowing.secs, 0.001, 9999))) return null;
   if (g.guard === undefined || g.guard === null) g.guard = {};
   else if (typeof g.guard !== 'object') return null;
   else for (const [k, v] of Object.entries(g.guard)) {

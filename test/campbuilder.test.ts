@@ -15,7 +15,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
-  walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt,
+  walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -1295,10 +1295,20 @@ describe('★★★ THE STOREHOUSE — a ceiling on every good', () => {
   it('★★ storehouses cost stone AND planks, so they race the huts', () => {
     expect(storeCost(0)).toEqual({ stone: 25, planks: 15 });
     expect(storeCost(3).stone).toBe(Math.ceil(25 * 1.3 ** 3));
-    const g = apply({ ...initial(), stone: 40, planks: 20 }, { type: 'stow' });
+    // ★ ORDERED, NOT CONJURED (2026-08-11). The owner: *"Storehouse builds
+    // immediately for some reason without a cooldown."* Paid up front like
+    // every other hammer, standing STOW_SECS later.
+    const ordered = apply({ ...initial(), stone: 40, planks: 20 }, { type: 'stow' });
+    expect(ordered.store).toBe(0);
+    expect(ordered.stowing).toEqual({ left: STOW_SECS, secs: STOW_SECS });
+    expect(ordered.stone).toBe(15);
+    expect(ordered.planks).toBe(5);
+    expect(roomOf(ordered)).toBe(STORE_BASE);            // no room yet
+    // ⚠️ AND ONE HAMMER AT A TIME, or a second order buys the same shed twice.
+    expect(apply(ordered, { type: 'stow' })).toBe(ordered);
+    const g = tick(ordered, STOW_SECS + 1);
     expect(g.store).toBe(1);
-    expect(g.stone).toBe(15);
-    expect(g.planks).toBe(5);
+    expect(g.stowing).toBeNull();
     expect(roomOf(g)).toBe(STORE_BASE + STORE_ROOM);
     const broke = initial();
     expect(apply(broke, { type: 'stow' })).toBe(broke);

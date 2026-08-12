@@ -281,9 +281,13 @@
     // "the carriers do not walk" fired on a build where they walked fine.
     // Found by running the probe, which is the only reason it was found.
     // The barrier is a LINE, which is what a barrier is.
+    // ⚠️ THE WARD RING IS GONE, 2026-08-11. The owner, playing the valley
+    // through: *"so barrier doesn't serve any function."* It drew a dashed
+    // outline around the ground you hold — which the dots already say, in
+    // colour, individually — so it was a second answer to a question nobody
+    // had asked, in the one ink on the board with no other job. `pts` is
+    // still computed above because the muster marks want the same hull.
     return [
-      { s: 'path', pts, ink: 'ward', close: true, curve: true,
-        w: 2, dash: [7, 6], alpha: 0.55 },
       ...musterShapes(),
       ...CAMP_SHAPES,
     ];

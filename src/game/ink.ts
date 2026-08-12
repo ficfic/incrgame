@@ -43,7 +43,12 @@ export const INK = {
    *  and brown colors, we are building mana flows."* The brown OS-track ink is
    *  gone: a flow is a channelled current of mana, drawn in a deep arcane
    *  teal no natural feature on this map uses. */
-  route: '#1d7f86',
+  /** ★ A ROAD IS EARTH, NOT WATER — 2026-08-11. It was #1d7f86, a teal that
+   *  the owner read as blue and could not place: *"once the colour of a
+   *  dotted line is finalized, the part is still blue. I don't understand
+   *  that color choice."* On a board whose one strong blue is the river, a
+   *  blue-green road is a stream. Brown is what a track is. */
+  route: '#4a3524',
   /** ★ THE CASING UNDER IT — the near-black outline every real map draws first,
    *  then lays the coloured core over. It is most of why a printed map's lines
    *  read as LINES and ours read as strokes: the casing separates the flow from

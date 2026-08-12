@@ -292,6 +292,9 @@ export interface City {
   /** ★★★ POSTED TO DEFEND — 2026-08-11, queue item 6. Site id → people
    *  standing watch there instead of working. */
   guard: Record<number, number>;
+  /** ★ THE STOREHOUSE UNDER THE HAMMER — 2026-08-11. It was the one thing in
+   *  the valley that appeared the instant it was paid for. */
+  stowing: { left: number; secs: number } | null;
   /** ★ WHAT OUTLIVES A RUN. The infrastructure does not; the veteran does —
    *  and what he carries out is the spears on his back. */
   legacy: { runs: number; spears: number };
@@ -393,6 +396,7 @@ export const initial = (): City => ({
   lost: false,
   ambush: null,
   guard: {},
+  stowing: null,
   legacy: { runs: 0, spears: 0 },
   fight: null,
 });
@@ -901,6 +905,9 @@ export const PATH_SECS = 6;
  *  road, a mill is the heaviest thing in the valley, and a hut is the one
  *  you buy over and over so it is the quickest. The opening chain is
  *  therefore 6s of road + 10s of pit before the first stone moves. */
+/** ★ What a storehouse takes to raise. Between a hut and a sawmill: it is
+ *  the biggest thing at the camp, and the only one that helps everything. */
+export const STOW_SECS = 14;
 export const BUILD_SECS: Record<Kind, number> = {
   hut: 8, quarry: 10, lumber: 10, sawmill: 15, farm: 12,
 };
@@ -1642,6 +1649,14 @@ export function apply(g: City, a: Action): City {
       /** Where the hero was caught on the road this tick, for the board. */
       let ambushed: number | null = null;
       let guard = g.guard;
+      // ★ The storehouse lands like every other hammer — on an away tick too.
+      let store = g.store;
+      let stowing = g.stowing;
+      if (stowing) {
+        const left = stowing.left - s;
+        if (left > 0) stowing = { ...stowing, left };
+        else { stowing = null; store = store + 1; }
+      }
       // The previous mark ages out; a fresh ambush below replaces it.
       let ambush = g.ambush === null ? null
         : g.ambush.left - s > 0 ? { ...g.ambush, left: g.ambush.left - s } : null;
@@ -1783,6 +1798,8 @@ export function apply(g: City, a: Action): City {
         famine,
         ambush: ambushed === null ? ambush : { at: ambushed, left: AMBUSH_TELL },
         guard,
+        store,
+        stowing,
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
         // `march` because the arrival is a tick event, and the holding's
         // strength must be read at the moment they get there — not when they
@@ -1865,11 +1882,16 @@ export function apply(g: City, a: Action): City {
     case 'stow': {
       const price = storeCost(g.store);
       if (g.stone < price.stone || g.planks < price.planks) return g;
+      // ★★ IT TAKES TIME NOW (2026-08-11). The owner: *"Storehouse builds
+      // immediately for some reason without a cooldown."* Everything else in
+      // the valley is ordered and waited for; a building that appears the
+      // instant it is paid for reads as a different game's UI.
+      if (g.stowing) return g;
       return {
         ...g,
         stone: g.stone - price.stone,
         planks: g.planks - price.planks,
-        store: g.store + 1,
+        stowing: { left: STOW_SECS, secs: STOW_SECS },
       };
     }
 
