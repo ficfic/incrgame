@@ -834,10 +834,21 @@ if (dock.cols < 2) misses.push(`the dock is still one column of ${dock.n} full-w
 // English words that used to live there are the check: if any of them
 // returns, this fires. (`of` is deliberately absent — "1 of 3" is gone from
 // the labels but "0/10" is not English.)
-const PROSE = /\b(you have|holds|of each|standing|carried|dangerous|goblins|strong|thrown away|a tap|hits|bite|carries|staffed|people|eats|fields bring|stores hold)\b/i;
+//
+// ⚠️★ NARROWED 2026-08-11, and this is a REVERSAL rather than a workaround.
+// The icons-only ruling is what produced the next playthrough's biggest
+// complaint: a bare `☠12` on a Path deed is a REFUSAL — goblins are standing
+// on that ground — but formatted exactly like a price, and the owner read it
+// as one: *"Some actions cost skulls. I don't quite understand that."*
+// Nothing in this game has ever cost a skull. So "goblins", "holds" and
+// "strong" are allowed in a REFUSAL now; everything else on the banned list
+// stands, and a note that is merely describing a price must still be marks
+// and numbers. The rule was "no prose", and it is now "no prose except
+// saying why you cannot do the thing".
+const PROSE = /\b(you have|of each|standing|carried|dangerous|thrown away|a tap|hits|bite|carries|staffed|people|eats|fields bring|stores hold)\b/i;
 const wordy = await page.evaluate(() => [...document.querySelectorAll('.deed em')]
   .map((e) => e.textContent.trim()));
-const proseIn = wordy.filter((t) => /\b(you have|holds|of each|standing|carried|dangerous|goblins|strong|thrown away|a tap|hits|bite|carries|staffed)\b/i.test(t));
+const proseIn = wordy.filter((t) => /\b(you have|of each|standing|carried|dangerous|thrown away|a tap|hits|bite|carries|staffed)\b/i.test(t));
 console.log('  notes   :', `${wordy.length} deed notes, ${proseIn.length} with prose in them`);
 if (proseIn.length > 0) {
   misses.push(`prose is back in the dock: ${proseIn.slice(0, 2).map((t) => `"${t}"`).join(', ')}`);

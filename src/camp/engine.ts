@@ -295,6 +295,9 @@ export interface City {
   /** ★ THE STOREHOUSE UNDER THE HAMMER — 2026-08-11. It was the one thing in
    *  the valley that appeared the instant it was paid for. */
   stowing: { left: number; secs: number } | null;
+  /** ★★★ EXTRA HANDS HIRED ONTO A SITE'S WORKS — 2026-08-11. Site id → how
+   *  many times its crew has been widened. */
+  hire: Record<number, number>;
   /** ★ WHAT OUTLIVES A RUN. The infrastructure does not; the veteran does —
    *  and what he carries out is the spears on his back. */
   legacy: { runs: number; spears: number };
@@ -397,6 +400,7 @@ export const initial = (): City => ({
   ambush: null,
   guard: {},
   stowing: null,
+  hire: {},
   legacy: { runs: 0, spears: 0 },
   fight: null,
 });
@@ -905,6 +909,24 @@ export const PATH_SECS = 6;
  *  road, a mill is the heaviest thing in the valley, and a hut is the one
  *  you buy over and over so it is the quickest. The opening chain is
  *  therefore 6s of road + 10s of pit before the first stone moves. */
+/** ★★ WHAT ANOTHER CREW COSTS AT A SITE, and why it climbs faster than the
+ *  works itself does. Deepening has to stay WORSE than expanding or the map
+ *  loses its purpose all over again — that is the complaint that started
+ *  this. A first works is a flat price on new ground; hires run 1.6^n, so
+ *  the third one costs more than walking out and taking somewhere new.
+ *  Paid in food, because what you are buying is mouths at a workface. */
+export const hireCost = (have: number): number =>
+  Math.ceil(40 * Math.pow(1.6, have));
+/** Why more hands cannot be hired here, in plain words, or null. */
+export function unhireable(g: City, id: number): string | null {
+  if (!SITE.get(id) || id === 0) return 'not a workface';
+  if (g.goblins[id]) return `goblins hold it · ${MARK.danger}${Math.ceil(g.goblins[id])}`;
+  if ((g.stacks[id] ?? 0) <= 0) return 'nothing to work here yet';
+  const price = hireCost(g.hire[id] ?? 0);
+  if (g.food < price) return outOf('food', g.food, price);
+  return null;
+}
+
 /** ★ What a storehouse takes to raise. Between a hut and a sawmill: it is
  *  the biggest thing at the camp, and the only one that helps everything. */
 export const STOW_SECS = 14;
@@ -1087,7 +1109,17 @@ export function flow(g: City): Flow {
   // everywhere, and auto never touches a site you set yourself.
   const worked = [...comp].filter((id) => id !== 0 && (g.stacks[id] ?? 0) > 0)
     .sort((a, b) => a - b);
-  const capOf = (id: number): number => (g.stacks[id] ?? 0) * CREW;
+  // ★★★ ONE WORKS, BUT NOT ONE CREW (2026-08-11). The owner asked for both
+  // halves and only the first shipped at first: *"we should limit the number
+  // to one per location. And then we should allow to add more people there."*
+  // A works holds CREW hands; each hire widens it by CREW more.
+  // ⚠️ `stacks + hire`, NOT `1 + hire`. In play a site holds one works, so
+  // the two read the same — but every save written before today has two,
+  // three and four works standing, and reading only the first would have
+  // quietly halved a grown town's workforce on load. It also keeps every
+  // fixture that predates the cap meaning what it meant.
+  const capOf = (id: number): number =>
+    CREW * ((g.stacks[id] ?? 0) + (g.hire[id] ?? 0));
   const hands = new Map<number, number>();
   // ★ ONLY THE HOUSED WORK — see `housed()`. Everyone past the huts' cap is
   // a mouth without a bunk, and a hand that has nowhere to sleep does not
@@ -1312,7 +1344,11 @@ export function flow(g: City): Flow {
 export function unraisable(g: City, id: number): string | null {
   const s = SITE.get(id);
   if (!s) return 'no such ground';
-  if (g.goblins[id]) return `${MARK.danger}${Math.ceil(g.goblins[id])}`;
+  // ★★★ A REFUSAL, IN WORDS — 2026-08-11. It used to read `☠12`, formatted
+  // exactly like a price, and the owner read it as one: *"Some actions cost
+  // skulls. I don't quite understand that."* Nothing in this game has ever
+  // cost a skull. It is goblins standing on the ground, and how many.
+  if (g.goblins[id]) return `goblins hold it · ${MARK.danger}${Math.ceil(g.goblins[id])}`;
   // ★ THE PATH COMES FIRST — the owner: *"it's weird that i can build
   // something before there's a path to that spot."* No works on ground
   // the town cannot reach.
@@ -1333,7 +1369,8 @@ export function unlayable(g: City, a: number, b: number): string | null {
   const B = SITE.get(b);
   if (!A || !B || !A.near.includes(b)) return 'nothing joins these';
   if (g.goblins[a] || g.goblins[b]) {
-    return `${MARK.danger}${Math.ceil(g.goblins[a] ?? g.goblins[b]!)}`;
+    // ★ Same again: a refusal, not a price. See `unraisable`.
+    return `goblins hold it · ${MARK.danger}${Math.ceil(g.goblins[a] ?? g.goblins[b]!)}`;
   }
   if (g.laying[pathKey(a, b)]) return 'already laying';
   const gauge = g.paths[pathKey(a, b)] ?? 0;
@@ -1399,6 +1436,8 @@ export type Action =
   | { type: 'found' }
   /** Send the hero out for whatever the country will give up. */
   | { type: 'forage' }
+  /** ★ Hire another crew onto a site's works (2026-08-11). */
+  | { type: 'hire'; id: number }
   /** ★ Post or unpost a defender at a site (2026-08-11). */
   | { type: 'post'; id: number; by: number }
   /** Set the hero walking to a site. Held ground starts a fight on arrival. */
@@ -1424,6 +1463,19 @@ export type Action =
 /** ★ THE LINE ANSWERS: every living square pokes (double on the wind-up),
  *  unless the hero blocked. A hero poked to nothing is beaten home and the
  *  ground keeps its wounds — a second try starts where this one bled off. */
+/** ★★★ WHAT THE LINE WILL BITE FOR, if you let the answer land — 2026-08-11.
+ *  The owner, watching a swing resolve: *"If it takes time, then something
+ *  happens. Something fun should happen during that time, which it takes."*
+ *  The wait was a number counting down and nothing else. Now the strip spends
+ *  it telling you what is coming back, so the second you are waiting is a
+ *  second you are reading the line rather than watching a clock. */
+export function answerBite(g: City): number {
+  const f = g.fight;
+  if (!f) return 0;
+  return f.sq.reduce((n, q) => n + (q.hp > 0 ? q.poke : 0), 0)
+    * (windup(f.round) ? 2 : 1);
+}
+
 function answered(g: City, f: NonNullable<City['fight']>,
   blocked: boolean): City {
   const bite = blocked ? 0
@@ -1932,6 +1984,13 @@ export function apply(g: City, a: Action): City {
     // ★★ MARCHING IS THE ONLY WAY ANYWHERE NOW. `assail` still exists and
     // still starts a fight, but only from the ground itself — the UI sends a
     // march, and arriving on held ground is what draws the sword.
+    case 'hire': {
+      if (unhireable(g, a.id) !== null) return g;
+      return { ...g,
+        food: g.food - hireCost(g.hire[a.id] ?? 0),
+        hire: { ...g.hire, [a.id]: (g.hire[a.id] ?? 0) + 1 } };
+    }
+
     case 'post': {
       if (g.lost || !SITE.get(a.id) || g.goblins[a.id]) return g;
       const now = guardsAt(g, a.id);

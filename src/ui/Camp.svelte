@@ -9,12 +9,12 @@
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE, SWEEP_SHARE,
-    guardsAt, guardsTotal, GUARD_STOP,
+    guardsAt, guardsTotal, GUARD_STOP, unhireable, hireCost,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
     unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
-    windup, RATION_FOOD, RATION_HP,
+    windup, RATION_FOOD, RATION_HP, answerBite,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
@@ -394,7 +394,10 @@
     if (game.hero.at !== s.id && marchSecs(game, s.id) !== null) {
       const why = unmarchable(game, s.id);
       out.push({
-        label: `Stand at ${s.name}`,
+        // ★ WAS "Stand at Tall Pines" — the owner: *"it's a weird choice of
+        // words."* It pairs with "March on X" for an attack now, so the two
+        // deeds that move the hero read as the same kind of thing.
+        label: `March to ${s.name}`,
         note: why ?? `${MARK.time}${marchSecs(game, s.id)}s`
           + `${(game.menace[s.id] ?? 0) > 0 ? ` · ${MARK.waste}` : ''}`,
         why,
@@ -413,16 +416,38 @@
     // stock (START_LOGS) is what buys the first one.
     const have = game.stacks[s.id] ?? 0;
     const why = unraisable(game, s.id);
+    // ★ AND IT DISAPPEARS ONCE IT STANDS (2026-08-11). Leaving it on screen
+    // as a permanently-refused card — "Build Quarry · one works per place" —
+    // is a dead button explaining itself forever, which is worse than the
+    // stacking it replaced. Hiring takes its place below.
+    if (s.id === 0 || have <= 0) {
     out.push({
       // ★ ONE WORKS PER PLACE (2026-08-11), so this deed only ever raises the
       // FIRST one and the count in the label had nothing left to count.
       label: s.id === 0 ? `Hut ×${have + 1}` : `Build ${KIND_NAME[s.allows]}`,
       note: (why ?? `${price(costOf(s.allows, have))} `
         + `${MARK.time}${buildSecs(game, s.id)}s`)
-        + (have > 0 ? ` · ${times(have)}` : ''),
+        + (have > 0 ? ` · ${times(have)} built` : ''),
       why,
       go: () => act({ type: 'raise', id: s.id }),
     });
+    }
+    // ★★★ AND MORE HANDS ONTO IT — 2026-08-11. The other half of the owner's
+    // ask: *"we should limit the number to one per location. And then we
+    // should allow to add more people there."* Priced in food and climbing
+    // 1.6^n, so deepening a site you hold stays worse than walking out and
+    // taking one you do not — which is the complaint that started the item.
+    if (s.id !== 0 && have > 0) {
+      const w = unhireable(game, s.id);
+      const crews = 1 + (game.hire[s.id] ?? 0);
+      out.push({
+        label: `Hire hands`,
+        note: w ?? `${amount('food', hireCost(game.hire[s.id] ?? 0))}`
+          + ` → ${(crews + 1) * CREW} can work here`,
+        why: w,
+        go: () => act({ type: 'hire', id: s.id }),
+      });
+    }
     if (s.id === 0) {
       // ★★★ THE FORAY — the floor under the economy, and the only deed in
       // the game that needs nothing at all. A raid can strip a town of every
@@ -443,6 +468,12 @@
           go: () => act({ type: 'forage' }),
         });
       }
+      // ★★★ MORE HANDS ON THE WORKS — 2026-08-11, the half of the owner's
+      // ask that did not ship with the one-works cap: *"we should limit the
+      // number to one per location. And then we should allow to add more
+      // people there."* Priced in food and climbing 1.6^n, so deepening
+      // stays worse than walking out and taking somewhere new — which is the
+      // complaint that started the whole item.
       // ★ THE STOREHOUSE, beside the huts — room for every good, and the
       // only thing standing between the town and the top of either ladder.
       const sp = storeCost(game.store);
@@ -450,7 +481,7 @@
       out.push({
         label: `Storehouse ×${game.store + 1}`,
         note: `${price(sp)} → ${MARK.room}${roomOf(game) + STORE_ROOM}`
-          + (game.store > 0 ? ` · ${times(game.store)}` : ''),
+          + (game.store > 0 ? ` · ${times(game.store)} built` : ''),
         why: noRoom ? price(sp) : null,
         go: () => act({ type: 'stow' }),
       });
@@ -509,7 +540,7 @@
         label: `Path · ${t.name}`,
         note: w ?? `${amount('stone', pathCostOf(gauge))} `
           + `${MARK.time}${PATH_SECS}s`
-          + ` → ${(CARRY * cartHaul(game)).toFixed(1)}/s · ${MARK.hero}faster`,
+          + ` → ${(CARRY * cartHaul(game)).toFixed(1)}/s · ${MARK.time}shorter marches`,
         why: w,
         go: () => act({ type: 'lay', a: s.id, b: n }),
       });
@@ -587,7 +618,7 @@
           + ` · ${onWatch(game) ? `${MARK.hero} home turns one away`
             : `${MARK.hero} away — nothing turns it away`}`
         : '';
-      return `${MARK.danger}${Math.ceil(game.goblins[picked] ?? 0)}`
+      return `goblins hold it · ${MARK.danger}${Math.ceil(game.goblins[picked] ?? 0)} strong`
         + prizeOf(picked) + clock;
     }
     const n = game.stacks[picked] ?? 0;
@@ -905,8 +936,22 @@
              order now takes seconds, so the strip must SAY it is mid-swing
              and refuse a second order, or the delay reads as a dead button. -->
         {#if blowLeft(game) !== null}
-          <p class="note swinging">{MARK.time}{(blowLeft(game) ?? 0).toFixed(1)}s
-            · {game.fight?.blow?.act ?? ''}</p>
+          <!-- ★★★ THE WAIT SAYS SOMETHING NOW, 2026-08-11 — the owner: *"if
+               it takes time, then something happens. Something fun should
+               happen during that time, which it takes."* It was a number
+               counting down beside the name of the thing you had already
+               chosen. It now spends the second telling you what is coming
+               back, and shouting when the line is winding up — which is the
+               one moment Guard is the right answer. -->
+          <p class="note swinging" class:windup={windup(fi.round)}>
+            {MARK.time}{(blowLeft(game) ?? 0).toFixed(1)}s · {game.fight?.blow?.act ?? ''}
+            {#if game.fight?.blow?.act === 'guard'}
+              · {MARK.bite}0 blocked
+            {:else}
+              · {MARK.bite}{answerBite(game)} coming back
+            {/if}
+            {#if windup(fi.round)} · {MARK.waste}they wind up{/if}
+          </p>
         {/if}
         <div class="verbs" class:mid={blowLeft(game) !== null}>
           <button class="deed" disabled={blowLeft(game) !== null}
@@ -1082,6 +1127,11 @@
   /* ⚠️ `flee` KEEPS ITS BUTTON MID-SWING ON PURPOSE — a safety valve you
      have to wait for is not a safety valve. */
   .swinging { color: #b3452f; font-weight: 700; text-align: center; margin: 2px 0; }
+  /* ★ The wind-up is the one beat where Guard is right, so it shouts. */
+  .swinging.windup { background: #fbe9e4; border-radius: 6px; padding: 2px 0;
+    animation: windup 0.5s ease-in-out infinite alternate; }
+  @keyframes windup { from { opacity: 0.75; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .swinging.windup { animation: none; } }
 
   .keep { font-size: 14px; color: #6b5d3f; font-weight: 600; }
   .keep.build { color: #b0a892; font-weight: 400; font-size: 12px; }

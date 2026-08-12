@@ -126,6 +126,12 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // same trap that left `hero.at` undefined and made every road unreachable.
   // ★ THE POSTED WATCH (2026-08-11), defaulted for every older save.
   // ★ THE STOREHOUSE'S HAMMER (2026-08-11), defaulted for older saves.
+  // ★ HIRED CREWS (2026-08-11), defaulted for every older save.
+  if (g.hire === undefined || g.hire === null) g.hire = {};
+  else if (typeof g.hire !== 'object') return null;
+  else for (const [k, v] of Object.entries(g.hire)) {
+    if (SITE.get(Number(k)) === undefined || !whole(v, 1, 99)) return null;
+  }
   if (g.stowing === undefined) g.stowing = null;
   else if (g.stowing !== null
     && (!num(g.stowing.left, 0, 9999) || !num(g.stowing.secs, 0.001, 9999))) return null;

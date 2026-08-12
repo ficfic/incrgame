@@ -15,7 +15,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
-  walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS,
+  walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -462,10 +462,10 @@ describe('★ honest refusals and the save', () => {
     // pit. The fact under test is the wording of a refusal, not the stock.
     expect(unraisable({ ...initial(), stone: 0, paths: { [pathKey(0, 1)]: 1 } }, 1))
       .toMatch(/^🪨0\/5$/);
-    expect(unraisable(initial(), 4)).toMatch(/^☠12$/);
+    expect(unraisable(initial(), 4)).toMatch(/^goblins hold it · ☠12$/);
     expect(unlayable(initial(), 1, 3)).toBe('nothing joins these');
     expect(unlayable({ ...initial(), stone: 99 }, 1, 2)).toBe('no path reaches either end');
-    expect(unlayable({ ...initial(), stone: 99 }, 3, 5)).toMatch(/^☠18$/);
+    expect(unlayable({ ...initial(), stone: 99 }, 3, 5)).toMatch(/^goblins hold it · ☠18$/);
   });
 
   it('round-trips a real city and refuses the rest', () => {
@@ -1204,7 +1204,7 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
     expect(SITE.get(0)!.near).toEqual(expect.arrayContaining([5, 6]));
     // But the road cannot be laid while the goblins stand on it.
     expect(unlayable({ ...initial(), stone: 99 }, 0, 6))
-      .toMatch(/^☠/);
+      .toMatch(/^goblins hold it · ☠/);
   });
 
   it('★★★ THE FOOD ARTERY DOUBLES when the knoll falls — the 66-pop wall', () => {
@@ -2755,5 +2755,63 @@ describe('★★★ HANDS ON THE GATE', () => {
       savedAt: 1 })).toBeNull();
     const { guard: _drop, ...older } = town();
     expect(honour({ game: older as City, savedAt: 1 })!.game.guard).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ HIRING — 2026-08-11, the half of queue 3 that did not ship with the
+// one-works cap. The owner asked for both in one breath: *"we should limit
+// the number to one per location. And then we should allow to add more
+// people there."*
+// ---------------------------------------------------------------------------
+describe('★★★ MORE HANDS ON ONE WORKS', () => {
+  const pit = (over: Partial<City> = {}): City => ({ ...initial(),
+    pop: 40, food: 9e5, stacks: { 0: 12, 1: 1 },
+    paths: { [pathKey(0, 1)]: 1 }, ...over });
+
+  it('★★★ a hire widens the crew that can work a site', () => {
+    const g = pit();
+    const before = flow(g).hands.get(1) ?? 0;
+    expect(before).toBe(CREW);
+    const hired = apply(g, { type: 'hire', id: 1 });
+    expect(hired.hire[1]).toBe(1);
+    expect(flow(hired).hands.get(1)).toBe(CREW * 2);
+    // And the output follows the hands, because output is per worker.
+    expect(flow(hired).made.get(1)!).toBeGreaterThan(flow(g).made.get(1)!);
+  });
+
+  it('★★★ DEEPENING STAYS WORSE THAN EXPANDING — the whole point of the cap', () => {
+    // The complaint that started this: *"there is no point in having new
+    // locations… because I'm able to build multiple lumber works at the
+    // initial sites."* Hires climb 1.6^n; a first works on new ground does
+    // not climb at all. By the third hire, walking out is plainly cheaper.
+    expect(hireCost(1)).toBeGreaterThan(hireCost(0));
+    expect(hireCost(3) / hireCost(0)).toBeGreaterThan(4);
+  });
+
+  it('★ it is paid in food, refused when short, and never on held ground', () => {
+    const broke = pit({ food: 1 });
+    expect(unhireable(broke, 1)).not.toBeNull();
+    expect(apply(broke, { type: 'hire', id: 1 })).toBe(broke);
+    const g = pit();
+    expect(apply(g, { type: 'hire', id: 1 }).food)
+      .toBeCloseTo(g.food - hireCost(0), 6);
+    expect(unhireable(pit({ goblins: { 1: 9 } }), 1)).toMatch(/^goblins hold it/);
+    // Nothing to work yet is its own refusal, not a silent no.
+    expect(unhireable(pit({ stacks: { 0: 12 } }), 1)).toBe('nothing to work here yet');
+  });
+
+  it('★ hires survive the save door, and older saves have hired nobody', () => {
+    expect(honour({ game: { ...pit(), hire: { 1: 2 } }, savedAt: 1 })!
+      .game.hire[1]).toBe(2);
+    expect(honour({ game: { ...pit(), hire: { 99: 1 } } as never, savedAt: 1 })).toBeNull();
+    const { hire: _drop, ...older } = pit();
+    expect(honour({ game: older as City, savedAt: 1 })!.game.hire).toEqual({});
+    // ⚠️ AND AN OLD SAVE'S STACKED WORKS KEEP THEIR CREW. `capOf` counts
+    // `stacks + hire`, so a town that stacked four quarries before the cap
+    // does not lose three quarters of its workforce on load.
+    const stacked = honour({ game: { ...pit(), stacks: { 0: 12, 1: 4 } },
+      savedAt: 1 })!.game;
+    expect(flow(stacked).hands.get(1)).toBe(CREW * 4);
   });
 });
