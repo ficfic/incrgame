@@ -1,6 +1,6 @@
 // THE CAMP'S SAVE. Its own key, its own shape — the old game's saves stay
 // untouched on theirs, so flipping back loses nobody anything.
-import { CITY_VERSION, GOBLINS, MAX_GAUGE, RATION_PACK, SITE, initial,
+import { CITY_VERSION, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, initial,
   pathKey, type City } from './engine';
 
 const KEY = 'camp-save';
@@ -127,6 +127,10 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // ★ THE POSTED WATCH (2026-08-11), defaulted for every older save.
   // ★ THE STOREHOUSE'S HAMMER (2026-08-11), defaulted for older saves.
   // ★ HIRED CREWS (2026-08-11), defaulted for every older save.
+  // ★ THE EVENT LOG (N2, 2026-08-11), defaulted for every older save.
+  if (g.log === undefined || g.log === null) g.log = [];
+  else if (!Array.isArray(g.log) || g.log.some((l: unknown) => typeof l !== 'string')) return null;
+  else if (g.log.length > LOG_KEEP) g.log = g.log.slice(-LOG_KEEP);
   if (g.hire === undefined || g.hire === null) g.hire = {};
   else if (typeof g.hire !== 'object') return null;
   else for (const [k, v] of Object.entries(g.hire)) {

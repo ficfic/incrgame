@@ -54,6 +54,26 @@
   const brim = (n: number): boolean => n >= roomOf(game) - 1e-9;
   /** How much of the valley is still theirs — the goal, as one number. */
   const holdings = $derived(Object.keys(game.goblins).length);
+
+  /** ★★★ TABS — N1, 2026-08-11. The owner: *"I'm missing a tab, hero, so we
+   *  need to start building tabs like resources, people, hero, and so on.
+   *  Otherwise, it's getting too messy."* And, of the board: *"I think it got
+   *  very busy in terms of UI. It is very OCD."*
+   *
+   *  One scrolling panel was carrying the tapped site, every deed it offers,
+   *  the hero, the crew, the watch and the war. Four rooms now. The SITE tab
+   *  keeps the map's own business; the others take what was crowding it.
+   *
+   *  ⚠️ A FIGHT OUTRANKS THE TABS ENTIRELY (below): a battle you cannot see
+   *  because you left the tab on People is a lost run. */
+  type Tab = 'site' | 'people' | 'hero' | 'log';
+  let tab = $state<Tab>('site');
+  const TABS: Array<{ id: Tab; name: string }> = [
+    { id: 'site', name: 'Place' },
+    { id: 'people', name: 'People' },
+    { id: 'hero', name: 'Hero' },
+    { id: 'log', name: 'Log' },
+  ];
   /** ★★ AND HOW MANY OF THEM YOU CAN ACTUALLY SEE — F6, 2026-08-11. The
    *  owner: *"it's a bit strange that it says five camps left while I can
    *  only see two."* The count was every holding on the map; the board only
@@ -365,6 +385,33 @@
   })());
 
   interface Deed { label: string; note: string; why: string | null; go: () => void }
+
+  /** ★★ THE HERO'S OWN DEEDS (N1) — the two that are about the person rather
+   *  than about a place, so they belong on the Hero tab and not in the middle
+   *  of the camp's building list. Marching stays with the PLACE you are
+   *  marching to, because that is the thing you are choosing. */
+  function heroDeeds(): Deed[] {
+    const out: Deed[] = [];
+    const eat = uneatable(game);
+    out.push({
+      label: 'Feed the hero',
+      note: eat ?? `${amount('food', MEAL_FOOD)} → ${MARK.hero}+${MEAL_HP}`,
+      why: eat,
+      go: () => act({ type: 'eat' }),
+    });
+    const fw = unforageable(game);
+    const next = nextForay(game);
+    const left = forageLeft(game);
+    out.push({
+      label: left !== null ? 'Foraging…' : 'Send the hero out',
+      note: left !== null
+        ? `${MARK.time}${Math.ceil(left)}s · ${next.name}`
+        : (fw ?? `${MARK.time}${FORAGE_SECS}s → ${price(next.loot)} · ${next.name}`),
+      why: fw,
+      go: () => act({ type: 'forage' }),
+    });
+    return out;
+  }
   const deeds = $derived<Deed[]>((() => {
     if (picked === null) return [];
     const s = SITE.get(picked);
@@ -1038,7 +1085,64 @@
             <em>home — the ground keeps its wounds</em>
           </button>
         </div>
-      {:else if picked !== null && SITE.has(picked)}
+      {:else}
+        <!-- ★★★ THE TABS (N1). Only when there is no fight: a battle you
+             cannot see because you left the tab on People is a lost run. -->
+        <div class="tabs" role="tablist">
+          {#each TABS as t (t.id)}
+            <button class="tab" class:on={tab === t.id} role="tab"
+              aria-selected={tab === t.id}
+              onclick={() => (tab = t.id)}>{t.name}{#if t.id === 'log' && game.log.length > 0}<i>{game.log.length}</i>{/if}</button>
+          {/each}
+        </div>
+      {/if}
+
+      {#if !game.fight && tab === 'people'}
+        <!-- ★ PEOPLE: where everyone is, and the two jobs that are not
+             "stand at a workface" — the watch, and the walk. -->
+        <h2>People</h2>
+        <p class="note">{MARK.people}{Math.floor(game.pop)} of {cap} housed
+          · {(f.staff * 100).toFixed(0)}% of the works manned</p>
+        <p class="note">{MARK.food}{f.food.toFixed(1)}/s brought in
+          · {hunger(game).toFixed(1)}/s eaten</p>
+        {#if guardsTotal(game) > 0}
+          <p class="note">{MARK.danger}{guardsTotal(game)} standing watch — they do not work</p>
+        {/if}
+        {#each shown(game).filter((s) => (game.stacks[s.id] ?? 0) > 0 || guardsAt(game, s.id) > 0) as s (s.id)}
+          <p class="note">{s.name} · {(f.hands.get(s.id) ?? 0)} working{
+            guardsAt(game, s.id) > 0 ? ` · ${guardsAt(game, s.id)} on watch` : ''}</p>
+        {/each}
+      {:else if !game.fight && tab === 'hero'}
+        <h2>The hero</h2>
+        <p class="note">{MARK.hero}{game.hero.hp} of {heroMax(game)}
+          · {spearLabel(game.hero.spears).toLowerCase()}</p>
+        <p class="note">{game.hero.trip
+          ? `on the road to ${SITE.get(game.hero.trip.to)?.name ?? ''} · ${MARK.time}${Math.ceil(game.hero.trip.left)}s`
+          : `standing at ${SITE.get(game.hero.at)?.name ?? ''}`}</p>
+        {#if game.forage}
+          <p class="note">out foraging · {MARK.time}{Math.ceil(forageLeft(game) ?? 0)}s</p>
+        {/if}
+        <div class="dock">
+          {#each heroDeeds() as d (d.label)}
+            <button class="deed" class:cant={d.why !== null} onclick={d.go}>
+              {d.label}<em>{d.note}</em>
+            </button>
+          {/each}
+        </div>
+      {:else if !game.fight && tab === 'log'}
+        <!-- ★★★ THE EVENT LOG (N2) — *"maybe we should have an advanced log
+             too"*, and the home for the messages that used to flash over the
+             board: *"'Scree Slope just taken' — they should go into the
+             advanced log."* Newest first, because that is what you came for. -->
+        <h2>What happened</h2>
+        {#if game.log.length === 0}
+          <p class="note">Nothing yet. The valley is quiet.</p>
+        {:else}
+          {#each [...game.log].reverse() as line, i (i)}
+            <p class="note logline">{line}</p>
+          {/each}
+        {/if}
+      {:else if !game.fight && picked !== null && SITE.has(picked)}
         <h2>{nameOf(picked)}</h2>
         <!-- ★ THE NUMBERS THE MAP LABEL NO LONGER CARRIES (2026-08-11). They
              lived in the label and made it long enough to lose its collision
@@ -1178,6 +1282,19 @@
 
   /* ⚠️ `flee` KEEPS ITS BUTTON MID-SWING ON PURPOSE — a safety valve you
      have to wait for is not a safety valve. */
+  /* ★★★ THE TABS (N1). A row of four, thumb-sized, sticky to the top of the
+     panel so the room you are in is always visible while it scrolls. */
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+    margin: 0 0 8px; position: sticky; top: 0; background: #faf6ec;
+    padding: 6px 0 4px; z-index: 2; }
+  .tab { font: inherit; font-size: 13px; font-weight: 700; color: #6b5d3f;
+    background: #f0e9d9; border: 1px solid #e2d9c3; border-radius: 8px;
+    padding: 9px 4px; min-height: 40px; cursor: pointer; }
+  .tab.on { background: #1f7a3f; border-color: #1f7a3f; color: #fdfaf2; }
+  .tab i { font-style: normal; font-size: 11px; opacity: 0.75;
+    margin-left: 4px; }
+  .logline { border-left: 3px solid #e2d9c3; padding-left: 8px;
+    margin: 5px 0; }
   .swinging { color: #b3452f; font-weight: 700; text-align: center; margin: 2px 0; }
   /* ★ The wind-up is the one beat where Guard is right, so it shouts. */
   .swinging.windup { background: #fbe9e4; border-radius: 6px; padding: 2px 0;

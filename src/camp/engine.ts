@@ -323,6 +323,12 @@ export interface City {
   /** ★ THE STOREHOUSE UNDER THE HAMMER — 2026-08-11. It was the one thing in
    *  the valley that appeared the instant it was paid for. */
   stowing: { left: number; secs: number } | null;
+  /** ★★★ THE EVENT LOG — N2, 2026-08-11. The owner: *"maybe we should have
+   *  an advanced log too. Event log."* And, of the messages that flash over
+   *  the board: *"'Scree Slope just taken' — they should go into the advanced
+   *  log."* Newest last, capped at `LOG_KEEP`. Strings, because they are
+   *  written where the event happens and read nowhere else. */
+  log: string[];
   /** ★★★ EXTRA HANDS HIRED ONTO A SITE'S WORKS — 2026-08-11. Site id → how
    *  many times its crew has been widened. */
   hire: Record<number, number>;
@@ -429,6 +435,7 @@ export const initial = (): City => ({
   guard: {},
   stowing: null,
   hire: {},
+  log: [],
   legacy: { runs: 0, spears: 0 },
   fight: null,
 });
@@ -925,6 +932,13 @@ export const cartCost = (have: number): { stone: number; planks: number } => ({
  *  (At 2, hut #99 cost five million planks. Nobody was living there.) */
 export const HUT_ROOM = 4;
 /** Seconds to grow one person when there is room. */
+/** How many lines the log keeps. Enough to scroll back through a raid and
+ *  the famine that followed it; not so many that a save doubles in size. */
+export const LOG_KEEP = 60;
+/** Append lines to the log, keeping the newest `LOG_KEEP`. */
+export const logged = (was: string[], ...lines: string[]): string[] =>
+  lines.length === 0 ? was : [...was, ...lines].slice(-LOG_KEEP);
+
 export const GROW_SECS = 12;
 /** ★ How full the larder must be for settlers to keep coming without a
  *  surplus. A quarter: enough to carry the opening, not enough to let a
@@ -1633,7 +1647,9 @@ function liberate(g: City, now: NonNullable<City['fight']>): City {
   const menace = { ...g.menace };
   delete menace[now.site];
   return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES,
-    taken: g.taken + 1 };
+    taken: g.taken + 1,
+    log: logged(g.log,
+      `${SITE.get(now.site)?.name ?? 'Ground'} is taken. Two captives walk home with the hero.`) };
 }
 
 /** ★ THE LONGEST A SINGLE TICK MAY STAND FOR. One `tick` is one Euler
@@ -1660,6 +1676,10 @@ export function catchUp(g: City, secs: number): City {
 export function apply(g: City, a: Action): City {
   switch (a.type) {
     case 'tick': {
+      /** ★ WHAT HAPPENED THIS TICK, for the log (N2, 2026-08-11). Declared
+       *  at the very top of the step because everything in it can speak —
+       *  the growth block runs long before the raids do. */
+      const said: string[] = [];
       if (!(a.secs > 0) || g.lost) return g;
       const s = a.secs;
       const f = flow(g);
@@ -1719,7 +1739,11 @@ export function apply(g: City, a: Action): City {
       // below the wild's table, because the valley itself feeds that many.
       if (g.famine >= FAMINE_DEEP && pop > WILD_FED) {
         popPart -= s / LEAVE_SECS;
-        while (popPart < 0 && pop > WILD_FED) { pop -= 1; popPart += 1; }
+        while (popPart < 0 && pop > WILD_FED) {
+          pop -= 1;
+          popPart += 1;
+          said.push('Someone gave up on the valley and walked out.');
+        }
         if (pop <= WILD_FED) popPart = Math.max(0, popPart);
       }
       // The hero heals at home — never mid-fight — toward the max the
@@ -1811,7 +1835,7 @@ export function apply(g: City, a: Action): City {
       if (stowing) {
         const left = stowing.left - s;
         if (left > 0) stowing = { ...stowing, left };
-        else { stowing = null; store = store + 1; }
+        else { stowing = null; store = store + 1; said.push('A storehouse stands.'); }
       }
       // The previous mark ages out; a fresh ambush below replaces it.
       let ambush = g.ambush === null ? null
@@ -1819,7 +1843,11 @@ export function apply(g: City, a: Action): City {
       if (hero.trip) {
         const left = hero.trip.left - s;
         if (left > 0) hero = { ...hero, trip: { ...hero.trip, left } };
-        else { arrived = hero.trip.to; hero = { ...hero, at: arrived, trip: null }; }
+        else {
+          arrived = hero.trip.to;
+          hero = { ...hero, at: arrived, trip: null };
+          said.push(`The hero reached ${SITE.get(arrived)?.name ?? 'the ground'}.`);
+        }
       }
 
       // ★ THE FORAY COMES HOME, and it lands on an away tick too. A raid and
@@ -1883,6 +1911,7 @@ export function apply(g: City, a: Action): City {
             hero = { ...hero,
               hp: Math.max(1, hero.hp - Math.ceil((GOBLINS[id]?.bite ?? 2) * AMBUSH_BITE)) };
             ambushed = t;
+            said.push(`The hero was caught in the open near ${SITE.get(t)?.name ?? 'the road'}.`);
             if ((stacks[t] ?? 0) > 0) {
               if (stacks === g.stacks) stacks = { ...g.stacks };
               stacks[t] = stacks[t]! - 1;
@@ -1901,10 +1930,12 @@ export function apply(g: City, a: Action): City {
           if (guardsAt({ ...g, guard }, t) >= GUARD_STOP) {
             guard = guard === g.guard ? { ...g.guard } : guard;
             guard[t] = guardsAt(g, t) - 1;      // one does not come back
+            said.push(`The watch at ${SITE.get(t)?.name ?? 'the gate'} turned a raid back. One did not come home.`);
             continue;
           }
           if (watch && onWatchAt(g, t)) {
             watch = false;
+            said.push(`The hero met the raid at ${SITE.get(t)?.name ?? 'the gate'} and turned it back.`);
             if (goblins === g.goblins) goblins = { ...goblins };
             goblins[id] = Math.max(1, (goblins[id] ?? 1) - heroHit(g));
             hero = { ...hero, hp: Math.max(0, hero.hp - (GOBLINS[id]?.bite ?? 2)) };
@@ -1913,6 +1944,7 @@ export function apply(g: City, a: Action): City {
           if ((stacks[t] ?? 0) > 0) {
             if (stacks === g.stacks) stacks = { ...g.stacks };
             stacks[t] = stacks[t]! - 1;
+            said.push(`Goblins raided ${SITE.get(t)?.name ?? 'the camp'} and pulled a building down.`);
             continue;
           }
           // ★★★ THE GROUND ITSELF. A site with nothing left on it is a site
@@ -1923,6 +1955,9 @@ export function apply(g: City, a: Action): City {
           goblins[t] = goblins[id] ?? GOBLINS[id]?.strength ?? 12;
           if (menace === g.menace) menace = { ...g.menace };
           menace[t] = 0;
+          said.push(t === 0
+            ? 'The camp is overrun. The valley is lost.'
+            : `Goblins took ${SITE.get(t)?.name ?? 'ground'} and hold it now.`);
           if (t === 0) lost = true;
         }
       }
@@ -1956,6 +1991,7 @@ export function apply(g: City, a: Action): City {
         guard,
         store,
         stowing,
+        log: logged(g.log, ...said),
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
         // `march` because the arrival is a tick event, and the holding's
         // strength must be read at the moment they get there — not when they

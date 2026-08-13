@@ -16,7 +16,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
-  LEAVE_SECS, GROW_STORE,
+  LEAVE_SECS, GROW_STORE, LOG_KEEP, logged,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -2871,5 +2871,59 @@ describe('★★★ A TOWN CAN ALWAYS GET OUT OF A FAMINE', () => {
         [pathKey(7, 9)]: 1 } };
     expect(flow(farmed).food).toBeGreaterThan(hunger(farmed));
     expect(tick(farmed, GROW_SECS * 3).pop).toBeGreaterThan(6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ N2 — THE EVENT LOG, 2026-08-11. The owner: *"maybe we should have an
+// advanced log too. Event log."* And of the messages that flash over the
+// board: *"'Scree Slope just taken' — they should go into the advanced log."*
+// ---------------------------------------------------------------------------
+describe('★★★ WHAT HAPPENED, WRITTEN DOWN', () => {
+  const war = (over: Partial<City> = {}): City => ({ ...initial(), taken: 1,
+    pop: 20, food: 9e5, stacks: { 0: 5, 1: 3, 2: 3, 3: 2 },
+    paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 },
+    goblins: { 4: 12 },
+    hero: { hp: 0, spears: 1, part: 0, at: 9, trip: null }, ...over });
+
+  it('★★★ a raid that lands is written down', () => {
+    const g = war({ menace: { 4: 0.99 } });
+    const out = tick(g, RAID_SECS + 1);
+    expect(out.log.length).toBeGreaterThan(0);
+    expect(out.log.join(' ')).toMatch(/raided|took/);
+  });
+
+  it('★★ so is a gate held, and by whom', () => {
+    const g = war();
+    const gate = raidTarget(g, 4)!;
+    const held = tick({ ...g, menace: { 4: 0.99 },
+      guard: { [gate]: GUARD_STOP } }, RAID_SECS + 1);
+    expect(held.log.join(' ')).toMatch(/watch at .* turned a raid back/);
+  });
+
+  it('★★ and taking ground — the message that used to flash over the board', () => {
+    const g: City = { ...initial(), food: 9e5,
+      hero: { hp: 30, spears: 99, part: 0, at: 4, trip: null } };
+    let x = apply(g, { type: 'assail', id: 4 });
+    for (let i = 0; i < 12 && x.fight; i++) {
+      x = tick(apply(x, { type: 'strike' }), BLOW_SECS + 0.01);
+    }
+    expect(x.goblins[4]).toBeUndefined();
+    expect(x.log.join(' ')).toMatch(/High Meadow is taken/);
+  });
+
+  it('★ it keeps the newest and forgets the rest, and holds at the save door', () => {
+    const many = Array.from({ length: LOG_KEEP + 20 }, (_, i) => `line ${i}`);
+    const g: City = { ...war(), log: many.slice(0, LOG_KEEP) };
+    expect(logged(many, 'newest').length).toBe(LOG_KEEP);
+    expect(logged(many, 'newest').at(-1)).toBe('newest');
+    expect(honour({ game: g, savedAt: 1 })!.game.log.length).toBe(LOG_KEEP);
+    // ⚠️ An over-long log is TRIMMED, not refused: a save is not worth
+    // throwing away over history.
+    expect(honour({ game: { ...war(), log: many }, savedAt: 1 })!
+      .game.log.length).toBe(LOG_KEEP);
+    expect(honour({ game: { ...war(), log: [1] } as never, savedAt: 1 })).toBeNull();
+    const { log: _drop, ...older } = war();
+    expect(honour({ game: older as City, savedAt: 1 })!.game.log).toEqual([]);
   });
 });
