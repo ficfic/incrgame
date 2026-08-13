@@ -2966,6 +2966,11 @@ describe('★★★ THE CAMPS SWELL WHILE YOU WAIT', () => {
   it('★★ it stops climbing — a valley you neglect is harder, not impossible', () => {
     const forever = tick(initial(), SWELL_SECS * 50);
     expect(swellOf(forever)).toBe(SWELL_MAX);
+    // ⚠️ AND THE CAP ITSELF MUST STAY BEATABLE. Asserting only that the clamp
+    // fires passed with SWELL_MAX at 9 — a valley nobody could ever take, and
+    // the pressure turned into a wall. The deepest holding at full swell has
+    // to remain something a fully-armed hero can still face.
+    expect(SWELL_MAX).toBeLessThanOrEqual(1.5);
     expect(spawnOf(forever, 9)).toBeCloseTo(GOBLINS[9]!.strength * (1 + SWELL_MAX), 6);
   });
 
