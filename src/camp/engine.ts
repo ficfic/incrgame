@@ -33,6 +33,12 @@ export interface Site {
   /** ★ THE MAP GROWS OUTWARD: this ground shows only once the named site
    *  is liberated. The far country is the knoll fight's real prize. */
   behind?: number;
+  /** ★★★ AND IT GROWS BETWEEN RUNS TOO — 2026-08-11. This ground does not
+   *  exist at all until you have finished this many valleys. The genre
+   *  reviewer's verdict on why anyone plays a second run: not a stat carry, a
+   *  SCOPE carry — *"run 2 is a bigger valley"*. Raising the ladder made the
+   *  same ten sites harder, which is the cheap half; this is the other half. */
+  fromRun?: number;
   /** ★ RICHER GROUND: every hand posted here makes this many times what
    *  the same hand makes on safe ground. Absent = 1, plain. */
   rich?: number;
@@ -75,6 +81,20 @@ export const SITES: readonly Site[] = [
   // The plank ceiling stops being a building and starts being a WAR AIM.
   { id: 8, name: 'High Mill', x: 474, y: 306, allows: 'sawmill', near: [5], behind: 5, rich: 3 },
   { id: 9, name: 'Green Vale', x: 78, y: 512, allows: 'farm', near: [7], behind: 6, rich: 3.5 },
+  // ★★★ THE COUNTRY BEYOND THE RIDGE, 2026-08-11 — ground that is not on the
+  // map at all until you have taken a valley and walked on. Run two is a
+  // BIGGER valley, not merely a harder one: four more sites, richer than
+  // anything in the first, and a second mill deep enough that the plank
+  // ceiling moves again. This is the scope carry the genre review asked for,
+  // and it is why finishing is worth doing twice.
+  { id: 10, name: 'The Long Scree', x: 470, y: 470, allows: 'quarry',
+    near: [5, 8], behind: 8, rich: 4, fromRun: 1 },
+  { id: 11, name: 'Winterwood', x: -80, y: 300, allows: 'lumber',
+    near: [7], behind: 7, rich: 4, fromRun: 1 },
+  { id: 12, name: 'The Ridgemill', x: 250, y: 560, allows: 'sawmill',
+    near: [9, 10], behind: 9, rich: 4, fromRun: 2 },
+  { id: 13, name: 'Broadfield', x: -60, y: 600, allows: 'farm',
+    near: [9, 11], behind: 9, rich: 5, fromRun: 2 },
 ];
 
 /** ★ HOW GOOD THE GROUND IS — every hand here makes this much more. The
@@ -126,6 +146,16 @@ export const GOBLINS: Record<number,
   7: { strength: 32, bite: 5, runt: 8 },
   8: { strength: 48, bite: 5, runt: 10 },
   9: { strength: 60, bite: 6, runt: 12 },
+  // ★★★ THE COUNTRY BEYOND THE RIDGE (2026-08-11) — only reachable on a
+  // second run or later, and priced above everything in the first valley.
+  // ⚠️ These rungs are NOT solver-tuned like 4–9 are: nobody can reach them
+  // on run one, and by run two the hero carries blueprints and a levy the
+  // solver knows nothing about. They are set by extending the +2-spears
+  // cadence and they want confirming in play.
+  10: { strength: 76, bite: 7, runt: 14 },
+  11: { strength: 92, bite: 7, runt: 16 },
+  12: { strength: 112, bite: 8, runt: 18 },
+  13: { strength: 132, bite: 9, runt: 20 },
 };
 
 /** ★★★ THE GOBLINS COME AT YOU, 2026-08-09. The owner, asked what the goal
@@ -496,8 +526,11 @@ export const initial = (): City => ({
   // staff the three works the opening asks for, so the mill made nothing.
   pop: 4,
   popPart: 0,
-  goblins: Object.fromEntries(
-    Object.entries(GOBLINS).map(([k, v]) => [k, v.strength])),
+  // ⚠️ ONLY THE HOLDINGS THAT EXIST IN THIS VALLEY. The country beyond the
+  // ridge is not on run one's map at all, and seeding its camps anyway would
+  // have made a first run impossible to WIN — `holdingsLeft` would never
+  // reach zero and the victory that opens the next valley would never fire.
+  goblins: valleyGoblins(0),
   hero: { hp: 10, spears: 0, part: 0, at: 0, trip: null },
   store: 0,
   carts: 0,
@@ -616,8 +649,26 @@ export function uneatable(g: City): string | null {
  *  The deep country's bites (5s and 6s) are priced against this — spears
  *  buy the strike, the fights already won buy the surviving. */
 export const heroMax = (g: City): number => HERO_HP + 3 * g.taken;
-/** What one strike lands: bare hands plus a spear for every one on his back. */
-export const heroHit = (g: City): number => 2 + g.hero.spears;
+/** ★★★ WHAT A BLOW LANDS — 2026-08-11, and spears stopped being the only
+ *  answer. The owner: *"first of all spears is a stupid resource… there's no
+ *  point in having more people because it's sufficient to have planks and
+ *  stones to build spears and only spam spears."*
+ *
+ *  Both halves of that were the same bug. Spears were the ONLY way to hit
+ *  harder, so the whole economy was a pipeline into one number, and people
+ *  were worth nothing to the war. The levy already stands in front and takes
+ *  the answer; now it also SWINGS. Every townsperson still standing adds to
+ *  the blow, so bodies are damage as well as armour — and a spear is a
+ *  multiplier on a line rather than the line itself.
+ *
+ *  ⚠️ THE SOLVER'S LADDER IS UNTOUCHED at a levy of zero, which is what every
+ *  rung was tuned against. Bringing people is a choice that makes fights
+ *  easier and the town poorer, never a tax on the fights already balanced. */
+export const heroHit = (g: City): number =>
+  2 + g.hero.spears + standing(g);
+/** Townsfolk still on their feet in the fight, if there is one. */
+export const standing = (g: City): number =>
+  (g.fight?.us ?? []).filter((u) => u.hp > 0).length;
 
 /** ★★★ THE ARMOURY MAKES SPEARS, 2026-08-10 (the PC playtest). The owner:
  *  *"I don't understand why arms has swords ×4… the whole concept with making
@@ -1307,8 +1358,24 @@ export const pathCostOf = (gauge: number): number => PATH_COST * (gauge + 1);
 /** What the map shows: the first valley whole (held ground drawn red IS
  *  the carrot), and the far country only once the ground in front of it
  *  falls — the map grows outward, fight by fight. */
+/** The holdings a valley has at this many finished runs. */
+export const valleyGoblins = (runs: number): Record<number, number> =>
+  Object.fromEntries(Object.entries(GOBLINS)
+    .filter(([k]) => {
+      const site = SITE.get(Number(k));
+      return site !== undefined
+        && (site.fromRun === undefined || runs >= site.fromRun);
+    })
+    .map(([k, v]) => [Number(k), v.strength]));
+
 export const shown = (g: City): Site[] =>
-  SITES.filter((s) => s.behind === undefined || !(s.behind in g.goblins));
+  SITES.filter((s) =>
+    // ★ NOT IN THIS VALLEY AT ALL until you have finished enough of them.
+    (s.fromRun === undefined || g.legacy.runs >= s.fromRun)
+    && (s.behind === undefined || !(s.behind in g.goblins)));
+/** Ground that exists in THIS run at all — the valley's own extent. */
+export const inValley = (g: City): Site[] =>
+  SITES.filter((s) => s.fromRun === undefined || g.legacy.runs >= s.fromRun);
 
 /** ★★★ THE CAMP ITSELF SHELTERS FOUR, 2026-08-10 — it was two, and two is
  *  not enough to run the opening. Verified by playing it: the auto-staffer
@@ -2571,6 +2638,9 @@ export function apply(g: City, a: Action): City {
       };
       const next = initial();
       return { ...next, legacy,
+        // ★ A BIGGER VALLEY, not just a harder one — the far country appears
+        // on the map for the first time on run two, and again on run three.
+        goblins: valleyGoblins(legacy.runs),
         boons: [...legacy.boons],
         hero: { ...next.hero, spears: legacy.spears },
         log: [won

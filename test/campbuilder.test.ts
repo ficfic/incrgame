@@ -19,7 +19,8 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
   LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
   MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft,
-  BOONS, offer, guardNeed, cartCostOf, has, runHard, RUN_STEP,
+  BOONS, offer, guardNeed, cartCostOf, has, runHard, RUN_STEP, valleyGoblins,
+  inValley, standing,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -1406,8 +1407,16 @@ describe('★★★ THE CARTWRIGHT — the one exponential that runs for the pla
   const maxed = (carts: number): City => {
     const g: City = { ...initial(), goblins: {}, food: 9e5, stone: 9e5,
       planks: 9e5, logs: 9e5, carts, stacks: {}, paths: {} };
-    for (const s of SITES) g.stacks[s.id] = s.id === 0 ? 40 : 8;
-    for (const s of SITES) for (const n of s.near) g.paths[pathKey(s.id, n)] = MAX_GAUGE;
+    // ⚠️ THE RUN-ONE VALLEY ONLY (2026-08-11). `SITES` now carries the
+    // country beyond the ridge, which does not exist until a valley has been
+    // finished — building it here makes this fixture a town no run can have.
+    const here = SITES.filter((s) => s.fromRun === undefined);
+    for (const s of here) g.stacks[s.id] = s.id === 0 ? 40 : 8;
+    for (const s of here) {
+      for (const n of s.near) {
+        if (here.some((h) => h.id === n)) g.paths[pathKey(s.id, n)] = MAX_GAUGE;
+      }
+    }
     return { ...g, pop: popCap(g) };
   };
   const totals = (g: City): { made: number; carried: number } => {
@@ -1488,7 +1497,9 @@ describe('★★★ THE CARTWRIGHT — the one exponential that runs for the pla
     expect(carried).toBeCloseTo(made, 4);
     // ...and three times the works chokes the same carts all over again.
     const bigger: City = { ...maxed(enough), stacks: { ...maxed(enough).stacks } };
-    for (const s of SITES) if (s.id !== 0) bigger.stacks[s.id] = 24;
+      for (const s of SITES) {
+        if (s.id !== 0 && s.fromRun === undefined) bigger.stacks[s.id] = 24;
+      }
     expect(flow({ ...bigger, pop: popCap(bigger) }).choked.size).toBeGreaterThan(0);
   });
 
@@ -1773,7 +1784,14 @@ describe('★★★ THE RAID — held ground takes something back', () => {
     // yours next to it — so one whose every neighbour is already goblin-held
     // is the one that stands down.
     expect(raiders(pressed({ stacks: {} }))).toEqual([4]);
-    expect(raiders(pressed({ goblins: { 8: 48, 5: 18 } }))).toEqual([5]);
+      // ⚠️ SITE 8 NO LONGER STANDS DOWN (2026-08-11). It used to have only
+      // the Scree for a neighbour, so goblins on the Scree left it with
+      // nothing of yours to reach. The country beyond the ridge added The
+      // Long Scree next door — ground you hold, on a run that has it — so 8
+      // can reach something again. The RULE this test guards is unchanged;
+      // the map under it grew.
+      expect(raiders(pressed({ goblins: { 8: 48, 5: 18 } })).sort())
+        .toEqual([5, 8]);
     // ⚠️ `{8: 48}` ALONE NO LONGER STANDS DOWN: site 8's neighbour is the
     // Scree, and with no goblins on the Scree that is ground you hold.
   });
@@ -1914,7 +1932,12 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
     // Everything else is gone — that is what losing the valley means.
     expect(next.stacks).toEqual({});
     expect(next.taken).toBe(0);
-    expect(Object.keys(next.goblins)).toHaveLength(Object.keys(GOBLINS).length);
+      // ⚠️ THE VALLEY YOU GET IS THE ONE YOUR RUN COUNT UNLOCKS (2026-08-11).
+      // The country beyond the ridge is not on run one's map at all, so a
+      // fresh valley holds only the camps that exist in it — seeding the rest
+      // anyway would make a first run impossible to WIN.
+      expect(Object.keys(next.goblins))
+        .toHaveLength(Object.keys(valleyGoblins(next.legacy.runs)).length);
     // ★ AND IT NEVER GOES BACKWARDS: a short run cannot undo a long one.
     const short: City = { ...next, lost: true, hero: { hp: 1, spears: 0, part: 0, at: 0, trip: null } };
     expect(apply(short, { type: 'found' }).hero.spears).toBe(4);
@@ -3473,5 +3496,64 @@ describe('★★★ THE NEXT VALLEY KNOWS WHAT YOU LEARNED', () => {
     expect(honour({ game: stale, savedAt: 1 })!.game.legacy.boons).toEqual(['drover']);
     const older = { ...done(), legacy: { runs: 1, spears: 3 } } as never;
     expect(honour({ game: older, savedAt: 1 })!.game.legacy.boons).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE MAP GROWS BETWEEN RUNS — 2026-08-11. The genre reviewer's actual
+// answer to "why play again": not a stat carry, a SCOPE carry. *"Run 2 is a
+// bigger valley."* Raising the ladder made the same ten sites harder, which
+// is the cheap half; this is the other half.
+// ---------------------------------------------------------------------------
+describe('★★★ THE COUNTRY BEYOND THE RIDGE', () => {
+  it('★★★ run one cannot see it, run two can', () => {
+    const first = initial();
+    const second: City = { ...initial(), legacy: { runs: 1, spears: 0, boons: [] } };
+    const third: City = { ...initial(), legacy: { runs: 2, spears: 0, boons: [] } };
+    expect(inValley(first).length).toBeLessThan(inValley(second).length);
+    expect(inValley(second).length).toBeLessThan(inValley(third).length);
+    expect(inValley(first).some((s) => s.id === 10)).toBe(false);
+    expect(inValley(second).some((s) => s.id === 10)).toBe(true);
+  });
+
+  it('★★★ AND A FIRST RUN CAN STILL BE WON, which is the trap here', () => {
+    // ⚠️ `initial()` seeded EVERY holding in the table, so the moment the far
+    // country was added a run-one valley held camps that were not on its map
+    // — `holdingsLeft` could never reach zero, the victory never fired, and
+    // the exit that opens the next valley was unreachable. The valley only
+    // seeds the holdings it actually has.
+    const first = initial();
+    for (const id of Object.keys(first.goblins).map(Number)) {
+      const site = SITE.get(id)!;
+      expect(site.fromRun ?? 0).toBe(0);
+    }
+    expect(Object.keys(valleyGoblins(0)).length)
+      .toBeLessThan(Object.keys(valleyGoblins(2)).length);
+  });
+
+  it('★★ founding after a win deals the bigger valley', () => {
+    const done: City = { ...initial(), goblins: {}, taken: 6,
+      hero: { hp: 9, spears: 4, part: 0, at: 0, trip: null } };
+    const next = apply(done, { type: 'found' });
+    expect(next.legacy.runs).toBe(1);
+    expect(next.goblins[10]).toBe(GOBLINS[10]!.strength);
+    expect(Object.keys(next.goblins).length)
+      .toBeGreaterThan(Object.keys(done.goblins).length + 6);
+  });
+
+  it('★★★ AND THE LEVY SWINGS — people are damage, not just armour', () => {
+    // The owner: *"spears is a stupid resource… there's no point in having
+    // more people."* Both halves were the same bug: spears were the only way
+    // to hit harder, so the economy was a pipeline into one number.
+    const g: City = { ...initial(), pop: 24, food: 9e5, stacks: { 0: 6 },
+      hero: { hp: 30, spears: 2, part: 0, at: 4, trip: null } };
+    const alone = apply(g, { type: 'assail', id: 4 });
+    const withUs = apply({ ...g, levy: 3 }, { type: 'assail', id: 4 });
+    expect(heroHit(withUs)).toBeGreaterThan(heroHit(alone));
+    expect(heroHit(withUs)).toBe(heroHit(alone) + 3);
+    // ⚠️ AND THE SOLVER'S LADDER IS UNTOUCHED at a levy of zero, which is what
+    // every rung was tuned against.
+    expect(heroHit(alone)).toBe(2 + g.hero.spears);
+    expect(standing(alone)).toBe(0);
   });
 });
