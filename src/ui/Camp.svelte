@@ -11,7 +11,7 @@
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE, SWEEP_SHARE,
     guardsAt, guardsTotal, GUARD_STOP, unhireable, hireCost,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
-    unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS,
+    unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS, swellOf, spawnOf,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
@@ -958,12 +958,23 @@
           : game.hero.trip
             ? `${MARK.hero}→${SITE.get(game.hero.trip.to)?.name ?? ''}`
             : `${MARK.hero} ${SITE.get(game.hero.at)?.name ?? ''}`}
-        · {MARK.danger}{shownHoldings} camps left
+        · {MARK.danger}{shownHoldings} camps left{swellOf(game) > 0.02
+          ? ` · ${MARK.waste}+${Math.round(swellOf(game) * 100)}%` : ''}
       {:else if holdings > 0}
         <!-- ★ WHAT A HOLDING IS, not just how many. The owner: *"why holdings
              are with skull and bones is not quite well understood by me…
              What is a holding? They come once you take one — who comes?"* -->
-        {MARK.danger}{shownHoldings} goblin camps · take one and the rest raid you
+        <!-- ★★★ N4, 2026-08-11 — the owner: *"six goblin camps, take one and
+             the rest raid — that is meta. We should have a [narrator]
+             somewhere, against meta leading into the user."* The rules were
+             printed AS rules. They are said now, by the camp, about the
+             valley it is standing in. -->
+        {MARK.danger}{shownHoldings} goblin camps watch this valley
+        {#if swellOf(game) > 0.02}
+          · {MARK.waste}they grow {Math.round(swellOf(game) * 100)}% stronger
+        {:else}
+          · every day you wait, they grow
+        {/if}
       {:else}
         {MARK.danger}0 · the valley is yours
       {/if}

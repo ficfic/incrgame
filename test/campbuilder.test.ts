@@ -16,7 +16,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
-  LEAVE_SECS, GROW_STORE, LOG_KEEP, logged,
+  LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -2925,5 +2925,68 @@ describe('★★★ WHAT HAPPENED, WRITTEN DOWN', () => {
     expect(honour({ game: { ...war(), log: [1] } as never, savedAt: 1 })).toBeNull();
     const { log: _drop, ...older } = war();
     expect(honour({ game: older as City, savedAt: 1 })!.game.log).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ N3 — A REASON TO GO, 2026-08-11. The owner, twice across two
+// playthroughs: *"what is my motivation then here? I will just sit here, and
+// I will not take any."* and *"I go on High Meadow. But what is there?
+// There's no point for me at all. It doesn't attack me."* They were reading
+// the rules correctly, which was the problem: goblins ignore a camp until you
+// take something, so the optimal play was to never start.
+// ---------------------------------------------------------------------------
+describe('★★★ THE CAMPS SWELL WHILE YOU WAIT', () => {
+  it('★★★ A HOLDING LEFT ALONE GROWS PAST ITS SPAWN', () => {
+    const g = initial();
+    expect(swellOf(g)).toBe(0);
+    expect(spawnOf(g, 4)).toBe(GOBLINS[4]!.strength);
+    const later = tick(g, SWELL_SECS / 2);
+    expect(swellOf(later)).toBeCloseTo(SWELL_MAX / 2, 6);
+    expect(spawnOf(later, 4)).toBeGreaterThan(GOBLINS[4]!.strength);
+    // ...and it really does heal up to the higher ceiling. ⚠️ Through
+    // `catchUp`, not one giant tick: a tick reads the clock ONCE at its start
+    // (one Euler step, `STEP_SECS`), so a single two-hour step would swell by
+    // nothing at all and cap the holding at its old spawn. That is the same
+    // rule every other timer in this file obeys, and the reason `catchUp`
+    // exists.
+    const long = catchUp({ ...g, goblins: { 4: 1 } }, SWELL_SECS * 2);
+    expect(long.goblins[4]!).toBeGreaterThan(GOBLINS[4]!.strength);
+  });
+
+  it('★★★ IT STARTS AT ZERO, so the tuned ladder is untouched at minute one', () => {
+    // ⚠️ This is why the pressure is on the clock and not on the opening: the
+    // solver tuned every rung against these numbers, and a swell that began
+    // above zero would silently invalidate all of it.
+    for (const id of [4, 5, 6, 7, 8, 9]) {
+      expect(spawnOf(initial(), id)).toBe(GOBLINS[id]!.strength);
+    }
+  });
+
+  it('★★ it stops climbing — a valley you neglect is harder, not impossible', () => {
+    const forever = tick(initial(), SWELL_SECS * 50);
+    expect(swellOf(forever)).toBe(SWELL_MAX);
+    expect(spawnOf(forever, 9)).toBeCloseTo(GOBLINS[9]!.strength * (1 + SWELL_MAX), 6);
+  });
+
+  it('★ the clock runs while you are away, but takes nothing', () => {
+    // `docs/BRIEF.md`: timers bank work, they never punish absence. A swollen
+    // valley is a harder valley, never a poorer one — the stores are exactly
+    // what an idle live run would have made.
+    const g: City = { ...initial(), stacks: { 0: 2, 1: 1 },
+      paths: { [pathKey(0, 1)]: 1 }, pop: 6 };
+    const away = catchUp(g, 3600);
+    const live = tick(g, 3600);
+    expect(away.since).toBeCloseTo(3600, 3);
+    expect(away.stone).toBeGreaterThan(g.stone);
+    expect(live.since).toBeCloseTo(away.since, 3);
+  });
+
+  it('★ the clock holds at the save door, and older saves start unswollen', () => {
+    expect(honour({ game: { ...initial(), since: 500 }, savedAt: 1 })!
+      .game.since).toBe(500);
+    expect(honour({ game: { ...initial(), since: -1 }, savedAt: 1 })).toBeNull();
+    const { since: _drop, ...older } = initial();
+    expect(honour({ game: older as City, savedAt: 1 })!.game.since).toBe(0);
   });
 });

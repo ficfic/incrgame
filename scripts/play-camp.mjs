@@ -380,7 +380,13 @@ if (!/\b0\/10\b/.test(await cell('hero'))) {
 // site:4 is STILL picked from the assail — no second tap, that toggles.
 const bled = await panel();
 console.log('  bled    :', `"${bled.slice(0, 60)}"`);
-if (!/☠\d\b/.test(bled)) {
+// ⚠️ WAS `☠\d\b`, which only ever matched a SINGLE digit — it passed for
+// years because a mashed holding was left in single figures. The hero heals
+// faster now (F8) and the camps swell (N3), so the same mash leaves it at
+// "☠10 strong" and the old pattern read that as no wound at all. Match the
+// number and compare it.
+const bledTo = Number(/☠(\d+)/.exec(bled)?.[1] ?? NaN);
+if (!(bledTo > 0 && bledTo < 12)) {
   misses.push(`the ground did not keep its wounds: "${bled.slice(0, 60)}"`);
 }
 const namedStill = await page.locator('.map .node[data-id="site:4"]').textContent();
@@ -408,9 +414,15 @@ console.log('  warns   :', `"${warn.slice(0, 80).replace(/\s+/g, ' ')}"`);
 if (!/WIND UP/.test(warn)) {
   misses.push(`the wind-up is not said a round ahead: "${warn.slice(0, 80)}"`);
 }
-for (let i = 0; i < 2; i++) {
+// ⚠️ FOUR, NOT TWO (2026-08-11). The camps swell on the valley's own clock
+// now (N3), and the march to the fight takes 38 seconds of it — so the
+// holding heals a little ABOVE its seeded strength before the first blow
+// lands, and the exact number of swings that finishes it is no longer fixed.
+// Extra clicks are free: once the fight ends the deed is gone and the click
+// is caught.
+for (let i = 0; i < 4; i++) {
   await attack.click({ timeout: 1500 }).catch(() => {});
-  await page.waitForTimeout(2400);
+  await page.waitForTimeout(1600);
 }
 await page.waitForTimeout(300);
 const heldNow = await page.$$eval('.map .node[data-kind="foe"]', (n) => n.length);
@@ -512,7 +524,12 @@ await page.locator('.map .node[data-id="site:7"]').click({ timeout: 2000 }).catc
 await page.waitForTimeout(200);
 const far = await panel();
 console.log('  deep    :', `"${far.slice(0, 70)}"`);
-if (!/☠32\b/.test(far)) {
+// ⚠️ NOT A FIXED NUMBER ANY MORE. The camps swell on the valley's own clock
+// (N3, 2026-08-11), so a holding's strength depends on how long the run has
+// been going. What must be true is that the deep country prices its danger at
+// all, and prices it ABOVE the shallow rungs.
+const farStrength = Number(/☠(\d+)/.exec(far)?.[1] ?? NaN);
+if (!(farStrength >= 32)) {
   misses.push(`the deep country does not price its danger: "${far.slice(0, 60)}"`);
 }
 // ★ THE PRIZE, said while the goblins are still standing on it — the owner:

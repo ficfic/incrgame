@@ -225,6 +225,32 @@ export function raidTarget(g: City, id: number): number | null {
  *  the race to keep up or the grind quietly becomes the optimal play at every
  *  rung. The solver test is what caught it, and what set this number. */
 export const GOBLIN_REGEN = 0.0075;
+/** ★★★ THE CAMPS SWELL — N3, 2026-08-11. The owner, twice over two
+ *  playthroughs: *"what is my motivation then here? I will just sit here, and
+ *  I will not take any."* and *"I go on High Meadow. But what is there?
+ *  There's no point for me at all. It doesn't attack me."*
+ *
+ *  They were reading the rules correctly, which was the problem. Goblins
+ *  ignore a camp until you take something of theirs — so the optimal play was
+ *  to never start, and the game's own mechanics argued for not playing it.
+ *
+ *  Now a holding you leave alone GROWS. Every camp's strength climbs toward
+ *  `SWELL_MAX` times its spawn over `SWELL_SECS`, whether or not the war has
+ *  started. Waiting is no longer free, taking ground early is worth more than
+ *  taking it late, and none of it is a raid on a camp that has no hero yet —
+ *  the opening stays as gentle as it was.
+ *
+ *  ⚠️ IT STARTS AT ZERO, so every ladder number the solver tuned is exactly
+ *  what it was at the first minute. The pressure is on the CLOCK, not on the
+ *  opening. */
+export const SWELL_SECS = 900;
+export const SWELL_MAX = 1.0;
+/** How far the camps have swollen, 0 at the start and `SWELL_MAX` at most. */
+export const swellOf = (g: City): number =>
+  Math.min(SWELL_MAX, Math.max(0, g.since) / SWELL_SECS * SWELL_MAX);
+/** A holding's spawn strength today — its tuned strength, plus the swell. */
+export const spawnOf = (g: City, id: number): number =>
+  (GOBLINS[id]?.strength ?? 12) * (1 + swellOf(g));
 /** What a holding regains a second — its own spawn strength times the
  *  rate, so the ladder's own numbers set the pace. */
 export const regenOf = (id: number): number =>
@@ -329,6 +355,9 @@ export interface City {
    *  log."* Newest last, capped at `LOG_KEEP`. Strings, because they are
    *  written where the event happens and read nowhere else. */
   log: string[];
+  /** ★★★ SECONDS THE VALLEY HAS STOOD — N3, 2026-08-11. The camps swell on
+   *  this clock, which is what makes waiting cost something. */
+  since: number;
   /** ★★★ EXTRA HANDS HIRED ONTO A SITE'S WORKS — 2026-08-11. Site id → how
    *  many times its crew has been widened. */
   hire: Record<number, number>;
@@ -436,6 +465,7 @@ export const initial = (): City => ({
   stowing: null,
   hire: {},
   log: [],
+  since: 0,
   legacy: { runs: 0, spears: 0 },
   fight: null,
 });
@@ -1682,6 +1712,13 @@ export function apply(g: City, a: Action): City {
       const said: string[] = [];
       if (!(a.secs > 0) || g.lost) return g;
       const s = a.secs;
+      // ★ THE VALLEY'S OWN CLOCK (N3). Away ticks count too — the camps do not
+      // wait politely for you to look, and this is the one pressure in the
+      // game that is allowed to build while you are gone. It never TAKES
+      // anything (that is still the raids' job, and they still bank), so
+      // `docs/BRIEF.md` holds: you come back to a harder valley, never a
+      // poorer one.
+      const since = g.since + s;
       const f = flow(g);
       // The mills saw what arrives plus what is piled — integrated over the
       // tick, so an away-tick cannot saw planks from a pile that ran dry.
@@ -1796,7 +1833,10 @@ export function apply(g: City, a: Action): City {
       let goblins = g.goblins;
       for (const [idStr, left] of Object.entries(g.goblins)) {
         const id = Number(idStr);
-        const spawn = GOBLINS[id]?.strength ?? left;
+        // ★★★ THE CEILING RISES WITH THE CLOCK (N3) — see `spawnOf`. A camp
+        // you leave alone does not merely heal back to where it was, it gets
+        // bigger, which is what makes waiting cost something.
+        const spawn = GOBLINS[id] ? spawnOf(g, id) : left;
         if (g.fight?.site === id || left >= spawn) continue;
         if (goblins === g.goblins) goblins = { ...g.goblins };
         goblins[id] = Math.min(spawn, left + regenOf(id) * s);
@@ -1992,6 +2032,7 @@ export function apply(g: City, a: Action): City {
         store,
         stowing,
         log: logged(g.log, ...said),
+        since,
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
         // `march` because the arrival is a tick event, and the holding's
         // strength must be read at the moment they get there — not when they

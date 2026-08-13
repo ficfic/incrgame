@@ -128,6 +128,10 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // ★ THE STOREHOUSE'S HAMMER (2026-08-11), defaulted for older saves.
   // ★ HIRED CREWS (2026-08-11), defaulted for every older save.
   // ★ THE EVENT LOG (N2, 2026-08-11), defaulted for every older save.
+  // ★ THE VALLEY'S CLOCK (N3, 2026-08-11). Older saves start it at zero,
+  // which is generous — their camps have not swollen at all.
+  if (g.since === undefined) g.since = 0;
+  else if (!num(g.since, 0, 1e9)) return null;
   if (g.log === undefined || g.log === null) g.log = [];
   else if (!Array.isArray(g.log) || g.log.some((l: unknown) => typeof l !== 'string')) return null;
   else if (g.log.length > LOG_KEEP) g.log = g.log.slice(-LOG_KEEP);
