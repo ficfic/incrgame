@@ -24,7 +24,15 @@ given different questions, independently named the same #1 defect.
 | **Carts eat three goods** | Logs had ~10 seconds of lifetime demand in the entire game. |
 | **Growth stops at jobs** | Not bunks. A hut past the last slot bought a mouth and no hands. |
 
-### ⚠️ THE ONE DISAGREEMENT — production chains (charcoal, tools)
+### ✅ AND THE REST, shipped after the first pass
+
+| what | why |
+|---|---|
+| **The map grows between runs** | Four sites that are not on run one's map at all — two appear after one finished valley, two after two. The *scope* carry the genre review asked for, not just a harder ladder. ⚠️ Adding them silently broke the ending: `initial()` seeded every holding in the table, so a run-one valley held camps it could not see and `holdingsLeft` never reached zero. |
+| **The levy swings** | Every townsperson still standing adds to the blow. *"Spears is a stupid resource"* and *"no point in having more people"* were one bug: spears were the only way to hit harder, so the economy was a pipeline into one number. Ladder untouched at a levy of zero. |
+| **The Kiln** | A wood camp may saw its own planks. See the resolved disagreement below. |
+
+### ⚠️ THE DISAGREEMENT, AND HOW IT WAS SETTLED — production chains
 
 The economy agent wants them: logs → charcoal at a kiln, charcoal + planks →
 tools, tools as decaying upkeep. It argues routing is thin because only one
@@ -37,8 +45,15 @@ Adding nouns to a four-good economy with 40 worker slots is bookkeeping on a
 bottleneck that is not variety-shaped. Its verdict: revisit **after** the map
 stops ending, so each tier has new ground demanding it.
 
-**Not shipped, on purpose.** The stronger argument is the one holding our own
-arithmetic. Revisit when the map grows.
+**Settled by shipping what survives both arguments**: Against the Storm's real
+trick, which the economy agent itself named — **one good, two recipes**. The
+Kiln lets a wood camp saw its own planks instead of felling logs. Planks at the
+source need no road to a mill; a camp that saws is a camp not feeding the mill
+you already built. A routing decision, not a bookkeeping one, and **no fifth
+noun** — the good table is still stone, logs, planks, food.
+
+Charcoal and tools as separate goods remain unshipped, for the reviewer's
+reason: revisit when the bottleneck is variety-shaped rather than road-shaped.
 
 ### What the reviewer said to PROTECT in any redesign
 
@@ -51,15 +66,12 @@ arithmetic. Revisit when the map grows.
 
 ### Still open
 
-- **The map still ends.** The reviewer's real answer to "why play again" is a
-  *scope* carry: run two is a **bigger valley**, more sites, deeper country.
-  What shipped is a harder valley, which is the cheap half of that.
-- **Spears.** Still the hero's only ladder. The levy makes them no longer the
-  *only* military spend, but the owner called the resource itself stupid and
-  that has not been answered.
 - **Balance across all of this is unplayed.** `RUN_STEP`, `LEVY_HP`,
-  `MEND_SECS`, the twelve card effects and the new cart prices were all set by
-  reasoning. They want a controller in hand.
+  `MEND_SECS`, `KILN_SHARE`, the thirteen card effects, the four new holdings
+  beyond the ridge and the new cart prices were all set by reasoning. They want
+  a controller in hand. ⚠️ The four deep rungs in particular are **not
+  solver-tuned** the way 4–9 are — nobody can reach them on run one, and by run
+  two the hero carries blueprints and a levy the solver knows nothing about.
 
 ---
 
