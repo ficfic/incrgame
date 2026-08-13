@@ -16,7 +16,7 @@
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
-    BOONS, has,
+    BOONS, has, RUN_STEP,
     MEETS,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
@@ -916,7 +916,12 @@
       <h1>THE VALLEY IS YOURS</h1>
       <p class="note">{MARK.danger}0 goblin camps · {MARK.people}{Math.floor(game.pop)} living here
         · {MARK.time}{Math.round(game.since / 60)} minutes</p>
-      <p class="note">there is more country beyond the ridge</p>
+      <p class="note">there is more country beyond the ridge, and it is
+        {Math.round(RUN_STEP * 100)}% harder for every valley you have taken</p>
+      {#if game.boons.length > 0}
+        <p class="note">{MARK.people}you carry what you learned here:
+          {game.boons.map((id) => BOONS.find((b) => b.id === id)?.name ?? id).join(' · ')}</p>
+      {/if}
       <button class="deed row big" onclick={() => act({ type: 'found' })}>
         <span class="what">March on, found the next valley</span>
         <em>{MARK.hero}{Math.max(game.legacy.spears, game.hero.spears + 1)} carried

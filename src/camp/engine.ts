@@ -263,8 +263,15 @@ export const holdingsLeft = (g: City): number => Object.keys(g.goblins).length;
 export const swellOf = (g: City): number =>
   Math.min(SWELL_MAX, Math.max(0, g.since) / SWELL_SECS * SWELL_MAX);
 /** A holding's spawn strength today — its tuned strength, plus the swell. */
+/** ★★★ HOW MUCH STRONGER THE NEXT VALLEY IS — 2026-08-11. Each run you have
+ *  finished, the country beyond the ridge is a fifth harder. This is what
+ *  stops the carried blueprints from turning run three into a walkover: you
+ *  come back knowing more, to ground that needs it. The map does not have to
+ *  grow for the RUN to grow. */
+export const RUN_STEP = 0.2;
+export const runHard = (g: City): number => 1 + g.legacy.runs * RUN_STEP;
 export const spawnOf = (g: City, id: number): number =>
-  (GOBLINS[id]?.strength ?? 12) * (1 + swellOf(g));
+  (GOBLINS[id]?.strength ?? 12) * (1 + swellOf(g)) * runHard(g);
 /** What a holding regains a second — its own spawn strength times the
  *  rate, so the ladder's own numbers set the pace. */
 export const regenOf = (id: number): number =>
@@ -392,7 +399,12 @@ export interface City {
   hire: Record<number, number>;
   /** ★ WHAT OUTLIVES A RUN. The infrastructure does not; the veteran does —
    *  and what he carries out is the spears on his back. */
-  legacy: { runs: number; spears: number };
+  /** ★★★ AND WHAT ELSE OUTLIVES IT, 2026-08-11. `boons` are the blueprints
+   *  a WON run carries into the next valley — horizontal meta, never a
+   *  percentage: you begin the next one knowing things, not multiplying
+   *  things. And every run the country beyond the ridge is harder, so the
+   *  knowledge is spent rather than banked. */
+  legacy: { runs: number; spears: number; boons: string[] };
   /** ★ A FIGHT IN PROGRESS, or null — the owner's own screen: our square
    *  left, three goblin squares right. Turn-based: every round is yours.
    *  `sq` is the line — a BRUTE up front (the mash trap) and two RUNTS
@@ -506,7 +518,7 @@ export const initial = (): City => ({
   draft: null,
   levy: 0,
   hurt: 0,
-  legacy: { runs: 0, spears: 0 },
+  legacy: { runs: 0, spears: 0, boons: [] },
   fight: null,
 });
 
@@ -2548,9 +2560,18 @@ export function apply(g: City, a: Action): City {
         // whole of why anyone plays a second run.
         spears: Math.max(g.legacy.spears,
           won ? g.hero.spears + 1 : Math.floor(g.hero.spears / 2) + 1),
+        // ★★★ AND A WON RUN CARRIES WHAT IT LEARNED. Horizontal, never a
+        // multiplier: you start the next valley KNOWING things — a palisade,
+        // a volley, a road crew — which changes how it plays rather than how
+        // fast the same numbers climb. A lost run keeps what it had already
+        // banked and nothing new, so finishing is what buys knowledge.
+        boons: won
+          ? [...new Set([...g.legacy.boons, ...g.boons])]
+          : [...g.legacy.boons],
       };
       const next = initial();
       return { ...next, legacy,
+        boons: [...legacy.boons],
         hero: { ...next.hero, spears: legacy.spears },
         log: [won
           ? `The valley is yours. You march out to found another, ${legacy.spears} spears in hand.`

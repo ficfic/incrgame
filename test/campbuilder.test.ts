@@ -19,7 +19,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
   LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
   MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft,
-  BOONS, offer, guardNeed, cartCostOf,
+  BOONS, offer, guardNeed, cartCostOf, has, runHard, RUN_STEP,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -951,7 +951,7 @@ describe('★★★ WHAT THE TOWN MAKES IS A SPEAR', () => {
     const back = honour({ game: old, savedAt: 1 })!.game;
     expect(back.hero.spears).toBe(5);
     expect(heroHit(back)).toBe(7);
-    expect(back.legacy).toEqual({ runs: 2, spears: 3 });
+    expect(back.legacy).toEqual({ runs: 2, spears: 3, boons: [] });
     // And junk is still junk, whichever word it arrives under.
     expect(honour({ game: { ...old, hero: { hp: 10, arms: -1, part: 0 } },
       savedAt: 1 })).toBeNull();
@@ -1906,10 +1906,10 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
 
   it('★★★ THE VETERAN WALKS OUT, and the next run is never weaker', () => {
     const dead: City = { ...war(), lost: true,
-      hero: { hp: 3, spears: 7, part: 0, at: 0, trip: null }, legacy: { runs: 0, spears: 0 } };
+      hero: { hp: 3, spears: 7, part: 0, at: 0, trip: null }, legacy: { runs: 0, spears: 0, boons: [] } };
     const next = apply(dead, { type: 'found' });
     expect(next.lost).toBe(false);
-    expect(next.legacy).toEqual({ runs: 1, spears: 4 });
+    expect(next.legacy).toEqual({ runs: 1, spears: 4, boons: [] });
     expect(next.hero.spears).toBe(4);
     // Everything else is gone — that is what losing the valley means.
     expect(next.stacks).toEqual({});
@@ -1938,11 +1938,11 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
   it('the run fields hold at the save door', () => {
     expect(honour({ game: { ...initial(), taken: 3 }, savedAt: 1 })).not.toBeNull();
     expect(honour({ game: { ...initial(), taken: -1 }, savedAt: 1 })).toBeNull();
-    expect(honour({ game: { ...initial(), legacy: { runs: 1, spears: 2 } }, savedAt: 1 })).not.toBeNull();
+    expect(honour({ game: { ...initial(), legacy: { runs: 1, spears: 2, boons: [] } }, savedAt: 1 })).not.toBeNull();
     expect(honour({ game: { ...initial(), legacy: { runs: 1, spears: 1.5 } }, savedAt: 1 })).toBeNull();
     const { legacy: _, taken: __, lost: ___, ...old } = initial();
     const back = honour({ game: old as never, savedAt: 1 })!.game;
-    expect(back.legacy).toEqual({ runs: 0, spears: 0 });
+    expect(back.legacy).toEqual({ runs: 0, spears: 0, boons: [] });
     expect(back.taken).toBe(0);
   });
 });
@@ -3298,7 +3298,7 @@ describe('★★★ A WON VALLEY OPENS THE NEXT', () => {
   const done = (over: Partial<City> = {}): City => ({ ...initial(),
     goblins: {}, taken: 6, pop: 20, food: 500,
     hero: { hp: 12, spears: 7, part: 0, at: 0, trip: null },
-    legacy: { runs: 2, spears: 3 }, ...over });
+    legacy: { runs: 2, spears: 3, boons: [] }, ...over });
 
   it('★★★ founding is offered on a WIN, not only on a loss', () => {
     const g = done();
@@ -3420,5 +3420,58 @@ describe('★★★ THREE ON THE TABLE, TAKE ONE', () => {
     expect(back.draft).toBeNull();
     const { boons: _b, draft: _d, ...older } = won();
     expect(honour({ game: older as City, savedAt: 1 })!.game.boons).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ WHAT A RUN LEAVES BEHIND — 2026-08-11. Both research agents said the
+// same thing in different words: a run needs a reason to be played again, and
+// a stat carry is not one. The redditor's verdict was blunt — prestige here
+// was "a retry button with a participation trophy".
+// ---------------------------------------------------------------------------
+describe('★★★ THE NEXT VALLEY KNOWS WHAT YOU LEARNED', () => {
+  const done = (over: Partial<City> = {}): City => ({ ...initial(),
+    goblins: {}, taken: 6, pop: 20, food: 500, boons: ['volley', 'scouts'],
+    hero: { hp: 12, spears: 7, part: 0, at: 0, trip: null },
+    legacy: { runs: 1, spears: 3, boons: ['drover'] }, ...over });
+
+  it('★★★ A WON RUN CARRIES ITS BLUEPRINTS — horizontally, never a multiplier', () => {
+    const next = apply(done(), { type: 'found' });
+    expect(next.boons.sort()).toEqual(['drover', 'scouts', 'volley']);
+    expect(next.legacy.boons.sort()).toEqual(['drover', 'scouts', 'volley']);
+    // You begin the next valley KNOWING things, not multiplying things.
+    expect(has(next, 'volley')).toBe(true);
+  });
+
+  it('★★★ A LOST RUN KEEPS ONLY WHAT IT HAD ALREADY BANKED', () => {
+    // Finishing is what buys knowledge; being driven out does not.
+    const beaten: City = { ...done(), lost: true, goblins: { 4: 12 } };
+    const next = apply(beaten, { type: 'found' });
+    expect(next.boons).toEqual(['drover']);
+    expect(has(next, 'volley')).toBe(false);
+  });
+
+  it('★★★ AND THE COUNTRY BEYOND THE RIDGE IS HARDER EVERY TIME', () => {
+    // ⚠️ This is what stops carried blueprints turning run three into a
+    // walkover: you come back knowing more, to ground that needs it.
+    const first = initial();
+    const third: City = { ...initial(), legacy: { runs: 2, spears: 5, boons: [] } };
+    expect(runHard(first)).toBe(1);
+    expect(runHard(third)).toBeCloseTo(1 + 2 * RUN_STEP, 9);
+    expect(spawnOf(third, 9)).toBeGreaterThan(spawnOf(first, 9));
+    // ...and the ladder is untouched on run ONE, so the solver's tuning holds.
+    for (const id of [4, 5, 6, 7, 8, 9]) {
+      expect(spawnOf(first, id)).toBe(GOBLINS[id]!.strength);
+    }
+  });
+
+  it('★ the carried blueprints hold at the save door', () => {
+    const g = done();
+    expect(honour({ game: g, savedAt: 1 })!.game.legacy.boons).toEqual(['drover']);
+    const stale = { ...done(),
+      legacy: { runs: 1, spears: 3, boons: ['drover', 'nosuchcard'] } };
+    expect(honour({ game: stale, savedAt: 1 })!.game.legacy.boons).toEqual(['drover']);
+    const older = { ...done(), legacy: { runs: 1, spears: 3 } } as never;
+    expect(honour({ game: older, savedAt: 1 })!.game.legacy.boons).toEqual([]);
   });
 });

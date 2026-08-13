@@ -136,6 +136,14 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // ★ THE BLUEPRINTS (2026-08-11), defaulted for every older save. An id the
   // deck does not know is dropped rather than refused — a deck that shrinks
   // between versions must not cost anybody their run.
+  // ★ THE BLUEPRINTS A WON RUN CARRIED (2026-08-11), same drop-not-refuse
+  // rule as the town's own.
+  if (g.legacy !== undefined && g.legacy !== null) {
+    if (g.legacy.boons === undefined || g.legacy.boons === null) g.legacy.boons = [];
+    else if (!Array.isArray(g.legacy.boons)) return null;
+    else g.legacy.boons = g.legacy.boons.filter((b: unknown) =>
+      typeof b === 'string' && BOONS.some((x) => x.id === b));
+  }
   if (g.boons === undefined || g.boons === null) g.boons = [];
   else if (!Array.isArray(g.boons)) return null;
   else g.boons = g.boons.filter((b: unknown) =>
