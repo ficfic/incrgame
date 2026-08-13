@@ -12,6 +12,46 @@ I'm not able to stop starving. There is no way."*
 
 ---
 
+## ✅ ALL SIXTEEN SHIPPED, 2026-08-11
+
+| | item | what shipped |
+|---|---|---|
+| F0 | starvation dead end | growth wants a **surplus or a stocked larder**, so a fieldless town stops taking settlers before the larder empties; and a deep famine **costs people**, down to the wild's table — the way out that did not exist |
+| F1 | "hire hands" | **cut**, one day after it shipped |
+| F2 | roads read black | `#5c432c`, after retiring the `ward/route` contrast pair for an ink nothing draws |
+| F3 | the +1 | floats at the **counter that changed**; the board's own float is gone |
+| F4 | labels follow | drawn only while the **dot is on screen**, and the slide is capped at the name's width |
+| F5 | "already raising" | "already building" |
+| F6 | "5 camps left" | counts what the **fog has lifted on** |
+| F7 | one-way carriers | both directions kept apart — **two files of porters**, passing |
+| F8 | hero can't eat | **Feed the hero** (6 food → 4 health), and healing 15s → 8s |
+| F9 | Goblin Knoll's panel | **one fact per row** |
+| F10 | busy board | the ward ring, the board float, and the rates in map labels all gone |
+| N1 | tabs | **Place · People · Hero · Log**, sticky; a fight outranks them entirely |
+| N2 | event log | 60 lines — raids, gates held, ground taken, ambushes, people leaving |
+| N3 | no goal | **the camps swell** — every holding climbs toward double over 15 minutes, war or no war |
+| N4 | meta line | says what the camp can see, not what the rules are |
+| N5 | CYOA events | four meetings, two real ways each, **never mandatory** |
+| N6 | conveyor belts | **porters wear their cargo** — stone grey, logs amber, planks tan, food green |
+
+**Thirteen sabotages**, each restored from a byte-exact backup. Four checks were
+found vacuous and rewritten: the growth test (the old rule's own clamp hid it —
+three attempts), the swell cap (passed at ×9, a valley nobody could take), the
+wound check (`☠\d\b` only ever matched one digit), and the F7 test twice (a mesh
+let logs bypass the camp; auto-staffing left the mill empty).
+
+**⚠️ Two real bugs the browser probe caught that types could not:** the counter
+float never fired, because its effect read and wrote the same reactive list —
+Svelte answers a self-dependency by not running the effect; and the resource
+row had no class, so styling and probe both selected nothing.
+
+**Balance to re-check in play:** the swell (`SWELL_SECS` 900, `SWELL_MAX` 1.0),
+`GOBLIN_REGEN` 0.0075 — raised to keep the grind gate closed against faster
+healing — and whether one works per site plus `CREW` 4 leaves people idle in a
+grown town.
+
+---
+
 # PART ONE — FIXES
 
 ### F0. ⚠️ THE STARVATION DEAD END — MINE, AND IT BLOCKS PLAY
