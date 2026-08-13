@@ -17,6 +17,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
   LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
+  MEETS, meetFor,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -3039,5 +3040,61 @@ describe('★★★ A ROAD THAT CARRIES BOTH WAYS SAYS SO', () => {
     expect(way).toBeDefined();
     expect(Math.min(way!.ab, way!.ba)).toBe(0);
     expect(Math.max(way!.ab, way!.ba)).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ N5 — WHAT THE HERO MEETS, 2026-08-11. The owner: *"I feel like we would
+// benefit from choose your own adventure events."*
+// ---------------------------------------------------------------------------
+describe('★★★ A CHOICE ON THE ROAD', () => {
+  const out = (g: City): City => tick(apply(g, { type: 'forage' }), FORAGE_SECS + 1);
+
+  it('★★★ a foray turns something up, and it offers two real ways', () => {
+    let g: City = { ...initial(), food: 99 };
+    g = out(g);                       // foray 1 → a meeting
+    expect(g.meet).not.toBeNull();
+    const m = MEETS[g.meet!]!;
+    expect(m.ways).toHaveLength(2);
+    // ⚠️ BOTH WAYS ARE WORTH HAVING. A choice where one arm is strictly worse
+    // is not a choice, it is a trap with two buttons.
+    for (const w of m.ways) {
+      const gain = Object.values(w.loot ?? {}).reduce((n, v) => n + v, 0)
+        + (w.pop ?? 0) * 4;
+      expect(gain).toBeGreaterThan(0);
+    }
+  });
+
+  it('★★★ IT NEVER NAGS: the foray pays anyway, and the meeting waits', () => {
+    // `CLAUDE.md`: HITL review is never mandatory — an idle game that demands
+    // babysitting isn't one. The loot lands whether or not you ever answer.
+    const g = out({ ...initial(), food: 99 });
+    expect(g.stone).toBeGreaterThan(initial().stone);
+    // ...and it is still there an hour later, blocking nothing.
+    const later = catchUp(g, 3600);
+    expect(later.meet).toBe(g.meet);
+    expect(unforageable(later)).toBeNull();
+  });
+
+  it('★★ answering pays what it says and writes it down', () => {
+    const g = out({ ...initial(), food: 99 });
+    const m = MEETS[g.meet!]!;
+    const took = apply(g, { type: 'answer', way: 0 });
+    expect(took.meet).toBeNull();
+    expect(took.log.at(-1)).toBe(m.ways[0].said);
+    const want = m.ways[0].loot ?? {};
+    for (const [k, v] of Object.entries(want)) {
+      if (v > 0) expect(took[k as Good]).toBeGreaterThan(g[k as Good]);
+    }
+    expect(took.pop).toBe(g.pop + (m.ways[0].pop ?? 0));
+  });
+
+  it('★ answering nothing is refused, and the save door keeps the meeting', () => {
+    const quiet = initial();
+    expect(apply(quiet, { type: 'answer', way: 0 })).toBe(quiet);
+    expect(honour({ game: { ...initial(), meet: 2 }, savedAt: 1 })!.game.meet).toBe(2);
+    expect(honour({ game: { ...initial(), meet: 999 }, savedAt: 1 })).toBeNull();
+    const { meet: _drop, ...older } = initial();
+    expect(honour({ game: older as City, savedAt: 1 })!.game.meet).toBeNull();
   });
 });

@@ -130,6 +130,9 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // ★ THE EVENT LOG (N2, 2026-08-11), defaulted for every older save.
   // ★ THE VALLEY'S CLOCK (N3, 2026-08-11). Older saves start it at zero,
   // which is generous — their camps have not swollen at all.
+  // ★ WHAT THE HERO MET (N5, 2026-08-11), defaulted for older saves.
+  if (g.meet === undefined) g.meet = null;
+  else if (g.meet !== null && !whole(g.meet, 0, 99)) return null;
   if (g.since === undefined) g.since = 0;
   else if (!num(g.since, 0, 1e9)) return null;
   if (g.log === undefined || g.log === null) g.log = [];

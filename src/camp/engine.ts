@@ -355,6 +355,9 @@ export interface City {
    *  log."* Newest last, capped at `LOG_KEEP`. Strings, because they are
    *  written where the event happens and read nowhere else. */
   log: string[];
+  /** ★★★ WHAT THE HERO IS STANDING IN FRONT OF — N5. An index into `MEETS`,
+   *  or null. It waits indefinitely and blocks nothing. */
+  meet: number | null;
   /** ★★★ SECONDS THE VALLEY HAS STOOD — N3, 2026-08-11. The camps swell on
    *  this clock, which is what makes waiting cost something. */
   since: number;
@@ -466,6 +469,7 @@ export const initial = (): City => ({
   hire: {},
   log: [],
   since: 0,
+  meet: null,
   legacy: { runs: 0, spears: 0 },
   fight: null,
 });
@@ -826,6 +830,63 @@ export const FORAYS: readonly Foray[] = [
   { name: 'An old cairn', loot: { stone: 3, logs: 2 } },
   { name: 'A goblin cache', loot: { stone: 2, food: 3 } },
 ];
+/** ★★★ N5 — WHAT THE HERO MEETS OUT THERE, 2026-08-11. The owner: *"I feel
+ *  like we would benefit from choose your own adventure events."*
+ *
+ *  ⚠️ NEVER AN ATTENTION TAX, which is the rule these had to be built around
+ *  (`CLAUDE.md`: *"HITL review is never mandatory… an idle game that demands
+ *  babysitting isn't one"*). The foray still pays its own loot the moment it
+ *  lands, exactly as before. A meeting is EXTRA, it waits as long as you
+ *  like, and ignoring it costs nothing but the thing you did not take. Both
+ *  ways are worth having; neither is a trap.
+ *
+ *  ★ Player-facing prose: machine-drafted, owner-edited (`CLAUDE.md`). These
+ *  are drafts and are meant to be rewritten. */
+export interface Way { take: string; loot?: Partial<Record<Good, number>>;
+  hp?: number; pop?: number; said: string }
+export interface Meet { name: string; text: string; ways: readonly [Way, Way] }
+export const MEETS: readonly Meet[] = [
+  { name: 'A cold camp',
+    text: 'Someone slept here a week ago and left in a hurry. There is a '
+      + 'good axe under the bracken, and a track heading up the scree.',
+    ways: [
+      { take: 'Take the axe', loot: { logs: 8 },
+        said: 'The hero came home with a stranger\u2019s axe and a full load of wood.' },
+      { take: 'Follow the track', loot: { stone: 5 }, hp: -1,
+        said: 'The track ran out at a rockfall. The hero came back scraped, and carrying.' },
+    ] },
+  { name: 'Two goblins arguing',
+    text: 'They have not seen the hero. One of them is sitting on a sack of '
+      + 'grain, and losing the argument.',
+    ways: [
+      { take: 'Wait them out', loot: { food: 10 },
+        said: 'The losing goblin stormed off. The winner followed. The sack did not.' },
+      { take: 'Rush them', loot: { food: 6, stone: 4 }, hp: -3,
+        said: 'Two on one, and the hero took the worst of it \u2014 but not the grain.' },
+    ] },
+  { name: 'A family on the road',
+    text: 'Three of them, walking out of the valley with what they can carry. '
+      + 'They ask whether the camp is real.',
+    ways: [
+      { take: 'Say yes', pop: 2,
+        said: 'Two of them turned back with the hero. The third kept walking.' },
+      { take: 'Give them food', loot: { food: -6 }, pop: 3,
+        said: 'They ate, and then all three followed the hero home.' },
+    ] },
+  { name: 'The old mill race',
+    text: 'A stone channel, silted up, older than anything the goblins built. '
+      + 'It would take a day to clear \u2014 or an hour to strip for stone.',
+    ways: [
+      { take: 'Clear it', loot: { food: 4, logs: 4 },
+        said: 'Water runs in the old channel again. The hero came back wet and pleased.' },
+      { take: 'Strip it', loot: { stone: 12 },
+        said: 'The old channel is a heap of good cut stone now. It will not run again.' },
+    ] },
+];
+/** Which meeting a foray turns up, or null — every other one. */
+export const meetFor = (forays: number): number | null =>
+  forays % 2 === 1 ? Math.floor(forays / 2) % MEETS.length : null;
+
 /** Which encounter the next foray meets. */
 export const nextForay = (g: City): Foray => FORAYS[g.forays % FORAYS.length]!;
 /** ★★★ IS THE HERO STANDING WATCH? Home, whole enough to fight, and not
@@ -1576,6 +1637,8 @@ export type Action =
   | { type: 'found' }
   /** Send the hero out for whatever the country will give up. */
   | { type: 'forage' }
+  /** ★ Answer what the hero met on a foray — N5, 2026-08-11. */
+  | { type: 'answer'; way: 0 | 1 }
   /** ★ Spend food on the hero's health, outside a fight (2026-08-11). */
   | { type: 'eat' }
   /** ★ Hire another crew onto a site's works (2026-08-11). */
@@ -1744,6 +1807,7 @@ export function apply(g: City, a: Action): City {
       // `docs/BRIEF.md` holds: you come back to a harder valley, never a
       // poorer one.
       const since = g.since + s;
+      let meet = g.meet;
       const f = flow(g);
       // The mills saw what arrives plus what is piled — integrated over the
       // tick, so an away-tick cannot saw planks from a pile that ran dry.
@@ -1938,7 +2002,15 @@ export function apply(g: City, a: Action): City {
       if (forage) {
         const left = forage.left - s;
         if (left > 0) forage = { ...forage, left };
-        else { loot = nextForay(g).loot; forays = g.forays + 1; forage = null; }
+        else {
+          loot = nextForay(g).loot;
+          forays = g.forays + 1;
+          forage = null;
+          said.push(`The hero came back from ${nextForay(g).name.toLowerCase()}.`);
+          // ★ N5: every other foray turns something up. It waits.
+          const m = meetFor(forays);
+          if (m !== null && g.meet === null) meet = m;
+        }
       }
       let lost: boolean = g.lost;
       // ⚠️ ONE HERO, ONE GATE. Read once before any raid resolves, and SPENT
@@ -2058,6 +2130,7 @@ export function apply(g: City, a: Action): City {
         stowing,
         log: logged(g.log, ...said),
         since,
+        meet,
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
         // `march` because the arrival is a tick event, and the holding's
         // strength must be read at the moment they get there — not when they
@@ -2209,6 +2282,22 @@ export function apply(g: City, a: Action): City {
       const guard = { ...g.guard };
       if (next <= 0) delete guard[a.id]; else guard[a.id] = next;
       return { ...g, guard };
+    }
+
+    case 'answer': {
+      const m = g.meet === null ? null : MEETS[g.meet];
+      const way = m?.ways[a.way === 1 ? 1 : 0];
+      if (!m || !way) return g;
+      let out: City = { ...g, meet: null,
+        log: logged(g.log, way.said),
+        pop: g.pop + (way.pop ?? 0),
+        hero: { ...g.hero,
+          hp: Math.max(1, Math.min(heroMax(g), g.hero.hp + (way.hp ?? 0))) } };
+      for (const [k, v] of Object.entries(way.loot ?? {})) {
+        const good = k as Good;
+        out = { ...out, [good]: Math.max(0, Math.min(roomOf(out), out[good] + v)) };
+      }
+      return out;
     }
 
     case 'eat': {

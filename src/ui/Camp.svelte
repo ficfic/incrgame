@@ -15,6 +15,7 @@
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
+    MEETS,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
@@ -1149,6 +1150,35 @@
         </div>
       {/if}
 
+      {#if !game.fight && game.meet !== null}
+        <!-- ★★★ N5, 2026-08-11 — the owner: *"I feel like we would benefit
+             from choose your own adventure events."* It sits above the tabs
+             because it is the one thing on screen that is asking you
+             something. ⚠️ AND IT NEVER NAGS: the foray already paid its own
+             loot, this waits as long as you like, and ignoring it costs
+             nothing but the thing you did not take (`CLAUDE.md` — HITL is
+             never mandatory). -->
+        {@const m = MEETS[game.meet]}
+        {#if m}
+          <div class="meet">
+            <h2>{m.name}</h2>
+            <p class="tale">{m.text}</p>
+            <div class="dock">
+              {#each m.ways as w, i (i)}
+                <button class="deed" onclick={() => act({ type: 'answer', way: i === 1 ? 1 : 0 })}>
+                  {w.take}
+                  <em>{[
+                    ...Object.entries(w.loot ?? {}).map(([k, v]) =>
+                      `${(v as number) > 0 ? '+' : ''}${v as number} ${k}`),
+                    ...(w.pop ? [`${w.pop > 0 ? '+' : ''}${w.pop} people`] : []),
+                    ...(w.hp ? [`${w.hp} hero`] : []),
+                  ].join(' · ')}</em>
+                </button>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      {/if}
       {#if !game.fight && tab === 'people'}
         <!-- ★ PEOPLE: where everyone is, and the two jobs that are not
              "stand at a workface" — the watch, and the walk. -->
@@ -1345,6 +1375,11 @@
   .tab.on { background: #1f7a3f; border-color: #1f7a3f; color: #fdfaf2; }
   .tab i { font-style: normal; font-size: 11px; opacity: 0.75;
     margin-left: 4px; }
+  /* ★ N5: the meeting reads as a page, not as another row of numbers. */
+  .meet { background: #f4eee1; border: 1px solid #e2d9c3; border-radius: 10px;
+    padding: 10px 12px; margin: 0 0 10px; }
+  .meet h2 { margin: 0 0 4px; }
+  .tale { margin: 0 0 8px; color: #4a4030; line-height: 1.45; }
   .logline { border-left: 3px solid #e2d9c3; padding-left: 8px;
     margin: 5px 0; }
   /* ★ F3: the +1 rises out of the counter it belongs to. */
