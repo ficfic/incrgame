@@ -18,7 +18,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
   LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
-  MEETS, meetFor,
+  MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -633,6 +633,9 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     const g = armed(1);
     expect(g.fight).toEqual({ site: 4, target: 0, round: 0, packs: RATION_PACK,
       blow: null,                              // nothing ordered yet
+      // ★ OUR OWN LINE, 2026-08-11 — empty here because this fixture levies
+      // nobody. A levy square is a townsperson standing in front of the hero.
+      us: [],
       sq: [{ hp: 6, poke: 1, kind: 'brute' },
         { hp: 3, poke: 2, kind: 'runt' }, { hp: 3, poke: 2, kind: 'runt' }] });
     // The squares carry the whole strength; bled ground fields less wall.
@@ -694,7 +697,7 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     const mid: City = { ...initial(), food: 99,
       hero: { hp: 8, spears: 1, part: 0, at: 0, trip: null },
       fight: { site: 4, sq: lineOf(12, 2, 3), target: 0, round: 0, packs: 1,
-        blow: null } };
+        blow: null, us: [] } };
     const g = beat(mid, { type: 'ration' });
     expect(g.food).toBe(99 - RATION_FOOD);
     // 8+4 caps at the max of 10 — then the full answer of 5 lands.
@@ -815,7 +818,7 @@ describe('★★★ A BLOW TAKES TIME — ordered, clocked, landed', () => {
   const engaged = (over: Partial<City> = {}): City => ({
     ...initial(), hero: { hp: 10, spears: 1, part: 0, at: 0, trip: null }, ...over,
     fight: { site: 4, sq: lineOf(12, 2, 3), target: 0, round: 0,
-      packs: RATION_PACK, blow: null } });
+      packs: RATION_PACK, blow: null, us: [] } });
 
   it('★★★ ORDERED, NOT INSTANT: nothing moves until the tick lands it', () => {
     const swung = apply(engaged(), { type: 'strike' });
@@ -3203,5 +3206,82 @@ describe('★★ A HAND-SET CREW KEEPS ITS HIRES', () => {
     for (let i = 0; i < 40; i++) x = apply(x, { type: 'pin', id: 1, d: 1 });
     expect(x.crew[1]).toBe(CREW * 3);
     expect(flow(x).hands.get(1)).toBe(CREW * 3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE LEVY — 2026-08-11. The owner left the fork open: *"maybe we get rid
+// of hero entirely and have just citizen militia squads… alternatively we
+// keep the hero, maybe we'd be able to do some party based stuff too."*
+// Hero AND party, drawn from the town — the only shape where POPULATION is a
+// military input at the point of use.
+// ---------------------------------------------------------------------------
+describe('★★★ TOWNSFOLK MARCH WITH THE HERO', () => {
+  const town = (over: Partial<City> = {}): City => ({ ...initial(),
+    pop: 24, food: 9e5, stacks: { 0: 6, 1: 1 },
+    paths: { [pathKey(0, 1)]: 1 },
+    hero: { hp: 30, spears: 2, part: 0, at: 4, trip: null }, ...over });
+
+  it('★★★ THE LEVY STANDS IN FRONT — the answer falls on them first', () => {
+    const alone = apply(town(), { type: 'assail', id: 4 });
+    const withUs = apply(town({ levy: 3 }), { type: 'assail', id: 4 });
+    expect(alone.fight!.us).toHaveLength(0);
+    expect(withUs.fight!.us).toHaveLength(3);
+    // One full round each. The hero behind three bodies takes nothing.
+    const beat = (g: City): City => tick(apply(g, { type: 'strike' }), BLOW_SECS + 0.01);
+    expect(beat(alone).hero.hp).toBeLessThan(alone.hero.hp);
+    expect(beat(withUs).hero.hp).toBe(withUs.hero.hp);
+    expect(beat(withUs).fight!.us[0]!.hp).toBeLessThan(LEVY_HP);
+  });
+
+  it('★★★ AND IT COSTS THE TOWN ITS HANDS, which is the whole point', () => {
+    // ⚠️ THE POOL MUST BIND. With more people than working slots the levy
+    // comes out of the idle and nothing changes — the same trap the posted
+    // watch's own test fell into. Six people, eight slots.
+    const tight = (over: Partial<City> = {}): City => town({
+      pop: 6, stacks: { 0: 2, 1: 1, 2: 1 },
+      paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1 }, ...over });
+    const home = tight();
+    const out = apply(tight({ levy: 4 }), { type: 'assail', id: 4 });
+    const hands = (g: City): number =>
+      [...flow(g).hands.values()].reduce((n, h) => n + h, 0);
+    expect(hands(out)).toBeLessThan(hands(home));
+  });
+
+  it('★★★ THEY DO NOT DIE — they come home HURT, and mend', () => {
+    // ⚠️ No roster, no names, no graveyard: the cost of a war is measured in
+    // hands, which is the currency the town already feels.
+    let g = apply(town({ levy: 2 }), { type: 'assail', id: 4 });
+    for (let i = 0; i < 20 && g.fight && g.hurt === 0; i++) {
+      g = tick(apply(g, { type: 'strike' }), BLOW_SECS + 0.01);
+    }
+    expect(g.hurt).toBeGreaterThan(0);
+    const wounded = g.hurt;
+    // They are off the workfaces while they mend...
+    expect(flow(g).hands.get(1) ?? 0).toBeLessThanOrEqual(CREW);
+    // ...and back afterwards. The war costs TIME, not lives.
+    expect(tick(g, MEND_SECS * 3).hurt).toBe(0);
+    expect(tick(g, MEND_SECS * wounded * 0.4).hurt).toBeLessThan(wounded);
+  });
+
+  it('★★ you cannot levy people you do not have', () => {
+    const small = town({ pop: 4, stacks: { 0: 1 }, levy: 99 });
+    expect(levied(small).length).toBeLessThanOrEqual(levyCap(small));
+    expect(levied(small).length).toBeLessThanOrEqual(Math.floor(housed(small)));
+    // The posted watch and the already-hurt are not available either.
+    const busy = town({ levy: 99, guard: { 1: 3 }, hurt: 2 });
+    expect(levyCap(busy)).toBe(Math.max(0,
+      Math.floor(housed(busy)) - 3 - 2));
+  });
+
+  it('★ the levy holds at the save door, and an older fight has none', () => {
+    expect(honour({ game: { ...town(), levy: 3, hurt: 2 }, savedAt: 1 })!
+      .game.levy).toBe(3);
+    expect(honour({ game: { ...town(), levy: -1 }, savedAt: 1 })).toBeNull();
+    // ⚠️ A save written MID-FIGHT before the levy existed has no line of its
+    // own; it loads as an empty one and the hero takes the answer as always.
+    const mid = apply(town(), { type: 'assail', id: 4 });
+    const older = { ...mid, fight: { ...mid.fight!, us: undefined } } as never;
+    expect(honour({ game: older, savedAt: 1 })!.game.fight!.us).toEqual([]);
   });
 });

@@ -9,7 +9,7 @@
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE, SWEEP_SHARE,
-    guardsAt, guardsTotal, GUARD_STOP, unhireable, hireCost,
+    guardsAt, guardsTotal, GUARD_STOP, unhireable, hireCost, levyCap,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
     unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS, swellOf, spawnOf,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
@@ -1106,6 +1106,14 @@
             <span>hero</span>
             <em>hits {heroHit(game)}</em>
           </div>
+          <!-- ★ OUR LINE: the levy stands between the hero and the answer. -->
+          {#each fi.us ?? [] as u, i (i)}
+            <div class="sq us levy" class:down={u.hp <= 0}>
+              <b>{Math.ceil(u.hp)}</b>
+              <span>levy</span>
+              <em>{u.hp > 0 ? 'shields' : 'carried'}</em>
+            </div>
+          {/each}
           <span class="vs" class:hurt={wind}>{wind ? '⚡' : 'vs'}</span>
           {#each fi.sq as q, i (i)}
             <button class="sq them" class:down={q.hp <= 0}
@@ -1242,6 +1250,23 @@
           : `standing at ${SITE.get(game.hero.at)?.name ?? ''}`}</p>
         {#if game.forage}
           <p class="note">out foraging · {MARK.time}{Math.ceil(forageLeft(game) ?? 0)}s</p>
+        {/if}
+        <!-- ★★★ THE LEVY, 2026-08-11 — the owner's open fork, answered as
+             hero AND party. Townsfolk march in front of the hero and take the
+             answer first, so bringing bodies is what keeps the hero standing
+             on round nine. They are the same people the works are staffed
+             from: this is the third buyer of a person, after the workface and
+             the watch, and it is why population is finally worth having. -->
+        <div class="crew">
+          <button onclick={() => act({ type: 'levy', by: -1 })}
+            disabled={game.levy <= 0}>−</button>
+          <span>{game.levy} march with the hero · {levyCap(game)} spare</span>
+          <button onclick={() => act({ type: 'levy', by: 1 })}
+            disabled={game.levy >= levyCap(game)}>+</button>
+        </div>
+        {#if game.hurt >= 1}
+          <p class="note">{MARK.bite}{Math.floor(game.hurt)} mending — off the
+            workfaces until they are well</p>
         {/if}
         <div class="dock">
           {#each heroDeeds() as d (d.label)}
@@ -1415,6 +1440,8 @@
   .tab i { font-style: normal; font-size: 11px; opacity: 0.75;
     margin-left: 4px; }
   /* ★ N5: the meeting reads as a page, not as another row of numbers. */
+  .sq.levy { opacity: 0.92; }
+  .sq.levy.down { opacity: 0.45; }
   .meet { background: #f4eee1; border: 1px solid #e2d9c3; border-radius: 10px;
     padding: 10px 12px; margin: 0 0 10px; }
   .meet h2 { margin: 0 0 4px; }

@@ -367,6 +367,12 @@ export interface City {
    *  log."* Newest last, capped at `LOG_KEEP`. Strings, because they are
    *  written where the event happens and read nowhere else. */
   log: string[];
+  /** ★★★ HOW MANY TOWNSFOLK MARCH WITH THE HERO — 2026-08-11. Chosen before
+   *  you go, taken out of the working pool while they are away. */
+  levy: number;
+  /** ★★★ PEOPLE RECOVERING FROM A FIGHT. They are alive, they are counted in
+   *  `pop`, and they cannot work until they mend. */
+  hurt: number;
   /** ★★★ WHAT THE HERO IS STANDING IN FRONT OF — N5. An index into `MEETS`,
    *  or null. It waits indefinitely and blocks nothing. */
   meet: number | null;
@@ -391,6 +397,12 @@ export interface City {
     round: number;
     /** Rations left in the pack this sortie. */
     packs: number;
+    /** ★★★ THE LEVY — 2026-08-11. Townsfolk who marched out with the hero,
+     *  each one a square of OUR line standing in front of them. They are the
+     *  same people the works are staffed from, so a levy is production spent
+     *  as war. Health, not names: a levy square that falls is a person who
+     *  comes home HURT, not a person who dies. */
+    us: Array<{ hp: number }>;
     /** ★★★ THE ORDER IN FLIGHT — the act you called and the seconds before
      *  it lands, or null when the hero is waiting on you. EXACTLY the
      *  `{ left, secs }` shape `laying` and `raising` wear, because this
@@ -482,6 +494,8 @@ export const initial = (): City => ({
   log: [],
   since: 0,
   meet: null,
+  levy: 0,
+  hurt: 0,
   legacy: { runs: 0, spears: 0 },
   fight: null,
 });
@@ -1082,6 +1096,32 @@ export const GROW_STORE = 0.25;
  *  mouths. A famine now COSTS PEOPLE, which is grim and self-correcting: the
  *  town falls until the fields it has can feed it, and then it recovers. */
 export const LEAVE_SECS = 20;
+/** ★★★ THE LEVY, 2026-08-11 — the fork the owner left open: *"maybe we get
+ *  rid of hero entirely and have just citizen militia squads… alternatively
+ *  we keep the hero, maybe we'd be able to do some party based stuff too."*
+ *
+ *  Hero AND party, drawn from the town. It is the only shape where POPULATION
+ *  is a military input at the point of use: a fight becomes "how many bodies
+ *  did I bring, and can the town afford them being away from the workfaces?"
+ *  Militia-only would have thrown away the map's whole spine — `hero.at`, the
+ *  march, the watch, the run-to-run legacy — and rebuilt it as an
+ *  abstraction. Hero-only is what we had, with people economically inert.
+ *
+ *  ⚠️ THEY DO NOT DIE. A levy square that falls is a person who comes home
+ *  HURT: out of the workforce for `MEND_SECS`, then back. Permanent death
+ *  wants names, a roster and a graveyard screen; wounded-and-returns is the
+ *  same decision with none of that, and it keeps the cost in the currency
+ *  the town already feels — hands. */
+export const LEVY_HP = 5;
+/** What one levied townsperson can take before they are carried home. */
+export const MEND_SECS = 45;
+/** Seconds a hurt person spends out of the workforce. */
+/** The squares the town's levy fields — one per townsperson who marched. */
+export const levied = (g: City): Array<{ hp: number }> =>
+  Array.from({ length: Math.max(0, Math.min(g.levy, levyCap(g))) },
+    () => ({ hp: LEVY_HP }));
+export const levyCap = (g: City): number =>
+  Math.max(0, Math.floor(housed(g) - guardsTotal(g) - g.hurt));
 
 /** ★ First copy's price, IN THE MATERIAL THAT MAKES SENSE — the owner:
  *  *"it's weird that i need stone to build lumberjack camp."* Huts are
@@ -1366,7 +1406,13 @@ export function flow(g: City): Flow {
   // turn up. They still eat: `hunger()` reads the whole population.
   // ★ AND THE POSTED ARE NOT AVAILABLE (2026-08-11). Standing watch is a job;
   // the valley that guards itself makes less, which is the entire trade.
-  let pool = Math.max(0, housed(g) - guardsTotal(g));
+  // ★★★ AND NOR ARE THE LEVIED OR THE HURT (2026-08-11). Standing watch was
+  // already a job; marching out is another, and mending is a third. This is
+  // the line that makes a fight cost the ECONOMY rather than just the hero:
+  // the bodies you took to the war are bodies not at a workface, and the
+  // ones carried home stay off it until they mend.
+  let pool = Math.max(0, housed(g) - guardsTotal(g)
+    - (g.fight ? (g.fight.us ?? []).length : 0) - Math.floor(g.hurt));
   const autos: number[] = [];
   for (const id of worked) {
     if (g.crew[id] !== undefined) {
@@ -1725,6 +1771,8 @@ export type Action =
   | { type: 'answer'; way: 0 | 1 }
   /** ★ Spend food on the hero's health, outside a fight (2026-08-11). */
   | { type: 'eat' }
+  /** ★ Set how many townsfolk march with the hero (2026-08-11). */
+  | { type: 'levy'; by: number }
   /** ★ Hire another crew onto a site's works (2026-08-11). */
   | { type: 'hire'; id: number }
   /** ★ Post or unpost a defender at a site (2026-08-11). */
@@ -1767,17 +1815,51 @@ export function answerBite(g: City): number {
 
 function answered(g: City, f: NonNullable<City['fight']>,
   blocked: boolean): City {
-  const bite = blocked ? 0
+  let bite = blocked ? 0
     : f.sq.reduce((n, q) => n + (q.hp > 0 ? q.poke : 0), 0)
       * (windup(f.round) ? 2 : 1);
+
+  // ★★★ THE LEVY STANDS IN FRONT — 2026-08-11, and this is the whole of the
+  // rank mechanic. The answer falls on the townsfolk first, in order, and
+  // only reaches the hero once every one of them is down. That is what makes
+  // bringing bodies a real decision rather than a damage bonus: they are not
+  // extra swings, they are the reason the hero is still standing on round
+  // nine. (Darkest Dungeon's ranks, reduced to the one rule a phone can
+  // draw.)
+  //
+  // ⚠️ THEY DO NOT DIE. A square that falls is somebody carried home hurt —
+  // out of the workforce for `MEND_SECS`, then back at a workface. The cost
+  // of a war is measured in hands, which is the currency the town already
+  // feels, and it needs no roster, no names and no graveyard.
+  // ⚠️ `?? []` — a save written mid-fight before the levy existed has no
+  // line of its own, and so does every fixture that builds a fight by hand.
+  // An undefined levy is an empty one: the hero takes the answer, exactly as
+  // they always did.
+  const us = (f.us ?? []).map((u) => ({ ...u }));
+  let felled = 0;
+  for (const u of us) {
+    if (bite <= 0) break;
+    if (u.hp <= 0) continue;
+    const took = Math.min(u.hp, bite);
+    u.hp -= took;
+    bite -= took;
+    if (u.hp <= 0) felled += 1;
+  }
+  const hurt = g.hurt + felled;
+
   const hp = g.hero.hp - bite;
   if (hp <= 0) {
     const left = f.sq.reduce((n, q) => n + Math.max(0, q.hp), 0);
+    // ⚠️ THE LEVY COMES HOME TOO when the hero goes down — hurt, not lost.
+    const home = us.filter((u) => u.hp > 0).length;
     return { ...g, goblins: { ...g.goblins, [f.site]: left },
-      hero: { ...g.hero, hp: 0 }, fight: null };
+      hero: { ...g.hero, hp: 0 }, fight: null, hurt,
+      log: logged(g.log, felled > 0
+        ? `The hero fell at ${SITE.get(f.site)?.name ?? 'the fight'}. ${felled} came home hurt, ${home} unhurt.`
+        : `The hero fell at ${SITE.get(f.site)?.name ?? 'the fight'}.`) };
   }
-  return { ...g, hero: { ...g.hero, hp },
-    fight: { ...f, round: f.round + 1 } };
+  return { ...g, hero: { ...g.hero, hp }, hurt,
+    fight: { ...f, us, round: f.round + 1 } };
 }
 
 /** ★★ ORDER A BLOW — the act is called now and lands BLOW_SECS later on the
@@ -1892,6 +1974,14 @@ export function apply(g: City, a: Action): City {
       // poorer one.
       const since = g.since + s;
       let meet = g.meet;
+      // ★ THE HURT MEND. A whole person back at work every `MEND_SECS`, so a
+      // hard fight is a dent in production that fills itself in — the war's
+      // cost is time, not lives.
+      let hurt = g.hurt;
+      if (hurt > 0) {
+        hurt = Math.max(0, hurt - s / MEND_SECS);
+        if (hurt < 1e-9) hurt = 0;
+      }
       const f = flow(g);
       // The mills saw what arrives plus what is piled — integrated over the
       // tick, so an away-tick cannot saw planks from a pile that ran dry.
@@ -2215,6 +2305,7 @@ export function apply(g: City, a: Action): City {
         log: logged(g.log, ...said),
         since,
         meet,
+        hurt,
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
         // `march` because the arrival is a tick event, and the holding's
         // strength must be read at the moment they get there — not when they
@@ -2225,6 +2316,7 @@ export function apply(g: City, a: Action): City {
               sq: lineOf(goblins[arrived]!, GOBLINS[arrived]?.bite ?? 2,
                 GOBLINS[arrived]?.runt ?? 0, GOBLINS[arrived]?.screen),
               target: 0, round: 0, packs: RATION_PACK, blow: null,
+              us: levied(g),
             } }
           : {}),
       };
@@ -2358,6 +2450,14 @@ export function apply(g: City, a: Action): City {
     // ★★ MARCHING IS THE ONLY WAY ANYWHERE NOW. `assail` still exists and
     // still starts a fight, but only from the ground itself — the UI sends a
     // march, and arriving on held ground is what draws the sword.
+    case 'levy': {
+      // ★ How many townsfolk march next time. Chosen at home, spent on the
+      // road: `assail` reads it when the fight opens.
+      if (g.lost) return g;
+      const next = Math.max(0, Math.min(levyCap(g), g.levy + a.by));
+      return next === g.levy ? g : { ...g, levy: next };
+    }
+
     case 'hire': {
       if (unhireable(g, a.id) !== null) return g;
       return { ...g,
@@ -2416,6 +2516,7 @@ export function apply(g: City, a: Action): City {
         target: 0,
         round: 0,
         packs: RATION_PACK,
+        us: levied(g),
         blow: null,
       } };
     }

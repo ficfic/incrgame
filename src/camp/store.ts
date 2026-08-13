@@ -131,6 +131,15 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // ★ THE VALLEY'S CLOCK (N3, 2026-08-11). Older saves start it at zero,
   // which is generous — their camps have not swollen at all.
   // ★ WHAT THE HERO MET (N5, 2026-08-11), defaulted for older saves.
+  // ★ THE LEVY AND THE HURT (2026-08-11), defaulted for every older save —
+  // including one written in the middle of a fight, whose line has no levy.
+  if (g.levy === undefined) g.levy = 0;
+  else if (!whole(g.levy, 0, 999)) return null;
+  if (g.hurt === undefined) g.hurt = 0;
+  else if (!whole(g.hurt, 0, 9999)) return null;
+  if (g.fight !== undefined && g.fight !== null && g.fight.us === undefined) {
+    g.fight.us = [];
+  }
   if (g.meet === undefined) g.meet = null;
   else if (g.meet !== null && !whole(g.meet, 0, 99)) return null;
   if (g.since === undefined) g.since = 0;
