@@ -1,5 +1,185 @@
 # NEXT — the queue
 
+## ★★★ SECOND FULL PLAYTHROUGH, 2026-08-11 — split into fixes and features at
+## the owner's request. EVERYTHING BELOW THIS BLOCK IS OLDER.
+
+They played from a fresh start, out loud, and ended it starving with no way
+back. Two sentences carry the weight: *"I still feel like we don't have a
+goal. We don't have a reason to capture these."* and *"I think at this point,
+I'm not able to stop starving. There is no way."*
+
+⚠️ **One item per session (WIP=1).** Take the top unfinished one, ship it, stop.
+
+---
+
+# PART ONE — FIXES
+
+### F0. ⚠️ THE STARVATION DEAD END — MINE, AND IT BLOCKS PLAY
+
+> *"People are starving… I don't understand where can I build another farm
+> then… I think at this point, I'm not able to stop starving. There is no way."*
+
+**This is a regression I shipped yesterday.** Capping works at one per site
+capped FARMS at one per site, and food is the one good the whole town spends
+continuously. Before the cap you dug out of a famine by stacking farms; now
+there is no lever at all once every farmable site holds a farm. Hiring raises
+a site's *cap*, which does nothing when the population is already the binding
+constraint — and it costs **food**, so the one deed offered to a starving town
+takes food away.
+
+Three candidate fixes, and the right one probably combines them — this wants
+deciding with numbers in front of us, not guessing:
+1. Food per worker up, or `EAT` down, so a fed town has slack.
+2. Hiring paid in something other than the good you are short of.
+3. A second farmable site, or foraging that scales, as the deliberate way out.
+
+**It also wants a floor.** A town that cannot recover should be told so and
+offered the reset, not left tapping.
+
+### F1. "HIRE HANDS" HAS NO FICTION, AND MAY NOT SURVIVE IT
+
+> *"Where from? This is a valley, and there is no extra people there except
+> goblin captives. Where are we hiring hands from? This shouldn't be here."*
+> and *"Is it gonna increase my maximum there? Why? It is a weird solution."*
+
+Both halves are right. It reads as conjuring people out of nothing, and what
+it actually does — raise a cap — is invisible until you are already at that
+cap. The honest options are to **rename it to what it is** (widening a
+workface, so more of your existing people can stand at it), or to **cut it**
+and let one works mean one crew. Cutting is cheaper and probably better.
+
+### F2. THE ROADS READ AS BLACK
+
+> *"I don't understand why the paths are black now. I don't think black is a
+> good choice."*
+
+Mine, from yesterday: #4a3524 to escape the teal that read as a river. Too far
+the other way. Wants a mid brown that still clears the palette gate against
+`fill` (the road-being-dug ink) under colour blindness — that collision is
+what pushed it dark in the first place, so this is a three-way fit, not a
+one-way pick.
+
+### F3. THE +1 FLOATS DO NOT MATCH THE CARRIERS
+
+> *"Plus one above the camp does not correspond to the dots arriving there.
+> And also the plus one — maybe it should be in the top where the resource
+> counters are."*
+
+The float fires on a stock tick; the carrier dots are a separate animation.
+They will never line up while they are two systems. Their own suggestion is
+the cheap fix: float it **at the resource counter that changed**.
+
+### F4. LABELS FOLLOW TOO FAR
+
+> *"When I zoom in on the camp, this Scree Slope label follows… they should
+> stop following as soon as I stop seeing the related edge."*
+
+Labels are clamped into view instead of leaving with their dot.
+
+### F5. "ALREADY RAISING"
+
+> *"Why does it say already raising when the building is already being built?
+> It is being built, not being raised."*
+
+One word. `raising` is the internal name leaking to the player.
+
+### F6. "FIVE CAMPS LEFT" WHEN TWO ARE VISIBLE
+
+The war line counts every holding; the board only shows what the fog has
+lifted on. Either count what they can see, or say the rest are out there.
+
+### F7. THE CARRIERS SHOW ONE DIRECTION
+
+> *"I could see something was going from the camp to River Bend and not the
+> other way around. In actuality lumber was going one way and planks the
+> other. It was only showing one way."*
+
+The road animates a single net flow; a road carrying logs east and planks west
+is drawn as one stream.
+
+### F8. THE HERO HEALS TOO SLOWLY, AND CANNOT EAT
+
+> *"Your hero health regeneration is still too slow, and I don't understand
+> why I can't eat food."*
+
+Rations exist **only inside a fight**. Outside one there is no way to spend
+food on health, which is the obvious thing to try.
+
+### F9. THE HOLDING PANEL IS UNREADABLE
+
+> *"The description of Goblin Knoll is absolutely crazy — goblins hold it,
+> 48 strong, points, 45 seconds, etcetera. Completely not understood."*
+
+One line is carrying strength, prize, raid clock and watch state at once.
+
+### F10. THE BOARD IS BUSY
+
+> *"I think it got very busy in terms of UI. It is very OCD."*
+
+Partly F3/F4/F7, partly the sheer count of marks now on screen. Worth
+re-judging after those land.
+
+---
+
+# PART TWO — FEATURES
+
+### N1. TABS — resources · people · hero · log
+
+> *"I'm missing a tab, hero, so we need to start building tabs like resources,
+> people, hero, and so on. Otherwise, it's getting too messy."*
+
+The single scrolling panel is carrying everything. This is the structural fix
+F10 is asking for, and every feature below needs somewhere to live.
+**Do this first; it is the container the rest go in.**
+
+### N2. THE EVENT LOG
+
+> *"Maybe we should have an advanced log too. Event log."* and *"I still can
+> see on the map 'Scree Slope just taken' — they should go into the advanced
+> log."*
+
+Raids, liberations, famine, ambushes, arrivals. It also unclutters the board
+by giving transient messages a home.
+
+### N3. A GOAL, AND A REASON TO TAKE GROUND
+
+> *"What is my motivation then? I will just sit here, and I will not take
+> any."* *"I go on High Meadow. But what is there? There's no point for me at
+> all. It doesn't attack me."*
+
+Today a holding is a threat only after you provoke it, so the optimal play is
+to never start — the game's own rules argue for not playing it. Ground has to
+be **worth taking** or **dangerous if left**, and preferably both.
+
+### N4. THE META LINE BECOMES A VOICE
+
+> *"Six goblin camps, take one and the rest raid — that is meta. We should
+> have a [narrator] somewhere, against meta leading into the user."*
+
+The rules are currently printed as rules. They want them delivered
+**in-world**, by someone.
+
+### N5. CHOOSE-YOUR-OWN-ADVENTURE EVENTS
+
+> *"I feel like we would benefit from choose your own adventure events."*
+
+Wants N1 and N2 first — they need somewhere to appear and somewhere to be
+recorded.
+
+### N6. CARRIERS AS A JOB, CARRYING VISIBLE GOODS
+
+> *"The icons for the dots that go from the production side to the storage
+> could be representing what's being actually transferred. Or alternatively,
+> maybe you should have a carrier job which carries the resources — at the
+> moment it looks like conveyor belts, while it's not."*
+
+Two asks in one: draw **what** is moving (which also answers F7), and consider
+making carrying a **job people do**, which would put the roads on the same
+footing as every other workface.
+
+---
+
+
 ## ★★★ THE FIRST FULL PLAYTHROUGH, 2026-08-11 — the owner played it start to
 ## finish and this is what came back. EVERYTHING BELOW THIS BLOCK IS OLDER.
 
