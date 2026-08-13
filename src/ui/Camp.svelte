@@ -12,6 +12,7 @@
     guardsAt, guardsTotal, GUARD_STOP, unhireable, hireCost, levyCap,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
     unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS, swellOf, spawnOf,
+    holdingsLeft,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
@@ -30,6 +31,10 @@
   /** ★ THE WIN, said out loud — the owner: *"I think I won, but it wasn't
    *  clear."* Set when a holding falls, cleared by the next tap. */
   let won = $state<string | null>(null);
+  /** ★ Dismissed the victory screen to potter on in a valley already won.
+   *  Deliberately NOT saved: a won valley greets you again next time you
+   *  open it, which is the invitation working. */
+  let stayed = $state(false);
   let heldBefore = new Set<string>();
   $effect(() => {
     const now = new Set(Object.keys(game.goblins));
@@ -891,6 +896,37 @@
 </script>
 
 <main>
+  {#if !game.lost && !stayed && holdingsLeft(game) === 0}
+    <!-- ★★★ THE VICTORY SCREEN, 2026-08-11. Two research agents independently
+         called its absence the single biggest defect in the game: `found`
+         refused unless you had LOST, so a player who took the whole valley
+         sat on a finished map with nothing left to press. The owner: *"so the
+         valley is yours, and I guess that's it."* Exactly that.
+         ⚠️ It does NOT block the board — you may keep pottering in a valley
+         you have won. It is an invitation, not a wall, which is the
+         difference between this and the lost screen below. -->
+    <!-- ⚠️ A BANNER, NOT A TAKEOVER. `.gone` is `position: fixed; inset: 0`,
+         which is right for a LOSS — there is nothing left to do in a valley
+         you have been driven out of. A valley you have WON still works, and
+         covering it was a wall pretending to be an invitation. The browser
+         probe caught it: a phase that seeds a cleared valley suddenly could
+         not tap the board at all. -->
+    <div class="wonbar">
+      <h1>THE VALLEY IS YOURS</h1>
+      <p class="note">{MARK.danger}0 goblin camps · {MARK.people}{Math.floor(game.pop)} living here
+        · {MARK.time}{Math.round(game.since / 60)} minutes</p>
+      <p class="note">there is more country beyond the ridge</p>
+      <button class="deed row big" onclick={() => act({ type: 'found' })}>
+        <span class="what">March on, found the next valley</span>
+        <em>{MARK.hero}{Math.max(game.legacy.spears, game.hero.spears + 1)} carried
+          · run {game.legacy.runs + 1}</em>
+      </button>
+      <button class="deed row" onclick={() => (stayed = true)}>
+        <span class="what">Stay a while</span>
+        <em>the valley is not going anywhere</em>
+      </button>
+    </div>
+  {/if}
   {#if game.lost}
     <!-- ★★★ THE RUN IS OVER, SAID LOUDLY. The owner, on a previous win:
          *"I think I won, but it wasn't clear."* A run that ends quietly is
@@ -1442,6 +1478,12 @@
   /* ★ N5: the meeting reads as a page, not as another row of numbers. */
   .sq.levy { opacity: 0.92; }
   .sq.levy.down { opacity: 0.45; }
+  /* ★ The win sits ABOVE the board and leaves it usable. */
+  .wonbar { background: #eef6ee; border-bottom: 2px solid #1f7a3f;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .wonbar h1 { font-size: 19px; letter-spacing: .04em; color: #1f7a3f; margin: 0; }
+  .wonbar .note { margin: 0; }
+  .wonbar .deed.row { background: #fdfaf2; }
   .meet { background: #f4eee1; border: 1px solid #e2d9c3; border-radius: 10px;
     padding: 10px 12px; margin: 0 0 10px; }
   .meet h2 { margin: 0 0 4px; }

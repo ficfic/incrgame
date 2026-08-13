@@ -258,6 +258,8 @@ export const GOBLIN_REGEN = 0.0075;
 export const SWELL_SECS = 900;
 export const SWELL_MAX = 1.0;
 /** How far the camps have swollen, 0 at the start and `SWELL_MAX` at most. */
+/** Holdings the goblins still have. Zero is a won valley. */
+export const holdingsLeft = (g: City): number => Object.keys(g.goblins).length;
 export const swellOf = (g: City): number =>
   Math.min(SWELL_MAX, Math.max(0, g.since) / SWELL_SECS * SWELL_MAX);
 /** A holding's spawn strength today — its tuned strength, plus the swell. */
@@ -2432,14 +2434,34 @@ export function apply(g: City, a: Action): City {
     // already had, so a run that ends early can never make you weaker than
     // the run before it. Failure is a plateau, never a loss: `docs/BRIEF.md`.
     case 'found': {
-      if (!g.lost) return g;
+      // ★★★ WINNING NOW HAS AN EXIT — 2026-08-11, and two research agents
+      // named this the single biggest defect in the game, independently.
+      //
+      // This refused unless `g.lost`. So the only way to start another valley
+      // was to be beaten out of this one: a player who WON sat on a finished
+      // map with nothing left to do and no button to press. *"There must be a
+      // reason to play this"* — there was not one, because the game had no
+      // way to be played again except by failing.
+      //
+      // A run ends two ways now. Lost, as before. Or WON — every holding
+      // taken — and then you may found the next valley whenever you like.
+      const won = holdingsLeft(g) === 0;
+      if (!g.lost && !won) return g;
       const legacy = {
         runs: g.legacy.runs + 1,
-        spears: Math.max(g.legacy.spears, Math.floor(g.hero.spears / 2) + 1),
+        // ⚠️ WINNING CARRIES MORE THAN LOSING. Half your spears if you were
+        // driven out; all of them if you took the valley. The reward for
+        // finishing is that the next one starts further along, which is the
+        // whole of why anyone plays a second run.
+        spears: Math.max(g.legacy.spears,
+          won ? g.hero.spears + 1 : Math.floor(g.hero.spears / 2) + 1),
       };
       const next = initial();
       return { ...next, legacy,
-        hero: { ...next.hero, spears: legacy.spears } };
+        hero: { ...next.hero, spears: legacy.spears },
+        log: [won
+          ? `The valley is yours. You march out to found another, ${legacy.spears} spears in hand.`
+          : 'You were driven out. What was left of the camp walks to new ground.'] };
     }
 
     case 'forage': {

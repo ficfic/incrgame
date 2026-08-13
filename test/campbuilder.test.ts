@@ -18,7 +18,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
   LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
-  MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap,
+  MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -3283,5 +3283,47 @@ describe('★★★ TOWNSFOLK MARCH WITH THE HERO', () => {
     const mid = apply(town(), { type: 'assail', id: 4 });
     const older = { ...mid, fight: { ...mid.fight!, us: undefined } } as never;
     expect(honour({ game: older, savedAt: 1 })!.game.fight!.us).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ WINNING HAS AN EXIT — 2026-08-11. Two research agents, working
+// separately, both named this the single biggest defect in the game: `found`
+// refused unless `g.lost`, so the only way to start another valley was to be
+// beaten out of this one. The owner, on taking the last camp: *"so the valley
+// is yours, and I guess that's it."*
+// ---------------------------------------------------------------------------
+describe('★★★ A WON VALLEY OPENS THE NEXT', () => {
+  const done = (over: Partial<City> = {}): City => ({ ...initial(),
+    goblins: {}, taken: 6, pop: 20, food: 500,
+    hero: { hp: 12, spears: 7, part: 0, at: 0, trip: null },
+    legacy: { runs: 2, spears: 3 }, ...over });
+
+  it('★★★ founding is offered on a WIN, not only on a loss', () => {
+    const g = done();
+    expect(holdingsLeft(g)).toBe(0);
+    const next = apply(g, { type: 'found' });
+    expect(next.legacy.runs).toBe(3);
+    expect(next.goblins[4]).toBe(GOBLINS[4]!.strength);   // a fresh valley
+    expect(next.taken).toBe(0);
+  });
+
+  it('★★★ AND WINNING CARRIES MORE THAN LOSING — the reason to finish', () => {
+    const beaten: City = { ...done(), lost: true, goblins: { 4: 12 } };
+    const wonRun = apply(done(), { type: 'found' });
+    const lostRun = apply(beaten, { type: 'found' });
+    expect(wonRun.hero.spears).toBeGreaterThan(lostRun.hero.spears);
+    expect(wonRun.hero.spears).toBe(done().hero.spears + 1);
+  });
+
+  it('★ a run still going cannot be walked out of', () => {
+    const mid = { ...done(), goblins: { 9: 60 } };
+    expect(apply(mid, { type: 'found' })).toBe(mid);
+  });
+
+  it('★ the new valley says how it began', () => {
+    expect(apply(done(), { type: 'found' }).log.join(' ')).toMatch(/valley is yours/i);
+    expect(apply({ ...done(), lost: true, goblins: { 4: 12 } },
+      { type: 'found' }).log.join(' ')).toMatch(/driven out/i);
   });
 });
