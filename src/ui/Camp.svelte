@@ -16,7 +16,7 @@
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
-    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE,
+    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE, unforgeable, toolCost, TOOL_BATCH, TOOLLESS,
     MEETS,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
@@ -543,7 +543,7 @@
         label: on ? 'Fell timber again' : 'Light the kiln',
         note: on
           ? `${MARK.logs}${(CREW * RATE.lumber).toFixed(2)}/s to the mill`
-          : `${MARK.planks}${(CREW * RATE.sawmill * KILN_SHARE).toFixed(2)}/s, no road needed`,
+          : `${MARK.coal}${(CREW * RATE.lumber * KILN_SHARE).toFixed(2)}/s for the forge`,
         why: null,
         go: () => act({ type: 'burn', id: s.id }),
       });
@@ -630,6 +630,21 @@
         why: noCart ? price(cp) : null,
         go: () => act({ type: 'cart' }),
       });
+      }
+      // ★★★ THE TOOLWRIGHT, 2026-08-11 — coal and planks in, tools out. The
+      // first thing in this economy you must keep paying for: every hand at a
+      // workface wears tools down, so a growing town has to keep forging just
+      // to stand still.
+      {
+        const w = unforgeable(game);
+        const tp = toolCost(game);
+        out.push({
+          label: `Forge tools ×${TOOL_BATCH}`,
+          note: w ?? `${amount('coal', tp.coal)} ${amount('planks', tp.planks)}`
+            + ` → ${MARK.tools}${TOOL_BATCH}`,
+          why: w,
+          go: () => act({ type: 'forge' }),
+        });
       }
       const p = spearCost(game.hero.spears);
       const short = game.stone < p.stone || game.planks < p.planks;
@@ -1326,6 +1341,18 @@
           · {(f.staff * 100).toFixed(0)}% of the works manned</p>
         <p class="note">{MARK.food}{f.food.toFixed(1)}/s brought in
           · {hunger(game).toFixed(1)}/s eaten</p>
+        <!-- ★★★ COAL AND TOOLS, 2026-08-11. They live here rather than in the
+             top row because that row is four columns of the goods you WATCH;
+             these two are a chain you tend now and then. ⚠️ The tool line is
+             the one that matters: it is the only cost in this economy that
+             grows with the size of the town rather than with what it buys. -->
+        <p class="note">{MARK.coal}{Math.floor(game.coal)} coal
+          · {MARK.tools}{Math.floor(game.tools)} tools, wearing
+          {(f.tools * 60).toFixed(1)} an hour</p>
+        {#if game.tools <= 0}
+          <p class="note">{MARK.waste}the tools are gone — every works is
+            running at {Math.round(TOOLLESS * 100)}%</p>
+        {/if}
         {#if guardsTotal(game) > 0}
           <p class="note">{MARK.danger}{guardsTotal(game)} standing watch — they do not work</p>
         {/if}

@@ -1,6 +1,6 @@
 // THE CAMP'S SAVE. Its own key, its own shape — the old game's saves stay
 // untouched on theirs, so flipping back loses nobody anything.
-import { BOONS, CITY_VERSION, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, initial,
+import { BOONS, CITY_VERSION, START_TOOLS, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, initial,
   pathKey, type City } from './engine';
 
 const KEY = 'camp-save';
@@ -149,6 +149,13 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   else g.boons = g.boons.filter((b: unknown) =>
     typeof b === 'string' && BOONS.some((x) => x.id === b));
   // ★ WOOD CAMPS SWITCHED TO SAWING (the Kiln, 2026-08-11).
+  // ★ COAL AND TOOLS (2026-08-11). An older save has neither — and it gets
+  // the wagon's tool rack, because a town that has been running for an hour
+  // should not suddenly find every works blunt.
+  if (g.coal === undefined) g.coal = 0;
+  else if (!num(g.coal, 0, 9e12)) return null;
+  if (g.tools === undefined) g.tools = START_TOOLS;
+  else if (!num(g.tools, 0, 9e12)) return null;
   if (g.kilned === undefined || g.kilned === null) g.kilned = [];
   else if (!Array.isArray(g.kilned)) return null;
   else g.kilned = g.kilned.filter((id: unknown) =>

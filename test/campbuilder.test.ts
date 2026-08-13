@@ -20,7 +20,8 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
   MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft,
   BOONS, offer, guardNeed, cartCostOf, has, runHard, RUN_STEP, valleyGoblins,
-  inValley, standing, GOOD_OF, sawsHere, KILN_SHARE,
+  inValley, standing, GOOD_OF, sawsHere, KILN_SHARE, TOOLLESS, TOOL_BATCH,
+  START_TOOLS, unforgeable,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -3570,21 +3571,24 @@ describe('★★★ ONE GOOD, TWO RECIPES', () => {
     pop: 24, food: 9e5, goblins: {}, stacks: { 0: 6, 2: 1 },
     crew: { 2: CREW }, paths: { [pathKey(0, 2)]: 1 }, ...over });
 
-  it('★★★ a kilned wood camp saws its own planks instead of felling logs', () => {
+  it('★★★ a kilned wood camp BURNS ITS LOGS TO COAL', () => {
+    // ⚠️ REWRITTEN 2026-08-11, hours after it shipped. The kiln first made
+    // PLANKS, which was the safe half of a disagreement between two research
+    // agents. The owner then asked the obvious question — *"i'm not sure why
+    // you're so focused on existing resource pool, can't we extend it"* — and
+    // they were right: the argument for holding at four goods was measured
+    // before this pass changed the very bottleneck it rested on.
     const felling = wood({ boons: ['kiln'] });
-    const sawing = wood({ boons: ['kiln'], kilned: [2] });
-    expect(flow(felling).planks).toBe(0);          // no mill anywhere
-    expect(flow(sawing).planks).toBeGreaterThan(0);
-    // ⚠️ SLOWER THAN FELLING, and this had to be MADE true. `RATE.sawmill`
-    // (0.25) is higher than `RATE.lumber` (0.2), so a kiln at the mill's own
-    // rate was a free upgrade — strictly better than the camp it replaced,
-    // with no decision in it at all. `KILN_SHARE` is the price of the road
-    // you no longer need.
-    expect(RATE.sawmill * KILN_SHARE).toBeLessThan(RATE.lumber);
-    expect(flow(sawing).planks).toBeLessThan(flow(felling).logsIn || Infinity);
+    const burning = wood({ boons: ['kiln'], kilned: [2] });
+    expect(flow(felling).coal).toBe(0);
+    expect(flow(burning).coal).toBeGreaterThan(0);
+    // ⚠️ A LOG MAKES LESS THAN A LOG'S WORTH OF COAL, or the kiln is a free
+    // conversion and not a decision.
+    expect(flow(burning).coal).toBeLessThan(flow(felling).logs);
+    expect(KILN_SHARE).toBeLessThan(1);
   });
 
-  it('★★★ IT IS A ROUTING DECISION, not a new noun', () => {
+  it('★★★ IT IS A ROUTING DECISION — a camp that burns is not feeding the mill', () => {
     // A camp that saws is a camp not feeding the mill you already built.
     const mill = wood({ boons: ['kiln'], stacks: { 0: 6, 2: 1, 3: 1 },
       crew: { 2: CREW, 3: CREW },
@@ -3592,9 +3596,13 @@ describe('★★★ ONE GOOD, TWO RECIPES', () => {
     const fed = flow(mill);
     const starved = flow({ ...mill, kilned: [2] });
     expect(starved.logsIn).toBeLessThan(fed.logsIn);
-    // And no fifth good exists anywhere in the result.
-    expect(Object.keys(GOOD_OF).sort())
-      .toEqual(['farm', 'hut', 'lumber', 'quarry', 'sawmill']);
+    // ⚠️ NOT asserting the mill's plank RATE here: `flow.planks` reports the
+    // mill's delivery capacity, which does not fall in the same instant its
+    // log supply does — the sawing happens against the store, in the tick.
+    // The logs and the coal are the honest ends of this trade.
+    // ⚠️ AND COAL IS THE POINT OF THE TRADE: what the mill loses in logs, the
+    // camp gains in coal, which is the only thing that forges tools.
+    expect(starved.coal).toBeGreaterThan(fed.coal);
   });
 
   it('★ the kiln is refused without the blueprint, and only on wood', () => {
@@ -3617,5 +3625,79 @@ describe('★★★ ONE GOOD, TWO RECIPES', () => {
       .game.kilned).toEqual([2]);
     const { kilned: _drop, ...older } = g;
     expect(honour({ game: older as City, savedAt: 1 })!.game.kilned).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ SIX GOODS — 2026-08-11. The owner: *"i'm not sure why you're so focused
+// on existing resource pool, can't we extend it."* It had been held at four on
+// a research reviewer's argument that the bottleneck was road-shaped rather
+// than variety-shaped — a measurement taken BEFORE this pass raised the plank
+// ceiling, made carts eat three goods and put people on the war.
+// ---------------------------------------------------------------------------
+describe('★★★ COAL AND TOOLS', () => {
+  const town = (over: Partial<City> = {}): City => ({ ...initial(),
+    pop: 24, food: 9e5, goblins: {}, stacks: { 0: 6, 1: 1, 2: 1 },
+    crew: { 1: CREW, 2: CREW },
+    paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1 }, ...over });
+
+  it('★★★ TOOLS WEAR OUT, and the bill grows with the town', () => {
+    // ⚠️ THE POINT OF THE WHOLE CHAIN. Every other cost in this economy is
+    // paid once per thing bought; this one is paid forever, and it scales
+    // with how many hands are working — so growth has to be paid for. It is
+    // the other end of the answer to "there's no point in having more
+    // people".
+    const small = town({ pop: 8, stacks: { 0: 2, 1: 1 }, crew: { 1: CREW } });
+    const big = town({ pop: 40, stacks: { 0: 10, 1: 1, 2: 1, 3: 1 },
+      crew: { 1: CREW, 2: CREW, 3: CREW },
+      paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 } });
+    expect(flow(big).tools).toBeGreaterThan(flow(small).tools);
+    // And the rack actually empties on the clock.
+    const worn = tick(town({ tools: 1 }), 60);
+    expect(worn.tools).toBeLessThan(1);
+  });
+
+  it('★★★ AN EMPTY RACK PINCHES, it does not halt', () => {
+    // A famine is this game's one hard stop and it has earned that place.
+    const kitted = town({ tools: 50 });
+    const blunt = town({ tools: 0 });
+    expect(flow(blunt).stone).toBeCloseTo(flow(kitted).stone * TOOLLESS, 6);
+    expect(flow(blunt).stone).toBeGreaterThan(0);
+  });
+
+  it('★★★ THE CHAIN CLOSES: logs → coal → tools', () => {
+    // Coal comes only from a kilned wood camp; tools come only from coal.
+    const forging = town({ boons: ['kiln'], kilned: [2], coal: 20, planks: 20 });
+    expect(flow(forging).coal).toBeGreaterThan(0);
+    const made = apply(forging, { type: 'forge' });
+    expect(made.tools).toBe(forging.tools + TOOL_BATCH);
+    expect(made.coal).toBeLessThan(forging.coal);
+    expect(made.planks).toBeLessThan(forging.planks);
+    // ...and it is refused without the coal, in words.
+    const dry = town({ coal: 0, planks: 20 });
+    expect(unforgeable(dry)).not.toBeNull();
+    expect(apply(dry, { type: 'forge' })).toBe(dry);
+  });
+
+  it('★ the wagon carried tools, so the opening is not blunt', () => {
+    // ⚠️ Without a starting rack every works in a fresh valley runs at 60%
+    // from second zero — a tax on the opening for a mechanic the player has
+    // not met and cannot answer, since the kiln is a blueprint three fights
+    // away. This is the line that stops that.
+    expect(initial().tools).toBe(START_TOOLS);
+    expect(flow(town()).stone).toBeCloseTo(flow(town({ tools: 99 })).stone, 6);
+  });
+
+  it('★ both goods hold at the save door, and an older save gets the rack', () => {
+    const g = town({ coal: 12, tools: 7 });
+    expect(honour({ game: g, savedAt: 1 })!.game.coal).toBe(12);
+    expect(honour({ game: g, savedAt: 1 })!.game.tools).toBe(7);
+    expect(honour({ game: { ...g, coal: -1 }, savedAt: 1 })).toBeNull();
+    // ⚠️ A town that has been running for an hour must not suddenly find
+    // every works blunt because the version changed under it.
+    const { coal: _c, tools: _t, ...older } = g;
+    const back = honour({ game: older as City, savedAt: 1 })!.game;
+    expect(back.coal).toBe(0);
+    expect(back.tools).toBe(START_TOOLS);
   });
 });

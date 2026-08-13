@@ -17,6 +17,8 @@ export const MARK = {
   stone: '🪨',
   logs: '🪵',
   planks: '🟫',
+  coal: '⬛',
+  tools: '🔨',
   food: '🌾',
   people: '👤',
   huts: '🏠',
@@ -34,7 +36,15 @@ export const MARK = {
   waste: '⚠',
 } as const;
 
-export type Good = 'stone' | 'logs' | 'planks' | 'food';
+/** ★★★ SIX GOODS SINCE 2026-08-11. The owner: *"i'm not sure why you're so
+ *  focused on existing resource pool, can't we extend it."*
+ *
+ *  It had been held at four on a research reviewer's argument — that the
+ *  bottleneck was road-shaped rather than variety-shaped, since a maxed town
+ *  threw away 76% of its output at the paths. That measurement was taken
+ *  BEFORE this pass raised the plank ceiling, made carts eat three goods and
+ *  put people on the war, so it no longer describes the game. */
+export type Good = 'stone' | 'logs' | 'planks' | 'food' | 'coal' | 'tools';
 
 /** `🪨11` — a cost, or any bare amount of a good. */
 export const amount = (good: Good, n: number): string =>

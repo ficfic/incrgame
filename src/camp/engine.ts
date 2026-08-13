@@ -344,6 +344,16 @@ export interface City {
   stone: number;
   logs: number;
   planks: number;
+  /** ★★★ CHARCOAL — 2026-08-11. Burnt from logs at a kilned wood camp, and
+   *  the reason logs stop being a good with ten seconds of lifetime demand. */
+  coal: number;
+  /** ★★★ TOOLS — coal and planks, made at the camp, and CONSUMED FOREVER by
+   *  every works that has hands on it. The first good in this economy that
+   *  DECAYS, which is what turns a shopping list into a living economy: the
+   *  bigger the town, the more it must keep making just to stand still. It is
+   *  also the answer to *"there's no point in having more people"* from the
+   *  other end — more people is more upkeep, so growth has to be paid for. */
+  tools: number;
   /** ★ FOOD — the wild feeds the first few; every settler past that eats
    *  from the stock, and an empty larder HALTS every works but the farms. */
   food: number;
@@ -521,6 +531,13 @@ export const initial = (): City => ({
   laying: {},
   raising: {},
   stone: START_STONE,
+  coal: 0,
+  // ★ THE WAGON CARRIED TOOLS. Without a starting rack every works in a fresh
+  // valley runs blunt from second zero, which is a 40% tax on the opening for
+  // a mechanic the player has not met yet and cannot answer — the kiln that
+  // makes coal is a BLUEPRINT, three fights away. Tools are a mid-game
+  // upkeep that creeps up on you, not an opening puzzle.
+  tools: START_TOOLS,
   logs: START_LOGS,
   planks: 0,
   food: START_FOOD,
@@ -815,6 +832,31 @@ export const RATE = { quarry: 0.15, lumber: 0.2, sawmill: 0.25, farm: 0.2 } as c
  *  under both `RATE.lumber` and `RATE.sawmill`: sawing where you felled saves
  *  a road, and a saved road has to cost something or the choice is not one. */
 export const KILN_SHARE = 0.6;
+/** ★★★ WHAT ONE PAIR OF HANDS WEARS OUT A SECOND. Small on purpose: a town of
+ *  forty burns 0.02/s, which a single toolwright covers — the point is that it
+ *  never stops, not that it hurts. */
+export const TOOL_WEAR = 0.0005;
+/** ★ What a works makes when its hands have no tools. Not zero: a famine
+ *  halts the town and that is already this game's one hard stop. Blunt tools
+ *  are a tax you can feel and dig out of, exactly like the famine ramp. */
+export const TOOLLESS = 0.6;
+/** How many tools one forging makes, and what it costs. */
+export const TOOL_BATCH = 12;
+/** What the wagon carried in — enough that the rack runs dry somewhere in the
+ *  middle of a run, around the time the kiln becomes reachable. */
+export const START_TOOLS = 30;
+export const toolCost = (g: City): { coal: number; planks: number } => ({
+  coal: 6, planks: 4,
+});
+/** Why the forge cannot run, in plain words, or null. */
+export function unforgeable(g: City): string | null {
+  if (g.lost) return 'the valley is lost';
+  const p = toolCost(g);
+  if (g.coal < p.coal) return outOf('coal', g.coal, p.coal);
+  if (g.planks < p.planks) return outOf('planks', g.planks, p.planks);
+  if (g.tools >= roomOf(g) - 1e-9) return 'the rack is full';
+  return null;
+}
 /** What each kind of workface actually sends down the road (N6). */
 export const GOOD_OF: Record<Kind, Good> = {
   hut: 'food', quarry: 'stone', lumber: 'logs', sawmill: 'planks', farm: 'food',
@@ -1235,12 +1277,12 @@ export const BOONS: readonly Boon[] = [
   { id: 'millhands', name: 'Mill hands', what: 'mills saw a quarter more' },
   { id: 'granary', name: 'Granary', what: 'fields bring a quarter more' },
   { id: 'wardens', name: 'Wardens', what: 'two hands hold a gate, not three' },
-  { id: 'kiln', name: 'Kiln', what: 'a wood camp may saw its own planks' },
+  { id: 'kiln', name: 'Kiln', what: 'a wood camp may burn its logs to coal' },
   { id: 'scouts', name: 'Scouts', what: 'the hero marches half again as fast' },
 ];
 /** Does the town hold this blueprint? */
 export const has = (g: City, id: string): boolean => g.boons.includes(id);
-/** Is this wood camp sawing its own planks? */
+/** Is this wood camp burning its logs to coal? */
 export const sawsHere = (g: City, id: number): boolean =>
   has(g, 'kiln') && g.kilned.includes(id);
 /** ★ THE THREE ON OFFER, chosen without dice: walk the deck from a point set
@@ -1485,6 +1527,16 @@ export interface Flow {
   stone: number;
   logs: number;
   planks: number;
+  /** ★★★ CHARCOAL — 2026-08-11. Burnt from logs at a kilned wood camp, and
+   *  the reason logs stop being a good with ten seconds of lifetime demand. */
+  coal: number;
+  /** ★★★ TOOLS — coal and planks, made at the camp, and CONSUMED FOREVER by
+   *  every works that has hands on it. The first good in this economy that
+   *  DECAYS, which is what turns a shopping list into a living economy: the
+   *  bigger the town, the more it must keep making just to stand still. It is
+   *  also the answer to *"there's no point in having more people"* from the
+   *  other end — more people is more upkeep, so growth has to be paid for. */
+  tools: number;
   food: number;
   /** ★ An empty larder with unmet hunger: every works but the farms
    *  stands down until there is bread again. */
@@ -1613,14 +1665,17 @@ export function flow(g: City): Flow {
   let farmRaw = 0;
   for (const id of worked) {
     const st = SITE.get(id)!;
-    // ★ A KILNED WOOD CAMP SAWS instead of felling — see `case 'burn'`. At
-    // `KILN_SHARE` of a proper mill's rate, which is slower than it felled
-    // logs: the price of not needing a road to a mill. Without that price the
-    // kiln is a free upgrade, because `RATE.sawmill` is HIGHER than
-    // `RATE.lumber` and a kilned camp would simply out-produce itself.
+    // ★ A KILNED WOOD CAMP BURNS its logs to coal instead of shipping them —
+    // see `case 'burn'`. At `KILN_SHARE` of the felling rate, because a log
+    // makes less than a log's worth of coal, and because a free conversion is
+    // not a decision.
     const kilning = st.allows === 'lumber' && sawsHere(g, id);
+    // ★★★ BLUNT TOOLS PINCH (2026-08-11). Not a halt — a famine is this
+    // game's one hard stop and it has earned that place. An empty tool rack
+    // is a tax you can feel and dig out of, exactly like the famine ramp.
+    const kitted = g.tools > 1e-9 ? 1 : TOOLLESS;
     const base = (st.allows === 'quarry' ? RATE.quarry
-      : kilning ? RATE.sawmill * KILN_SHARE
+      : kilning ? RATE.lumber * KILN_SHARE
       : st.allows === 'lumber' ? RATE.lumber
       : st.allows === 'farm' ? RATE.farm : RATE.sawmill)
       // ★ THE GROUND ITSELF, not just how many hands stand on it.
@@ -1628,7 +1683,8 @@ export function flow(g: City): Flow {
       // ★ THE BLUEPRINTS a town has taken: Stonecut, Mill hands, Granary.
       * ((st.allows === 'quarry' && has(g, 'stonecut'))
         || (st.allows === 'sawmill' && has(g, 'millhands'))
-        || (st.allows === 'farm' && has(g, 'granary')) ? 1.25 : 1);
+        || (st.allows === 'farm' && has(g, 'granary')) ? 1.25 : 1)
+      * kitted;
     made.set(id, hands.get(id)! * base);
     if (st.allows === 'farm') farmRaw += hands.get(id)! * base;
   }
@@ -1676,11 +1732,14 @@ export function flow(g: City): Flow {
     // mill, and a wood camp sawing is a wood camp not feeding the mill you
     // already built.
     const raw = SITE.get(id)!.allows;
-    const k: Kind = raw === 'lumber' && sawsHere(g, id) ? 'sawmill' : raw;
+    // ★ A KILNED CAMP'S COAL walks to the CAMP like any finished good, never
+    // to a mill — coal is not sawn.
+    const burning = raw === 'lumber' && sawsHere(g, id);
+    const k: Kind = raw;
     if (raw === 'sawmill' || m <= 0) continue;
     flows.push({
       id, rate: m, kind: k,
-      legs: k === 'lumber' && mills.length
+      legs: k === 'lumber' && !burning && mills.length
         ? walk(id, toMill, millRoot)
         : walk(id, toCamp, campRoot),
     });
@@ -1714,8 +1773,8 @@ export function flow(g: City): Flow {
   let stone = 0;
   let food = 0;
   let logsIn = 0;
-  /** Planks that arrived already sawn, from kilned wood camps. */
-  let kilnPlanks = 0;
+  /** Coal arriving from kilned wood camps. */
+  let coal = 0;
   for (const f of flows) {
     let scale = 1;
     for (const { e } of f.legs) {
@@ -1744,9 +1803,8 @@ export function flow(g: City): Flow {
     carried.set(f.id, got);
     if (f.kind === 'quarry') stone += got;
     else if (f.kind === 'farm') food += got;
-    // ★ A KILNED CAMP'S OUTPUT IS PLANKS, arriving finished — it never enters
-    // the mill's log pool and is never sawn again.
-    else if (f.kind === 'sawmill') kilnPlanks += got;
+    // ★ A KILNED CAMP SENDS COAL, which never enters the mill's log pool.
+    else if (sawsHere(g, f.id)) coal += got;
     else logsIn += got;
   }
 
@@ -1801,7 +1859,7 @@ export function flow(g: City): Flow {
     }
   }
 
-  return { stone, food, logsIn, planks: planks + kilnPlanks, millCap, sawing,
+  return { stone, food, coal, logsIn, planks, millCap, sawing,
     made, carried, choked, loads, net, both,
     goods: new Map([...goods].map(([e, at]) => [e, {
       ab: topGood(at.ab), ba: topGood(at.ba),
@@ -1843,7 +1901,16 @@ export function flow(g: City): Flow {
   const dirs = new Map<string, number>();
   for (const [e, n] of net) if (Math.abs(n) > 1e-9) dirs.set(e, n > 0 ? 1 : -1);
 
-  return { stone, logs: logsIn, planks, food, starving, logsIn, millCap,
+  // ★★★ TOOL WEAR, 2026-08-11 — the first cost in this economy that scales
+  // with how BIG the town is rather than with what it buys. Every hand at a
+  // workface wears tools out, so a growing town must keep making them just to
+  // stand still. That is what turns a shopping list into a living economy,
+  // and it is the other half of the answer to *"there's no point in having
+  // more people"*: more people is more upkeep, so growth has to be paid for.
+  const worn = [...hands.values()].reduce((n, h) => n + h, 0) * TOOL_WEAR;
+
+  return { stone, logs: logsIn, planks, food, coal: run.coal, tools: worn,
+    starving, logsIn, millCap,
     sawing, hands, made: run.made, carried, choked, loads, dirs, both, goods,
     staff, comp };
 }
@@ -1951,7 +2018,9 @@ export type Action =
   | { type: 'answer'; way: 0 | 1 }
   /** ★ Spend food on the hero's health, outside a fight (2026-08-11). */
   | { type: 'eat' }
-  /** ★ Switch a wood camp between logs and planks — the Kiln (2026-08-11). */
+  /** ★ Forge a batch of tools from coal and planks (2026-08-11). */
+  | { type: 'forge' }
+  /** ★ Switch a wood camp between logs and coal — the Kiln (2026-08-11). */
   | { type: 'burn'; id: number }
   /** ★ Keep one of the three blueprints on the table (2026-08-11). */
   | { type: 'take'; id: string }
@@ -2487,6 +2556,12 @@ export function apply(g: City, a: Action): City {
         stone: hold(g.stone, g.stone + f.stone * s + (loot?.stone ?? 0)),
         logs: hold(g.logs, cut - sawn + (loot?.logs ?? 0)),
         planks: hold(g.planks, g.planks + shipped + (loot?.planks ?? 0)),
+        // ★★★ COAL IN, TOOLS OUT (2026-08-11). Coal banks like any good the
+        // roads bring home. Tools only ever go DOWN here — they are made by
+        // hand at the forge and worn out by the works, which is what makes
+        // them the first thing in this economy you must keep paying for.
+        coal: hold(g.coal, g.coal + f.coal * s),
+        tools: Math.max(0, g.tools - f.tools * s),
         food: hold(g.food,
           Math.max(0, g.food + (f.food - hunger(g)) * s) + (loot?.food ?? 0)),
         pop,
@@ -2688,6 +2763,18 @@ export function apply(g: City, a: Action): City {
     // ★★ MARCHING IS THE ONLY WAY ANYWHERE NOW. `assail` still exists and
     // still starts a fight, but only from the ground itself — the UI sends a
     // march, and arriving on held ground is what draws the sword.
+    case 'forge': {
+      // ★★★ THE TOOLWRIGHT, 2026-08-11 — coal and planks in, tools out, made
+      // at the camp like spears and carts. The batch is deliberately large:
+      // this is a thing you top up now and then, not a thing you babysit.
+      const price = toolCost(g);
+      if (g.coal < price.coal || g.planks < price.planks) return g;
+      return { ...g,
+        coal: g.coal - price.coal,
+        planks: g.planks - price.planks,
+        tools: Math.min(roomOf(g), g.tools + TOOL_BATCH) };
+    }
+
     case 'burn': {
       // ★★★ THE KILN, 2026-08-11 — the production-chain ask, in the one shape
       // two research agents could both live with. One wanted charcoal and
