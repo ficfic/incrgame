@@ -2222,7 +2222,12 @@ export function apply(g: City, a: Action): City {
     case 'pin': {
       // From auto, the first touch takes over at TODAY'S hands and steps
       // from there; a held works can go all the way to zero.
-      const cap = (g.stacks[a.id] ?? 0) * CREW;
+      // ⚠️ HIRES COUNT HERE TOO, 2026-08-11 (chad-liquidity). `flow`'s own
+      // `capOf` reads `stacks + hire`; this read `stacks` alone, so the moment
+      // you set a hired site's crew BY HAND every hire you had paid for was
+      // silently discarded — on the one lever that let a town grow past its
+      // slot count. The two must agree, and now they do.
+      const cap = CREW * ((g.stacks[a.id] ?? 0) + (g.hire[a.id] ?? 0));
       const now = g.crew[a.id] ?? Math.round(flow(g).hands.get(a.id) ?? 0);
       const next = Math.max(0, Math.min(cap, now + a.d));
       if (g.crew[a.id] !== undefined && next === now) return g;

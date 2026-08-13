@@ -3133,3 +3133,25 @@ describe('★★★ WHAT THE PORTERS ARE CARRYING', () => {
     expect(way?.ba ?? null).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// ⚠️ THE PIN/FLOW DISAGREEMENT — found by chad-liquidity, 2026-08-11. `flow`
+// caps a site's hands at `CREW × (stacks + hire)`; `pin` capped at
+// `CREW × stacks`. So setting a hired site's crew by hand threw away every
+// hire that had been paid for, on the one lever that lets a town grow past
+// its slot count.
+// ---------------------------------------------------------------------------
+describe('★★ A HAND-SET CREW KEEPS ITS HIRES', () => {
+  it('★★★ pin and flow agree about how many can work here', () => {
+    const g: City = { ...initial(), pop: 60, food: 9e5,
+      stacks: { 0: 20, 1: 1 }, hire: { 1: 2 },
+      paths: { [pathKey(0, 1)]: 1 } };
+    // flow says three crews can work it...
+    expect(flow(g).hands.get(1)).toBe(CREW * 3);
+    // ...so setting it by hand must be able to reach the same number.
+    let x = g;
+    for (let i = 0; i < 40; i++) x = apply(x, { type: 'pin', id: 1, d: 1 });
+    expect(x.crew[1]).toBe(CREW * 3);
+    expect(flow(x).hands.get(1)).toBe(CREW * 3);
+  });
+});
