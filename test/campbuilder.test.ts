@@ -1132,6 +1132,10 @@ describe('★★ THE CARRIERS FOLLOW THE FLOW, not the id order', () => {
     // Pines(2) wired straight to the river mill(3), mill wired to camp(0).
     const g: City = { ...initial(), pop: 99, food: 999,
       stacks: { 0: huts(99), 2: 1, 3: 1 },
+      // ⚠️ STAFF BOTH ENDS BY HAND. Left to auto-staffing the mill can end up
+      // with no hands, and then no planks are sawn and nothing comes home —
+      // which looks exactly like the bug this test is about.
+      crew: { 2: CREW, 3: CREW },
       paths: { [pathKey(2, 3)]: 3, [pathKey(0, 3)]: 3 } };
     const f = flow(g);
     // pathKey(2,3) is "2|3": +1 means 2 → 3, which is pines → mill. The old
@@ -2993,5 +2997,47 @@ describe('★★★ THE CAMPS SWELL WHILE YOU WAIT', () => {
     expect(honour({ game: { ...initial(), since: -1 }, savedAt: 1 })).toBeNull();
     const { since: _drop, ...older } = initial();
     expect(honour({ game: older as City, savedAt: 1 })!.game.since).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ F7 — BOTH WAYS DOWN ONE ROAD, 2026-08-11. The owner: *"I could see
+// something was going from the camp to River Bend and not the other way
+// around. In actuality lumber was going one way and planks the other. It was
+// only showing one way."*
+// ---------------------------------------------------------------------------
+describe('★★★ A ROAD THAT CARRIES BOTH WAYS SAYS SO', () => {
+  it('★★★ opposite traffic no longer cancels to a still road', () => {
+    // Pines ship logs to the mill; the mill ships planks home. With the camp
+    // wired to both, one edge carries in each direction.
+    const g: City = { ...initial(), pop: 99, food: 9e5, goblins: {},
+      stacks: { 0: huts(99), 2: 1, 3: 1 },
+      // ⚠️ STAFF BOTH ENDS BY HAND. Left to auto-staffing the mill can end up
+      // with no hands, and then no planks are sawn and nothing comes home —
+      // which looks exactly like the bug this test is about.
+      crew: { 2: CREW, 3: CREW },
+      // ⚠️ A STAR, NOT A MESH. With 2|3 laid the logs go straight to the mill
+      // and no single edge ever carries in both directions — the first
+      // version of this test proved nothing for that reason. Through the
+      // camp, edge 0|3 carries LOGS out and PLANKS home.
+      paths: { [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 } };
+    const f = flow(g);
+    const two = [...f.both.entries()].filter(([, w]) => w.ab > 0 && w.ba > 0);
+    expect(two.length).toBeGreaterThan(0);
+    // ⚠️ AND THE NET IS THE LIE. On at least one of those edges the signed
+    // net is far smaller than the traffic — that cancellation is exactly what
+    // drew a busy road as a still one.
+    const [key, way] = two[0]!;
+    expect(way.ab + way.ba).toBeGreaterThan(Math.abs(f.dirs.get(key) ?? 0) * 1e-9);
+    expect(f.loads.get(key)).toBeCloseTo(way.ab + way.ba, 6);
+  });
+
+  it('★ a one-way road still reports one way', () => {
+    const g: City = { ...initial(), pop: 20, food: 9e5,
+      stacks: { 0: huts(20), 1: 1 }, paths: { [pathKey(0, 1)]: 1 } };
+    const way = flow(g).both.get(pathKey(0, 1));
+    expect(way).toBeDefined();
+    expect(Math.min(way!.ab, way!.ba)).toBe(0);
+    expect(Math.max(way!.ab, way!.ba)).toBeGreaterThan(0);
   });
 });

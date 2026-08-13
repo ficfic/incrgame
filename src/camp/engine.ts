@@ -1190,6 +1190,10 @@ export interface Flow {
    *  flowing there."* The board draws carriers from this, so an idle path
    *  in a busy component shows nobody. */
   loads: Map<string, number>;
+  /** ★ F7: per-edge traffic split by direction, so a road carrying logs one
+   *  way and planks the other is drawn as two streams rather than as one
+   *  cancelled-out still road. */
+  both: Map<string, { ab: number; ba: number }>;
   /** ★ WHICH WAY EACH PATH RUNS: +1 if the goods travel low-id → high-id
    *  along `pathKey`, -1 the other way, absent for a path carrying
    *  nothing. The NET of everything routed over it — logs heading out to
@@ -1343,6 +1347,8 @@ export function flow(g: City): Flow {
   const choked = new Set<string>();
   const carried = new Map<number, number>();
   const loads = new Map<string, number>();
+  /** Per-edge traffic, kept apart by direction — see F7 below. */
+  const both = new Map<string, { ab: number; ba: number }>();
   /** Signed load per edge — the net decides which way the carriers walk. */
   const net = new Map<string, number>();
   let stone = 0;
@@ -1362,6 +1368,15 @@ export function flow(g: City): Flow {
     for (const { e, d } of f.legs) {
       loads.set(e, (loads.get(e) ?? 0) + got);
       net.set(e, (net.get(e) ?? 0) + got * d);
+      // ★★★ F7, 2026-08-11 — BOTH WAYS, KEPT APART. The owner: *"I could see
+      // something was going from the camp to River Bend and not the other
+      // way around. In actuality lumber was going one way and planks the
+      // other. It was only showing one way."* `net` cancels: a road carrying
+      // one east and one west nets to ZERO and drew as a still road. This
+      // keeps the two directions separate so the board can draw both.
+      const way = both.get(e) ?? { ab: 0, ba: 0 };
+      if (d >= 0) way.ab += got; else way.ba += got;
+      both.set(e, way);
     }
     carried.set(f.id, got);
     if (f.kind === 'quarry') stone += got;
@@ -1403,6 +1418,16 @@ export function flow(g: City): Flow {
       for (const { e, d } of legsOf.get(id)!) {
         loads.set(e, (loads.get(e) ?? 0) + got);
         net.set(e, (net.get(e) ?? 0) + got * d);
+        // ★★★ F7 (2026-08-11) — AND THE PLANKS COMING HOME. This second
+        // delivery pass, the mill's own, was recording `loads` and `net` and
+        // NOT `both`, so a road carrying logs out and planks back reported
+        // traffic in one direction only — which is precisely what the owner
+        // saw: *"lumber was going one way and planks the other. It was only
+        // showing one way."* Missing it here made the fix look like it did
+        // not work at all, on the exact road they were looking at.
+        const way = both.get(e) ?? { ab: 0, ba: 0 };
+        if (d >= 0) way.ab += got; else way.ba += got;
+        both.set(e, way);
       }
       carried.set(id, got);
       planks += got;
@@ -1410,7 +1435,7 @@ export function flow(g: City): Flow {
   }
 
   return { stone, food, logsIn, planks, millCap, sawing,
-    made, carried, choked, loads, net };
+    made, carried, choked, loads, net, both };
   };
 
   // ★★★ STARVING IS ABOUT WHAT ARRIVES, NOT WHAT IS GROWN, 2026-08-08.
@@ -1441,7 +1466,7 @@ export function flow(g: City): Flow {
   }
   const run = starving ? deliver(halted) : open;
   const { stone, food, logsIn, planks, millCap, sawing, carried, choked,
-    loads, net } = run;
+    loads, net, both } = run;
 
   // The net decides the walk: a path where logs out and planks back
   // cancel exactly shows nobody, which is honest.
@@ -1449,7 +1474,7 @@ export function flow(g: City): Flow {
   for (const [e, n] of net) if (Math.abs(n) > 1e-9) dirs.set(e, n > 0 ? 1 : -1);
 
   return { stone, logs: logsIn, planks, food, starving, logsIn, millCap,
-    sawing, hands, made: run.made, carried, choked, loads, dirs, staff, comp };
+    sawing, hands, made: run.made, carried, choked, loads, dirs, both, staff, comp };
 }
 
 /** Why the next copy cannot be raised here, in plain words, or null. */

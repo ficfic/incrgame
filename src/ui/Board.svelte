@@ -56,6 +56,8 @@
      *  introduce the carrier dots which actually bring resources to camp."*
      *  The dash code below stays; a line opts in. */
     carry?: boolean;
+    /** ★ F7: what this road carries the OTHER way, per second. */
+    back?: number;
     /** ★★★ WHAT THIS LINE ACTUALLY DELIVERS, IN UNITS A SECOND — and the only
      *  number the carrier dots are drawn from. 2026-08-10, the owner: *"if it
      *  is point zero four per second, then I anticipate to see a dot moving
@@ -180,7 +182,8 @@
     // rate it draws no carriers, and an rAF spinning over a board where
     // nothing is drawn moving is the exact thing this gate exists to stop.
     const moving = feed !== null || lines.some((l) => l.fill >= 1
-      && (l.dir ?? 0) !== 0 && (!l.carry || Math.abs(l.rate ?? 0) > 0));
+      && ((l.dir ?? 0) !== 0 || Math.abs(l.back ?? 0) > 0)
+      && (!l.carry || Math.abs(l.rate ?? 0) > 0 || Math.abs(l.back ?? 0) > 0));
     if (!moving) return;
     let raf = 0;
     let last = performance.now();
@@ -596,18 +599,36 @@
           // `gap` would fall under MIN_GAP the porters walk FASTER instead of
           // closer (`v = gap * rate`), and exactly `rate` of them still leave
           // the road every second. Count them at 0.15/s and you count 0.15/s.
-          const rate = Math.abs(l.rate ?? 0);
-          const len = rate > 0 && (l.dir ?? 0) !== 0 ? lengthOf(run) : 0;
-          if (len > 1) {
-            const gap = Math.max(MIN_GAP, WALK / rate);
-            const v = gap * rate;              // === WALK unless clamped
+          // ★★★ F7, 2026-08-11 — BOTH WAYS AT ONCE. The owner: *"I could see
+          // something was going from the camp to River Bend and not the other
+          // way around. In actuality lumber was going one way and planks the
+          // other. It was only showing one way."* A road was drawn from ONE
+          // signed rate, so two opposite streams cancelled and the busier of
+          // them was all you saw. `rate` and `back` are the two directions,
+          // kept apart by `flow`, and each gets its own line of porters —
+          // offset half a gap sideways so they pass rather than overlap.
+          const len = lengthOf(run);
+          for (const way of [
+            { rate: Math.abs(l.rate ?? 0), fwd: (l.dir ?? 1) > 0, off: -2.4 },
+            { rate: Math.abs(l.back ?? 0), fwd: (l.dir ?? 1) <= 0, off: 2.4 },
+          ]) {
+            if (!(way.rate > 0) || len <= 1) continue;
+            const gap = Math.max(MIN_GAP, WALK / way.rate);
+            const v = gap * way.rate;          // === WALK unless clamped
             // Where the leading porter has got to, modulo the spacing. The
             // rest follow at `gap`, and the road holds `len / gap` of them —
             // under one when the rate is low, which is the point: the player
             // sees ONE dot cross, then an empty road, then the next.
             for (let d = (phase * v) % gap; d <= len; d += gap) {
-              const p = atLen(run, (l.dir ?? 1) > 0 ? d : len - d);
-              paint(ctx, { s: 'disc', x: p.x, y: p.y, r: 3.2, ink: 'flowing',
+              const at = way.fwd ? d : len - d;
+              const p = atLen(run, at);
+              // Shift each stream off the centre line so a two-way road reads
+              // as two files of people rather than one blinking one.
+              const q = atLen(run, Math.min(len, at + 1));
+              const dx = q.x - p.x, dy = q.y - p.y;
+              const m = Math.hypot(dx, dy) || 1;
+              paint(ctx, { s: 'disc', x: p.x + (-dy / m) * way.off,
+                y: p.y + (dx / m) * way.off, r: 3.2, ink: 'flowing',
                 ring: 'casing', rw: 1, alpha: 0.95 }, sx, sy, 1);
             }
           }
@@ -847,8 +868,20 @@
     <!-- ★ LABELS STAY ON THE BOARD — a name near the edge slides inward
          instead of clipping off it (the owner's visual pass). -->
     {@const half = d.name.length * 3.2 + 4}
-    {@const nudge = Math.round(Math.max(0, half + 3 - sx(p.x))
+    <!-- ★★★ F4, 2026-08-11 — the owner, zoomed in on the camp: *"this Scree
+         Slope label follows… these labels, they follow too long. They should
+         stop following as soon as I stop seeing the related edge."*
+         A name near the edge slides inward so it does not clip off (the
+         owner's own earlier visual pass) — but with nothing bounding the
+         slide, a dot far off screen kept its name pinned to the edge and it
+         read as a label chasing the camera. Two bounds now: the name is only
+         drawn if its DOT is on screen, and the slide is capped so a name can
+         never travel further than its own width from the thing it names. -->
+    {@const seen = sx(p.x) > -24 && sx(p.x) < cssW + 24
+      && sy(p.y) > -24 && sy(p.y) < cssH + 24}
+    {@const slide = Math.round(Math.max(0, half + 3 - sx(p.x))
       + Math.min(0, cssW - 3 - sx(p.x) - half))}
+    {@const nudge = Math.max(-half, Math.min(half, slide))}
     <button class="node" class:you={d.you} class:open={d.open} class:shut={d.shut}
       class:known={d.known} class:on={d.on} data-kind={d.kind} data-id={d.id}
       style="left:{sx(p.x)}px; top:{sy(p.y)}px"
@@ -861,7 +894,7 @@
           <path d={ICONS[d.icon]} />
         </svg>
       {/if}
-      {#if d.name && !unlabelled.has(d.id)}
+      {#if d.name && seen && !unlabelled.has(d.id)}
         <span class="label"
           style:transform={nudge ? `translateX(${nudge}px)` : undefined}>{d.name}</span>
       {/if}

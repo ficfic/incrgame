@@ -117,6 +117,9 @@
   // The board still throttles to one a second and clears them on a pan.
   let pops = $state(0);
   let popMark = $state('');
+  /** ★ F3: which counters just ticked up, so each can float its own +1. */
+  let bumps = $state<Array<{ id: number; good: string }>>([]);
+  let bumpId = 0;
   const WATCHED = [
     ['stone', MARK.stone], ['logs', MARK.logs],
     ['planks', MARK.planks], ['food', MARK.food],
@@ -145,7 +148,20 @@
     for (const [good, mark] of WATCHED) {
       carriedIn[good] = (carriedIn[good] ?? 0) + (rate[good] ?? 0) * dt;
       const w = Math.floor(carriedIn[good]!);
-      if (w > (lastWhole[good] ?? 0)) { pops++; popMark = mark; }
+      if (w > (lastWhole[good] ?? 0)) {
+        pops++;
+        popMark = mark;
+        // ★★★ F3, 2026-08-11 — the owner: *"plus one above the camp does not
+        // correspond to the dots arriving there. And also the plus one —
+        // maybe it should be in the top where the resource counters are."*
+        // The float and the carrier dots are two animations that will never
+        // line up frame by frame, however carefully their FREQUENCY is
+        // matched. Their own suggestion is the fix: put it where the number
+        // it is about actually changes.
+        bumpId += 1;
+        bumps = [...bumps.filter((b) => b.good !== good),
+          { id: bumpId, good }].slice(-4);
+      }
       lastWhole[good] = w;
     }
   });
@@ -287,7 +303,12 @@
           // is the number it does it with. ⚠️ Omit it and no carriers draw
           // at all, on purpose: a line that will not say what it delivers
           // may not imply a number.
-          rate: carrying,
+          // ★★★ F7 (2026-08-11): the two directions, kept apart. `carrying`
+          // is the traffic ALONG a→b; `back` is what comes the other way.
+          // `f.both` is keyed on the edge, so both are read the same way and
+          // flipped together when this site is the far end of the key.
+          rate: s.id < n ? (f.both.get(key)?.ab ?? 0) : (f.both.get(key)?.ba ?? 0),
+          back: s.id < n ? (f.both.get(key)?.ba ?? 0) : (f.both.get(key)?.ab ?? 0),
         });
       }
     }
@@ -880,18 +901,33 @@
          on stone. A HUD that looks better and hides those is worse. -->
     <div class="hud">
       <div class="cell" class:brim={brim(game.stone)} data-q="stone">
+        {#each bumps.filter((b) => b.good === 'stone') as b (b.id)}
+          <span class="bump"
+            onanimationend={() => (bumps = bumps.filter((x) => x.id !== b.id))}
+            >+1</span>
+        {/each}
         <span class="cap">STONE</span>
         <b>{Math.floor(game.stone)}<span class="cap-of">/{roomOf(game)}</span></b>
         <em>🪨 {brim(game.stone) ? 'full'
           : f.stone > 0 ? `+${f.stone.toFixed(1)}/s` : '—'}</em>
       </div>
       <div class="cell" class:brim={brim(game.logs)} data-q="logs">
+        {#each bumps.filter((b) => b.good === 'logs') as b (b.id)}
+          <span class="bump"
+            onanimationend={() => (bumps = bumps.filter((x) => x.id !== b.id))}
+            >+1</span>
+        {/each}
         <span class="cap">LOGS</span>
         <b>{Math.floor(game.logs)}<span class="cap-of">/{roomOf(game)}</span></b>
         <em>🪵 {brim(game.logs) ? 'full'
           : f.logsIn > 0 ? `+${f.logsIn.toFixed(1)}/s` : '—'}</em>
       </div>
       <div class="cell" class:brim={brim(game.planks)} data-q="planks">
+        {#each bumps.filter((b) => b.good === 'planks') as b (b.id)}
+          <span class="bump"
+            onanimationend={() => (bumps = bumps.filter((x) => x.id !== b.id))}
+            >+1</span>
+        {/each}
         <span class="cap">PLANKS</span>
         <b>{Math.floor(game.planks)}<span class="cap-of">/{roomOf(game)}</span></b>
         <em>🟫 {brim(game.planks) ? 'full'
@@ -899,6 +935,11 @@
       </div>
       <div class="cell" class:hurt={f.starving} class:brim={brim(game.food) && !f.starving}
         data-q="food">
+        {#each bumps.filter((b) => b.good === 'food') as b (b.id)}
+          <span class="bump"
+            onanimationend={() => (bumps = bumps.filter((x) => x.id !== b.id))}
+            >+1</span>
+        {/each}
         <span class="cap">FOOD</span>
         <b>{Math.floor(game.food)}<span class="cap-of">/{roomOf(game)}</span></b>
         <em>🌾 {f.starving ? 'STARVING' : brim(game.food) ? 'full'
@@ -1306,6 +1347,14 @@
     margin-left: 4px; }
   .logline { border-left: 3px solid #e2d9c3; padding-left: 8px;
     margin: 5px 0; }
+  /* ★ F3: the +1 rises out of the counter it belongs to. */
+  .goods .cell { position: relative; }
+  .bump { position: absolute; right: 6px; top: 2px; font-size: 12px;
+    font-weight: 800; color: #1f7a3f; pointer-events: none;
+    animation: bump 1s ease-out forwards; }
+  @keyframes bump { from { opacity: 0.95; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-14px); } }
+  @media (prefers-reduced-motion: reduce) { .bump { animation-duration: 0.01s; } }
   .swinging { color: #b3452f; font-weight: 700; text-align: center; margin: 2px 0; }
   /* ★ The wind-up is the one beat where Guard is right, so it shouts. */
   .swinging.windup { background: #fbe9e4; border-radius: 6px; padding: 2px 0;
