@@ -8,6 +8,7 @@ import { held } from '../src/camp/barrier';
 import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
   unlayable, unraisable, unassailable, component, heroHit, spearCost, hunger,
   RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
+  roomToGrow, jobsOf,
   START_STONE, START_LOGS, BUILD_SECS, raisingLeft, buildSecs, housed,
   PATH_COST, PATH_SECS, lineOf, windup, WINDUP_EVERY, regenOf, catchUp, STEP_SECS, SITE,
   richOf, MAX_GAUGE, roomOf, storeCost, STORE_BASE, STORE_ROOM,
@@ -118,12 +119,23 @@ describe('★★ RULE 1 — buildings come in counts, on the compounding curve',
 });
 
 describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
-  it('huts raise the cap; people grow toward it on the clock', () => {
-    const g: City = { ...initial(), stacks: { 0: 2 } };
-    expect(popCap(g)).toBe(CAMP_ROOM + 2 * HUT_ROOM);
+  it('★★★ BUNKS AND JOBS BOTH, and the smaller one wins', () => {
+    // ⚠️ REWRITTEN 2026-08-11 (chad-liquidity). Huts alone used to raise the
+    // ceiling, so past the last working slot a hut bought a MOUTH AND NO
+    // HANDS — twelve huts is 290 planks for sixteen people eating 0.8 food a
+    // second and producing nothing. A strictly negative purchase, and a
+    // famine the player paid for. Growth stops at the work available now.
+    const bunks: City = { ...initial(), stacks: { 0: 2 } };
+    expect(popCap(bunks)).toBe(CAMP_ROOM + 2 * HUT_ROOM);
     expect(HUT_ROOM).toBe(CREW);   // one hut houses one crew
-    const grown = tick(g, GROW_SECS * 2 + 0.5);
-    expect(grown.pop).toBe(CAMP_ROOM + 2);
+    // Bunks without a workface: the camp's own room, and no further.
+    expect(roomToGrow(bunks)).toBe(CAMP_ROOM);
+    expect(tick(bunks, GROW_SECS * 4).pop).toBe(CAMP_ROOM);
+    // Open a pit and the same huts fill, because now there is work.
+    const worked: City = { ...bunks, stacks: { 0: 2, 1: 1 },
+      paths: { [pathKey(0, 1)]: 1 } };
+    expect(jobsOf(worked)).toBe(CREW);
+    expect(tick(worked, GROW_SECS * 2 + 0.5).pop).toBe(CAMP_ROOM + 2);
   });
 
   it('people never grow past the huts', () => {
@@ -1095,7 +1107,10 @@ describe('★★ THE AWAY RUN — simulated, not estimated', () => {
     // returned 22: the town filled its huts on an empty larder overnight.)
     expect(tick(cold, 12 * 3600).pop).toBe(WILD_FED);
     // Bread, and the same night fills the huts.
-    expect(catchUp({ ...cold, food: 9e5 }, 12 * 3600).pop).toBe(popCap(cold));
+      // ⚠️ `roomToGrow`, NOT `popCap` (2026-08-11): a town grows to the WORK
+      // it has, not the bunks — huts past the last job buy mouths and no
+      // hands. This fixture's ceiling is whichever of the two is smaller.
+      expect(catchUp({ ...cold, food: 9e5 }, 12 * 3600).pop).toBe(roomToGrow(cold));
   });
 
   it('★ a path two seconds from done carries for the rest of the night', () => {
@@ -2861,8 +2876,13 @@ describe('★★★ MORE HANDS ON ONE WORKS', () => {
 // capped FARMS at one per site, and nothing reduced the number of mouths.
 // ---------------------------------------------------------------------------
 describe('★★★ A TOWN CAN ALWAYS GET OUT OF A FAMINE', () => {
+  // ⚠️ WITH SOMEWHERE TO WORK (2026-08-11). Growth stops at the number of
+  // JOBS now, so a fixture of bare huts cannot grow at all and this suite
+  // would have been measuring the wrong ceiling.
   const fieldless = (over: Partial<City> = {}): City => ({ ...initial(),
-    stacks: { 0: 12 }, pop: 20, food: 400, ...over });
+    stacks: { 0: 12, 1: 1, 2: 1 }, crew: { 1: 0, 2: 0 },
+    paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1 },
+    pop: 20, food: 400, ...over });
 
   it('★★★ A DEEP FAMINE COSTS PEOPLE, which is the way out', () => {
     const starved: City = { ...fieldless({ food: 0 }), famine: FAMINE_DEEP };

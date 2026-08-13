@@ -1205,6 +1205,30 @@ export const CAMP_ROOM = 4;
 export const popCap = (g: City): number =>
   CAMP_ROOM + (g.stacks[0] ?? 0) * HUT_ROOM;
 
+/** ★★★ EVERY JOB IN THE VALLEY — 2026-08-11 (chad-liquidity). Working slots
+ *  across every site the town can actually reach, plus the gates it is
+ *  holding. */
+export const jobsOf = (g: City): number => {
+  const comp = component(g);
+  let n = guardsTotal(g);
+  for (const id of comp) {
+    if (id === 0) continue;
+    n += CREW * ((g.stacks[id] ?? 0) + (g.hire[id] ?? 0));
+  }
+  return n;
+};
+/** ★★★ WHERE GROWTH ACTUALLY STOPS. The huts' room, or the number of JOBS,
+ *  whichever is smaller.
+ *
+ *  Bunks alone was a trap the player could buy: past the last working slot a
+ *  hut bought a mouth and no hands at all — 12 huts is 290 planks for 16
+ *  people eating 0.8 food a second and producing nothing, which is a
+ *  *strictly negative* purchase and a famine you paid for. The town now
+ *  grows to the work it has, and the way to want more people is to open more
+ *  ground — which is the same answer as everything else in this pass. */
+export const roomToGrow = (g: City): number =>
+  Math.min(popCap(g), Math.max(WILD_FED, jobsOf(g) + CAMP_ROOM));
+
 /** ★★★ ONLY THE HOUSED WORK, 2026-08-10 (the PC playtest). The owner, twice:
  *  *"I have four out of two people… and I do not have any penalties for it"*
  *  and *"six out of two people right now, by the way, and I do not have any
@@ -1904,7 +1928,7 @@ export function apply(g: City, a: Action): City {
       const surplus = f.food - hunger(g);
       const stocked = g.food > roomOf(g) * GROW_STORE;
       const fed = pop < WILD_FED || surplus > 0 || stocked;
-      if (pop < popCap(g) && fed) {
+      if (pop < roomToGrow(g) && fed) {
         popPart += s / GROW_SECS;
         const grown = Math.floor(popPart);
         // ⚠️ THE WILD'S TABLE IS A CEILING WITHIN THE STEP TOO (review
@@ -1914,7 +1938,7 @@ export function apply(g: City, a: Action): City {
         // the whole mid-game is built on simply did not bite when the game
         // was in a pocket. Growth stops AT the table until there is bread.
         const room = surplus > 0 || stocked
-          ? popCap(g) : Math.max(pop, WILD_FED);
+          ? roomToGrow(g) : Math.max(pop, WILD_FED);
         pop = Math.min(room, pop + grown);
         popPart -= grown;
       } else {
