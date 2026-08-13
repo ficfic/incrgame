@@ -3084,7 +3084,10 @@ describe('★★★ A CHOICE ON THE ROAD', () => {
     expect(took.log.at(-1)).toBe(m.ways[0].said);
     const want = m.ways[0].loot ?? {};
     for (const [k, v] of Object.entries(want)) {
-      if (v > 0) expect(took[k as Good]).toBeGreaterThan(g[k as Good]);
+      if (v > 0) {
+        const good = k as 'stone' | 'logs' | 'planks' | 'food';
+        expect(took[good]).toBeGreaterThan(g[good]);
+      }
     }
     expect(took.pop).toBe(g.pop + (m.ways[0].pop ?? 0));
   });
@@ -3096,5 +3099,37 @@ describe('★★★ A CHOICE ON THE ROAD', () => {
     expect(honour({ game: { ...initial(), meet: 999 }, savedAt: 1 })).toBeNull();
     const { meet: _drop, ...older } = initial();
     expect(honour({ game: older as City, savedAt: 1 })!.game.meet).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ N6 — THE PORTER WEARS ITS LOAD, 2026-08-11. The owner: *"the icons for
+// the dots that go from the production side to the storage could be
+// representing what's being actually transferred… at the moment it looks like
+// conveyor belts, while it's not."*
+// ---------------------------------------------------------------------------
+describe('★★★ WHAT THE PORTERS ARE CARRYING', () => {
+  it('★★★ each direction reports the good it mostly carries', () => {
+    const g: City = { ...initial(), pop: 99, food: 9e5, goblins: {},
+      stacks: { 0: huts(99), 1: 1, 2: 1, 3: 1 },
+      crew: { 1: CREW, 2: CREW, 3: CREW },
+      paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 } };
+    const f = flow(g);
+    // The quarry road carries stone home...
+    const quarry = f.goods.get(pathKey(0, 1));
+    expect(quarry?.ab ?? quarry?.ba).toBeTruthy();
+    expect([quarry?.ab, quarry?.ba]).toContain('stone');
+    // ...and the mill road carries logs out and planks back, which is the
+    // exact road the complaint was about.
+    const mill = f.goods.get(pathKey(0, 3));
+    expect([mill?.ab, mill?.ba].filter(Boolean).sort())
+      .toEqual(['logs', 'planks']);
+  });
+
+  it('★ a road nobody uses names no cargo', () => {
+    const idle: City = { ...initial(), pop: 2, paths: { [pathKey(0, 1)]: 1 } };
+    const way = flow(idle).goods.get(pathKey(0, 1));
+    expect(way?.ab ?? null).toBeNull();
+    expect(way?.ba ?? null).toBeNull();
   });
 });

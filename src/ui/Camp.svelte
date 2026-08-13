@@ -3,7 +3,7 @@
   // numbers, the board, a dock of deeds. NO PROSE: nouns and numbers.
   import { onMount } from 'svelte';
   import Board, { type Dot, type Line } from './Board.svelte';
-  import { INK, TOL } from '../game/ink';
+  import { INK, TOL, type InkName } from '../game/ink';
   import type { Box } from '../game/layout';
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
@@ -54,6 +54,15 @@
    *  is WASTE, the same law the paths obey — so the chip says so. */
   const brim = (n: number): boolean => n >= roomOf(game) - 1e-9;
   /** How much of the valley is still theirs — the goal, as one number. */
+  /** ★ N6: the ink a porter wears for each good. Reuses the board's own
+   *  palette rather than inventing four more — `stone` is already the grey
+   *  the HUD's stone counter uses, and the rest follow the same logic. */
+  const CARGO: Record<string, InkName> = {
+    // ⚠️ LOGS ARE NOT GREEN. `edgewood` is the wood's own green and it read as
+    // another owned-site dot rolling down the road; `shut` is the amber the
+    // board already uses for raw material in motion.
+    stone: 'stone', logs: 'shut', planks: 'fill', food: 'open',
+  };
   const holdings = $derived(Object.keys(game.goblins).length);
 
   /** ★★★ TABS — N1, 2026-08-11. The owner: *"I'm missing a tab, hero, so we
@@ -121,6 +130,12 @@
   /** ★ F3: which counters just ticked up, so each can float its own +1. */
   let bumps = $state<Array<{ id: number; good: string }>>([]);
   let bumpId = 0;
+  /** ⚠️ A PLAIN MIRROR, NOT THE RUNE. The effect below both reads and writes
+   *  the list; reading `bumps` inside it makes the effect depend on its own
+   *  output, and Svelte stops running it — the float simply never appeared,
+   *  which the browser probe caught. Everything reactive is written, never
+   *  read, in there. */
+  let recentBumps: Array<{ id: number; good: string }> = [];
   const WATCHED = [
     ['stone', MARK.stone], ['logs', MARK.logs],
     ['planks', MARK.planks], ['food', MARK.food],
@@ -160,8 +175,9 @@
         // matched. Their own suggestion is the fix: put it where the number
         // it is about actually changes.
         bumpId += 1;
-        bumps = [...bumps.filter((b) => b.good !== good),
+        recentBumps = [...recentBumps.filter((b) => b.good !== good),
           { id: bumpId, good }].slice(-4);
+        bumps = recentBumps;
       }
       lastWhole[good] = w;
     }
@@ -310,6 +326,9 @@
           // flipped together when this site is the far end of the key.
           rate: s.id < n ? (f.both.get(key)?.ab ?? 0) : (f.both.get(key)?.ba ?? 0),
           back: s.id < n ? (f.both.get(key)?.ba ?? 0) : (f.both.get(key)?.ab ?? 0),
+          // ★ N6: each file of porters wears the good it is carrying.
+          ink: CARGO[(s.id < n ? f.goods.get(key)?.ab : f.goods.get(key)?.ba) ?? 'stone'],
+          backInk: CARGO[(s.id < n ? f.goods.get(key)?.ba : f.goods.get(key)?.ab) ?? 'stone'],
         });
       }
     }
@@ -900,11 +919,14 @@
          earned this week: a FULL store (the stock stops climbing), a
          STARVING town (every works but the farms halts), and the tap rate
          on stone. A HUD that looks better and hides those is worse. -->
-    <div class="hud">
+    <div class="hud goods">
       <div class="cell" class:brim={brim(game.stone)} data-q="stone">
         {#each bumps.filter((b) => b.good === 'stone') as b (b.id)}
           <span class="bump"
-            onanimationend={() => (bumps = bumps.filter((x) => x.id !== b.id))}
+            onanimationend={() => {
+              recentBumps = recentBumps.filter((x) => x.id !== b.id);
+              bumps = recentBumps;
+            }}
             >+1</span>
         {/each}
         <span class="cap">STONE</span>
@@ -915,7 +937,10 @@
       <div class="cell" class:brim={brim(game.logs)} data-q="logs">
         {#each bumps.filter((b) => b.good === 'logs') as b (b.id)}
           <span class="bump"
-            onanimationend={() => (bumps = bumps.filter((x) => x.id !== b.id))}
+            onanimationend={() => {
+              recentBumps = recentBumps.filter((x) => x.id !== b.id);
+              bumps = recentBumps;
+            }}
             >+1</span>
         {/each}
         <span class="cap">LOGS</span>
@@ -926,7 +951,10 @@
       <div class="cell" class:brim={brim(game.planks)} data-q="planks">
         {#each bumps.filter((b) => b.good === 'planks') as b (b.id)}
           <span class="bump"
-            onanimationend={() => (bumps = bumps.filter((x) => x.id !== b.id))}
+            onanimationend={() => {
+              recentBumps = recentBumps.filter((x) => x.id !== b.id);
+              bumps = recentBumps;
+            }}
             >+1</span>
         {/each}
         <span class="cap">PLANKS</span>
@@ -938,7 +966,10 @@
         data-q="food">
         {#each bumps.filter((b) => b.good === 'food') as b (b.id)}
           <span class="bump"
-            onanimationend={() => (bumps = bumps.filter((x) => x.id !== b.id))}
+            onanimationend={() => {
+              recentBumps = recentBumps.filter((x) => x.id !== b.id);
+              bumps = recentBumps;
+            }}
             >+1</span>
         {/each}
         <span class="cap">FOOD</span>
@@ -1043,8 +1074,13 @@
 
   {#if ready}
     <div class="map">
+      <!-- ⚠️ NO `pulse` ANY MORE (F3, 2026-08-11). The +1 used to float over
+           the camp and never lined up with the porters arriving there; it now
+           rises out of the resource counter that actually changed, at the
+           owner's own suggestion. Leaving both would be the clutter F10 is
+           about. -->
       <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false}
-        decor={scene} mark={heroMark} pulse={pops} pulseMark={popMark} />
+        decor={scene} mark={heroMark} />
     </div>
     <section class="panel">
       {#if awayLine}

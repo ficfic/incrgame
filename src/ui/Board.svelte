@@ -58,6 +58,9 @@
     carry?: boolean;
     /** ★ F7: what this road carries the OTHER way, per second. */
     back?: number;
+    /** ★ N6: which ink the porters wear each way — the GOOD they carry. */
+    ink?: InkName;
+    backInk?: InkName;
     /** ★★★ WHAT THIS LINE ACTUALLY DELIVERS, IN UNITS A SECOND — and the only
      *  number the carrier dots are drawn from. 2026-08-10, the owner: *"if it
      *  is point zero four per second, then I anticipate to see a dot moving
@@ -609,8 +612,10 @@
           // offset half a gap sideways so they pass rather than overlap.
           const len = lengthOf(run);
           for (const way of [
-            { rate: Math.abs(l.rate ?? 0), fwd: (l.dir ?? 1) > 0, off: -2.4 },
-            { rate: Math.abs(l.back ?? 0), fwd: (l.dir ?? 1) <= 0, off: 2.4 },
+            { rate: Math.abs(l.rate ?? 0), fwd: (l.dir ?? 1) > 0, off: -2.4,
+              ink: l.ink ?? 'flowing' },
+            { rate: Math.abs(l.back ?? 0), fwd: (l.dir ?? 1) <= 0, off: 2.4,
+              ink: l.backInk ?? 'flowing' },
           ]) {
             if (!(way.rate > 0) || len <= 1) continue;
             const gap = Math.max(MIN_GAP, WALK / way.rate);
@@ -627,8 +632,13 @@
               const q = atLen(run, Math.min(len, at + 1));
               const dx = q.x - p.x, dy = q.y - p.y;
               const m = Math.hypot(dx, dy) || 1;
+              // ★★★ N6, 2026-08-11 — THE PORTER WEARS ITS LOAD. The owner:
+              // *"the icons for the dots… could be representing what's being
+              // actually transferred… at the moment it looks like conveyor
+              // belts, while it's not."* A colourless dot is a conveyor; a
+              // dot the colour of stone is somebody carrying stone.
               paint(ctx, { s: 'disc', x: p.x + (-dy / m) * way.off,
-                y: p.y + (dx / m) * way.off, r: 3.2, ink: 'flowing',
+                y: p.y + (dx / m) * way.off, r: 3.4, ink: way.ink,
                 ring: 'casing', rw: 1, alpha: 0.95 }, sx, sy, 1);
             }
           }

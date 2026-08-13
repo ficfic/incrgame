@@ -706,20 +706,25 @@ await seed({ version: 5, stacks: { 0: 3, 2: 2, 3: 2 },
   hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 2, carts: 0 });
 // No quarry anywhere: the only pile that can grow is planks, so a float
 // here is proof the +1 is not still watching stone alone.
+// ★★★ AND IT FLOATS AT THE COUNTER NOW, NOT OVER THE BOARD (F3,
+// 2026-08-11). The owner: *"plus one above the camp does not correspond to
+// the dots arriving there… maybe it should be in the top where the resource
+// counters are."* The board's own float is gone, so the check moved with it:
+// what must be true is that the counter whose number is climbing shows a +1,
+// which is a stronger claim than the old one — it says WHICH good landed by
+// WHERE the float appeared, rather than by an emoji inside it.
 let floated = '';
 for (let i = 0; i < 14 && !floated; i++) {
   await page.waitForTimeout(900);
-  const t = await page.locator('.plus').first().textContent().catch(() => '');
-  if (t) floated = t.trim();
+  floated = await page.evaluate(() => {
+    const cell = [...document.querySelectorAll('.hud .cell')]
+      .find((c) => c.querySelector('.bump'));
+    return cell ? (cell.getAttribute('data-q') ?? 'somewhere') : '';
+  });
 }
-console.log('  floats  :', floated ? `"${floated}"` : 'NOTHING FLOATED');
+console.log('  floats  :', floated ? `"+1 at ${floated}"` : 'NOTHING FLOATED');
 if (!floated) {
-  misses.push('planks landed and no +1 floated — it is still watching stone alone');
-// ⚠️ ANY OF THE FOUR MARKS. The float used to be pinned to planks; it now
-// names whichever good actually arrived, and which one that is depends on
-// what the seeded town happens to be delivering fastest at that instant.
-} else if (!/[🪨🪵🟫🌾]/.test(floated)) {
-  misses.push(`the +1 does not name what landed: "${floated}"`);
+  misses.push('planks landed and no +1 floated at any counter');
 }
 
 // -------------------------------------------------- the march -----------

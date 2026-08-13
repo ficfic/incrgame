@@ -708,6 +708,10 @@ export const WORKS_MAX = 1;
 
 /** Output per WORKER per second. */
 export const RATE = { quarry: 0.15, lumber: 0.2, sawmill: 0.25, farm: 0.2 } as const;
+/** What each kind of workface actually sends down the road (N6). */
+export const GOOD_OF: Record<Kind, Good> = {
+  hut: 'food', quarry: 'stone', lumber: 'logs', sawmill: 'planks', farm: 'food',
+};
 
 /** ★★★ THE FORAY — the floor under the whole economy, 2026-08-10.
  *
@@ -1027,6 +1031,16 @@ export const HUT_ROOM = 4;
  *  the famine that followed it; not so many that a save doubles in size. */
 export const LOG_KEEP = 60;
 /** Append lines to the log, keeping the newest `LOG_KEEP`. */
+/** The good with the largest share of a direction's traffic, or null. */
+const topGood = (at: Partial<Record<Good, number>>): Good | null => {
+  let best: Good | null = null;
+  let most = 0;
+  for (const [k, v] of Object.entries(at)) {
+    if ((v ?? 0) > most) { most = v ?? 0; best = k as Good; }
+  }
+  return best;
+};
+
 export const logged = (was: string[], ...lines: string[]): string[] =>
   lines.length === 0 ? was : [...was, ...lines].slice(-LOG_KEEP);
 
@@ -1255,6 +1269,8 @@ export interface Flow {
    *  way and planks the other is drawn as two streams rather than as one
    *  cancelled-out still road. */
   both: Map<string, { ab: number; ba: number }>;
+  /** ★ N6: what each direction is mostly carrying, or null. */
+  goods: Map<string, { ab: Good | null; ba: Good | null }>;
   /** ★ WHICH WAY EACH PATH RUNS: +1 if the goods travel low-id → high-id
    *  along `pathKey`, -1 the other way, absent for a path carrying
    *  nothing. The NET of everything routed over it — logs heading out to
@@ -1410,6 +1426,21 @@ export function flow(g: City): Flow {
   const loads = new Map<string, number>();
   /** Per-edge traffic, kept apart by direction — see F7 below. */
   const both = new Map<string, { ab: number; ba: number }>();
+  /** ★★★ N6, 2026-08-11 — WHAT each direction is mostly carrying. The owner:
+   *  *"the icons for the dots that go from the production side to the storage
+   *  could be representing what's being actually transferred… at the moment
+   *  it looks like conveyor belts, while it's not."* A porter carrying a
+   *  colourless dot is a conveyor belt; a porter carrying STONE is a person
+   *  with a load. Dominant good per direction, so a mixed road shows what
+   *  most of it is. */
+  const goods = new Map<string, { ab: Partial<Record<Good, number>>;
+    ba: Partial<Record<Good, number>> }>();
+  const carrying = (e: string, d: number, good: Good, n: number): void => {
+    const at = goods.get(e) ?? { ab: {}, ba: {} };
+    const side = d >= 0 ? at.ab : at.ba;
+    side[good] = (side[good] ?? 0) + n;
+    goods.set(e, at);
+  };
   /** Signed load per edge — the net decides which way the carriers walk. */
   const net = new Map<string, number>();
   let stone = 0;
@@ -1438,6 +1469,7 @@ export function flow(g: City): Flow {
       const way = both.get(e) ?? { ab: 0, ba: 0 };
       if (d >= 0) way.ab += got; else way.ba += got;
       both.set(e, way);
+      carrying(e, d, GOOD_OF[f.kind], got);
     }
     carried.set(f.id, got);
     if (f.kind === 'quarry') stone += got;
@@ -1489,6 +1521,7 @@ export function flow(g: City): Flow {
         const way = both.get(e) ?? { ab: 0, ba: 0 };
         if (d >= 0) way.ab += got; else way.ba += got;
         both.set(e, way);
+        carrying(e, d, 'planks', got);
       }
       carried.set(id, got);
       planks += got;
@@ -1496,7 +1529,10 @@ export function flow(g: City): Flow {
   }
 
   return { stone, food, logsIn, planks, millCap, sawing,
-    made, carried, choked, loads, net, both };
+    made, carried, choked, loads, net, both,
+    goods: new Map([...goods].map(([e, at]) => [e, {
+      ab: topGood(at.ab), ba: topGood(at.ba),
+    }])) };
   };
 
   // ★★★ STARVING IS ABOUT WHAT ARRIVES, NOT WHAT IS GROWN, 2026-08-08.
@@ -1527,7 +1563,7 @@ export function flow(g: City): Flow {
   }
   const run = starving ? deliver(halted) : open;
   const { stone, food, logsIn, planks, millCap, sawing, carried, choked,
-    loads, net, both } = run;
+    loads, net, both, goods } = run;
 
   // The net decides the walk: a path where logs out and planks back
   // cancel exactly shows nobody, which is honest.
@@ -1535,7 +1571,8 @@ export function flow(g: City): Flow {
   for (const [e, n] of net) if (Math.abs(n) > 1e-9) dirs.set(e, n > 0 ? 1 : -1);
 
   return { stone, logs: logsIn, planks, food, starving, logsIn, millCap,
-    sawing, hands, made: run.made, carried, choked, loads, dirs, both, staff, comp };
+    sawing, hands, made: run.made, carried, choked, loads, dirs, both, goods,
+    staff, comp };
 }
 
 /** Why the next copy cannot be raised here, in plain words, or null. */
