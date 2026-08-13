@@ -612,9 +612,17 @@
           // offset half a gap sideways so they pass rather than overlap.
           const len = lengthOf(run);
           for (const way of [
-            { rate: Math.abs(l.rate ?? 0), fwd: (l.dir ?? 1) > 0, off: -2.4,
+            // ⚠️ THE WALKING DIRECTION IS THE SPLIT ITSELF, NOT `dir`.
+            // 2026-08-11, and this was wrong for a day: `rate` already means
+            // "traffic from a to b" and `back` means "b to a" — that is what
+            // splitting them WAS — so keying each file's direction to `dir`,
+            // the old NET, reversed both of them on every road whose net ran
+            // b→a. The owner, immediately: *"the resource indicators moving
+            // opposite direction now."* `dir` is the cancelled number this
+            // change exists to stop trusting.
+            { rate: Math.abs(l.rate ?? 0), fwd: true, off: -2.4,
               ink: l.ink ?? 'flowing' },
-            { rate: Math.abs(l.back ?? 0), fwd: (l.dir ?? 1) <= 0, off: 2.4,
+            { rate: Math.abs(l.back ?? 0), fwd: false, off: 2.4,
               ink: l.backInk ?? 'flowing' },
           ]) {
             if (!(way.rate > 0) || len <= 1) continue;

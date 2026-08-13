@@ -765,6 +765,71 @@ if (heroHere - heroGone < 60) {
   misses.push(`the hero figure is not drawn: ${heroHere}px there vs ${heroGone}px away`);
 }
 
+// ------------------------------------------- the porters walk the right way --
+console.log('\nTHE PORTERS WALK THE RIGHT WAY');
+// ★★★ ADDED 2026-08-11, THE DAY AFTER SHIPPING IT BACKWARDS. Splitting a
+// road's traffic by direction (F7) left each file's WALKING direction keyed to
+// `dir` — the old net — so on any road whose net ran b→a both files were drawn
+// in reverse. The owner saw it at once: *"the resource indicators moving
+// opposite direction now."* Nothing caught it, because every check until now
+// asked whether porters were DRAWN, never which way they went.
+await seed({ version: 5, stacks: { 0: 25, 1: 1 }, paths: { '0|1': 1 },
+  crew: { 1: 1 }, raising: {}, laying: {},
+  stone: 10, logs: 0, planks: 0, food: 9000, pop: 40, popPart: 0,
+  goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 13, spears: 2, part: 0, at: 0, trip: null },
+  fight: null, store: 3, carts: 0, famine: 0, menace: {}, taken: 1,
+  lost: false, forage: null, forays: 0, ambush: null, guard: {},
+  stowing: null, hire: {}, log: [], since: 0, meet: null });
+{
+  const mid = async (id) => {
+    const b = await page.locator(`.map .node[data-id="site:${id}"]`).boundingBox();
+    return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+  };
+  const camp = await mid(0), quarry = await mid(1);
+  // ⚠️ ONE porter on the road (crew 1, no carts) and the MEAN of its ink, so
+  // the reading cannot be confused by a second porter wrapping around.
+  const where = () => page.evaluate(([c, q]) => {
+    const cv = document.querySelector('.map canvas');
+    const cb = cv.getBoundingClientRect();
+    const sx = cv.width / cb.width, sy = cv.height / cb.height;
+    const d = cv.getContext('2d', { willReadFrequently: true })
+      .getImageData(0, 0, cv.width, cv.height).data;
+    const hex = (window.__INK ?? {}).stone;
+    const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16),
+      bl = parseInt(hex.slice(5, 7), 16);
+    const hits = [];
+    for (let t = 0.12; t <= 0.88; t += 0.01) {
+      const px = Math.round(((q.x + (c.x - q.x) * t) - cb.left) * sx);
+      const py = Math.round(((q.y + (c.y - q.y) * t) - cb.top) * sy);
+      let found = false;
+      for (let ox = -4; ox <= 4 && !found; ox++) {
+        for (let oy = -4; oy <= 4 && !found; oy++) {
+          const k = ((py + oy) * cv.width + (px + ox)) * 4;
+          if (d[k + 3] > 40 && Math.abs(d[k] - r) <= 14
+            && Math.abs(d[k + 1] - g) <= 14 && Math.abs(d[k + 2] - bl) <= 14) found = true;
+        }
+      }
+      if (found) hits.push(t);
+    }
+    return hits.length ? hits.reduce((a, b) => a + b, 0) / hits.length : null;
+  }, [camp, quarry]);
+  const track = [];
+  for (let i = 0; i < 6; i++) { track.push(await where()); await page.waitForTimeout(350); }
+  const seen = track.filter((x) => x !== null);
+  let up = 0, down = 0;
+  for (let i = 1; i < seen.length; i++) {
+    if (seen[i] > seen[i - 1] + 0.01) up++;
+    else if (seen[i] < seen[i - 1] - 0.01) down++;
+  }
+  console.log('  walks   :', seen.length
+    ? `quarry→camp ${seen.map((x) => x.toFixed(2)).join(' → ')}` : 'no porter seen');
+  if (!seen.length) misses.push('no porter on the quarry road at all');
+  else if (!(up > down)) {
+    misses.push(`the porters walk the WRONG WAY: ${seen.map((x) => x.toFixed(2)).join(' → ')}`);
+  }
+}
+
 // -------------------------------------------------- the war, drawn ------
 console.log('\nTHE WAR IS DRAWN');
 // ★ A muster past MUSTER_SHOWS must put BOTH marks on the board: a ring that
