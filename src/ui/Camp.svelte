@@ -632,9 +632,23 @@
       const clock = m > 0 && at !== null
         ? ` · ${MARK.waste}${Math.round(m * 100)}% → ${SITE.get(at)?.name ?? ''}`
           + ` every ${RAID_SECS}s · takes 1 building`
-          + ` · ${onWatch(game) ? `${MARK.hero} home turns one away`
-            : `${MARK.hero} away — nothing turns it away`}`
+          // ★ WHAT WOULD ACTUALLY STOP IT (2026-08-11). This still said "home
+          // turns one away", which stopped being true when the watch became
+          // positional and stopped being the whole story when hands could be
+          // posted. It names the gate, and who is standing on it.
+          + ` · ${at !== null && guardsAt(game, at) >= GUARD_STOP
+            ? `${MARK.people} ${guardsAt(game, at)} hold ${SITE.get(at)?.name ?? 'it'}`
+            : at !== null && onWatchAt(game, at)
+              ? `${MARK.hero} the hero holds it`
+              : `nothing is holding ${SITE.get(at ?? -1)?.name ?? 'it'}`}`
         : '';
+      // ★★★ F9, 2026-08-11 — the owner, tapping the deepest holding: *"the
+      // description of Goblin Knoll is absolutely crazy. Goblins hold it,
+      // forty eight strong, points, forty five second, etcetera. Completely
+      // not understood."* One line was carrying five separate facts: who
+      // holds it, how strong, what it is worth, how full its raid clock is,
+      // and whether anything of yours would stop it. Split, one fact a line,
+      // in `statusLines` below — the panel gives each its own row.
       return `goblins hold it · ${MARK.danger}${Math.ceil(game.goblins[picked] ?? 0)} strong`
         + prizeOf(picked) + clock;
     }
@@ -656,6 +670,27 @@
     }
     return '';
   })());
+
+  /** ★★ THE PANEL'S ROWS. One fact a row — see F9 above. The single `status`
+   *  string is still built (the away-line and the probe both read it), and
+   *  this is where it is broken up for the eye. */
+  const statusLines = $derived(status.split(' · ').reduce<string[]>((rows, part) => {
+    const p = part.trim();
+    if (!p) return rows;
+    // Keep a fact and its number together: a row that is only a number is
+    // the same unreadable run in smaller pieces.
+    const last = rows[rows.length - 1];
+    // ⚠️ ONLY BARE NUMBERS MERGE UP. "every 300s" and "takes 1 building" were
+    // folded in at first and rebuilt the same unreadable run one row down.
+    if (last !== undefined && /^\d+(\.\d+)?$/.test(p.split(' ')[0] ?? '')
+      && !/^(every|takes)\b/.test(p)) {
+      rows[rows.length - 1] = `${last} · ${p}`;
+      return rows;
+    }
+    rows.push(p);
+    return rows;
+  }, []));
+
 
   /** Set hands ±1 and SAY where the person came from — the owner: the
    *  pull used to happen silently and it read as a bug. */
@@ -1009,7 +1044,7 @@
              lived in the label and made it long enough to lose its collision
              fight and be dropped altogether. -->
         {#if worksLine(picked)}<p class="note">{worksLine(picked)}</p>{/if}
-        {#if status}<p class="note">{status}</p>{/if}
+        {#each statusLines as row}<p class="note">{row}</p>{/each}
         {#if picked !== 0 && (game.stacks[picked] ?? 0) > 0 && !game.goblins[picked]}
           <!-- ★ POSTED HANDS — the owner's ask. Pins win the pool; freeing
                them returns everyone to farms-first auto. -->
