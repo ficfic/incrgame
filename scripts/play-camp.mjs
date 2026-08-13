@@ -1044,7 +1044,11 @@ console.log('\nTHE CARTWRIGHT');
 // deed that takes 30 stone to do nothing is a trap.
 await seed({ version: 5, stacks: { 0: 6, 1: 6, 2: 6, 3: 4 },
   paths: { '0|1': 1, '0|2': 1, '0|3': 1 },
-  stone: 400, logs: 0, planks: 400, food: 900, pop: 24, popPart: 0,
+  // ⚠️ LOGS IN THE LARDER SINCE 2026-08-11. A cart binds on all three goods
+  // now (chad-liquidity: logs had about ten seconds of lifetime demand in the
+  // whole game and were never wanted again). Seeded at zero, the deed is
+  // correctly refused and this phase measured nothing.
+  stone: 400, logs: 400, planks: 400, food: 900, pop: 24, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 20, carts: 0 });
 const cartDeed = page.locator('.deed', { hasText: 'Carts ×1' });

@@ -61,7 +61,19 @@ export const SITES: readonly Site[] = [
   // deep country's ground is simply better, which is the other half of
   // why anybody would walk down there.
   { id: 7, name: 'Dark Pines', x: -34, y: 452, allows: 'lumber', near: [6], behind: 6, rich: 2.5 },
-  { id: 8, name: 'High Quarry', x: 474, y: 306, allows: 'quarry', near: [5], behind: 5, rich: 3 },
+  // ★★★ A SECOND SAWMILL, 2026-08-11 (chad-liquidity). One site in the whole
+  // valley allowed a sawmill, so PLANKS were capped at 1.0/s no matter how
+  // many people you had — and planks are what three of the four exponential
+  // sinks are priced in. Only 4 of 36 worker slots touched the good the
+  // economy actually runs on, which is the arithmetic behind the owner's
+  // *"there's no point in having more people."*
+  //
+  // It was `High Quarry` (rich ×3), and stone was already the good with 67%
+  // of its output unspendable. Turning the deep country's richest site into
+  // the second mill fixes both ends at once: it drains the stone glut and it
+  // makes Dark Pines (logs ×2.5, behind a strength-32 fight) worth taking.
+  // The plank ceiling stops being a building and starts being a WAR AIM.
+  { id: 8, name: 'High Mill', x: 474, y: 306, allows: 'sawmill', near: [5], behind: 5, rich: 3 },
   { id: 9, name: 'Green Vale', x: 78, y: 512, allows: 'farm', near: [7], behind: 6, rich: 3.5 },
 ];
 
@@ -1018,8 +1030,19 @@ export const carriesOf = (g: City, key: string): number =>
   (g.paths[key] ?? 0) * CARRY * cartHaul(g);
 /** The next cart rung. 1.55 against a 1.3 gain: each rung takes ~1.19×
  *  as long as the last, which is a curve rather than a wall. */
-export const cartCost = (have: number): { stone: number; planks: number } => ({
-  stone: Math.ceil(30 * Math.pow(1.55, have)),
+export const cartCost = (have: number): { stone: number; logs: number;
+  planks: number } => ({
+  // ★★★ ALL THREE GOODS, 2026-08-11 (chad-liquidity). At 30 stone / 20 planks
+  // a cart rung took 20 seconds of the town's planks and under 7 of its
+  // stone, so stone idled at two thirds wasted and LOGS — whose entire
+  // lifetime demand was 28, about ten seconds of production — were spent
+  // within a minute of the first lumberworks and never wanted again.
+  //
+  // Priced so every rung binds on all three goods at roughly the same
+  // second. The one unbounded sink in the game now pulls on the whole
+  // economy instead of on one corner of it.
+  stone: Math.ceil(90 * Math.pow(1.55, have)),
+  logs: Math.ceil(35 * Math.pow(1.55, have)),
   planks: Math.ceil(20 * Math.pow(1.55, have)),
 });
 
@@ -2269,11 +2292,17 @@ export function apply(g: City, a: Action): City {
     }
 
     case 'cart': {
+      // ★ LOGS TOO SINCE 2026-08-11 (chad-liquidity) — a cart now binds on
+      // all three goods, so it must CHECK and SPEND all three. Pricing it in
+      // logs while taking only stone and planks would have handed the player
+      // free carts and left logs as dead as they were.
       const price = cartCost(g.carts);
-      if (g.stone < price.stone || g.planks < price.planks) return g;
+      if (g.stone < price.stone || g.logs < price.logs
+        || g.planks < price.planks) return g;
       return {
         ...g,
         stone: g.stone - price.stone,
+        logs: g.logs - price.logs,
         planks: g.planks - price.planks,
         carts: g.carts + 1,
       };

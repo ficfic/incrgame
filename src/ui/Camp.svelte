@@ -598,7 +598,10 @@
       // laid for the first hour, when no path is anywhere near its cap.
       if (wasted > 0.05) {
       const cp = cartCost(game.carts);
-      const noCart = game.stone < cp.stone || game.planks < cp.planks;
+      // ★ LOGS TOO SINCE 2026-08-11 — a cart eats all three goods now, and a
+      // deed that checks two of them offers a purchase it cannot make.
+      const noCart = game.stone < cp.stone || game.logs < cp.logs
+        || game.planks < cp.planks;
       out.push({
         label: `Carts ×${game.carts + 1}`,
         note: `${price(cp)} → ${MARK.carts}${(CARRY * cartHaul(game) * CART_GAIN).toFixed(2)}/s`

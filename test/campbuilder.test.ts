@@ -1178,7 +1178,14 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
       stacks: { 0: huts(99), 8: 1 },
       paths: { [pathKey(0, 5)]: 3, [pathKey(5, 8)]: 3 } };
     expect(flow(plain).made.get(1)).toBeCloseTo(CREW * RATE.quarry, 9);
-    expect(flow(deep).made.get(8)).toBeCloseTo(CREW * RATE.quarry * 3, 9);
+      // ⚠️ SITE 8 IS A SAWMILL SINCE 2026-08-11 (chad-liquidity): one mill
+      // in the valley capped planks at 1.0/s however many people you had.
+      // The ground still multiplies — that is what this test is for — but
+      // the good it multiplies is planks now, and a mill needs LOGS.
+      const fed: City = { ...deep, logs: 9e5,
+        stacks: { ...deep.stacks, 2: 1 },
+        paths: { ...deep.paths, [pathKey(0, 2)]: 1 } };
+      expect(flow(fed).made.get(8)).toBeCloseTo(CREW * RATE.sawmill * 3, 9);
   });
 
   it('★★ a ×M site is worth a PERMANENT head start of ln(M)/ln(1.35) copies', () => {
@@ -1236,18 +1243,33 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
       expect(WILD_FED + 2 * oneEdge / EAT).toBe(WILD_FED + 40);
   });
 
-  it('★★ the scree carries the east so the mill keeps its planks', () => {
-    // Site 8's stone used to file down `0|3` behind the sawmill's output.
-    const g: City = { ...initial(), pop: 99, food: 999, goblins: {}, logs: 0,
-      stacks: { 0: huts(99), 2: 1, 3: 3, 8: 2 },
-      paths: { [pathKey(0, 2)]: 3, [pathKey(0, 3)]: 3, [pathKey(3, 5)]: 3,
-        [pathKey(5, 8)]: 3 } };
-    expect(flow(g).choked.has(pathKey(0, 3))).toBe(true);
-    // The scree's own road takes the stone off the mill's back.
-    const open = flow({ ...g, paths: { ...g.paths, [pathKey(0, 5)]: 3 } });
-    expect(open.choked.has(pathKey(0, 3))).toBe(false);
-    expect(open.stone).toBeGreaterThan(flow(g).stone);
-    expect(open.planks).toBeGreaterThan(flow(g).planks);
+  it('★★★ A SECOND SAWMILL LIFTS THE PLANK CEILING — 2026-08-11', () => {
+    // ⚠️ REPLACES "the scree carries the east so the mill keeps its planks",
+    // which was about site 8's STONE crowding the mill's road. Site 8 is the
+    // second mill now, so that traffic does not exist.
+    //
+    // chad-liquidity's finding, and the reason for the change: ONE site in
+    // the valley allowed a sawmill, so planks capped at CREW × RATE.sawmill
+    // = 1.0/s however many people the town had — and planks are what three
+    // of the four exponential sinks are priced in. Only 4 of 36 worker slots
+    // touched the good the economy actually runs on.
+    const near: City = { ...initial(), pop: 99, food: 9e5, goblins: {},
+      stacks: { 0: huts(99), 2: 1, 7: 1, 3: 1 },
+      crew: { 2: CREW, 7: CREW, 3: CREW },
+      paths: { [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1, [pathKey(0, 5)]: 1,
+        [pathKey(5, 7)]: 1 } };
+    // ⚠️ NOT AN EXACT CEILING — one road out of the camp carries the logs
+    // going out AND the planks coming home, so what lands is road-bound, not
+    // mill-bound. The claim that matters is the COMPARISON below.
+    const one = flow(near);
+    expect(one.planks).toBeGreaterThan(0);
+    // The deep mill is rich ×3, so taking it is worth three ordinary ones —
+    // which is what makes the far country a WAR AIM rather than scenery.
+    const both = flow({ ...near,
+      stacks: { ...near.stacks, 8: 1 }, crew: { ...near.crew, 8: CREW },
+      paths: { ...near.paths, [pathKey(5, 8)]: 1 } });
+    expect(both.planks).toBeGreaterThan(one.planks);
+    expect(SITE.get(8)!.allows).toBe('sawmill');
   });
 });
 
@@ -1452,14 +1474,22 @@ describe('★★★ THE CARTWRIGHT — the one exponential that runs for the pla
   });
 
   it('★★ cost is steeper than the gain, so a rung is earned', () => {
-    expect(cartCost(0)).toEqual({ stone: 30, planks: 20 });
-    expect(cartCost(4).stone).toBe(Math.ceil(30 * 1.55 ** 4));
+      // ⚠️ THREE GOODS SINCE 2026-08-11 (chad-liquidity). At 30 stone / 20
+      // planks a rung took twenty seconds of the town's planks and under
+      // seven of its stone, and logs — whose whole lifetime demand was
+      // about ten seconds of production — were never wanted again after
+      // the first minute. Every rung binds on all three now.
+      expect(cartCost(0)).toEqual({ stone: 90, logs: 35, planks: 20 });
+      expect(cartCost(4).logs).toBe(Math.ceil(35 * 1.55 ** 4));
+      expect(cartCost(4).stone).toBe(Math.ceil(90 * 1.55 ** 4));
     // 1.55 against a 1.3 haul: the ladder slows, it never stops.
     expect(1.55).toBeGreaterThan(CART_GAIN);
-    const g = apply({ ...initial(), stone: 50, planks: 30 }, { type: 'cart' });
+      const g = apply({ ...initial(), stone: 150, logs: 60, planks: 30 },
+        { type: 'cart' });
     expect(g.carts).toBe(1);
-    expect(g.stone).toBe(20);
-    expect(g.planks).toBe(10);
+      expect(g.stone).toBe(60);
+      expect(g.planks).toBe(10);
+      expect(g.logs).toBe(25);
     const broke = initial();
     expect(apply(broke, { type: 'cart' })).toBe(broke);
   });
