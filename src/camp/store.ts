@@ -148,6 +148,11 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   else if (!Array.isArray(g.boons)) return null;
   else g.boons = g.boons.filter((b: unknown) =>
     typeof b === 'string' && BOONS.some((x) => x.id === b));
+  // ★ WOOD CAMPS SWITCHED TO SAWING (the Kiln, 2026-08-11).
+  if (g.kilned === undefined || g.kilned === null) g.kilned = [];
+  else if (!Array.isArray(g.kilned)) return null;
+  else g.kilned = g.kilned.filter((id: unknown) =>
+    typeof id === 'number' && SITE.get(id)?.allows === 'lumber');
   if (g.draft === undefined) g.draft = null;
   else if (g.draft !== null) {
     if (!Array.isArray(g.draft)) return null;

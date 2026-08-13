@@ -406,6 +406,9 @@ export interface City {
    *  log."* Newest last, capped at `LOG_KEEP`. Strings, because they are
    *  written where the event happens and read nowhere else. */
   log: string[];
+  /** ★★★ WOOD CAMPS SWITCHED TO SAWING — 2026-08-11, the Kiln blueprint.
+   *  Site ids that make planks instead of logs. */
+  kilned: number[];
   /** ★★★ THE BLUEPRINTS TAKEN — 2026-08-11. The owner: *"we also need a
    *  research tree or something to unlock shit."* Three are offered every
    *  time you take a holding; you keep one. */
@@ -548,6 +551,7 @@ export const initial = (): City => ({
   since: 0,
   meet: null,
   boons: [],
+  kilned: [],
   draft: null,
   levy: 0,
   hurt: 0,
@@ -807,6 +811,10 @@ export const WORKS_MAX = 1;
 
 /** Output per WORKER per second. */
 export const RATE = { quarry: 0.15, lumber: 0.2, sawmill: 0.25, farm: 0.2 } as const;
+/** ★ What a wood camp's own kiln manages against a proper mill. Deliberately
+ *  under both `RATE.lumber` and `RATE.sawmill`: sawing where you felled saves
+ *  a road, and a saved road has to cost something or the choice is not one. */
+export const KILN_SHARE = 0.6;
 /** What each kind of workface actually sends down the road (N6). */
 export const GOOD_OF: Record<Kind, Good> = {
   hut: 'food', quarry: 'stone', lumber: 'logs', sawmill: 'planks', farm: 'food',
@@ -1227,10 +1235,14 @@ export const BOONS: readonly Boon[] = [
   { id: 'millhands', name: 'Mill hands', what: 'mills saw a quarter more' },
   { id: 'granary', name: 'Granary', what: 'fields bring a quarter more' },
   { id: 'wardens', name: 'Wardens', what: 'two hands hold a gate, not three' },
+  { id: 'kiln', name: 'Kiln', what: 'a wood camp may saw its own planks' },
   { id: 'scouts', name: 'Scouts', what: 'the hero marches half again as fast' },
 ];
 /** Does the town hold this blueprint? */
 export const has = (g: City, id: string): boolean => g.boons.includes(id);
+/** Is this wood camp sawing its own planks? */
+export const sawsHere = (g: City, id: number): boolean =>
+  has(g, 'kiln') && g.kilned.includes(id);
 /** ★ THE THREE ON OFFER, chosen without dice: walk the deck from a point set
  *  by how much ground you hold, skipping what you already took. */
 export function offer(g: City): string[] {
@@ -1601,7 +1613,14 @@ export function flow(g: City): Flow {
   let farmRaw = 0;
   for (const id of worked) {
     const st = SITE.get(id)!;
+    // ★ A KILNED WOOD CAMP SAWS instead of felling — see `case 'burn'`. At
+    // `KILN_SHARE` of a proper mill's rate, which is slower than it felled
+    // logs: the price of not needing a road to a mill. Without that price the
+    // kiln is a free upgrade, because `RATE.sawmill` is HIGHER than
+    // `RATE.lumber` and a kilned camp would simply out-produce itself.
+    const kilning = st.allows === 'lumber' && sawsHere(g, id);
     const base = (st.allows === 'quarry' ? RATE.quarry
+      : kilning ? RATE.sawmill * KILN_SHARE
       : st.allows === 'lumber' ? RATE.lumber
       : st.allows === 'farm' ? RATE.farm : RATE.sawmill)
       // ★ THE GROUND ITSELF, not just how many hands stand on it.
@@ -1651,8 +1670,14 @@ export function flow(g: City): Flow {
   const flows: Array<{ id: number; rate: number;
     legs: Array<{ e: string; d: number }>; kind: Kind }> = [];
   for (const [id, m] of made) {
-    const k = SITE.get(id)!.allows;
-    if (k === 'sawmill' || m <= 0) continue;
+    // ★ A KILNED WOOD CAMP SHIPS PLANKS, NOT LOGS (2026-08-11) — so it walks
+    // to the CAMP like every other finished good, not to a mill. That is the
+    // routing decision the kiln buys: planks at the source need no road to a
+    // mill, and a wood camp sawing is a wood camp not feeding the mill you
+    // already built.
+    const raw = SITE.get(id)!.allows;
+    const k: Kind = raw === 'lumber' && sawsHere(g, id) ? 'sawmill' : raw;
+    if (raw === 'sawmill' || m <= 0) continue;
     flows.push({
       id, rate: m, kind: k,
       legs: k === 'lumber' && mills.length
@@ -1689,6 +1714,8 @@ export function flow(g: City): Flow {
   let stone = 0;
   let food = 0;
   let logsIn = 0;
+  /** Planks that arrived already sawn, from kilned wood camps. */
+  let kilnPlanks = 0;
   for (const f of flows) {
     let scale = 1;
     for (const { e } of f.legs) {
@@ -1717,6 +1744,9 @@ export function flow(g: City): Flow {
     carried.set(f.id, got);
     if (f.kind === 'quarry') stone += got;
     else if (f.kind === 'farm') food += got;
+    // ★ A KILNED CAMP'S OUTPUT IS PLANKS, arriving finished — it never enters
+    // the mill's log pool and is never sawn again.
+    else if (f.kind === 'sawmill') kilnPlanks += got;
     else logsIn += got;
   }
 
@@ -1771,7 +1801,7 @@ export function flow(g: City): Flow {
     }
   }
 
-  return { stone, food, logsIn, planks, millCap, sawing,
+  return { stone, food, logsIn, planks: planks + kilnPlanks, millCap, sawing,
     made, carried, choked, loads, net, both,
     goods: new Map([...goods].map(([e, at]) => [e, {
       ab: topGood(at.ab), ba: topGood(at.ba),
@@ -1921,6 +1951,8 @@ export type Action =
   | { type: 'answer'; way: 0 | 1 }
   /** ★ Spend food on the hero's health, outside a fight (2026-08-11). */
   | { type: 'eat' }
+  /** ★ Switch a wood camp between logs and planks — the Kiln (2026-08-11). */
+  | { type: 'burn'; id: number }
   /** ★ Keep one of the three blueprints on the table (2026-08-11). */
   | { type: 'take'; id: string }
   /** ★ Set how many townsfolk march with the hero (2026-08-11). */
@@ -2656,6 +2688,26 @@ export function apply(g: City, a: Action): City {
     // ★★ MARCHING IS THE ONLY WAY ANYWHERE NOW. `assail` still exists and
     // still starts a fight, but only from the ground itself — the UI sends a
     // march, and arriving on held ground is what draws the sword.
+    case 'burn': {
+      // ★★★ THE KILN, 2026-08-11 — the production-chain ask, in the one shape
+      // two research agents could both live with. One wanted charcoal and
+      // tools; the other called a fifth good bookkeeping on a bottleneck that
+      // is not variety-shaped, and cited our own numbers (a maxed town throws
+      // away 76% of its output at the roads). What survives both arguments is
+      // Against the Storm's real trick: ONE GOOD, TWO RECIPES. A wood camp
+      // with a kiln saws its own planks instead of shipping logs.
+      //
+      // The decision is routing, not bookkeeping: planks at the source need
+      // no road to a mill, but a wood camp sawing is a wood camp not feeding
+      // the mill you already built. No fifth noun anywhere.
+      if (!has(g, 'kiln')) return g;
+      const st = SITE.get(a.id);
+      if (!st || st.allows !== 'lumber' || g.goblins[a.id]) return g;
+      const on = g.kilned.includes(a.id);
+      return { ...g,
+        kilned: on ? g.kilned.filter((x) => x !== a.id) : [...g.kilned, a.id] };
+    }
+
     case 'take': {
       if (g.draft === null || !g.draft.includes(a.id)) return g;
       if (g.boons.includes(a.id)) return g;

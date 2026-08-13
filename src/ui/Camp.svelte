@@ -16,7 +16,7 @@
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
-    BOONS, has, RUN_STEP,
+    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE,
     MEETS,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
@@ -532,6 +532,21 @@
       why,
       go: () => act({ type: 'raise', id: s.id }),
     });
+    }
+    // ★★★ THE KILN (blueprint) — a wood camp may saw its own planks instead
+    // of felling logs. The decision is ROUTING: planks at the source need no
+    // road to a mill, but a camp that saws is a camp not feeding the mill you
+    // already built. One good, two recipes; no fifth noun anywhere.
+    if (has(game, 'kiln') && s.allows === 'lumber' && have > 0 && !game.goblins[s.id]) {
+      const on = sawsHere(game, s.id);
+      out.push({
+        label: on ? 'Fell timber again' : 'Light the kiln',
+        note: on
+          ? `${MARK.logs}${(CREW * RATE.lumber).toFixed(2)}/s to the mill`
+          : `${MARK.planks}${(CREW * RATE.sawmill * KILN_SHARE).toFixed(2)}/s, no road needed`,
+        why: null,
+        go: () => act({ type: 'burn', id: s.id }),
+      });
     }
     // ⚠️ THE HIRE DEED IS GONE, 2026-08-11, one day after it shipped. The
     // owner, reading it in play: *"Where from? This is a valley, and there is

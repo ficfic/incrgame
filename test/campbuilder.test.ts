@@ -20,7 +20,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
   MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft,
   BOONS, offer, guardNeed, cartCostOf, has, runHard, RUN_STEP, valleyGoblins,
-  inValley, standing,
+  inValley, standing, GOOD_OF, sawsHere, KILN_SHARE,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -3555,5 +3555,67 @@ describe('★★★ THE COUNTRY BEYOND THE RIDGE', () => {
     // every rung was tuned against.
     expect(heroHit(alone)).toBe(2 + g.hero.spears);
     expect(standing(alone)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE KILN — 2026-08-11, and the one shape two research agents could both
+// live with. One wanted charcoal and tools as new goods; the other called a
+// fifth good bookkeeping on a bottleneck that is not variety-shaped, citing
+// our own numbers (a maxed town throws away 76% of its output at the roads).
+// What survives both: Against the Storm's real trick, ONE GOOD, TWO RECIPES.
+// ---------------------------------------------------------------------------
+describe('★★★ ONE GOOD, TWO RECIPES', () => {
+  const wood = (over: Partial<City> = {}): City => ({ ...initial(),
+    pop: 24, food: 9e5, goblins: {}, stacks: { 0: 6, 2: 1 },
+    crew: { 2: CREW }, paths: { [pathKey(0, 2)]: 1 }, ...over });
+
+  it('★★★ a kilned wood camp saws its own planks instead of felling logs', () => {
+    const felling = wood({ boons: ['kiln'] });
+    const sawing = wood({ boons: ['kiln'], kilned: [2] });
+    expect(flow(felling).planks).toBe(0);          // no mill anywhere
+    expect(flow(sawing).planks).toBeGreaterThan(0);
+    // ⚠️ SLOWER THAN FELLING, and this had to be MADE true. `RATE.sawmill`
+    // (0.25) is higher than `RATE.lumber` (0.2), so a kiln at the mill's own
+    // rate was a free upgrade — strictly better than the camp it replaced,
+    // with no decision in it at all. `KILN_SHARE` is the price of the road
+    // you no longer need.
+    expect(RATE.sawmill * KILN_SHARE).toBeLessThan(RATE.lumber);
+    expect(flow(sawing).planks).toBeLessThan(flow(felling).logsIn || Infinity);
+  });
+
+  it('★★★ IT IS A ROUTING DECISION, not a new noun', () => {
+    // A camp that saws is a camp not feeding the mill you already built.
+    const mill = wood({ boons: ['kiln'], stacks: { 0: 6, 2: 1, 3: 1 },
+      crew: { 2: CREW, 3: CREW },
+      paths: { [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 } });
+    const fed = flow(mill);
+    const starved = flow({ ...mill, kilned: [2] });
+    expect(starved.logsIn).toBeLessThan(fed.logsIn);
+    // And no fifth good exists anywhere in the result.
+    expect(Object.keys(GOOD_OF).sort())
+      .toEqual(['farm', 'hut', 'lumber', 'quarry', 'sawmill']);
+  });
+
+  it('★ the kiln is refused without the blueprint, and only on wood', () => {
+    const noCard = wood();
+    expect(apply(noCard, { type: 'burn', id: 2 })).toBe(noCard);
+    const carded = wood({ boons: ['kiln'] });
+    expect(apply(carded, { type: 'burn', id: 2 }).kilned).toEqual([2]);
+    // A quarry cannot be kilned, whatever you hold.
+    expect(apply(carded, { type: 'burn', id: 1 })).toBe(carded);
+    // ...and it toggles back.
+    const on = apply(carded, { type: 'burn', id: 2 });
+    expect(apply(on, { type: 'burn', id: 2 }).kilned).toEqual([]);
+  });
+
+  it('★ it holds at the save door, and nonsense is dropped', () => {
+    const g = wood({ boons: ['kiln'], kilned: [2] });
+    expect(honour({ game: g, savedAt: 1 })!.game.kilned).toEqual([2]);
+    // A quarry in the list is not a refusal, it is a stale id.
+    expect(honour({ game: { ...g, kilned: [1, 2] }, savedAt: 1 })!
+      .game.kilned).toEqual([2]);
+    const { kilned: _drop, ...older } = g;
+    expect(honour({ game: older as City, savedAt: 1 })!.game.kilned).toEqual([]);
   });
 });
