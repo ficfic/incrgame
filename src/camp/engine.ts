@@ -369,6 +369,12 @@ export interface City {
    *  log."* Newest last, capped at `LOG_KEEP`. Strings, because they are
    *  written where the event happens and read nowhere else. */
   log: string[];
+  /** ★★★ THE BLUEPRINTS TAKEN — 2026-08-11. The owner: *"we also need a
+   *  research tree or something to unlock shit."* Three are offered every
+   *  time you take a holding; you keep one. */
+  boons: string[];
+  /** The three on the table right now, or null. */
+  draft: string[] | null;
   /** ★★★ HOW MANY TOWNSFOLK MARCH WITH THE HERO — 2026-08-11. Chosen before
    *  you go, taken out of the working pool while they are away. */
   levy: number;
@@ -425,7 +431,7 @@ export interface City {
  *  living square at `SWEEP_SHARE` of the damage each, so it is worse than a
  *  strike against one big thing and better against three small ones. That is
  *  a decision rather than a button: read the line, then choose. */
-export type Blow = 'strike' | 'guard' | 'ration' | 'sweep';
+export type Blow = 'strike' | 'guard' | 'ration' | 'sweep' | 'volley';
 /** What each square takes from a sweep, against a strike's whole blow. */
 export const SWEEP_SHARE = 0.5;
 
@@ -496,6 +502,8 @@ export const initial = (): City => ({
   log: [],
   since: 0,
   meet: null,
+  boons: [],
+  draft: null,
   levy: 0,
   hurt: 0,
   legacy: { runs: 0, spears: 0 },
@@ -840,7 +848,9 @@ export function legsBetween(g: City, a: number, b: number): number | null {
 /** Seconds to march there from where the hero stands, or null if unreachable. */
 export const marchSecs = (g: City, to: number): number | null => {
   const secs = walkSecs(g, g.hero.at, to);
-  return secs === null ? null : Math.round(secs);
+  // ★ SCOUTS: the hero marches half again as fast.
+  return secs === null ? null
+    : Math.round(has(g, 'scouts') ? secs / 1.5 : secs);
 };
 /** Why the hero cannot set out for this site, or null. */
 export function unmarchable(g: City, to: number): string | null {
@@ -946,6 +956,9 @@ export const nextForay = (g: City): Foray => FORAYS[g.forays % FORAYS.length]!;
  *  rather than a tax. Unlike the hero, they do not BLEED the holding — they
  *  hold a gate, they do not take ground. */
 export const GUARD_STOP = 3;
+/** How many hands this town needs on a gate — ★ WARDENS makes it two. */
+export const guardNeed = (g: City): number =>
+  has(g, 'wardens') ? GUARD_STOP - 1 : GUARD_STOP;
 /** People standing watch at a site. */
 export const guardsAt = (g: City, id: number): number =>
   Math.max(0, Math.floor(g.guard[id] ?? 0));
@@ -1046,6 +1059,14 @@ export const carriesOf = (g: City, key: string): number =>
   (g.paths[key] ?? 0) * CARRY * cartHaul(g);
 /** The next cart rung. 1.55 against a 1.3 gain: each rung takes ~1.19×
  *  as long as the last, which is a curve rather than a wall. */
+export const cartCostOf = (g: City, have: number): { stone: number;
+  logs: number; planks: number } => {
+  const c = cartCost(have);
+  // ★ DROVER: carts come cheaper.
+  const off = has(g, 'drover') ? 0.75 : 1;
+  return { stone: Math.ceil(c.stone * off), logs: Math.ceil(c.logs * off),
+    planks: Math.ceil(c.planks * off) };
+};
 export const cartCost = (have: number): { stone: number; logs: number;
   planks: number } => ({
   // ★★★ ALL THREE GOODS, 2026-08-11 (chad-liquidity). At 30 stone / 20 planks
@@ -1114,6 +1135,49 @@ export const LEAVE_SECS = 20;
  *  wants names, a roster and a graveyard screen; wounded-and-returns is the
  *  same decision with none of that, and it keeps the cost in the currency
  *  the town already feels — hands. */
+/** ★★★ THE BLUEPRINT DECK — 2026-08-11. The owner asked for *"a research
+ *  tree or something to unlock shit"*, and the research came back with a
+ *  shape rather than a tree: **Against the Storm's draft.** A tech tree earns
+ *  its keep when the tree IS the content and a run is hundreds of hours;
+ *  across six fights in forty minutes it degenerates into a checklist you
+ *  tick in a fixed order. Three cards offered, one kept, from a deck you
+ *  cannot exhaust — so a run has an identity, and the next one is different
+ *  without the map having to be.
+ *
+ *  ⚠️ EVERY CARD CHANGES WHAT YOU CAN DO, or how a rule works. None of them
+ *  is a bare percentage on a number you were already watching — that is the
+ *  checklist failure mode wearing a different hat.
+ *  ⚠️ AND THE DRAFT IS DETERMINISTIC. This engine has no RNG by design (the
+ *  solver test is the ladder's only guard and it cannot enumerate dice), so
+ *  which three you are offered is a function of how many holdings you have
+ *  taken and what you already hold. */
+export interface Boon { id: string; name: string; what: string }
+export const BOONS: readonly Boon[] = [
+  { id: 'palisade', name: 'Palisade', what: 'a gate that holds costs no one' },
+  { id: 'volley', name: 'Volley', what: 'a blow that reaches past the wall' },
+  { id: 'quartermaster', name: 'Quartermaster', what: 'two more rations a sortie' },
+  { id: 'bindings', name: 'Bindings', what: 'the levy stands longer' },
+  { id: 'drover', name: 'Drover', what: 'carts come cheaper' },
+  { id: 'roadwright', name: 'Roadwright', what: 'roads are laid in half the time' },
+  { id: 'forager', name: 'Forager', what: 'forays come back twice as heavy' },
+  { id: 'stonecut', name: 'Stonecut', what: 'quarries cut a quarter more' },
+  { id: 'millhands', name: 'Mill hands', what: 'mills saw a quarter more' },
+  { id: 'granary', name: 'Granary', what: 'fields bring a quarter more' },
+  { id: 'wardens', name: 'Wardens', what: 'two hands hold a gate, not three' },
+  { id: 'scouts', name: 'Scouts', what: 'the hero marches half again as fast' },
+];
+/** Does the town hold this blueprint? */
+export const has = (g: City, id: string): boolean => g.boons.includes(id);
+/** ★ THE THREE ON OFFER, chosen without dice: walk the deck from a point set
+ *  by how much ground you hold, skipping what you already took. */
+export function offer(g: City): string[] {
+  const left = BOONS.filter((b) => !g.boons.includes(b.id));
+  if (left.length === 0) return [];
+  const from = (g.taken * 5 + g.boons.length * 3) % left.length;
+  return Array.from({ length: Math.min(3, left.length) },
+    (_, i) => left[(from + i) % left.length]!.id);
+}
+
 export const LEVY_HP = 5;
 /** What one levied townsperson can take before they are carried home. */
 export const MEND_SECS = 45;
@@ -1121,7 +1185,8 @@ export const MEND_SECS = 45;
 /** The squares the town's levy fields — one per townsperson who marched. */
 export const levied = (g: City): Array<{ hp: number }> =>
   Array.from({ length: Math.max(0, Math.min(g.levy, levyCap(g))) },
-    () => ({ hp: LEVY_HP }));
+    // ★ BINDINGS: the levy stands longer.
+    () => ({ hp: LEVY_HP + (has(g, 'bindings') ? 3 : 0) }));
 export const levyCap = (g: City): number =>
   Math.max(0, Math.floor(housed(g) - guardsTotal(g) - g.hurt));
 
@@ -1461,7 +1526,11 @@ export function flow(g: City): Flow {
       : st.allows === 'lumber' ? RATE.lumber
       : st.allows === 'farm' ? RATE.farm : RATE.sawmill)
       // ★ THE GROUND ITSELF, not just how many hands stand on it.
-      * richOf(id);
+      * richOf(id)
+      // ★ THE BLUEPRINTS a town has taken: Stonecut, Mill hands, Granary.
+      * ((st.allows === 'quarry' && has(g, 'stonecut'))
+        || (st.allows === 'sawmill' && has(g, 'millhands'))
+        || (st.allows === 'farm' && has(g, 'granary')) ? 1.25 : 1);
     made.set(id, hands.get(id)! * base);
     if (st.allows === 'farm') farmRaw += hands.get(id)! * base;
   }
@@ -1773,6 +1842,8 @@ export type Action =
   | { type: 'answer'; way: 0 | 1 }
   /** ★ Spend food on the hero's health, outside a fight (2026-08-11). */
   | { type: 'eat' }
+  /** ★ Keep one of the three blueprints on the table (2026-08-11). */
+  | { type: 'take'; id: string }
   /** ★ Set how many townsfolk march with the hero (2026-08-11). */
   | { type: 'levy'; by: number }
   /** ★ Hire another crew onto a site's works (2026-08-11). */
@@ -1787,6 +1858,8 @@ export type Action =
   // the tick resolves them. One in flight at a time.
   /** ★ Sweep every standing square for a share each — 2026-08-11. */
   | { type: 'sweep' }
+  /** ★ Volley over the wall into the squares behind it (blueprint). */
+  | { type: 'volley' }
   /** Call a blow at the targeted square. Lands, then the line answers. */
   | { type: 'strike' }
   /** Deal nothing, block the answer whole — the wind-up's counter. */
@@ -1904,6 +1977,16 @@ function lands(g: City): City {
       hp: Math.min(heroMax(g), g.hero.hp + RATION_HP) } };
     return answered(fed, now, false);
   }
+  // ★★ VOLLEY (blueprint) — over the wall and into the squares BEHIND it, at
+  // full weight. The wall is the thing you cannot get past; this is the card
+  // that says otherwise, and it is why the runt-heavy holdings stop being the
+  // same fight as the wall-heavy ones.
+  if (f.blow.act === 'volley') {
+    const rear = now.sq.map((q, i) =>
+      i > 0 && q.hp > 0 ? { ...q, hp: Math.max(0, q.hp - heroHit(g)) } : q);
+    if (rear.every((q) => q.hp <= 0)) return liberate(g, now);
+    return answered(g, { ...now, sq: rear }, false);
+  }
   // ★★ A SWEEP FALLS ON EVERYTHING STANDING, for a share each.
   if (f.blow.act === 'sweep') {
     const hit = Math.max(1, Math.floor(heroHit(g) * SWEEP_SHARE));
@@ -1932,8 +2015,12 @@ function liberate(g: City, now: NonNullable<City['fight']>): City {
   delete goblins[now.site];
   const menace = { ...g.menace };
   delete menace[now.site];
+  const grown = { ...g, taken: g.taken + 1 };
   return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES,
     taken: g.taken + 1,
+    // ★★★ THREE BLUEPRINTS ON THE TABLE. Dealt from the ground you just took,
+    // waiting as long as you like — the same never-nag rule the meetings obey.
+    draft: g.draft ?? (offer(grown).length > 0 ? offer(grown) : null),
     log: logged(g.log,
       `${SITE.get(now.site)?.name ?? 'Ground'} is taken. Two captives walk home with the hero.`) };
 }
@@ -2179,7 +2266,10 @@ export function apply(g: City, a: Action): City {
         const left = forage.left - s;
         if (left > 0) forage = { ...forage, left };
         else {
-          loot = nextForay(g).loot;
+          loot = has(g, 'forager')
+            ? Object.fromEntries(Object.entries(nextForay(g).loot)
+              .map(([k, v]) => [k, (v ?? 0) * 2]))
+            : nextForay(g).loot;
           forays = g.forays + 1;
           forage = null;
           said.push(`The hero came back from ${nextForay(g).name.toLowerCase()}.`);
@@ -2240,9 +2330,10 @@ export function apply(g: City, a: Action): City {
           // ★★★ THE POSTED HANDS HOLD THE GATE. Checked before the hero, so
           // a guarded gate frees them to be somewhere else — which is the
           // point of being able to post anyone at all.
-          if (guardsAt({ ...g, guard }, t) >= GUARD_STOP) {
+          if (guardsAt({ ...g, guard }, t) >= guardNeed(g)) {
             guard = guard === g.guard ? { ...g.guard } : guard;
-            guard[t] = guardsAt(g, t) - 1;      // one does not come back
+            // ★ PALISADE: a gate that holds costs no one.
+            if (!has(g, 'palisade')) guard[t] = guardsAt(g, t) - 1;
             said.push(`The watch at ${SITE.get(t)?.name ?? 'the gate'} turned a raid back. One did not come home.`);
             continue;
           }
@@ -2317,8 +2408,9 @@ export function apply(g: City, a: Action): City {
               site: arrived,
               sq: lineOf(goblins[arrived]!, GOBLINS[arrived]?.bite ?? 2,
                 GOBLINS[arrived]?.runt ?? 0, GOBLINS[arrived]?.screen),
-              target: 0, round: 0, packs: RATION_PACK, blow: null,
-              us: levied(g),
+              target: 0, round: 0,
+              packs: RATION_PACK + (has(g, 'quartermaster') ? 2 : 0),
+              blow: null, us: levied(g),
             } }
           : {}),
       };
@@ -2352,7 +2444,8 @@ export function apply(g: City, a: Action): City {
       if (unlayable(g, a.a, a.b)) return g;
       const key = pathKey(a.a, a.b);
       const gauge = g.paths[key] ?? 0;
-      const secs = PATH_SECS * (gauge + 1);
+      // ★ ROADWRIGHT: roads are laid in half the time.
+      const secs = PATH_SECS * (gauge + 1) / (has(g, 'roadwright') ? 2 : 1);
       return {
         ...g,
         stone: g.stone - pathCostOf(gauge),
@@ -2414,7 +2507,7 @@ export function apply(g: City, a: Action): City {
       // all three goods, so it must CHECK and SPEND all three. Pricing it in
       // logs while taking only stone and planks would have handed the player
       // free carts and left logs as dead as they were.
-      const price = cartCost(g.carts);
+      const price = cartCostOf(g, g.carts);
       if (g.stone < price.stone || g.logs < price.logs
         || g.planks < price.planks) return g;
       return {
@@ -2472,6 +2565,15 @@ export function apply(g: City, a: Action): City {
     // ★★ MARCHING IS THE ONLY WAY ANYWHERE NOW. `assail` still exists and
     // still starts a fight, but only from the ground itself — the UI sends a
     // march, and arriving on held ground is what draws the sword.
+    case 'take': {
+      if (g.draft === null || !g.draft.includes(a.id)) return g;
+      if (g.boons.includes(a.id)) return g;
+      const b = BOONS.find((x) => x.id === a.id);
+      if (!b) return g;
+      return { ...g, boons: [...g.boons, a.id], draft: null,
+        log: logged(g.log, `${b.name}: ${b.what}.`) };
+    }
+
     case 'levy': {
       // ★ How many townsfolk march next time. Chosen at home, spent on the
       // road: `assail` reads it when the fight opens.
@@ -2537,7 +2639,8 @@ export function apply(g: City, a: Action): City {
         sq: lineOf(g.goblins[a.id] ?? 0, spec?.bite ?? 2, spec?.runt ?? 0, spec?.screen),
         target: 0,
         round: 0,
-        packs: RATION_PACK,
+        // ★ QUARTERMASTER: two more rations a sortie.
+        packs: RATION_PACK + (has(g, 'quartermaster') ? 2 : 0),
         us: levied(g),
         blow: null,
       } };
@@ -2549,6 +2652,7 @@ export function apply(g: City, a: Action): City {
     case 'guard':
     case 'ration':
     case 'sweep':
+    case 'volley':
       return order(g, a.type);
 
     case 'aim': {

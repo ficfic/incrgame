@@ -16,6 +16,7 @@
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
+    BOONS, has,
     MEETS,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
@@ -1135,7 +1136,7 @@
           ? fi.target : fi.sq.findIndex((q) => q.hp > 0)}
         <!-- ★ THE BATTLE STRIP — the owner's own screen: our square left,
              their three right. Tap a square to aim; every verb is a round. -->
-        <h2>{nameOf(fi.site)} · goblins</h2>
+        <h2 data-q="title">{nameOf(fi.site)} · goblins</h2>
         <div class="strip">
           <div class="sq us" class:low={game.hero.hp <= 3}>
             <b>{game.hero.hp}</b>
@@ -1205,6 +1206,16 @@
             <em>{Math.max(1, Math.floor(heroHit(game) * SWEEP_SHARE))} into
               every one of the {fi.sq.filter((q) => q.hp > 0).length} standing</em>
           </button>
+          {#if has(game, 'volley')}
+            <!-- ★ VOLLEY (blueprint): over the wall, into the squares behind
+                 it, at full weight. The wall is the thing you cannot get
+                 past; this is the card that says otherwise. -->
+            <button class="deed" disabled={blowLeft(game) !== null}
+              onclick={() => act({ type: 'volley' })}>
+              Volley
+              <em>{heroHit(game)} past the wall, into the rest</em>
+            </button>
+          {/if}
           <button class="deed" disabled={blowLeft(game) !== null}
             onclick={() => act({ type: 'guard' })}>
             Guard
@@ -1233,6 +1244,31 @@
         </div>
       {/if}
 
+      {#if !game.fight && game.draft !== null}
+        <!-- ★★★ THE BLUEPRINT DRAFT, 2026-08-11 — the owner: *"we also need a
+             research tree or something to unlock shit."* Against the Storm's
+             shape rather than a tree: a tree earns its keep when the tree IS
+             the content and a run is hundreds of hours; across six fights in
+             forty minutes it is a checklist ticked in a fixed order. Three
+             offered, one kept, and a deck you cannot exhaust — so a run has an
+             identity and the next one differs without the map changing.
+             ⚠️ Like the meetings, it waits and blocks nothing. -->
+        <div class="meet draft">
+          <h2>What the ground taught us</h2>
+          <p class="tale">Three ways to build on what you have taken. One of
+            them, and the rest go back in the pack.</p>
+          <div class="dock">
+            {#each game.draft as id (id)}
+              {@const b = BOONS.find((x) => x.id === id)}
+              {#if b}
+                <button class="deed" onclick={() => act({ type: 'take', id })}>
+                  {b.name}<em>{b.what}</em>
+                </button>
+              {/if}
+            {/each}
+          </div>
+        </div>
+      {/if}
       {#if !game.fight && game.meet !== null}
         <!-- ★★★ N5, 2026-08-11 — the owner: *"I feel like we would benefit
              from choose your own adventure events."* It sits above the tabs
@@ -1277,6 +1313,13 @@
           <p class="note">{s.name} · {(f.hands.get(s.id) ?? 0)} working{
             guardsAt(game, s.id) > 0 ? ` · ${guardsAt(game, s.id)} on watch` : ''}</p>
         {/each}
+        {#if game.boons.length > 0}
+          <h2>What we have learned</h2>
+          {#each game.boons as id (id)}
+            {@const b = BOONS.find((x) => x.id === id)}
+            {#if b}<p class="note">{b.name} — {b.what}</p>{/if}
+          {/each}
+        {/if}
       {:else if !game.fight && tab === 'hero'}
         <h2>The hero</h2>
         <p class="note">{MARK.hero}{game.hero.hp} of {heroMax(game)}
@@ -1325,7 +1368,10 @@
           {/each}
         {/if}
       {:else if !game.fight && picked !== null && SITE.has(picked)}
-        <h2>{nameOf(picked)}</h2>
+        <!-- ⚠️ `data-q="title"` IS LOAD-BEARING for the browser probe: the
+             draft card and the meetings put their own <h2> in this panel, and
+             a bare `.panel h2` locator became ambiguous the moment they did. -->
+        <h2 data-q="title">{nameOf(picked)}</h2>
         <!-- ★ THE NUMBERS THE MAP LABEL NO LONGER CARRIES (2026-08-11). They
              lived in the label and made it long enough to lose its collision
              fight and be dropped altogether. -->
@@ -1487,6 +1533,7 @@
   .meet { background: #f4eee1; border: 1px solid #e2d9c3; border-radius: 10px;
     padding: 10px 12px; margin: 0 0 10px; }
   .meet h2 { margin: 0 0 4px; }
+  .meet.draft { border-color: #1f7a3f; background: #f1f6ef; }
   .tale { margin: 0 0 8px; color: #4a4030; line-height: 1.45; }
   .logline { border-left: 3px solid #e2d9c3; padding-left: 8px;
     margin: 5px 0; }

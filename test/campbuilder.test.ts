@@ -19,6 +19,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
   LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
   MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft,
+  BOONS, offer, guardNeed, cartCostOf,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -3325,5 +3326,99 @@ describe('★★★ A WON VALLEY OPENS THE NEXT', () => {
     expect(apply(done(), { type: 'found' }).log.join(' ')).toMatch(/valley is yours/i);
     expect(apply({ ...done(), lost: true, goblins: { 4: 12 } },
       { type: 'found' }).log.join(' ')).toMatch(/driven out/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE BLUEPRINT DRAFT — 2026-08-11. The owner: *"we also need a research
+// tree or something to unlock shit."* The research came back with a SHAPE
+// rather than a tree: Against the Storm's draft. Three offered at every
+// liberation, one kept, from a deck you cannot exhaust in a run.
+// ---------------------------------------------------------------------------
+describe('★★★ THREE ON THE TABLE, TAKE ONE', () => {
+  const won = (over: Partial<City> = {}): City => ({ ...initial(), food: 9e5,
+    hero: { hp: 40, spears: 99, part: 0, at: 4, trip: null }, ...over });
+  const clear = (g: City, id: number): City => {
+    let x = apply({ ...g, hero: { ...g.hero, at: id } }, { type: 'assail', id });
+    for (let i = 0; i < 20 && x.fight; i++) {
+      x = tick(apply(x, { type: 'strike' }), BLOW_SECS + 0.01);
+    }
+    return x;
+  };
+
+  it('★★★ taking ground deals three, and you keep exactly one', () => {
+    const g = clear(won(), 4);
+    expect(g.draft).toHaveLength(3);
+    expect(new Set(g.draft!).size).toBe(3);          // no duplicates
+    const took = apply(g, { type: 'take', id: g.draft![1]! });
+    expect(took.boons).toEqual([g.draft![1]]);
+    expect(took.draft).toBeNull();
+    // ...and only from the table.
+    const other = BOONS.find((b) => !g.draft!.includes(b.id))!;
+    expect(apply(g, { type: 'take', id: other.id })).toBe(g);
+  });
+
+  it('★★★ NO DICE — the same valley deals the same three', () => {
+    // This engine has no RNG by design: the solver test is the ladder's only
+    // guard and it cannot enumerate dice.
+    expect(offer(won({ taken: 2 }))).toEqual(offer(won({ taken: 2 })));
+    // And what you already hold changes what you are shown.
+    expect(offer(won({ taken: 2, boons: [] })))
+      .not.toEqual(offer(won({ taken: 2, boons: ['drover', 'scouts'] })));
+    // Never offers what you already took.
+    const held = won({ taken: 3, boons: ['palisade', 'volley'] });
+    expect(offer(held)).not.toContain('palisade');
+    expect(offer(held)).not.toContain('volley');
+  });
+
+  it('★★★ EVERY CARD CHANGES A RULE, not just a number on screen', () => {
+    const base = won({ pop: 24, stacks: { 0: 6, 1: 1 },
+      paths: { [pathKey(0, 1)]: 1 } });
+    // Wardens: two hands hold a gate instead of three.
+    expect(guardNeed(base)).toBe(GUARD_STOP);
+    expect(guardNeed({ ...base, boons: ['wardens'] })).toBe(GUARD_STOP - 1);
+    // Bindings: the levy stands longer.
+    expect(levied({ ...base, levy: 1, boons: ['bindings'] })[0]!.hp)
+      .toBeGreaterThan(levied({ ...base, levy: 1 })[0]!.hp);
+    // Scouts: the march is faster.
+    expect(marchSecs({ ...base, boons: ['scouts'] }, 1)!)
+      .toBeLessThan(marchSecs(base, 1)!);
+    // Drover: carts come cheaper.
+    expect(cartCostOf({ ...base, boons: ['drover'] }, 0).stone)
+      .toBeLessThan(cartCostOf(base, 0).stone);
+    // Stonecut: the pits cut more.
+    expect(flow({ ...base, boons: ['stonecut'] }).made.get(1)!)
+      .toBeGreaterThan(flow(base).made.get(1)!);
+    // Palisade: a gate that holds costs no one.
+    const gate = raidTarget({ ...base, taken: 1, goblins: { 4: 12 } }, 4)!;
+    const war: City = { ...base, taken: 1, goblins: { 4: 12 },
+      menace: { 4: 0.99 }, guard: { [gate]: GUARD_STOP },
+      hero: { ...base.hero, at: 9 } };
+    expect(guardsAt(tick(war, RAID_SECS + 1), gate)).toBe(GUARD_STOP - 1);
+    expect(guardsAt(tick({ ...war, boons: ['palisade'] }, RAID_SECS + 1), gate))
+      .toBe(GUARD_STOP);
+  });
+
+  it('★★ VOLLEY reaches past the wall, which a strike cannot', () => {
+    const g = apply(won({ boons: ['volley'] }), { type: 'assail', id: 4 });
+    const land = (x: City, act: 'strike' | 'volley'): City =>
+      tick(apply(x, { type: act }), BLOW_SECS + 0.01);
+    // A strike hits the wall; a volley leaves it alone and guts the rear.
+    expect(land(g, 'strike').fight!.sq[0]!.hp).toBeLessThan(g.fight!.sq[0]!.hp);
+    expect(land(g, 'volley').fight!.sq[0]!.hp).toBe(g.fight!.sq[0]!.hp);
+    expect(land(g, 'volley').fight!.sq[1]!.hp).toBeLessThan(g.fight!.sq[1]!.hp);
+  });
+
+  it('★ the draft holds at the save door, and an unknown card is dropped', () => {
+    const g = won({ boons: ['drover'], draft: ['scouts', 'volley'] });
+    expect(honour({ game: g, savedAt: 1 })!.game.boons).toEqual(['drover']);
+    // ⚠️ DROPPED, NOT REFUSED: a deck that shrinks between versions must not
+    // cost anybody their run.
+    const stale = won({ boons: ['drover', 'nosuchcard'], draft: ['nosuchcard'] });
+    const back = honour({ game: stale, savedAt: 1 })!.game;
+    expect(back.boons).toEqual(['drover']);
+    expect(back.draft).toBeNull();
+    const { boons: _b, draft: _d, ...older } = won();
+    expect(honour({ game: older as City, savedAt: 1 })!.game.boons).toEqual([]);
   });
 });

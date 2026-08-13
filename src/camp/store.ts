@@ -1,6 +1,6 @@
 // THE CAMP'S SAVE. Its own key, its own shape — the old game's saves stay
 // untouched on theirs, so flipping back loses nobody anything.
-import { CITY_VERSION, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, initial,
+import { BOONS, CITY_VERSION, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, initial,
   pathKey, type City } from './engine';
 
 const KEY = 'camp-save';
@@ -133,6 +133,20 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // ★ WHAT THE HERO MET (N5, 2026-08-11), defaulted for older saves.
   // ★ THE LEVY AND THE HURT (2026-08-11), defaulted for every older save —
   // including one written in the middle of a fight, whose line has no levy.
+  // ★ THE BLUEPRINTS (2026-08-11), defaulted for every older save. An id the
+  // deck does not know is dropped rather than refused — a deck that shrinks
+  // between versions must not cost anybody their run.
+  if (g.boons === undefined || g.boons === null) g.boons = [];
+  else if (!Array.isArray(g.boons)) return null;
+  else g.boons = g.boons.filter((b: unknown) =>
+    typeof b === 'string' && BOONS.some((x) => x.id === b));
+  if (g.draft === undefined) g.draft = null;
+  else if (g.draft !== null) {
+    if (!Array.isArray(g.draft)) return null;
+    g.draft = g.draft.filter((b: unknown) =>
+      typeof b === 'string' && BOONS.some((x) => x.id === b));
+    if (g.draft.length === 0) g.draft = null;
+  }
   if (g.levy === undefined) g.levy = 0;
   else if (!whole(g.levy, 0, 999)) return null;
   if (g.hurt === undefined) g.hurt = 0;

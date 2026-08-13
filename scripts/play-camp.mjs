@@ -304,7 +304,7 @@ await page.waitForTimeout(7000);
 await page.locator('.deed', { hasText: 'Build Lumberworks' }).click({ timeout: 2000 })
   .catch(() => misses.push('the wagon holds eight logs and the lumberworks still refuses'));
 await page.waitForTimeout(11000);
-const raised = await page.locator('.panel h2').textContent();
+const raised = await page.locator('.panel h2[data-q="title"]').textContent();
 console.log('  raised  :', `"${raised.trim()}"`);
 if (!/Lumberworks ×1/.test(raised)) {
   misses.push(`the first lumberworks did not stand: "${raised.trim()}"`);
@@ -458,7 +458,7 @@ await page.waitForTimeout(6800);
 await page.locator('.deed', { hasText: 'Build Farm' }).click({ timeout: 2000 })
   .catch(() => misses.push('liberated ground refuses the works'));
 await page.waitForTimeout(600);
-const freedTitle = await page.locator('.panel h2').textContent();
+const freedTitle = await page.locator('.panel h2[data-q="title"]').textContent();
 console.log('  works   :', `"${freedTitle.trim()}"`);
 if (!/Farm ×1/.test(freedTitle)) {
   misses.push(`the freed ground does not carry its new works: "${freedTitle.trim()}"`);
@@ -690,7 +690,7 @@ await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catc
 await page.waitForTimeout(200);
 await page.locator('.map .node[data-id="site:1"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(250);
-const stillThere = await page.locator('.panel h2').count();
+const stillThere = await page.locator('.panel h2[data-q="title"]').count();
 console.log('  sticky  :', stillThere ? 'still selected after a second tap' : 'DESELECTED');
 if (!stillThere) misses.push('a second tap on a node clears the selection');
 
