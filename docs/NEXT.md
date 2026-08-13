@@ -1,5 +1,70 @@
 # NEXT — the queue
 
+## ★★★ THE DESIGN PASS, 2026-08-11 — four research agents, and what shipped
+
+The owner: *"there's no point in it and it's boring… now i only need economy
+to build spears… first of all spears is a stupid resource… maybe we get rid of
+hero entirely and have just citizen militia squads… we also need a research
+tree or something to unlock shit… there must be a reason to play this."*
+
+Four agents were run: an economy teardown, two research agents (economy depth,
+combat depth) and a genre reviewer. **They converged hard.** Two of them,
+given different questions, independently named the same #1 defect.
+
+### ✅ SHIPPED
+
+| what | why |
+|---|---|
+| **The levy** | Townsfolk march in front of the hero and take the answer first. They come home **hurt**, not dead — off the workfaces for 45s. The levied *and* the mending leave the working pool, so a fight costs production. A person now has three buyers: a workface, a gate, and the war. |
+| **Winning has an exit** | `found` refused unless you'd **lost**. Take all six camps and there was no button. Two agents called this the single biggest defect. |
+| **A won run carries its blueprints** | Horizontal, never a multiplier — run two is *different*, not faster. A lost run learns nothing new. |
+| **The ladder rises per run** | +20% a valley, so carried cards don't make run three a walkover. Run one untouched, or the solver's tuning is void. |
+| **The blueprint draft** | Three offered at every liberation, keep one, deck of twelve. Against the Storm's shape, not a tech tree — a tree needs hundreds of hours to not be a checklist. |
+| **Second sawmill** | Planks were capped at 1.0/s **forever** — one site in the valley allowed a mill, and only 4 of 36 worker slots touched the good three of four exponential sinks are priced in. |
+| **Carts eat three goods** | Logs had ~10 seconds of lifetime demand in the entire game. |
+| **Growth stops at jobs** | Not bunks. A hut past the last slot bought a mouth and no hands. |
+
+### ⚠️ THE ONE DISAGREEMENT — production chains (charcoal, tools)
+
+The economy agent wants them: logs → charcoal at a kiln, charcoal + planks →
+tools, tools as decaying upkeep. It argues routing is thin because only one
+good ever visits a non-camp node.
+
+**The genre reviewer says distraction, and cites our own numbers back at us**:
+`CART_GAIN`'s note measures a maxed town throwing away **76% of production at
+the paths**; stone was 67% unspendable; logs' lifetime demand was 28 units.
+Adding nouns to a four-good economy with 40 worker slots is bookkeeping on a
+bottleneck that is not variety-shaped. Its verdict: revisit **after** the map
+stops ending, so each tier has new ground demanding it.
+
+**Not shipped, on purpose.** The stronger argument is the one holding our own
+arithmetic. Revisit when the map grows.
+
+### What the reviewer said to PROTECT in any redesign
+
+1. **The graph as a real flow network** — per-edge caps, mesh beating star,
+   drawn chokes. *"No top-20 incremental has this. It is your differentiator."*
+2. **One works per site** — this is what makes the graph load-bearing.
+3. **Engine purity** — `apply(state, action)`, no RNG, no clock, no DOM. It is
+   why a combat solver test can exist at all.
+4. **The tap is dead**, and timers bank work rather than punishing absence.
+
+### Still open
+
+- **The map still ends.** The reviewer's real answer to "why play again" is a
+  *scope* carry: run two is a **bigger valley**, more sites, deeper country.
+  What shipped is a harder valley, which is the cheap half of that.
+- **Spears.** Still the hero's only ladder. The levy makes them no longer the
+  *only* military spend, but the owner called the resource itself stupid and
+  that has not been answered.
+- **Balance across all of this is unplayed.** `RUN_STEP`, `LEVY_HP`,
+  `MEND_SECS`, the twelve card effects and the new cart prices were all set by
+  reasoning. They want a controller in hand.
+
+---
+
+# NEXT — the queue
+
 ## ★★★ SECOND FULL PLAYTHROUGH, 2026-08-11 — split into fixes and features at
 ## the owner's request. EVERYTHING BELOW THIS BLOCK IS OLDER.
 
