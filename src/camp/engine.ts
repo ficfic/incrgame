@@ -216,7 +216,15 @@ export function raidTarget(g: City, id: number): number | null {
  *  SPAWN a second, so a bigger holding closes its wounds faster and the
  *  grind pays nothing anywhere. Fight one (12 strong) is barely touched:
  *  0.048/s against the old 0.05. */
-export const GOBLIN_REGEN = 0.004;
+/** ⚠️ 0.004 → 0.0075, 2026-08-11, AND IT IS TIED TO `HEAL_SECS`. The gate
+ *  that stops you grinding a holding down below its rung is a race: you
+ *  retreat, you heal, you come back — and the holding must close its wounds
+ *  faster than that cycle pays. Halving the hero's heal time (the owner, for
+ *  the second playthrough running: *"your hero health regeneration is still
+ *  too slow"*) halves the cycle, so the ladder's gate needs the other half of
+ *  the race to keep up or the grind quietly becomes the optimal play at every
+ *  rung. The solver test is what caught it, and what set this number. */
+export const GOBLIN_REGEN = 0.0075;
 /** What a holding regains a second — its own spawn strength times the
  *  rate, so the ladder's own numbers set the pace. */
 export const regenOf = (id: number): number =>
@@ -425,9 +433,15 @@ export const initial = (): City => ({
   fight: null,
 });
 
-/** The hero's base health, and the pace of getting it back. */
+/** The hero's base health, and the pace of getting it back.
+ *  ★ HEAL_SECS 15 → 8, 2026-08-11: *"your hero health regeneration is still
+ *  too slow."* Said twice across two playthroughs. At 15s a hero coming out
+ *  of a deep-country fight at 2 of 16 stood in the camp for three and a half
+ *  minutes doing nothing, which in a game about marching somewhere is three
+ *  and a half minutes of not playing. Eating (see `MEAL_FOOD`) is the fast
+ *  way; this is the free one. */
 export const HERO_HP = 10;
-export const HEAL_SECS = 15;
+export const HEAL_SECS = 8;
 /** Every third answer, the whole line winds up and bites double. */
 export const WINDUP_EVERY = 3;
 /** Rations, mid-fight: the hero carries a PACK of them — two a sortie,
@@ -492,6 +506,22 @@ export function lineOf(strength: number, bite: number, runt: number,
  *  already taken. */
 export const windup = (round: number): boolean =>
   (round + 1) % WINDUP_EVERY === 0;
+
+/** ★★★ A MEAL AT THE CAMP — F8, 2026-08-11. The owner: *"your hero health
+ *  regeneration is still too slow, and I don't understand why I can't eat
+ *  food."* Rations existed only INSIDE a fight, so the obvious thing to try
+ *  outside one — spend food, get health — was simply missing. Same food, same
+ *  health, no pack limit: packs ration a FIGHT, and this is not one. */
+export const MEAL_FOOD = 6;
+export const MEAL_HP = 4;
+/** Why the hero cannot eat, in plain words, or null. */
+export function uneatable(g: City): string | null {
+  if (g.lost) return 'the valley is lost';
+  if (g.fight) return 'use rations in a fight';
+  if (g.hero.hp >= heroMax(g)) return 'the hero is whole';
+  if (g.food < MEAL_FOOD) return outOf('food', g.food, MEAL_FOOD);
+  return null;
+}
 
 /** ★ EVERY LIBERATION TOUGHENS THE HERO: +3 health per ground freed.
  *  The deep country's bites (5s and 6s) are priced against this — spears
@@ -896,6 +926,20 @@ export const cartCost = (have: number): { stone: number; planks: number } => ({
 export const HUT_ROOM = 4;
 /** Seconds to grow one person when there is room. */
 export const GROW_SECS = 12;
+/** ★ How full the larder must be for settlers to keep coming without a
+ *  surplus. A quarter: enough to carry the opening, not enough to let a
+ *  fieldless town grow itself into a famine it cannot leave. */
+export const GROW_STORE = 0.25;
+/** ★★★ AND THE WAY OUT — 2026-08-11. Seconds of deep famine before someone
+ *  gives up and walks out of the valley.
+ *
+ *  The owner played into a town that could not be fed and could not be
+ *  shrunk: *"I think at this point, I'm not able to stop starving. There is
+ *  no way."* They were right — every farmable site already held its one farm,
+ *  the only deed on offer cost food, and nothing reduced the number of
+ *  mouths. A famine now COSTS PEOPLE, which is grim and self-correcting: the
+ *  town falls until the fields it has can feed it, and then it recovers. */
+export const LEAVE_SECS = 20;
 
 /** ★ First copy's price, IN THE MATERIAL THAT MAKES SENSE — the owner:
  *  *"it's weird that i need stone to build lumberjack camp."* Huts are
@@ -1380,7 +1424,10 @@ export function unraisable(g: City, id: number): string | null {
   // ★ ONE HAMMER PER SITE, the same ruling `unlayable` makes about spades.
   // It is also what keeps the price honest: with a job in flight `stacks`
   // has not moved yet, so a second order would buy copy #n twice.
-  if (g.raising[id]) return 'already raising';
+  // ★ F5, 2026-08-11 — the owner: *"why does it say already raising when the
+  // building is already being built? It is being built, not being raised."*
+  // `raising` is this file's word for the job; it was never the player's.
+  if (g.raising[id]) return 'already building';
   // ★ ONE WORKS PER SITE (2026-08-11) — see WORKS_MAX. More output means more
   // ground now, not more buildings on the ground you hold.
   if (id !== 0 && (g.stacks[id] ?? 0) >= WORKS_MAX) return 'one works per place — post hands instead';
@@ -1460,6 +1507,8 @@ export type Action =
   | { type: 'found' }
   /** Send the hero out for whatever the country will give up. */
   | { type: 'forage' }
+  /** ★ Spend food on the hero's health, outside a fight (2026-08-11). */
+  | { type: 'eat' }
   /** ★ Hire another crew onto a site's works (2026-08-11). */
   | { type: 'hire'; id: number }
   /** ★ Post or unpost a defender at a site (2026-08-11). */
@@ -1626,7 +1675,29 @@ export function apply(g: City, a: Action): City {
       // larder before they move in. Captives are the exception (fights).
       let pop = g.pop;
       let popPart = g.popPart;
-      const fed = pop < WILD_FED || g.food > 1;
+      // ★★★ SETTLERS COME FOR A SURPLUS, NOT A LARDER — 2026-08-11, and this
+      // is the fix for the dead end the owner played into: *"People are
+      // starving… I think at this point, I'm not able to stop starving. There
+      // is no way."*
+      //
+      // Growth used to ask only whether there was food IN THE STORE. So a
+      // town with a full larder and no fields kept taking settlers until the
+      // larder ran out, at which point it was too big to feed and there was
+      // no lever left — every farmable site already held its one farm, and
+      // the only deed on offer (hiring) cost food. The overshoot was built in.
+      //
+      // Growth now asks whether the town makes MORE bread than it eats. A
+      // town living off its stores stops growing, which means it can never
+      // grow itself into a famine it cannot leave.
+      // ⚠️ NOT A PURE SURPLUS GATE. Requiring a surplus outright deadlocks
+      // the opening: a fresh valley has no fields at all, so the town would
+      // stall at the wild's table with no hands to quarry the stone that buys
+      // the spears that take the first field. It grows on a HEALTHY STORE or
+      // a surplus — and stops once the larder is running down, which is the
+      // overshoot that built the dead end.
+      const surplus = f.food - hunger(g);
+      const stocked = g.food > roomOf(g) * GROW_STORE;
+      const fed = pop < WILD_FED || surplus > 0 || stocked;
       if (pop < popCap(g) && fed) {
         popPart += s / GROW_SECS;
         const grown = Math.floor(popPart);
@@ -1636,11 +1707,20 @@ export function apply(g: City, a: Action): City {
         // sailed straight past the six the wild feeds, and the food artery
         // the whole mid-game is built on simply did not bite when the game
         // was in a pocket. Growth stops AT the table until there is bread.
-        const room = g.food > 1 ? popCap(g) : Math.max(pop, WILD_FED);
+        const room = surplus > 0 || stocked
+          ? popCap(g) : Math.max(pop, WILD_FED);
         pop = Math.min(room, pop + grown);
         popPart -= grown;
       } else {
         popPart = 0;
+      }
+      // ★★★ AND THEY LEAVE A TOWN THAT CANNOT FEED THEM. Only once the famine
+      // is DEEP — a short pinch is a squeeze to manage, not a rout — and never
+      // below the wild's table, because the valley itself feeds that many.
+      if (g.famine >= FAMINE_DEEP && pop > WILD_FED) {
+        popPart -= s / LEAVE_SECS;
+        while (popPart < 0 && pop > WILD_FED) { pop -= 1; popPart += 1; }
+        if (pop <= WILD_FED) popPart = Math.max(0, popPart);
       }
       // The hero heals at home — never mid-fight — toward the max the
       // fights already won have earned.
@@ -2027,6 +2107,12 @@ export function apply(g: City, a: Action): City {
       const guard = { ...g.guard };
       if (next <= 0) delete guard[a.id]; else guard[a.id] = next;
       return { ...g, guard };
+    }
+
+    case 'eat': {
+      if (uneatable(g) !== null) return g;
+      return { ...g, food: g.food - MEAL_FOOD,
+        hero: { ...g.hero, hp: Math.min(heroMax(g), g.hero.hp + MEAL_HP) } };
     }
 
     case 'march': {

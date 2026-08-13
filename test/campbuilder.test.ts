@@ -16,6 +16,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
+  LEAVE_SECS, GROW_STORE,
   RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -1071,7 +1072,7 @@ describe('★★ THE FLEE-REGROUP GRIND PAYS NOTHING, at every rung', () => {
     expect(regenOf(4)).toBeCloseTo(GOBLINS[4]!.strength * GOBLIN_REGEN, 9);
     expect(regenOf(9)).toBeGreaterThan(regenOf(4));
     // Fight one is barely touched: the tutorial's pace is the old pace.
-    expect(regenOf(4)).toBeCloseTo(0.048, 6);
+    expect(regenOf(4)).toBeCloseTo(12 * GOBLIN_REGEN, 6);
   });
 });
 
@@ -1951,7 +1952,7 @@ describe('★★★ A WORKS TAKES TIME TO RAISE', () => {
 
   it('★ one hammer per site — a second order is refused, not queued', () => {
     const g = apply(site(), { type: 'raise', id: 1 });
-    expect(unraisable(g, 1)).toBe('already raising');
+    expect(unraisable(g, 1)).toBe('already building');
     expect(apply(g, { type: 'raise', id: 1 })).toBe(g);
     // ...and the price is not paid twice for a copy that does not stand yet.
     expect(g.stone).toBe(99 - BASE.quarry.stone!);
@@ -2813,5 +2814,62 @@ describe('★★★ MORE HANDS ON ONE WORKS', () => {
     const stacked = honour({ game: { ...pit(), stacks: { 0: 12, 1: 4 } },
       savedAt: 1 })!.game;
     expect(flow(stacked).hands.get(1)).toBe(CREW * 4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ F0 — THE STARVATION DEAD END, 2026-08-11. The owner played a fresh
+// valley into a town that could not be fed and could not be shrunk: *"People
+// are starving… I don't understand where can I build another farm then… I
+// think at this point, I'm not able to stop starving. There is no way."*
+// They were right, and it was a regression: capping works at one per site
+// capped FARMS at one per site, and nothing reduced the number of mouths.
+// ---------------------------------------------------------------------------
+describe('★★★ A TOWN CAN ALWAYS GET OUT OF A FAMINE', () => {
+  const fieldless = (over: Partial<City> = {}): City => ({ ...initial(),
+    stacks: { 0: 12 }, pop: 20, food: 400, ...over });
+
+  it('★★★ A DEEP FAMINE COSTS PEOPLE, which is the way out', () => {
+    const starved: City = { ...fieldless({ food: 0 }), famine: FAMINE_DEEP };
+    const later = tick(starved, LEAVE_SECS * 3 + 1);
+    expect(later.pop).toBeLessThan(starved.pop);
+    // ...and it stops at the table the wild itself feeds, so a valley can
+    // never empty out entirely and freeze the save.
+    const long = tick(starved, LEAVE_SECS * 500);
+    expect(long.pop).toBe(WILD_FED);
+  });
+
+  it('★★ a SHALLOW famine is still a squeeze to manage, not a rout', () => {
+    const pinched: City = { ...fieldless({ food: 0 }), famine: 1 };
+    expect(tick(pinched, LEAVE_SECS * 2).pop).toBe(pinched.pop);
+  });
+
+  it('★★★ AND IT CANNOT GROW ITSELF BACK INTO ONE: settlers want a surplus', () => {
+    // A fieldless town on a running-down larder used to keep taking settlers
+    // until the larder hit zero — the overshoot that built the dead end.
+    //
+    // ⚠️ THE LARDER MUST LAST THE TICK. At `food: 2` this passed with the old
+    // rule restored, because the food ran out inside the tick and the OLD
+    // rule's own clamp then held the population down — so the test was
+    // measuring the empty larder, not the new gate. Caught by sabotage. The
+    // larder below survives the whole tick and still sits under
+    // `GROW_STORE`, which only the new rule refuses to grow on.
+    const thin = fieldless({ food: roomOf(fieldless()) * GROW_STORE * 0.8, pop: 6 });
+    expect(thin.food).toBeGreaterThan(hunger(thin) * GROW_SECS * 1.5 + 1);
+    expect(tick(thin, GROW_SECS * 1.5).pop).toBe(6);
+    // A stocked larder still carries the OPENING, or a fresh valley would
+    // stall at the wild's table with no hands to quarry the first spear.
+    const stocked = fieldless({ food: roomOf(fieldless()) * 0.9, pop: 6 });
+    expect(tick(stocked, GROW_SECS * 4).pop).toBeGreaterThan(6);
+  });
+
+  it('★ a town with real fields grows on the surplus alone', () => {
+    // Green Vale is rich; a staffed field out-earns what the town eats.
+    const farmed: City = { ...initial(), goblins: {}, pop: 6, food: 3,
+      stacks: { 0: 12, 9: 1 }, crew: { 9: CREW },
+      paths: { [pathKey(0, 4)]: 1, [pathKey(4, 6)]: 1, [pathKey(6, 7)]: 1,
+        [pathKey(7, 9)]: 1 } };
+    expect(flow(farmed).food).toBeGreaterThan(hunger(farmed));
+    expect(tick(farmed, GROW_SECS * 3).pop).toBeGreaterThan(6);
   });
 });

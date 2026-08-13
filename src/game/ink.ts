@@ -47,8 +47,16 @@ export const INK = {
    *  the owner read as blue and could not place: *"once the colour of a
    *  dotted line is finalized, the part is still blue. I don't understand
    *  that color choice."* On a board whose one strong blue is the river, a
-   *  blue-green road is a stream. Brown is what a track is. */
-  route: '#4a3524',
+   *  blue-green road is a stream. Brown is what a track is.
+ *
+ *  ⚠️ AND NOT NEARLY BLACK EITHER, 2026-08-11: the first brown was #4a3524,
+ *  dark enough that the owner read it as black — *"I don't understand why the
+ *  paths are black now. I don't think black is a good choice."* This is a
+ *  three-way fit, not a colour pick: it has to be earth rather than water,
+ *  light enough to read as brown, and far enough from `fill` (the ink for a
+ *  road still being dug) to clear the palette gate under colour blindness.
+ *  That last constraint is what pushed it dark in the first place. */
+  route: '#5c432c',
   /** ★ THE CASING UNDER IT — the near-black outline every real map draws first,
    *  then lays the coloured core over. It is most of why a printed map's lines
    *  read as LINES and ours read as strokes: the casing separates the flow from

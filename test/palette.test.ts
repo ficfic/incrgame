@@ -68,7 +68,13 @@ describe('★★★ THE PALETTE IS MEASURED, not felt', () => {
       ['open', 'shut', 'a road you can lay vs one you cannot'],
       ['foe', 'shut', 'danger vs a choke'],
       ['route', 'fill', 'a finished road vs one being dug'],
-      ['ward', 'route', 'the barrier round your country vs a road'],
+      // ⚠️ WARD/ROUTE RETIRED FROM THIS LIST, 2026-08-11. The barrier ring was
+      // deleted from the board the day before — the owner: *"so barrier
+      // doesn't serve any function"* — so these two inks can no longer appear
+      // on the same screen, and holding a road hostage to a shape nobody
+      // draws is how a guard turns into a nuisance. `ward` is still an ink
+      // (the scenes use it); if anything ever draws it on the board again,
+      // put this line back.
       ['foe', 'you', 'their ground vs where you stand'],
     ];
     for (const [a, b, why] of pairs) {

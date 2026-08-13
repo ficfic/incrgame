@@ -14,7 +14,7 @@
     unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
-    windup, RATION_FOOD, RATION_HP, answerBite,
+    windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
@@ -54,6 +54,13 @@
   const brim = (n: number): boolean => n >= roomOf(game) - 1e-9;
   /** How much of the valley is still theirs — the goal, as one number. */
   const holdings = $derived(Object.keys(game.goblins).length);
+  /** ★★ AND HOW MANY OF THEM YOU CAN ACTUALLY SEE — F6, 2026-08-11. The
+   *  owner: *"it's a bit strange that it says five camps left while I can
+   *  only see two."* The count was every holding on the map; the board only
+   *  draws what the fog has lifted on. A number you cannot reconcile with
+   *  what is in front of you is worse than no number. */
+  const shownHoldings = $derived(
+    shown(game).filter((s) => game.goblins[s.id]).length);
   /** ★ THE NEAREST RAID: whichever holding is fullest, and what it is
    *  coming for. `null` before first blood, when there is no war yet. */
   const worst = $derived((() => {
@@ -432,23 +439,33 @@
       go: () => act({ type: 'raise', id: s.id }),
     });
     }
-    // ★★★ AND MORE HANDS ONTO IT — 2026-08-11. The other half of the owner's
-    // ask: *"we should limit the number to one per location. And then we
-    // should allow to add more people there."* Priced in food and climbing
-    // 1.6^n, so deepening a site you hold stays worse than walking out and
-    // taking one you do not — which is the complaint that started the item.
-    if (s.id !== 0 && have > 0) {
-      const w = unhireable(game, s.id);
-      const crews = 1 + (game.hire[s.id] ?? 0);
-      out.push({
-        label: `Hire hands`,
-        note: w ?? `${amount('food', hireCost(game.hire[s.id] ?? 0))}`
-          + ` → ${(crews + 1) * CREW} can work here`,
-        why: w,
-        go: () => act({ type: 'hire', id: s.id }),
-      });
-    }
+    // ⚠️ THE HIRE DEED IS GONE, 2026-08-11, one day after it shipped. The
+    // owner, reading it in play: *"Where from? This is a valley, and there is
+    // no extra people there except goblin captives. Where are we hiring hands
+    // from? This shouldn't be here."* And: *"Is it gonna increase my maximum
+    // there? Why? It is a weird solution."*
+    //
+    // Both halves were right. It read as conjuring people out of nothing, and
+    // what it actually did — raise a cap — was invisible until you were
+    // already standing at that cap. Worse, it was priced in FOOD, so the one
+    // deed a starving town was offered took food away from it: half of the
+    // dead end in F0. `hire` stays in the engine and on the save so nobody's
+    // existing crews vanish; nothing sells it any more. One works, one crew.
     if (s.id === 0) {
+      // ★★★ A MEAL — F8, 2026-08-11: *"I don't understand why I can't eat
+      // food."* Rations only ever existed inside a fight, so outside one
+      // there was no way to spend food on health at all.
+      {
+        const w = uneatable(game);
+        if (game.hero.hp < heroMax(game) && !game.fight) {
+          out.push({
+            label: 'Feed the hero',
+            note: w ?? `${amount('food', MEAL_FOOD)} → ${MARK.hero}+${MEAL_HP}`,
+            why: w,
+            go: () => act({ type: 'eat' }),
+          });
+        }
+      }
       // ★★★ THE FORAY — the floor under the economy, and the only deed in
       // the game that needs nothing at all. A raid can strip a town of every
       // works while its stores sit at zero; without this there is no way
@@ -859,12 +876,12 @@
           : game.hero.trip
             ? `${MARK.hero}→${SITE.get(game.hero.trip.to)?.name ?? ''}`
             : `${MARK.hero} ${SITE.get(game.hero.at)?.name ?? ''}`}
-        · {MARK.danger}{holdings} camps left
+        · {MARK.danger}{shownHoldings} camps left
       {:else if holdings > 0}
         <!-- ★ WHAT A HOLDING IS, not just how many. The owner: *"why holdings
              are with skull and bones is not quite well understood by me…
              What is a holding? They come once you take one — who comes?"* -->
-        {MARK.danger}{holdings} goblin camps · take one and the rest raid you
+        {MARK.danger}{shownHoldings} goblin camps · take one and the rest raid you
       {:else}
         {MARK.danger}0 · the valley is yours
       {/if}
