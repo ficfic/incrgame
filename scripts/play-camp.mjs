@@ -202,7 +202,9 @@ await page.waitForTimeout(200);
 // and the refusal is on the deed.
 const unreached = await panel();
 console.log('  refuses :', `"${unreached.slice(0, 70)}"`);
-if (!/no path reaches here/.test(unreached)) {
+// ⚠️ The refusals are sentences now (the prose gate, 2026-08-11), so this
+// matches the words rather than the old lower-case fragment.
+if (!/No road reaches here/i.test(unreached)) {
   misses.push(`unreached ground does not refuse the works: "${unreached.slice(0, 60)}"`);
 }
 await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })

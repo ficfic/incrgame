@@ -108,7 +108,7 @@ describe('★★ RULE 1 — buildings come in counts, on the compounding curve',
     expect(g.stacks[1]).toBe(1);
     expect(g.stone).toBeCloseTo(99 - costOf('quarry', 0).stone!, 9);
     // ★ AND THE SECOND WORKS IS REFUSED, in words, with the alternative named.
-    expect(unraisable(g, 1)).toBe('one works per place — post hands instead');
+    expect(unraisable(g, 1)).toBe('One building per place. Add people to it instead.');
     expect(apply(g, { type: 'raise', id: 1 })).toBe(g);
     // ⚠️ THE CAMP IS EXEMPT: its works are HUTS, and huts are housing.
     expect(unraisable({ ...initial(), planks: 9e5 }, 0)).toBeNull();
@@ -181,7 +181,7 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
   it('★ no works before a path reaches the ground', () => {
     // The owner: "it's weird that i can build something before there's a
     // path to that spot." The camp itself is the one exception.
-    expect(unraisable({ ...initial(), stone: 99 }, 1)).toBe('no path reaches here');
+    expect(unraisable({ ...initial(), stone: 99 }, 1)).toBe('No road reaches here. Lay one from a place you hold.');
     expect(unraisable({ ...initial(), planks: 99 }, 0)).toBeNull();
   });
 
@@ -270,7 +270,7 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
     expect(g.paths[pathKey(0, 1)]).toBeUndefined();
     expect(g.laying[pathKey(0, 1)]).toEqual({ left: PATH_SECS, secs: PATH_SECS });
     expect(flow(g).stone).toBe(0);                       // not carrying yet
-    expect(unlayable(g, 0, 1)).toBe('already laying');   // no double spades
+    expect(unlayable(g, 0, 1)).toBe('Already laying this road.');   // no double spades
     g = tick(g, PATH_SECS / 2);
     expect(g.laying[pathKey(0, 1)]!.left).toBeCloseTo(PATH_SECS / 2, 6);
     g = tick(g, PATH_SECS);
@@ -288,7 +288,7 @@ describe('★★ RULE 3 — the path is the throughput, and past it is WASTE', (
     const laid: City = { ...initial(), stone: 99, stacks: { 1: 1 },
       paths: { [pathKey(0, 1)]: 1 } };
     expect(MAX_GAUGE).toBe(1);
-    expect(unlayable(laid, 0, 1)).toBe('the road is laid');
+    expect(unlayable(laid, 0, 1)).toBe('This road is already built.');
     expect(apply(laid, { type: 'lay', a: 0, b: 1 })).toBe(laid);
     expect(laid.stone).toBe(99);
   });
@@ -480,10 +480,10 @@ describe('★ honest refusals and the save', () => {
     // pit. The fact under test is the wording of a refusal, not the stock.
     expect(unraisable({ ...initial(), stone: 0, paths: { [pathKey(0, 1)]: 1 } }, 1))
       .toMatch(/^🪨0\/5$/);
-    expect(unraisable(initial(), 4)).toMatch(/^goblins hold it · ☠12$/);
-    expect(unlayable(initial(), 1, 3)).toBe('nothing joins these');
-    expect(unlayable({ ...initial(), stone: 99 }, 1, 2)).toBe('no path reaches either end');
-    expect(unlayable({ ...initial(), stone: 99 }, 3, 5)).toMatch(/^goblins hold it · ☠18$/);
+    expect(unraisable(initial(), 4)).toMatch(/^Goblins hold it, ☠12 strong\.$/);
+    expect(unlayable(initial(), 1, 3)).toBe('These two places do not connect.');
+    expect(unlayable({ ...initial(), stone: 99 }, 1, 2)).toBe('Neither end joins your roads. Start from the camp.');
+    expect(unlayable({ ...initial(), stone: 99 }, 3, 5)).toMatch(/^Goblins hold it, ☠18 strong\.$/);
   });
 
   it('round-trips a real city and refuses the rest', () => {
@@ -723,7 +723,7 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
     expect(g.fight).toBeNull();
     expect(g.pop).toBe(initial().pop + CAPTIVES);
     expect(g.hero.hp).toBe(4);
-    expect(unraisable({ ...g, stone: 99 }, 4)).toBe('no path reaches here');
+    expect(unraisable({ ...g, stone: 99 }, 4)).toBe('No road reaches here. Lay one from a place you hold.');
     expect(unraisable({ ...g, stone: 99, paths: { [pathKey(0, 4)]: 1 } }, 4)).toBeNull();
   });
 
@@ -792,16 +792,16 @@ describe('★★ THE BATTLE STRIP — one square left, three right, the pokes', 
   });
 
   it('the hero is refused where sense refuses: free ground, mid-fight, hurt', () => {
-    expect(unassailable(initial(), 1)).toBe('nothing to fight here');
+    expect(unassailable(initial(), 1)).toBe('No goblins here.');
     const mid = apply(atSite(initial(), 4), { type: 'assail', id: 4 });
-    expect(unassailable(mid, 5)).toBe('the hero is already fighting');
+    expect(unassailable(mid, 5)).toBe('The hero is already in a fight.');
     const stood = atSite(mid, 5);
     expect(apply(stood, { type: 'assail', id: 5 })).toBe(stood);
     // ⚠️ Standing on it: "the hero is not there" now outranks the heal
     // refusal, and this test is about the HEAL.
     const hurt: City = { ...initial(),
       hero: { hp: 3, spears: 0, part: 0, at: 4, trip: null } };
-    expect(unassailable(hurt, 4)).toMatch(/^the hero heals — 3 of 10/);
+    expect(unassailable(hurt, 4)).toMatch(/^The hero is hurt: 3 of 10/);
   });
 
   it('no healing mid-fight — the wound is the fight\'s clock', () => {
@@ -1239,7 +1239,7 @@ describe('★★★ WHY TAKE THE GROUND — richness, and the second road home',
     expect(SITE.get(0)!.near).toEqual(expect.arrayContaining([5, 6]));
     // But the road cannot be laid while the goblins stand on it.
     expect(unlayable({ ...initial(), stone: 99 }, 0, 6))
-      .toMatch(/^goblins hold it · ☠/);
+      .toMatch(/^Goblins hold it, ☠/);
   });
 
   it('★★★ THE FOOD ARTERY DOUBLES when the knoll falls — the 66-pop wall', () => {
@@ -2031,7 +2031,7 @@ describe('★★★ A WORKS TAKES TIME TO RAISE', () => {
 
   it('★ one hammer per site — a second order is refused, not queued', () => {
     const g = apply(site(), { type: 'raise', id: 1 });
-    expect(unraisable(g, 1)).toBe('already building');
+    expect(unraisable(g, 1)).toBe('Already building here.');
     expect(apply(g, { type: 'raise', id: 1 })).toBe(g);
     // ...and the price is not paid twice for a copy that does not stand yet.
     expect(g.stone).toBe(99 - BASE.quarry.stone!);
@@ -2181,7 +2181,7 @@ describe('★★★ THE WAGON CANNOT BE SPENT INTO A DEAD SAVE', () => {
     g = tick(g, 30);
     expect(g.stone).toBeCloseTo(START_STONE - 9, 6);
       // THE FIX: laying again is refused, because the road is already there.
-      expect(unlayable(g, 0, 1)).toBe('the road is laid');
+      expect(unlayable(g, 0, 1)).toBe('This road is already built.');
       const after = apply(g, { type: 'lay', a: 0, b: 1 });
     expect(after).toBe(g);
     // And the stone that would have gone into it still buys the opening.
@@ -2290,7 +2290,7 @@ describe('★★★ THE FORAY — you can always dig yourself out', () => {
       hero: { hp: heroMax({ ...ruined(), goblins: { 4: 12 } }), spears: 9,
         part: 0, at: 4, trip: null } };
     g = apply(atSite(g, 4), { type: 'assail', id: 4 });
-    expect(unforageable(g)).toBe('the hero is fighting');
+    expect(unforageable(g)).toBe('The hero is in a fight.');
     expect(apply(g, { type: 'forage' }).forage).toBeNull();
     const out = apply(ruined(), { type: 'forage' });
     expect(out.forage).not.toBeNull();
@@ -2549,7 +2549,7 @@ describe('★★★ THE HERO WALKS, AND HOLDS ONE GATE', () => {
     // knoll at the far end has no route that does not cross one — and the
     // walk is refused outright rather than quietly cutting through.
     expect(walkSecs(initial(), 0, 9)).toBeNull();
-    expect(unmarchable(initial(), 9)).toBe('no way through — a holding blocks it');
+    expect(unmarchable(initial(), 9)).toBe('No way through. A goblin camp is in the way.');
   });
 
   it('★★★ ARRIVING ON HELD GROUND DRAWS THE SWORD', () => {
@@ -2573,7 +2573,7 @@ describe('★★★ THE HERO WALKS, AND HOLDS ONE GATE', () => {
 
   it('★★ a fight is a PLACE — you cannot swing at ground you are not on', () => {
     const g: City = { ...roaded(), goblins: { 1: 12 } };
-    expect(unassailable(g, 1)).toBe('the hero is not there');
+    expect(unassailable(g, 1)).toBe('The hero is not here. March here first.');
     expect(apply(g, { type: 'assail', id: 1 })).toBe(g);
     const walking = apply(g, { type: 'march', to: 1 });
     expect(unassailable(walking, 1)).toMatch(/^⏱/);
@@ -2876,9 +2876,9 @@ describe('★★★ MORE HANDS ON ONE WORKS', () => {
     const g = pit();
     expect(apply(g, { type: 'hire', id: 1 }).food)
       .toBeCloseTo(g.food - hireCost(0), 6);
-    expect(unhireable(pit({ goblins: { 1: 9 } }), 1)).toMatch(/^goblins hold it/);
+    expect(unhireable(pit({ goblins: { 1: 9 } }), 1)).toMatch(/^Goblins hold it/);
     // Nothing to work yet is its own refusal, not a silent no.
-    expect(unhireable(pit({ stacks: { 0: 12 } }), 1)).toBe('nothing to work here yet');
+    expect(unhireable(pit({ stacks: { 0: 12 } }), 1)).toBe('Build something here first.');
   });
 
   it('★ hires survive the save door, and older saves have hired nobody', () => {
@@ -3795,9 +3795,9 @@ describe('★★★ PUSHING A JOB THROUGH', () => {
 
   it('★ nothing to push is refused in words, and held ground never', () => {
     const idle: City = { ...initial(), pop: 20 };
-    expect(unpushable(idle, 1)).toBe('nothing is being built here');
+    expect(unpushable(idle, 1)).toBe('Nothing is being built here.');
     expect(apply(idle, { type: 'push', id: 1 })).toBe(idle);
-    expect(unpushable(initial(), 4)).toMatch(/^goblins hold this place/);
+    expect(unpushable(initial(), 4)).toMatch(/^Goblins hold this place/);
   });
 
   it('★ the memory holds at the save door, and older saves are rested', () => {

@@ -664,9 +664,9 @@ export const MEAL_FOOD = 6;
 export const MEAL_HP = 4;
 /** Why the hero cannot eat, in plain words, or null. */
 export function uneatable(g: City): string | null {
-  if (g.lost) return 'the valley is lost';
-  if (g.fight) return 'use rations in a fight';
-  if (g.hero.hp >= heroMax(g)) return 'the hero is whole';
+  if (g.lost) return 'The valley is lost.';
+  if (g.fight) return 'Not out here. Use rations during a fight.';
+  if (g.hero.hp >= heroMax(g)) return 'The hero is already at full health.';
   if (g.food < MEAL_FOOD) return outOf('food', g.food, MEAL_FOOD);
   return null;
 }
@@ -855,11 +855,11 @@ export const toolCost = (g: City): { coal: number; planks: number } => ({
 });
 /** Why the forge cannot run, in plain words, or null. */
 export function unforgeable(g: City): string | null {
-  if (g.lost) return 'the valley is lost';
+  if (g.lost) return 'The valley is lost.';
   const p = toolCost(g);
   if (g.coal < p.coal) return outOf('coal', g.coal, p.coal);
   if (g.planks < p.planks) return outOf('planks', g.planks, p.planks);
-  if (g.tools >= roomOf(g) - 1e-9) return 'the rack is full';
+  if (g.tools >= roomOf(g) - 1e-9) return 'The tool rack is full. Build a storehouse for more room.';
   return null;
 }
 /** What each kind of workface actually sends down the road (N6). */
@@ -986,12 +986,12 @@ export const marchSecs = (g: City, to: number): number | null => {
 };
 /** Why the hero cannot set out for this site, or null. */
 export function unmarchable(g: City, to: number): string | null {
-  if (g.lost) return 'the valley is lost';
-  if (g.fight) return 'the hero is fighting';
+  if (g.lost) return 'The valley is lost.';
+  if (g.fight) return 'The hero is in a fight.';
   if (g.forage) return `${MARK.time}${Math.ceil(g.forage.left)}s`;
   if (g.hero.trip) return `${MARK.time}${Math.ceil(g.hero.trip.left)}s`;
-  if (g.hero.at === to) return 'already there';
-  if (marchSecs(g, to) === null) return 'no way through — a holding blocks it';
+  if (g.hero.at === to) return 'The hero is already here.';
+  if (marchSecs(g, to) === null) return 'No way through. A goblin camp is in the way.';
   return null;
 }
 
@@ -1036,7 +1036,7 @@ export const MEETS: readonly Meet[] = [
       { take: 'Wait them out', loot: { food: 10 },
         said: 'The losing goblin stormed off. The winner followed. The sack did not.' },
       { take: 'Rush them', loot: { food: 6, stone: 4 }, hp: -3,
-        said: 'Two on one, and the hero took the worst of it \u2014 but not the grain.' },
+        said: 'Two on one. The hero took the worst of it, but not the grain.' },
     ] },
   { name: 'A family on the road',
     text: 'Three of them, walking out of the valley with what they can carry. '
@@ -1109,8 +1109,8 @@ export const onWatch = (g: City): boolean =>
 export const forageLeft = (g: City): number | null => g.forage?.left ?? null;
 /** Why the hero cannot go out, or null. */
 export function unforageable(g: City): string | null {
-  if (g.lost) return 'the valley is lost';
-  if (g.fight) return 'the hero is fighting';
+  if (g.lost) return 'The valley is lost.';
+  if (g.fight) return 'The hero is in a fight.';
   if (g.forage) return `${MARK.time}${Math.ceil(g.forage.left)}s`;
   // ★ NOR FROM THE ROAD (2026-08-10). One hero, one job — walking is a job.
   if (g.hero.trip) return `${MARK.time}${Math.ceil(g.hero.trip.left)}s`;
@@ -1296,7 +1296,7 @@ export const BOONS: readonly Boon[] = [
   // on your screen. If a card cannot be explained in one plain line, the card
   // is wrong — not the wording.
   { id: 'palisade', name: 'Free watch',
-    what: 'Guards who turn back a raid all come home — none are lost' },
+    what: 'Guards who turn back a raid all come home. None are lost.' },
   { id: 'volley', name: 'Arrows',
     what: 'New attack: hits every goblin standing behind the front one' },
   { id: 'quartermaster', name: 'Bigger packs',
@@ -1318,7 +1318,7 @@ export const BOONS: readonly Boon[] = [
   { id: 'wardens', name: 'Smaller watch',
     what: 'It takes 2 people to hold a gate instead of 3' },
   { id: 'kiln', name: 'Charcoal kilns',
-    what: 'Lumber camps can burn logs into coal — coal makes tools' },
+    what: 'Lumber camps can burn logs into coal. Coal makes tools.' },
 ];
 /** Does the town hold this blueprint? */
 export const has = (g: City, id: string): boolean => g.boons.includes(id);
@@ -1381,18 +1381,18 @@ export const pushRisk = (g: City): number =>
   Math.min(0.9, PUSH_BASE + PUSH_STEP * Math.max(0, g.pushes));
 /** Why the crew cannot be pushed, in plain words, or null. */
 export function unpushable(g: City, id: number): string | null {
-  if (g.lost) return 'the valley is lost';
-  if (!SITE.get(id)) return 'no such ground';
-  if (g.goblins[id]) return `goblins hold this place — ${Math.ceil(g.goblins[id])} strong`;
+  if (g.lost) return 'The valley is lost.';
+  if (!SITE.get(id)) return 'Nothing can be built here.';
+  if (g.goblins[id]) return `Goblins hold this place, ${Math.ceil(g.goblins[id])} strong.`;
   if (!g.raising[id] && !Object.keys(g.laying).some((k) => k.split('|').includes(String(id)))) {
-    return 'nothing is being built here';
+    return 'Nothing is being built here.';
   }
   // ⚠️ NOT "hands at this site". A site being BUILT has no works to staff
   // yet, so requiring a crew there refused every push at the only moment one
   // is wanted — caught by its own test on the first run. The crew that builds
   // comes from the town, so the town is what must have people to spare.
   if (housed(g) - guardsTotal(g) - Math.floor(g.hurt) <= 0) {
-    return 'nobody is free to push';
+    return 'Nobody is free to push.';
   }
   return null;
 }
@@ -1465,9 +1465,9 @@ export const hireCost = (have: number): number =>
   Math.ceil(40 * Math.pow(1.6, have));
 /** Why more hands cannot be hired here, in plain words, or null. */
 export function unhireable(g: City, id: number): string | null {
-  if (!SITE.get(id) || id === 0) return 'not a workface';
-  if (g.goblins[id]) return `goblins hold it · ${MARK.danger}${Math.ceil(g.goblins[id])}`;
-  if ((g.stacks[id] ?? 0) <= 0) return 'nothing to work here yet';
+  if (!SITE.get(id) || id === 0) return 'Nobody works here.';
+  if (g.goblins[id]) return `Goblins hold it, ${MARK.danger}${Math.ceil(g.goblins[id])} strong.`;
+  if ((g.stacks[id] ?? 0) <= 0) return 'Build something here first.';
   const price = hireCost(g.hire[id] ?? 0);
   if (g.food < price) return outOf('food', g.food, price);
   return null;
@@ -2030,26 +2030,26 @@ export function flow(g: City): Flow {
 /** Why the next copy cannot be raised here, in plain words, or null. */
 export function unraisable(g: City, id: number): string | null {
   const s = SITE.get(id);
-  if (!s) return 'no such ground';
+  if (!s) return 'Nothing can be built here.';
   // ★★★ A REFUSAL, IN WORDS — 2026-08-11. It used to read `☠12`, formatted
   // exactly like a price, and the owner read it as one: *"Some actions cost
   // skulls. I don't quite understand that."* Nothing in this game has ever
   // cost a skull. It is goblins standing on the ground, and how many.
-  if (g.goblins[id]) return `goblins hold it · ${MARK.danger}${Math.ceil(g.goblins[id])}`;
+  if (g.goblins[id]) return `Goblins hold it, ${MARK.danger}${Math.ceil(g.goblins[id])} strong.`;
   // ★ THE PATH COMES FIRST — the owner: *"it's weird that i can build
   // something before there's a path to that spot."* No works on ground
   // the town cannot reach.
-  if (id !== 0 && !component(g).has(id)) return 'no path reaches here';
+  if (id !== 0 && !component(g).has(id)) return 'No road reaches here. Lay one from a place you hold.';
   // ★ ONE HAMMER PER SITE, the same ruling `unlayable` makes about spades.
   // It is also what keeps the price honest: with a job in flight `stacks`
   // has not moved yet, so a second order would buy copy #n twice.
   // ★ F5, 2026-08-11 — the owner: *"why does it say already raising when the
   // building is already being built? It is being built, not being raised."*
   // `raising` is this file's word for the job; it was never the player's.
-  if (g.raising[id]) return 'already building';
+  if (g.raising[id]) return 'Already building here.';
   // ★ ONE WORKS PER SITE (2026-08-11) — see WORKS_MAX. More output means more
   // ground now, not more buildings on the ground you hold.
-  if (id !== 0 && (g.stacks[id] ?? 0) >= WORKS_MAX) return 'one works per place — post hands instead';
+  if (id !== 0 && (g.stacks[id] ?? 0) >= WORKS_MAX) return 'One building per place. Add people to it instead.';
   return shortOf(g, costOf(s.allows, g.stacks[id] ?? 0));
 }
 
@@ -2057,17 +2057,17 @@ export function unraisable(g: City, id: number): string | null {
 export function unlayable(g: City, a: number, b: number): string | null {
   const A = SITE.get(a);
   const B = SITE.get(b);
-  if (!A || !B || !A.near.includes(b)) return 'nothing joins these';
+  if (!A || !B || !A.near.includes(b)) return 'These two places do not connect.';
   if (g.goblins[a] || g.goblins[b]) {
     // ★ Same again: a refusal, not a price. See `unraisable`.
-    return `goblins hold it · ${MARK.danger}${Math.ceil(g.goblins[a] ?? g.goblins[b]!)}`;
+    return `Goblins hold it, ${MARK.danger}${Math.ceil(g.goblins[a] ?? g.goblins[b]!)} strong.`;
   }
-  if (g.laying[pathKey(a, b)]) return 'already laying';
+  if (g.laying[pathKey(a, b)]) return 'Already laying this road.';
   const gauge = g.paths[pathKey(a, b)] ?? 0;
-  if (gauge >= MAX_GAUGE) return 'the road is laid';
+  if (gauge >= MAX_GAUGE) return 'This road is already built.';
   if (gauge === 0) {
     const comp = component(g);
-    if (!comp.has(a) && !comp.has(b)) return 'no path reaches either end';
+    if (!comp.has(a) && !comp.has(b)) return 'Neither end joins your roads. Start from the camp.';
   }
   // ★★★ A WIDEN ON A ROAD THAT CARRIES NOTHING IS REFUSED, 2026-08-10.
   //
@@ -2085,7 +2085,7 @@ export function unlayable(g: City, a: number, b: number): string | null {
   // nothing, at any point in the game. A widen relieves a choke; if there is
   // no traffic there is no choke.
   if (gauge >= 1 && (flow(g).loads.get(pathKey(a, b)) ?? 0) <= 1e-9) {
-    return 'nothing travels this road';
+    return 'Nothing travels this road.';
   }
   const price = pathCostOf(gauge);
   if (g.stone < price) return outOf('stone', g.stone, price);
@@ -2094,12 +2094,12 @@ export function unlayable(g: City, a: number, b: number): string | null {
 
 /** Why the hero cannot be sent at this ground, in plain words, or null. */
 export function unassailable(g: City, id: number): string | null {
-  if (!g.goblins[id]) return 'nothing to fight here';
-  if (g.fight) return 'the hero is already fighting';
+  if (!g.goblins[id]) return 'No goblins here.';
+  if (g.fight) return 'The hero is already in a fight.';
   // ★ YOU HAVE TO BE THERE. A fight is a place now, not a screen.
   if (g.hero.trip) return `${MARK.time}${Math.ceil(g.hero.trip.left)}s`;
-  if (g.hero.at !== id) return 'the hero is not there';
-  if (g.hero.hp < heroMax(g)) return `the hero heals — ${g.hero.hp} of ${heroMax(g)}`;
+  if (g.hero.at !== id) return 'The hero is not here. March here first.';
+  if (g.hero.hp < heroMax(g)) return `The hero is hurt: ${g.hero.hp} of ${heroMax(g)}. Wait, or feed them.`;
   return null;
 }
 
