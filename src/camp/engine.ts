@@ -434,6 +434,10 @@ export interface City {
   /** ★★★ WHAT THE HERO IS STANDING IN FRONT OF — N5. An index into `MEETS`,
    *  or null. It waits indefinitely and blocks nothing. */
   meet: number | null;
+  /** ★★★ PUSHES IN LIVING MEMORY — 2026-08-11. Decays over `PUSH_COOL`, and
+   *  every one of them raises the risk of the next. This is the governor that
+   *  stops "push the crew" from becoming the deleted tap. */
+  pushes: number;
   /** ★★★ SECONDS THE VALLEY HAS STOOD — N3, 2026-08-11. The camps swell on
    *  this clock, which is what makes waiting cost something. */
   since: number;
@@ -566,6 +570,7 @@ export const initial = (): City => ({
   hire: {},
   log: [],
   since: 0,
+  pushes: 0,
   meet: null,
   boons: [],
   kilned: [],
@@ -1330,6 +1335,78 @@ export function offer(g: City): string[] {
     (_, i) => left[(from + i) % left.length]!.id);
 }
 
+/** ★★★ THE MUSTER ROLL — 2026-08-11. The owner: *"what other stuff can we
+ *  steal from fallout shelter, i love it so much."*
+ *
+ *  What Fallout Shelter actually does — and it was never the SPECIAL stats —
+ *  is make you feel a loss. "3 came home hurt" is a decrement. *"Mira is
+ *  mending"* is a debt. The magic is the name, and the name is free.
+ *
+ *  ⚠️ ONLY THE LEVY IS NAMED, and that is a deliberate refusal. Naming the
+ *  forty at the works would make `flow`'s staffing loop decide WHO stands
+ *  WHERE — an assignment problem the owner would either ignore as noise or
+ *  optimise as an attention tax, on a screen they have just called "super
+ *  messy". People are named at the moment they stop being fungible: when they
+ *  march. Everyone else is still `pop`, and should stay that way.
+ *
+ *  ⚠️ AND THE NAME IS COSMETIC. Levy squares must stay mathematically
+ *  interchangeable: the fight solver's memo key is the multiset of square
+ *  health, and giving the levy individual stats would make the key wrong AND
+ *  blow the state space from a multiset to an ordered tuple. A name may never
+ *  become a number. */
+/** ★★★ PUSH THE CREW — 2026-08-11, stolen from Fallout Shelter's rush, which
+ *  is the best single line of design in that game: **the number you are
+ *  afraid of is the number you are paid.** You are shown a risk percentage;
+ *  if it works you get the bonus AS that percentage. One glance, no tooltip,
+ *  and the greed and the fear are the same number.
+ *
+ *  Here: a site with a job in hand can be pushed. It finishes NOW, and pays a
+ *  bonus of the risk in goods. If it fails, the crew are hurt and the job is
+ *  lost.
+ *
+ *  ⚠️ THIS IS THE DELETED TAP WEARING A HAT, and it only survives because of
+ *  `PUSH_STEP`. The tap was cut after measuring one thumb out-earning six
+ *  quarries; what makes this different is that every push RAISES the risk of
+ *  the next, so spamming is mathematically bad rather than merely slow. Take
+ *  the escalation out and this becomes the same disaster.
+ *  ⚠️ AND IT MUST NEVER BE NEEDED. Idle stays viable: this is a lever for a
+ *  player who is watching, never a tax on one who is not. */
+export const PUSH_BASE = 0.12;
+/** What each push in living memory adds to the risk of the next. */
+export const PUSH_STEP = 0.1;
+/** How fast the crew forget a push — the risk decays over this. */
+export const PUSH_COOL = 90;
+/** The risk of pushing right now, 0..0.9. */
+export const pushRisk = (g: City): number =>
+  Math.min(0.9, PUSH_BASE + PUSH_STEP * Math.max(0, g.pushes));
+/** Why the crew cannot be pushed, in plain words, or null. */
+export function unpushable(g: City, id: number): string | null {
+  if (g.lost) return 'the valley is lost';
+  if (!SITE.get(id)) return 'no such ground';
+  if (g.goblins[id]) return `goblins hold this place — ${Math.ceil(g.goblins[id])} strong`;
+  if (!g.raising[id] && !Object.keys(g.laying).some((k) => k.split('|').includes(String(id)))) {
+    return 'nothing is being built here';
+  }
+  // ⚠️ NOT "hands at this site". A site being BUILT has no works to staff
+  // yet, so requiring a crew there refused every push at the only moment one
+  // is wanted — caught by its own test on the first run. The crew that builds
+  // comes from the town, so the town is what must have people to spare.
+  if (housed(g) - guardsTotal(g) - Math.floor(g.hurt) <= 0) {
+    return 'nobody is free to push';
+  }
+  return null;
+}
+
+export const NAMES: readonly string[] = [
+  'Mira', 'Bran', 'Ossa', 'Ketil', 'Wren', 'Dag', 'Isolde', 'Tam',
+  'Halla', 'Rurik', 'Sunn', 'Eddi', 'Vig', 'Nessa', 'Orm', 'Perrin',
+  'Yara', 'Cuth', 'Lind', 'Bex', 'Aud', 'Grim', 'Nell', 'Fen',
+];
+/** Who the nth levy square is, this fight. Pure, deterministic, unsaved —
+ *  the same muster always reads the same way, and nothing has to migrate. */
+export const folkName = (site: number, i: number, taken: number): string =>
+  NAMES[(site * 7 + i * 13 + taken * 3) % NAMES.length]!;
+
 export const LEVY_HP = 5;
 /** What one levied townsperson can take before they are carried home. */
 export const MEND_SECS = 45;
@@ -2053,6 +2130,8 @@ export type Action =
   | { type: 'answer'; way: 0 | 1 }
   /** ★ Spend food on the hero's health, outside a fight (2026-08-11). */
   | { type: 'eat' }
+  /** ★ Push a site's crew to finish a job now, at a risk (2026-08-11). */
+  | { type: 'push'; id: number }
   /** ★ Forge a batch of tools from coal and planks (2026-08-11). */
   | { type: 'forge' }
   /** ★ Switch a wood camp between logs and coal — the Kiln (2026-08-11). */
@@ -2127,13 +2206,19 @@ function answered(g: City, f: NonNullable<City['fight']>,
   // they always did.
   const us = (f.us ?? []).map((u) => ({ ...u }));
   let felled = 0;
+  /** Who went down this round, by name — see `folkName`. */
+  const fell: string[] = [];
   for (const u of us) {
     if (bite <= 0) break;
     if (u.hp <= 0) continue;
     const took = Math.min(u.hp, bite);
     u.hp -= took;
     bite -= took;
-    if (u.hp <= 0) felled += 1;
+    if (u.hp <= 0) {
+      felled += 1;
+      // ★ WHO went down — see `folkName`. Cosmetic, never a number.
+      fell.push(folkName(f.site, us.indexOf(u), g.taken));
+    }
   }
   const hurt = g.hurt + felled;
 
@@ -2149,6 +2234,10 @@ function answered(g: City, f: NonNullable<City['fight']>,
         : `The hero fell at ${SITE.get(f.site)?.name ?? 'the fight'}.`) };
   }
   return { ...g, hero: { ...g.hero, hp }, hurt,
+    log: fell.length === 0 ? g.log
+      : logged(g.log, fell.length === 1
+        ? `${fell[0]} went down at ${SITE.get(f.site)?.name ?? 'the fight'} and was carried home.`
+        : `${fell.slice(0, -1).join(', ')} and ${fell.at(-1)} were carried home from ${SITE.get(f.site)?.name ?? 'the fight'}.`),
     fight: { ...f, us, round: f.round + 1 } };
 }
 
@@ -2281,6 +2370,9 @@ export function apply(g: City, a: Action): City {
       // ★ THE HURT MEND. A whole person back at work every `MEND_SECS`, so a
       // hard fight is a dent in production that fills itself in — the war's
       // cost is time, not lives.
+      // ★ THE CREW FORGET. Without this the risk only ever climbs and the
+      // lever is a one-shot; with it, pushing is something you SPACE OUT.
+      const pushes = Math.max(0, g.pushes - s / PUSH_COOL);
       let hurt = g.hurt;
       if (hurt > 0) {
         hurt = Math.max(0, hurt - s / MEND_SECS);
@@ -2618,6 +2710,7 @@ export function apply(g: City, a: Action): City {
         stowing,
         log: logged(g.log, ...said),
         since,
+        pushes,
         meet,
         hurt,
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
@@ -2798,6 +2891,44 @@ export function apply(g: City, a: Action): City {
     // ★★ MARCHING IS THE ONLY WAY ANYWHERE NOW. `assail` still exists and
     // still starts a fight, but only from the ground itself — the UI sends a
     // march, and arriving on held ground is what draws the sword.
+    case 'push': {
+      if (unpushable(g, a.id) !== null) return g;
+      const risk = pushRisk(g);
+      // ⚠️ NO DICE. This engine has no RNG by design — the fight solver is the
+      // ladder's only guard and it cannot enumerate randomness. The outcome is
+      // a pure function of the state: a push fails when the risk has climbed
+      // past what this crew can carry, which is legible AND deterministic.
+      // You can always see whether the next one is safe; that is the point.
+      const failed = risk >= 0.5;
+      let out: City = { ...g, pushes: g.pushes + 1 };
+      if (failed) {
+        // The job is lost and the crew are hurt. Never fatal, never a stat.
+        const raising = { ...out.raising };
+        delete raising[a.id];
+        return { ...out, raising,
+          hurt: out.hurt + 1,
+          log: logged(out.log,
+            `The crew at ${SITE.get(a.id)?.name ?? 'the works'} were pushed too hard. The job is ruined and someone is hurt.`) };
+      }
+      // ★ IT LANDS NOW, and pays the risk you accepted, in the goods the
+      // ground itself makes.
+      const job = out.raising[a.id];
+      if (job) {
+        const raising = { ...out.raising, [a.id]: { ...job, left: 0 } };
+        out = { ...out, raising };
+      }
+      const kind = SITE.get(a.id)?.allows ?? 'quarry';
+      const good = GOOD_OF[kind];
+      const bonus = Math.ceil(risk * 100 * 0.2);
+      return { ...out,
+        // ⚠️ NEVER BELOW WHAT YOU HAD. A bare `Math.min(roomOf, x + bonus)`
+        // will REDUCE a stock that is already over the cap, so a reward
+        // becomes a punishment. Cap the gain, never the holding.
+        [good]: Math.max(out[good], Math.min(roomOf(out), out[good] + bonus)),
+        log: logged(out.log,
+          `The crew at ${SITE.get(a.id)?.name ?? 'the works'} pushed through it — ${bonus} ${good} for the risk.`) };
+    }
+
     case 'forge': {
       // ★★★ THE TOOLWRIGHT, 2026-08-11 — coal and planks in, tools out, made
       // at the camp like spears and carts. The batch is deliberately large:

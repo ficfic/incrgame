@@ -583,7 +583,11 @@ await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catc
 await page.waitForTimeout(250);
 const menaced = await panel();
 console.log('  says    :', `"${menaced.slice(0, 60)}"`);
-if (!/⚠9\d% →/.test(menaced)) {
+// ⚠️ WHITESPACE-NORMALISED. The holding panel puts one fact per row now
+// (F9), so `textContent` runs the rows together with newlines and no spaces —
+// a pattern with a literal space in it stopped matching across the seam even
+// though the text was right there on screen.
+if (!/⚠9\d%\s*→/.test(menaced.replace(/\s+/g, ' '))) {
   misses.push(`a holding about to raid does not say so: "${menaced.slice(0, 60)}"`);
 }
 // The camp's own hut count is the thing at stake — read it before and after.

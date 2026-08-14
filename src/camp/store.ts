@@ -167,6 +167,10 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
       typeof b === 'string' && BOONS.some((x) => x.id === b));
     if (g.draft.length === 0) g.draft = null;
   }
+  // ★ PUSHES IN LIVING MEMORY (2026-08-11), defaulted for older saves —
+  // which is generous: their crews are fully rested.
+  if (g.pushes === undefined) g.pushes = 0;
+  else if (!num(g.pushes, 0, 999)) return null;
   if (g.levy === undefined) g.levy = 0;
   else if (!whole(g.levy, 0, 999)) return null;
   if (g.hurt === undefined) g.hurt = 0;

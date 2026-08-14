@@ -18,7 +18,8 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
   walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
   LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
-  MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft,
+  MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft, NAMES, folkName,
+  pushRisk, unpushable, PUSH_BASE, PUSH_COOL,
   BOONS, offer, guardNeed, cartCostOf, has, runHard, RUN_STEP, valleyGoblins,
   inValley, standing, GOOD_OF, sawsHere, KILN_SHARE, TOOLLESS, TOOL_BATCH,
   START_TOOLS, unforgeable,
@@ -3699,5 +3700,110 @@ describe('★★★ COAL AND TOOLS', () => {
     const back = honour({ game: older as City, savedAt: 1 })!.game;
     expect(back.coal).toBe(0);
     expect(back.tools).toBe(START_TOOLS);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE MUSTER ROLL — 2026-08-11, stolen from Fallout Shelter. The owner:
+// *"what other stuff can we steal from fallout shelter, i love it so much."*
+// What that game actually does is make a loss FELT: "3 came home hurt" is a
+// decrement; "Mira was carried home" is a debt.
+// ---------------------------------------------------------------------------
+describe('★★★ THE LEVY HAS NAMES', () => {
+  const town = (over: Partial<City> = {}): City => ({ ...initial(),
+    pop: 24, food: 9e5, stacks: { 0: 6 }, levy: 3,
+    hero: { hp: 30, spears: 2, part: 0, at: 4, trip: null }, ...over });
+
+  it('★★★ a fallen levy square is named in the log', () => {
+    let g = apply(town(), { type: 'assail', id: 4 });
+    for (let i = 0; i < 20 && g.fight && g.hurt === 0; i++) {
+      g = tick(apply(g, { type: 'strike' }), BLOW_SECS + 0.01);
+    }
+    expect(g.hurt).toBeGreaterThan(0);
+    const said = g.log.join(' ');
+    expect(NAMES.some((n) => said.includes(n))).toBe(true);
+    expect(said).toMatch(/carried home|went down/);
+  });
+
+  it('★★★ THE NAME IS COSMETIC, and that is load-bearing', () => {
+    // ⚠️ The fight solver's memo key is the MULTISET of square health. If a
+    // name ever became a stat, the key would be wrong and the state space
+    // would go from a multiset to an ordered tuple — roughly thirty times
+    // larger per position, across the whole tree. Levy squares must stay
+    // mathematically interchangeable.
+    const g = apply(town(), { type: 'assail', id: 4 });
+    const hp = g.fight!.us.map((u) => u.hp);
+    expect(new Set(hp).size).toBe(1);
+    expect(hp.every((h) => h === LEVY_HP)).toBe(true);
+  });
+
+  it('★ the roll is deterministic and needs no save', () => {
+    // Pure function of (site, index, taken) — the same muster always reads
+    // the same way, and nothing has to migrate.
+    expect(folkName(4, 0, 1)).toBe(folkName(4, 0, 1));
+    expect(folkName(4, 0, 1)).not.toBe(folkName(4, 1, 1));
+    expect(NAMES).toContain(folkName(9, 3, 5));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ PUSH THE CREW — 2026-08-11, stolen from Fallout Shelter's rush. The
+// best single line of design in that game: THE NUMBER YOU ARE AFRAID OF IS
+// THE NUMBER YOU ARE PAID.
+// ---------------------------------------------------------------------------
+describe('★★★ PUSHING A JOB THROUGH', () => {
+  const building = (over: Partial<City> = {}): City => {
+    // ⚠️ Stores below the cap, or the bonus has nowhere to land and the
+    // test measures the storehouse rather than the push.
+    const g: City = { ...initial(), pop: 20, food: 40, stone: 40,
+      planks: 30, store: 3, stacks: { 0: 5 },
+      paths: { [pathKey(0, 1)]: 1 }, ...over };
+    return apply(g, { type: 'raise', id: 1 });
+  };
+
+  it('★★★ a push finishes the job now and pays the risk you took', () => {
+    const g = building();
+    expect(g.raising[1]).toBeDefined();
+    const pushed = apply(g, { type: 'push', id: 1 });
+    expect(pushed.raising[1]!.left).toBe(0);
+    expect(pushed.stone).toBeGreaterThan(g.stone);      // paid in the ground's own good
+    expect(pushed.log.join(' ')).toMatch(/pushed through/);
+  });
+
+  it('★★★ EVERY PUSH RAISES THE NEXT ONE — the governor', () => {
+    // ⚠️ This is the deleted tap wearing a hat, and this is the only reason
+    // it survives: spamming must be mathematically bad, not merely slow. The
+    // tap was cut after one thumb was measured out-earning six quarries.
+    const g = building();
+    expect(pushRisk(g)).toBeCloseTo(PUSH_BASE, 6);
+    let x = g;
+    for (let i = 0; i < 4; i++) x = { ...x, pushes: x.pushes + 1 };
+    expect(pushRisk(x)).toBeGreaterThan(pushRisk(g));
+    // ...and past halfway it ruins the job and hurts somebody.
+    const reckless = { ...building(), pushes: 9 };
+    const broken = apply(reckless, { type: 'push', id: 1 });
+    expect(broken.raising[1]).toBeUndefined();
+    expect(broken.hurt).toBeGreaterThan(reckless.hurt);
+    expect(broken.log.join(' ')).toMatch(/pushed too hard/);
+  });
+
+  it('★★ the crew forget, so pushing is something you space out', () => {
+    const hot: City = { ...building(), pushes: 5 };
+    expect(tick(hot, PUSH_COOL * 6).pushes).toBe(0);
+    expect(tick(hot, PUSH_COOL).pushes).toBeLessThan(hot.pushes);
+  });
+
+  it('★ nothing to push is refused in words, and held ground never', () => {
+    const idle: City = { ...initial(), pop: 20 };
+    expect(unpushable(idle, 1)).toBe('nothing is being built here');
+    expect(apply(idle, { type: 'push', id: 1 })).toBe(idle);
+    expect(unpushable(initial(), 4)).toMatch(/^goblins hold this place/);
+  });
+
+  it('★ the memory holds at the save door, and older saves are rested', () => {
+    expect(honour({ game: { ...initial(), pushes: 3 }, savedAt: 1 })!
+      .game.pushes).toBe(3);
+    const { pushes: _drop, ...older } = initial();
+    expect(honour({ game: older as City, savedAt: 1 })!.game.pushes).toBe(0);
   });
 });

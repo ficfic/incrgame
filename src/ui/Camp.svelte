@@ -9,14 +9,14 @@
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE, SWEEP_SHARE,
-    guardsAt, guardsTotal, GUARD_STOP, unhireable, hireCost, levyCap,
+    guardsAt, guardsTotal, GUARD_STOP, unhireable, hireCost, levyCap, folkName,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
     unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS, swellOf, spawnOf,
     holdingsLeft,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
-    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE, unforgeable, toolCost, TOOL_BATCH, TOOLLESS,
+    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE, unforgeable, toolCost, TOOL_BATCH, TOOLLESS, unpushable, pushRisk,
     MEETS,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
@@ -516,6 +516,21 @@
     // stock (START_LOGS) is what buys the first one.
     const have = game.stacks[s.id] ?? 0;
     const why = unraisable(game, s.id);
+    // ★★★ PUSH THE CREW — 2026-08-11, Fallout Shelter's rush. The risk you
+    // are shown IS the bonus you are paid, which is the whole elegance of it:
+    // greed and fear are one number and it needs no explaining.
+    {
+      const w = unpushable(game, s.id);
+      if (w === null) {
+        const risk = Math.round(pushRisk(game) * 100);
+        out.push({
+          label: 'Push the crew',
+          note: `finish it now · ${MARK.waste}${risk}% risk → +${Math.ceil(risk * 0.2)} for the risk`,
+          why: null,
+          go: () => act({ type: 'push', id: s.id }),
+        });
+      }
+    }
     // ★ AND IT DISAPPEARS ONCE IT STANDS (2026-08-11). Leaving it on screen
     // as a permanently-refused card — "Build Quarry · one works per place" —
     // is a dead button explaining itself forever, which is worse than the
@@ -1175,10 +1190,19 @@
           </div>
           <!-- ★ OUR LINE: the levy stands between the hero and the answer. -->
           {#each fi.us ?? [] as u, i (i)}
+            <!-- ★★★ THE MUSTER ROLL, 2026-08-11 — stolen from Fallout
+                 Shelter, which the owner loves. What that game actually does
+                 is make you feel a LOSS: "3 came home hurt" is a decrement,
+                 "Mira was carried home" is a debt. The name is the whole
+                 trick, and it is free.
+                 ⚠️ COSMETIC BY LAW. The levy squares must stay
+                 mathematically interchangeable — the fight solver's memo key
+                 is the multiset of square health, so a name may never become
+                 a number. -->
             <div class="sq us levy" class:down={u.hp <= 0}>
               <b>{Math.ceil(u.hp)}</b>
-              <span>levy</span>
-              <em>{u.hp > 0 ? 'shields' : 'carried'}</em>
+              <span>{folkName(fi.site, i, game.taken)}</span>
+              <em>{u.hp > 0 ? 'levy' : 'carried'}</em>
             </div>
           {/each}
           <span class="vs" class:hurt={wind}>{wind ? '⚡' : 'vs'}</span>
