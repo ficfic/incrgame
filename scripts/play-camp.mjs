@@ -38,6 +38,23 @@ const marchTo = async (site) => {
   void site;
 };
 
+
+/** ★★★ OPEN A TOWN VIEW — 2026-08-11. The place panel and the town's own
+ *  deeds stopped being the same surface: PLACE is what tapping the map gives
+ *  you, and TOWN / PEOPLE / HERO / LOG are sheets that rise over it from a
+ *  dock. The owner diagnosed the old shape themselves: *"places are
+ *  different, right? But people is one menu, hero is one menu... why is it in
+ *  the same selection?"* So anything looking for a town-wide deed has to open
+ *  its sheet first, the same as a player would. */
+const openSheet = async (name) => {
+  const btn = page.locator('.deckbtn', { hasText: name });
+  if (!(await btn.count())) return false;
+  const on = await btn.first().getAttribute('aria-pressed');
+  if (on !== 'true') await btn.first().click({ timeout: 2000 }).catch(() => {});
+  await page.waitForTimeout(220);
+  return true;
+};
+
 const header = async () => (await page.locator('header').textContent())
   .replace(/\s+/g, ' ').trim();
 const panel = async () => (await page.locator('.panel').textContent())
@@ -895,6 +912,11 @@ await seed({ version: 5, stacks: { 0: 8, 1: 4, 2: 2, 3: 2 },
   stone: 900, logs: 90, planks: 900, food: 900, pop: 30, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 13, arms: 3, part: 0 }, fight: null, store: 3, carts: 2 });
+// ⚠️ MEASURE THE TOWN SHEET (2026-08-11). This used to read the camp's
+// place panel, which was the densest list only because every town-wide
+// deed was nested inside it. They live in their own sheet now, so that
+// is where the grid rules have to hold.
+await openSheet('Town');
 const dock = await page.evaluate(() => {
   const w = document.documentElement.clientWidth;
   const ds = [...document.querySelectorAll('.deed')];
@@ -914,7 +936,12 @@ const dock = await page.evaluate(() => {
 });
 console.log('  deeds   :',
   `${dock.n} in ${dock.cols} columns, ${dock.tall}px tall, floor ${dock.floor}px`);
-if (dock.n < 6) misses.push(`only ${dock.n} deeds at the busiest site — seed is wrong`);
+// ⚠️ FIVE, NOT SIX (2026-08-11). The town sheet holds the storehouse, the
+// forge, the armoury and the foray always, and the CART only while something
+// is actually choked — that conditional is deliberate (a cart buys nothing
+// for a town whose roads already carry everything it makes). The rule this
+// check exists for is the GRID, not the census.
+if (dock.n < 4) misses.push(`only ${dock.n} deeds in the town sheet — seed is wrong`);
 if (dock.past > 0) misses.push(`${dock.past} deeds run past the screen edge`);
 if (dock.short > 0) misses.push(`${dock.short} deeds are under 44px — too small for a thumb`);
 if (!(dock.floor >= 44)) {
@@ -960,6 +987,7 @@ await seed({ version: 5, stacks: {}, paths: {},
   store: 0, carts: 0, menace: {}, taken: 1, lost: false,
   forage: null, forays: 0, legacy: { runs: 0, spears: 0 } });
 const ruinStone = await cellNum('stone');
+await openSheet('Hero');
 const forayDeed = page.locator('.deed', { hasText: 'Send the hero out' });
 const forayNote = (await forayDeed.textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
 console.log('  offers  :', `"${forayNote.slice(0, 64)}"`);
@@ -1057,6 +1085,7 @@ await seed({ version: 5, stacks: { 0: 6, 1: 6, 2: 6, 3: 4 },
   stone: 400, logs: 400, planks: 400, food: 900, pop: 24, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 20, carts: 0 });
+await openSheet('Town');
 const cartDeed = page.locator('.deed', { hasText: 'Carts ×1' });
 const cartNote = (await cartDeed.textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
 console.log('  offers  :', `"${cartNote.slice(0, 76)}"`);
@@ -1091,8 +1120,12 @@ if (!/carries/.test(cartBefore)) {
 if (!(carriedBefore > 0)) {
   misses.push(`the seeded town is not choked, so the cart proves nothing: "${cartBefore}"`);
 }
+// ⚠️ TAPPING THE MAP PUTS THE SHEET AWAY (2026-08-11), which is the point of
+// the new shape — a place is what the map gives you, so choosing one is also
+// how you dismiss a town view. So the sheet has to be opened AFTER the tap.
 await page.locator('.map .node[data-id="site:0"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(250);
+await openSheet('Town');
 await cartDeed.click({ timeout: 2000 })
   .catch(() => misses.push('no deed sets the cartwright to work'));
 await page.waitForTimeout(600);
@@ -1109,6 +1142,7 @@ await seed({ version: 5, stacks: { 0: 1, 1: 1 }, paths: { '0|1': 3 },
   stone: 400, logs: 0, planks: 400, food: 90, pop: 4, popPart: 0,
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 20, carts: 0 });
+await openSheet('Town');
 const offeredIdle = await page.locator('.deed', { hasText: 'Carts ×' }).count();
 console.log('  unchoked:', offeredIdle === 0
   ? 'no cart deed, correctly' : 'CART OFFERED TO A TOWN THAT WASTES NOTHING');
@@ -1129,6 +1163,7 @@ if (!/60\/60/.test(await cell('stone')) || !/full/.test(await cell('stone'))) {
   misses.push(`a full store does not say so on the chip: "${brimmed.slice(0, 70)}"`);
 }
 // The camp is pre-selected on boot, so the deed is already on the dock.
+await openSheet('Town');
 const storeDeed = page.locator('.deed', { hasText: 'Storehouse ×1' });
 const storeNote = await storeDeed.textContent().catch(() => '');
 console.log('  offers  :', `"${storeNote.trim().replace(/\s+/g, ' ').slice(0, 60)}"`);

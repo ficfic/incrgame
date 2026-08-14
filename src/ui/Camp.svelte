@@ -82,10 +82,25 @@
    *
    *  ⚠️ A FIGHT OUTRANKS THE TABS ENTIRELY (below): a battle you cannot see
    *  because you left the tab on People is a lost run. */
-  type Tab = 'site' | 'people' | 'hero' | 'log';
-  let tab = $state<Tab>('site');
-  const TABS: Array<{ id: Tab; name: string }> = [
-    { id: 'site', name: 'Place' },
+  // ★★★ REBUILT 2026-08-11, and the owner diagnosed it themselves: *"Why is
+  // people menu and place menu… places are different, right? But people is
+  // one menu, hero is one menu, log is one menu. Why is it in the same
+  // selection? I don't understand."*
+  //
+  // They are right, and it was a category error. PLACE is a view of whatever
+  // you tapped on the map. TOWN, HERO and LOG are views of the whole camp.
+  // Putting them in one tab row said they were four peers, and made "no place
+  // selected" impossible to express.
+  //
+  // Now: the place panel is ALWAYS the panel, and the three town views are
+  // SHEETS that rise over it from a dock. Tap the dock button again, or the
+  // map, to send a sheet away. This is Fallout Shelter's shape, which the
+  // owner loves and named unprompted: tap a room, get that room's card;
+  // global views are their own thing entirely.
+  type Sheet = 'town' | 'people' | 'hero' | 'log';
+  let sheet = $state<Sheet | null>(null);
+  const SHEETS: Array<{ id: Sheet; name: string }> = [
+    { id: 'town', name: 'Town' },
     { id: 'people', name: 'People' },
     { id: 'hero', name: 'Hero' },
     { id: 'log', name: 'Log' },
@@ -574,7 +589,52 @@
     // deed a starving town was offered took food away from it: half of the
     // dead end in F0. `hire` stays in the engine and on the save so nobody's
     // existing crews vanish; nothing sells it any more. One works, one crew.
-    if (s.id === 0) {
+    // ⚠️ THE TOWN'S OWN DEEDS MOVED OUT, 2026-08-11 — see `townDeeds()`.
+    // They were nested inside the PLACE inspector under `if (s.id === 0)`,
+    // so the storehouse, the carts, the forge and the armoury were only
+    // reachable by tapping one particular dot on the map. They are about the
+    // town, not about that dot. This is the same category error the owner
+    // named in the tabs: *"places are different, right? But people is one
+    // menu, hero is one menu... why is it in the same selection?"*
+    for (const n of s.near) {
+      const t = SITE.get(n);
+      if (!t) continue;
+      const key = pathKey(s.id, n);
+      const job = game.laying[key];
+      if (job) {
+        out.push({
+          label: `Laying · ${t.name}`,
+          note: `${MARK.time}${Math.ceil(job.left)}s`,
+          why: `${MARK.time}${Math.ceil(job.left)}s`,
+          go: () => {},
+        });
+        continue;
+      }
+      const gauge = game.paths[key] ?? 0;
+      if (gauge >= MAX_GAUGE) continue;
+      const w = unlayable(game, s.id, n);
+      out.push({
+        // ★ WIDENING IS GONE (2026-08-11) — `gauge >= MAX_GAUGE` above now
+        // means "already laid", so this deed only ever offers a NEW road and
+        // the gauge count has nothing left to say.
+        label: `Path · ${t.name}`,
+        note: w ?? `${amount('stone', pathCostOf(gauge))} `
+          + `${MARK.time}${PATH_SECS}s`
+          + ` → ${(CARRY * cartHaul(game)).toFixed(1)}/s · ${MARK.time}shorter marches`,
+        why: w,
+        go: () => act({ type: 'lay', a: s.id, b: n }),
+      });
+    }
+    return out;
+  })());
+
+  /** ★★★ THE TOWN'S OWN DEEDS — 2026-08-11. Everything you build for the
+   *  whole camp rather than for one place on the map: the storehouse, the
+   *  carts, the forge, the armoury, the foray. Lifted out of the place
+   *  inspector, where they were reachable only by tapping the camp's dot. */
+  const townDeeds = $derived<Deed[]>((() => {
+    const s = SITE.get(0)!;
+    const out: Deed[] = [];
       // ⚠️ FEED THE HERO LIVES ON THE HERO TAB ONLY, since 2026-08-11.
       // Adding the tabs DUPLICATED this deed rather than moving it, so the
       // same button sat in two places at once depending on which tab you were
@@ -664,36 +724,6 @@
         why: short ? price(p) : null,
         go: () => act({ type: 'arm' }),
       });
-    }
-    for (const n of s.near) {
-      const t = SITE.get(n);
-      if (!t) continue;
-      const key = pathKey(s.id, n);
-      const job = game.laying[key];
-      if (job) {
-        out.push({
-          label: `Laying · ${t.name}`,
-          note: `${MARK.time}${Math.ceil(job.left)}s`,
-          why: `${MARK.time}${Math.ceil(job.left)}s`,
-          go: () => {},
-        });
-        continue;
-      }
-      const gauge = game.paths[key] ?? 0;
-      if (gauge >= MAX_GAUGE) continue;
-      const w = unlayable(game, s.id, n);
-      out.push({
-        // ★ WIDENING IS GONE (2026-08-11) — `gauge >= MAX_GAUGE` above now
-        // means "already laid", so this deed only ever offers a NEW road and
-        // the gauge count has nothing left to say.
-        label: `Path · ${t.name}`,
-        note: w ?? `${amount('stone', pathCostOf(gauge))} `
-          + `${MARK.time}${PATH_SECS}s`
-          + ` → ${(CARRY * cartHaul(game)).toFixed(1)}/s · ${MARK.time}shorter marches`,
-        why: w,
-        go: () => act({ type: 'lay', a: s.id, b: n }),
-      });
-    }
     return out;
   })());
 
@@ -840,6 +870,10 @@
   }
 
   function doTap(id: string): void {
+    // ★ TAPPING THE MAP PUTS THE SHEET AWAY (2026-08-11). The owner asked for
+    // the map back with one gesture; choosing a place IS that gesture, since
+    // the place panel is what lives under every sheet.
+    sheet = null;
     awayLine = null;
     won = null;
     const n = numOf(id);
@@ -1286,16 +1320,6 @@
             <em>home — the ground keeps its wounds</em>
           </button>
         </div>
-      {:else}
-        <!-- ★★★ THE TABS (N1). Only when there is no fight: a battle you
-             cannot see because you left the tab on People is a lost run. -->
-        <div class="tabs" role="tablist">
-          {#each TABS as t (t.id)}
-            <button class="tab" class:on={tab === t.id} role="tab"
-              aria-selected={tab === t.id}
-              onclick={() => (tab = t.id)}>{t.name}{#if t.id === 'log' && game.log.length > 0}<i>{game.log.length}</i>{/if}</button>
-          {/each}
-        </div>
       {/if}
 
       {#if !game.fight && game.draft !== null}
@@ -1352,7 +1376,28 @@
           </div>
         {/if}
       {/if}
-      {#if !game.fight && tab === 'people'}
+      {#if !game.fight && sheet === 'town'}
+        <!-- ★★★ THE TOWN SHEET, 2026-08-11 — everything you build for the
+             whole camp. These deeds used to live inside the PLACE inspector,
+             reachable only by tapping one particular dot on the map. -->
+        <h2>The town</h2>
+        <!-- ⚠️ `.deeds`, not `.dock`. `.dock` has no grid rules in this
+             component, so the buttons stacked one per row at whatever height
+             they liked — the browser probe caught it as "one column of 5" and
+             "the deed floor is 0px". The Hero sheet had the same bug and got
+             away with it because it holds two buttons. -->
+        <div class="deeds">
+          {#each townDeeds as d (d.label)}
+            <!-- ⚠️ `deed row`, not `deed`. The 44px thumb floor and the
+                 two-column sizing both hang off `.row`; without it the
+                 buttons were 0px-floored and full width. The probe reads the
+                 computed `min-height`, which is why it caught this. -->
+            <button class="deed row" class:cant={d.why !== null} onclick={d.go}>
+              <span class="what">{d.label}</span><em>{d.note}</em>
+            </button>
+          {/each}
+        </div>
+      {:else if !game.fight && sheet === 'people'}
         <!-- ★ PEOPLE: where everyone is, and the two jobs that are not
              "stand at a workface" — the watch, and the walk. -->
         <h2>People</h2>
@@ -1386,7 +1431,7 @@
             {#if b}<p class="note">{b.name} — {b.what}</p>{/if}
           {/each}
         {/if}
-      {:else if !game.fight && tab === 'hero'}
+      {:else if !game.fight && sheet === 'hero'}
         <h2>The hero</h2>
         <p class="note">{MARK.hero}{game.hero.hp} of {heroMax(game)}
           · {spearLabel(game.hero.spears).toLowerCase()}</p>
@@ -1413,14 +1458,14 @@
           <p class="note">{MARK.bite}{Math.floor(game.hurt)} mending — off the
             workfaces until they are well</p>
         {/if}
-        <div class="dock">
+        <div class="deeds">
           {#each heroDeeds() as d (d.label)}
-            <button class="deed" class:cant={d.why !== null} onclick={d.go}>
-              {d.label}<em>{d.note}</em>
+            <button class="deed row" class:cant={d.why !== null} onclick={d.go}>
+              <span class="what">{d.label}</span><em>{d.note}</em>
             </button>
           {/each}
         </div>
-      {:else if !game.fight && tab === 'log'}
+      {:else if !game.fight && sheet === 'log'}
         <!-- ★★★ THE EVENT LOG (N2) — *"maybe we should have an advanced log
              too"*, and the home for the messages that used to flash over the
              board: *"'Scree Slope just taken' — they should go into the
@@ -1492,6 +1537,23 @@
         <p class="note">Tap a site.</p>
       {/if}
     </section>
+    <!-- ★★★ THE DOCK, 2026-08-11. Three views of the whole town, under the
+         thumb, each one a sheet that rises OVER the place panel and goes
+         away again. The place panel is always underneath, because a place is
+         what the map gives you when you tap it, not a destination you
+         navigate to.
+         ⚠️ HIDDEN DURING A FIGHT, on purpose: a battle you cannot see
+         because you left a sheet open is a lost run. -->
+    {#if !game.fight}
+      <nav class="deck">
+        {#each SHEETS as t (t.id)}
+          <button class="deckbtn" class:on={sheet === t.id}
+            aria-pressed={sheet === t.id}
+            onclick={() => (sheet = sheet === t.id ? null : t.id)}
+          >{t.name}{#if t.id === 'log' && game.log.length > 0}<i>{game.log.length}</i>{/if}</button>
+        {/each}
+      </nav>
+    {/if}
   {/if}
 </main>
 
@@ -1576,16 +1638,17 @@
 
   /* ⚠️ `flee` KEEPS ITS BUTTON MID-SWING ON PURPOSE — a safety valve you
      have to wait for is not a safety valve. */
-  /* ★★★ THE TABS (N1). A row of four, thumb-sized, sticky to the top of the
-     panel so the room you are in is always visible while it scrolls. */
-  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
-    margin: 0 0 8px; position: sticky; top: 0; background: #faf6ec;
-    padding: 6px 0 4px; z-index: 2; }
-  .tab { font: inherit; font-size: 13px; font-weight: 700; color: #6b5d3f;
-    background: #f0e9d9; border: 1px solid #e2d9c3; border-radius: 8px;
-    padding: 9px 4px; min-height: 40px; cursor: pointer; }
-  .tab.on { background: #1f7a3f; border-color: #1f7a3f; color: #fdfaf2; }
-  .tab i { font-style: normal; font-size: 11px; opacity: 0.75;
+  /* ★★★ THE DOCK (2026-08-11). Four buttons at the bottom edge, in the
+     thumb's arc. They toggle a SHEET over the place panel; tapping the lit
+     one puts it away. */
+  .deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: #f2ecdd; border-top: 1px solid #e2d9c3; }
+  .deckbtn { font: inherit; font-size: 13px; font-weight: 700; color: #6b5d3f;
+    background: #f7f2e7; border: 1px solid #e2d9c3; border-radius: 8px;
+    padding: 11px 4px; min-height: 44px; cursor: pointer; }
+  .deckbtn.on { background: #1f7a3f; border-color: #1f7a3f; color: #fdfaf2; }
+  .deckbtn i { font-style: normal; font-size: 11px; opacity: 0.75;
     margin-left: 4px; }
   /* ★ N5: the meeting reads as a page, not as another row of numbers. */
   .sq.levy { opacity: 0.92; }
