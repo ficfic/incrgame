@@ -914,9 +914,23 @@ export const faminePinch = (g: City): number => {
  *  ⚠️ THEY WALK THE LAID ROADS. An unroaded site cannot be reached at all,
  *  which makes the path network defensive as well as economic, and gives the
  *  spade a second reason to exist. */
-export const WALK_SECS = 12;
-/** ★ WHAT ROUGH COUNTRY COSTS, against a laid road. */
-export const ROUGH = 2.5;
+/** ★ SIX, DOWN FROM TWELVE — 2026-08-11. The owner, twice in one run: *"it's
+ *  a bit strange as it takes thirty seconds to march there. It's a bit long.
+ *  I don't have that patience."*
+ *
+ *  Thirty seconds was a laid road's twelve times `ROUGH` 2.5, and a march to
+ *  a fight is ALWAYS the rough kind — a path can never be laid to goblin
+ *  ground. So the number the player actually met was the worst one in the
+ *  table, on the journey they make most often.
+ *
+ *  ⚠️ NOT A WALKING MINI-GAME. The obvious alternative — give them something
+ *  to do while they walk — is a different game and they did not ask for it.
+ *  Six on a road, eleven across country. */
+export const WALK_SECS = 6;
+/** ★ WHAT ROUGH COUNTRY COSTS, against a laid road. 1.8 keeps a laid road
+ *  clearly worth having (6s against 11s) while putting the common journey
+ *  inside the owner's patience. */
+export const ROUGH = 1.8;
 /** ★★★ SECONDS TO WALK FROM `a` TO `b` — 2026-08-11, and the rule changed
  *  here. It used to be that a road was PERMISSION: no road, no journey, with
  *  one exception carved out for the last step onto a holding (or no fight
@@ -1266,19 +1280,40 @@ export const LEAVE_SECS = 20;
  *  taken and what you already hold. */
 export interface Boon { id: string; name: string; what: string }
 export const BOONS: readonly Boon[] = [
-  { id: 'palisade', name: 'Palisade', what: 'a gate that holds costs no one' },
-  { id: 'volley', name: 'Volley', what: 'a blow that reaches past the wall' },
-  { id: 'quartermaster', name: 'Quartermaster', what: 'two more rations a sortie' },
-  { id: 'bindings', name: 'Bindings', what: 'the levy stands longer' },
-  { id: 'drover', name: 'Drover', what: 'carts come cheaper' },
-  { id: 'roadwright', name: 'Roadwright', what: 'roads are laid in half the time' },
-  { id: 'forager', name: 'Forager', what: 'forays come back twice as heavy' },
-  { id: 'stonecut', name: 'Stonecut', what: 'quarries cut a quarter more' },
-  { id: 'millhands', name: 'Mill hands', what: 'mills saw a quarter more' },
-  { id: 'granary', name: 'Granary', what: 'fields bring a quarter more' },
-  { id: 'wardens', name: 'Wardens', what: 'two hands hold a gate, not three' },
-  { id: 'kiln', name: 'Kiln', what: 'a wood camp may burn its logs to coal' },
-  { id: 'scouts', name: 'Scouts', what: 'the hero marches half again as fast' },
+  // ★★★ NAMED IN PLAIN ENGLISH, 2026-08-11. They read like a strategy game's
+  // tech tree — Stonecut, Roadwright, Volley, Quartermaster, Bindings — and
+  // the owner met them at the one moment they had earned a reward: *"the
+  // ground totters three ways… Four is Stonecut Roadwright. What the fuck? I
+  // don't understand. What does it say in English? It's not plain English."*
+  // And: *"Volley. I don't understand. What does it mean?"*
+  //
+  // A name now says what the thing DOES, and the sentence says what changes
+  // on your screen. If a card cannot be explained in one plain line, the card
+  // is wrong — not the wording.
+  { id: 'palisade', name: 'Free watch',
+    what: 'Guards who turn back a raid all come home — none are lost' },
+  { id: 'volley', name: 'Arrows',
+    what: 'New attack: hits every goblin standing behind the front one' },
+  { id: 'quartermaster', name: 'Bigger packs',
+    what: 'The hero carries 4 rations into a fight instead of 2' },
+  { id: 'bindings', name: 'Levy armour',
+    what: 'Townsfolk who march take 8 hits before falling, not 5' },
+  { id: 'drover', name: 'Cheaper carts',
+    what: 'Every cart costs a quarter less' },
+  { id: 'roadwright', name: 'Faster roads',
+    what: 'Roads finish building in half the time' },
+  { id: 'forager', name: 'Better foraging',
+    what: 'The hero brings back twice as much from every foray' },
+  { id: 'stonecut', name: 'Better quarries',
+    what: 'Every quarry makes a quarter more stone' },
+  { id: 'millhands', name: 'Better sawmills',
+    what: 'Every sawmill makes a quarter more planks' },
+  { id: 'granary', name: 'Better farms',
+    what: 'Every farm makes a quarter more food' },
+  { id: 'wardens', name: 'Smaller watch',
+    what: 'It takes 2 people to hold a gate instead of 3' },
+  { id: 'kiln', name: 'Charcoal kilns',
+    what: 'Lumber camps can burn logs into coal — coal makes tools' },
 ];
 /** Does the town hold this blueprint? */
 export const has = (g: City, id: string): boolean => g.boons.includes(id);

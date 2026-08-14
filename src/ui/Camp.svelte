@@ -131,8 +131,9 @@
   // nothing at all, and one whose stone was climbing did not say so.
   // Every good is watched now and the float carries that good's mark.
   // The board still throttles to one a second and clears them on a pan.
-  let pops = $state(0);
-  let popMark = $state('');
+  // ⚠️ `pops`/`popMark` DELETED 2026-08-11. They fed `<Board pulse=…>`, which
+  // stopped being passed the moment the +1 moved onto the resource counters
+  // (F3) — so they were still being counted every tick and handed to nobody.
   /** ★ F3: which counters just ticked up, so each can float its own +1. */
   let bumps = $state<Array<{ id: number; good: string }>>([]);
   let bumpId = 0;
@@ -167,12 +168,10 @@
     if (lastAt === 0) { lastAt = now; return; }
     const dt = Math.min(2, (now - lastAt) / 1000);
     lastAt = now;
-    for (const [good, mark] of WATCHED) {
+    for (const [good] of WATCHED) {
       carriedIn[good] = (carriedIn[good] ?? 0) + (rate[good] ?? 0) * dt;
       const w = Math.floor(carriedIn[good]!);
       if (w > (lastWhole[good] ?? 0)) {
-        pops++;
-        popMark = mark;
         // ★★★ F3, 2026-08-11 — the owner: *"plus one above the camp does not
         // correspond to the dots arriving there. And also the plus one —
         // maybe it should be in the top where the resource counters are."*
@@ -561,20 +560,11 @@
     // dead end in F0. `hire` stays in the engine and on the save so nobody's
     // existing crews vanish; nothing sells it any more. One works, one crew.
     if (s.id === 0) {
-      // ★★★ A MEAL — F8, 2026-08-11: *"I don't understand why I can't eat
-      // food."* Rations only ever existed inside a fight, so outside one
-      // there was no way to spend food on health at all.
-      {
-        const w = uneatable(game);
-        if (game.hero.hp < heroMax(game) && !game.fight) {
-          out.push({
-            label: 'Feed the hero',
-            note: w ?? `${amount('food', MEAL_FOOD)} → ${MARK.hero}+${MEAL_HP}`,
-            why: w,
-            go: () => act({ type: 'eat' }),
-          });
-        }
-      }
+      // ⚠️ FEED THE HERO LIVES ON THE HERO TAB ONLY, since 2026-08-11.
+      // Adding the tabs DUPLICATED this deed rather than moving it, so the
+      // same button sat in two places at once depending on which tab you were
+      // on — part of what "the things are in random places" was describing.
+      // It is about the person, not the place.
       // ★★★ THE FORAY — the floor under the economy, and the only deed in
       // the game that needs nothing at all. A raid can strip a town of every
       // works while its stores sit at zero; without this there is no way
@@ -1108,7 +1098,12 @@
             : `${MARK.hero} ${SITE.get(game.hero.at)?.name ?? ''}`}
         · {MARK.danger}{shownHoldings} camps left{swellOf(game) > 0.02
           ? ` · ${MARK.waste}+${Math.round(swellOf(game) * 100)}%` : ''}
-      {:else if holdings > 0}
+      <!-- ⚠️ `shownHoldings`, NOT `holdings` (2026-08-11). This branch tested
+           every camp on the map and then printed the count the FOG allows, so
+           a valley whose camps were all still hidden announced "0 goblin camps
+           watch this valley" — while the branch that exists to say the valley
+           is yours sat unreached below it. Found by an audit, not by play. -->
+      {:else if shownHoldings > 0}
         <!-- ★ WHAT A HOLDING IS, not just how many. The owner: *"why holdings
              are with skull and bones is not quite well understood by me…
              What is a holding? They come once you take one — who comes?"* -->
