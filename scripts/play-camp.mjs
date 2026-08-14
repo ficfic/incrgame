@@ -82,14 +82,14 @@ const stoneNow = async () => cellNum('stone');
  *  check pass with the entire drawing deleted. This samples the straight run
  *  between the two dots, skipping the ends so the dots themselves cannot
  *  count, which is the one thing only the line can explain. */
-const onLine = async (fromSel, toSel) => {
+const onLine = async (fromSel, toSel, lo = 25, hi = 75) => {
   const box = async (sel) => {
     const b = await page.locator(sel).boundingBox().catch(() => null);
     return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null;
   };
   const a = await box(fromSel), b = await box(toSel);
   if (!a || !b) return -1;
-  return page.evaluate(([a, b]) => {
+  return page.evaluate(([a, b, lo, hi]) => {
     const INK = window.__INK ?? {};
     const hex = INK.foe;
     const cv = document.querySelector('.map canvas');
@@ -101,8 +101,12 @@ const onLine = async (fromSel, toSel) => {
     const d = cv.getContext('2d', { willReadFrequently: true })
       .getImageData(0, 0, cv.width, cv.height).data;
     let hits = 0;
-    // Skip the outer quarter at each end: those are the dots.
-    for (let i = 25; i <= 75; i++) {
+    // Skip the outer quarter at each end by default: those are the dots.
+    // ★ THE BAND IS A PARAMETER because the fuse (2026-08-14) fills from the
+    // holding's end, so the check that matters is NEAR half against FAR half
+    // of the same run — a length, which is the thing menace is supposed to
+    // draw. A whole-run count cannot tell a full fuse from an empty cord.
+    for (let i = lo; i <= hi; i++) {
       const t = i / 100;
       const px = Math.round(((a.x + (b.x - a.x) * t) - cb.left) * sx);
       const py = Math.round(((a.y + (b.y - a.y) * t) - cb.top) * sy);
@@ -115,7 +119,7 @@ const onLine = async (fromSel, toSel) => {
       }
     }
     return hits;
-  }, [a, b]);
+  }, [a, b, lo, hi]);
 };
 
 
@@ -694,18 +698,21 @@ if (!/4\d\/60/.test(stoneCell)) {
   misses.push(`the stone cell hides its ceiling until it is full: "${stoneCell}"`);
 }
 
-// ★ ITEM H — the goal and the war are on screen without hunting for them.
+// ★ ITEM H — the goal is on screen without hunting for it.
 const warLine = await cell('war');
 console.log('  war     :', `"${warLine}"`);
-// ★ HOW, WHY AND WHAT TO DO, all three on the line — 2026-08-10.
-if (!/⚠\d+% →/.test(warLine) || !/☠\d+/.test(warLine)) {
-  misses.push(`the raid clock and the goal are not on screen: "${warLine}"`);
+if (!/☠\d+ goblin camps left/.test(warLine)) {
+  misses.push(`the goal is not on screen: "${warLine}"`);
 }
-// ★ WHERE THE HERO IS, and whether that is the gate under threat — the
-// watch is positional since 2026-08-10, so "at home" is no longer the
-// question; "on the right ground" is.
-if (!/⚔️/.test(warLine)) {
-  misses.push(`the war line does not say where the hero is: "${warLine}"`);
+// ★★★ AND THE WAR IS NOT — 2026-08-14. This line used to carry the raid
+// clock, its target, the hero's whereabouts and the swell as well, and the
+// owner met the pile of them mid-game: *"this is a stats menu. Why is it
+// there?"* All four are facts about PLACES and all four are drawn on the
+// board now — the fuse above, the reticle, the figure (checked at
+// `heroHere`), the strength on the holding's own panel. A percentage
+// reappearing here means one of them has quietly come back to the strip.
+if (/%|⚔️|→/.test(warLine)) {
+  misses.push(`the war crept back into the top strip: "${warLine}"`);
 }
 
 // ★ ITEM I — a second tap does not clear the selection.
@@ -855,34 +862,42 @@ await seed({ version: 5, stacks: { 0: 25, 1: 1 }, paths: { '0|1': 1 },
 
 // -------------------------------------------------- the war, drawn ------
 console.log('\nTHE WAR IS DRAWN');
-// ★ A muster past MUSTER_SHOWS must put BOTH marks on the board: a ring that
-// says how close, and a dotted line that says what it is coming FOR. Menace
-// was a percentage in one line of text and nothing else — that was the
-// complaint. Ink is `foe`, deliberately not a fourth red.
-await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },
+// ★★★ THE FUSE, 2026-08-14. The owner: *"there is no clear visual indicator
+// that they are attacking on a path."* A gathering raid now burns a solid run
+// of `foe` ink from the holding towards what it is coming for, covering the
+// menace as a FRACTION OF THE ROAD. So the check is a length, not a presence:
+// at half full, the near half of the run must be lit and the far half must
+// not. Ink is `foe`, deliberately not a fourth red.
+//
+// ⚠️ WHY NOT HOT-VS-COLD ON THE WHOLE RUN. That was the old check, and it
+// cannot see this drawing at all: the faint dotted cord runs the full length
+// from the first spark, so a fuse stuck at zero and a fuse burnt to the end
+// both count the same samples. Near-against-far on ONE seed also removes the
+// layout drift between runs, which the old check had to comment around.
+const fuseSeed = (m) => ({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },
   paths: { '0|1': 2, '0|2': 2 }, stone: 30, logs: 6, planks: 20, food: 9e5,
   pop: 12, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 13, spears: 2, part: 0, at: 0, trip: null },
-  fight: null, store: 1, carts: 0, famine: 0, menace: { 4: 0.9 },
+  fight: null, store: 1, carts: 0, famine: 0, menace: { 4: m },
   taken: 1, lost: false, forage: null, forays: 0, ambush: null,
   legacy: { runs: 0, spears: 0 } });
-const hotLine = await onLine('.map .node[data-id="site:4"]', '.map .node[data-id="site:1"]');
-console.log('  at 90%  :', `${hotLine}/51 samples of foe ink on the run to its target`);
-// ⚠️ THE BASELINE IS A BARELY-GATHERING RAID, NOT A QUIET VALLEY. Menace
-// REVEALS the holding, so 90%-vs-empty measures the fog lifting and passed
-// with the whole drawing deleted; the layout also moves between runs. Same
-// site, same fog, below MUSTER_SHOWS — so only the line differs.
-await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },
-  paths: { '0|1': 2, '0|2': 2 }, stone: 30, logs: 6, planks: 20, food: 9e5,
-  pop: 12, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
-  hero: { hp: 13, spears: 2, part: 0, at: 0, trip: null },
-  fight: null, store: 1, carts: 0, famine: 0, menace: { 4: 0.02 },
-  taken: 1, lost: false, forage: null, forays: 0, ambush: null,
-  legacy: { runs: 0, spears: 0 } });
-const coldLine = await onLine('.map .node[data-id="site:4"]', '.map .node[data-id="site:1"]');
-console.log('  at 2%   :', `${coldLine}/51 — a bare ring, and no line yet`);
-if (hotLine < 12) misses.push(`no threat line is drawn at 90%: ${hotLine}/51 samples`);
-if (coldLine > 4) misses.push(`a threat line is drawn below MUSTER_SHOWS: ${coldLine}/51`);
+const FOE_FROM = '.map .node[data-id="site:4"]', FOE_TO = '.map .node[data-id="site:1"]';
+// ⚠️ THE BANDS STAND WELL CLEAR OF THE HEAD. A 3.2-wide stroke, a head disc
+// and a 3px search neighbourhood put the lit run about 12% of a 137px road
+// past the tip, so a band that ended at the halfway mark would measure the
+// bleed rather than the burn. Measured on the built page: at half full the
+// near band is 21/21 and the far band 6/21, and at 97% the far band is 21/21.
+await seed(fuseSeed(0.5));
+const nearBurn = await onLine(FOE_FROM, FOE_TO, 20, 40);
+const farBurn = await onLine(FOE_FROM, FOE_TO, 72, 92);
+console.log('  at 50%  :', `near ${nearBurn}/21 lit · far ${farBurn}/21`);
+if (nearBurn < 19) misses.push(`the fuse is not burning at 50%: near ${nearBurn}/21`);
+if (farBurn > 12) misses.push(`the fuse does not stop half way: far ${farBurn}/21 at 50%`);
+// And it reaches what it is coming for when the raid is about to land.
+await seed(fuseSeed(0.97));
+const farFull = await onLine(FOE_FROM, FOE_TO, 72, 92);
+console.log('  at 97%  :', `far ${farFull}/21 lit`);
+if (farFull < 18) misses.push(`the fuse never reaches the target: far ${farFull}/21 at 97%`);
 
 // ★ AND BEING CAUGHT ON THE ROAD IS SAID OUT LOUD.
 await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },

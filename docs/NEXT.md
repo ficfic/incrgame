@@ -1,5 +1,23 @@
 # NEXT — the queue
 
+## ★★★ THE IA RESTRUCTURE, 2026-08-14 — five steps, from playtest 3
+
+The owner, after the third playthrough: *"we need to gather all of our
+features, see where they are, and kinda reshuffle things, make things more
+streamlined."* Five steps, in the order they were agreed. **One per session.**
+
+| # | step | state |
+|---|---|---|
+| 1 | **The dock** — place is what the map gives you, town/people/hero/log are sheets over it | ✅ `a808387` |
+| 2 | **The war off the stats strip, onto the board** — the fuse, the reticle, the goal alone in the header | ✅ this session |
+| 3 | **One ranked readout row** — food and people pinned, the rest behind a Stores cell | ⬜ next |
+| 4 | **Three standing objectives, one free skip** — the Fallout Shelter steal the teardown ranked #1 | ⬜ |
+| 5 | **More jobs for people** — haulers, builders. The real answer to "no point in more people" | ⬜ |
+
+Then: incidents that spread along roads; expeditions with recall. Still open
+from before: the fight ladder needs a `chad-liquidity` retune for travel time,
+and the hero still walks a straight line through the river.
+
 ## ★★★ THE DESIGN PASS, 2026-08-11 — four research agents, and what shipped
 
 The owner: *"there's no point in it and it's boring… now i only need economy

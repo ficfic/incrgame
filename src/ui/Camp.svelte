@@ -11,7 +11,7 @@
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE, SWEEP_SHARE,
     guardsAt, guardsTotal, GUARD_STOP, unhireable, hireCost, levyCap, folkName,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
-    unmarchable, marchSecs, onWatchAt, MUSTER_SHOWS, swellOf, spawnOf,
+    unmarchable, marchSecs, onWatchAt, swellOf, spawnOf,
     holdingsLeft,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
@@ -112,20 +112,8 @@
    *  what is in front of you is worse than no number. */
   const shownHoldings = $derived(
     shown(game).filter((s) => game.goblins[s.id]).length);
-  /** ★ THE NEAREST RAID: whichever holding is fullest, and what it is
-   *  coming for. `null` before first blood, when there is no war yet. */
-  const worst = $derived((() => {
-    let best: { m: number; at: string; gate: number | null } | null = null;
-    for (const id of raiders(game)) {
-      const m = game.menace[id] ?? 0;
-      const t = raidTarget(game, id);
-      if (t === null) continue;
-      if (best === null || m > best.m) {
-        best = { m, at: SITE.get(t)?.name ?? '', gate: t };
-      }
-    }
-    return best;
-  })());
+  // (`worst` — the fullest raid and what it was coming for — is gone with the
+  //  war line it fed, 2026-08-14. Both facts are drawn on the road now.)
   /** ★ WHAT THE PATHS ARE EATING, per second, over the whole town. This is
    *  the cartwright's case, and without it on screen the deed is a number
    *  with no reason attached. */
@@ -377,57 +365,106 @@
     // still computed above because the muster marks want the same hull.
     return [
       ...musterShapes(),
+      ...ambushShapes(),
       ...CAMP_SHAPES,
     ];
   })());
 
-  /** ★★★ THE WAR, DRAWN — step 3 of `docs/RAIDS.md`, 2026-08-10. The owner:
-   *  *"it's not even visible anywhere."* Two marks, both canvas-side:
+  /** ★★★ THE WAR, DRAWN — step 3 of `docs/RAIDS.md`, 2026-08-10, rebuilt as
+   *  **the fuse** 2026-08-14. The owner, playing the valley through:
+   *  *"there is no clear visual indicator that they are attacking on a
+   *  path"*, and of the war line in the top strip: *"this is a stats menu.
+   *  Why is it there?"* So the war moved onto the board, where the war is.
    *
-   *  - **the muster** — a ring round a holding's dot that FILLS 0→1 as it
-   *    gathers, so "how close" is a shape rather than a number in a line of
-   *    text you have to go and read;
-   *  - **the threat** — a dotted line from the holding to what it is coming
-   *    FOR, from `MUSTER_SHOWS` on, brightening as it fills. This is the
-   *    part that was actually missing: menace said *how much* and never
-   *    *at what*.
+   *  Three marks, all canvas-side, all on the road the raid will actually
+   *  walk (`raidTarget` only ever picks a NEIGHBOUR, so it is one segment):
+   *
+   *  - **the cord** — the whole run, faint and dotted, from the first spark.
+   *    It says *this road is the one they will come down*, which is the part
+   *    that was missing: the old line waited until half full to appear, so
+   *    the first half of every raid was invisible.
+   *  - **the fuse** — a solid burn from the holding covering `m` of the run,
+   *    with a head at the tip. How close the raid is, drawn at full length
+   *    on the ground it threatens instead of as a percentage in a strip.
+   *  - **the reticle** — a ring on what it is coming FOR, thickening as the
+   *    fuse nears and doubling in the last fifteen percent. Green, in the
+   *    hero's own ink, when the ground is held: that is not a warning any
+   *    more, it is a statement that something is standing there.
+   *
+   *  ⚠️ NO SWEPT ARC ON THE HOLDING ANY MORE. It said the same 0→1 the fuse
+   *  now says, beside a dot that ALSO swells with menace (`r` in `dots`) —
+   *  three drawings of one number on one dot. The fuse is the one that says
+   *  *at what*, so it is the one that stayed.
    *
    *  ⚠️ THE INK IS `foe`, NOT A FOURTH RED. `docs/RAIDS.md` warns that a new
    *  red must be measured against every counted ink AND against `foe` under
    *  colour blindness before a line of it is drawn. `foe` already means
    *  "held against you", is already measured in `test/palette.test.ts`, and
-   *  the line is told apart by being DOTTED and by moving — not by hue.
-   *  A fourth red buys nothing here and costs a vacuous palette check. */
+   *  the fuse is told apart by WHERE IT ENDS, not by hue. */
   function musterShapes(): Shape[] {
     if (game.lost) return [];
     const out: Shape[] = [];
+    /** Worst menace aimed at each of our sites, so two raiders coming for one
+     *  field draw one reticle rather than two rings of different weight. */
+    const aimed = new Map<number, number>();
     for (const id of raiders(game)) {
-      const m = game.menace[id] ?? 0;
+      const m = Math.min(1, game.menace[id] ?? 0);
       const from = SITE.get(id);
       if (!from || m <= 0) continue;
-      // The ring: a swept arc, because `Shape` has no arc and a partial
-      // circle of points is one. Starts at twelve o'clock and fills round.
-      const r = 11;
-      const steps = Math.max(2, Math.round(28 * Math.min(1, m)));
-      const pts = Array.from({ length: steps + 1 }, (_, i) => {
-        const a = -Math.PI / 2 + (i / steps) * Math.min(1, m) * Math.PI * 2;
-        return { x: from.x + Math.cos(a) * r, y: from.y + Math.sin(a) * r };
-      });
-      out.push({ s: 'path', pts, ink: 'foe', w: 2.5, alpha: 0.35 + 0.65 * Math.min(1, m) });
-      // The line: only once it is worth naming, and it STOPS AT THE HERO if
-      // the hero is standing on the ground it wants — "they were stopped,
-      // and by what", drawn.
-      if (m < MUSTER_SHOWS) continue;
       const t = raidTarget(game, id);
       const to = t === null ? null : SITE.get(t);
+      if (t === null || !to) continue;
+      aimed.set(t, Math.max(aimed.get(t) ?? 0, m));
+      const held = onWatchAt(game, t) || guardsAt(game, t) >= GUARD_STOP;
+      // The cord: the whole road, always, once anything is gathering at all.
+      out.push({ s: 'path', pts: [{ x: from.x, y: from.y }, { x: to.x, y: to.y }],
+        ink: 'foe', w: 1.6, dash: [4, 7], alpha: 0.3 });
+      // The fuse: burning from the holding towards the prize.
+      const hx = from.x + (to.x - from.x) * m;
+      const hy = from.y + (to.y - from.y) * m;
+      // ⚠️ DIM WHEN IT IS COVERED, never hidden. A raid that something is
+      // standing in front of is still gathering, and hiding the fuse would
+      // make posting a guard look like it stopped the clock. It does not.
+      out.push({ s: 'path', pts: [{ x: from.x, y: from.y }, { x: hx, y: hy }],
+        ink: 'foe', w: 3.2, alpha: held ? 0.55 : 0.9 });
+      out.push({ s: 'disc', x: hx, y: hy, r: 3.4, ink: 'foe', alpha: held ? 0.6 : 1 });
+    }
+    for (const [t, m] of aimed) {
+      const to = SITE.get(t);
       if (!to) continue;
-      const held = t !== null && onWatchAt(game, t);
-      const end = held && heroAt ? heroAt : to;
-      out.push({ s: 'path', pts: [{ x: from.x, y: from.y }, { x: end.x, y: end.y }],
-        ink: 'foe', w: 2, dash: [5, 5],
-        alpha: 0.3 + 0.6 * Math.min(1, (m - MUSTER_SHOWS) / (1 - MUSTER_SHOWS)) });
+      const held = onWatchAt(game, t) || guardsAt(game, t) >= GUARD_STOP;
+      // A circle of points, because `Shape` has no arc and this is one.
+      const ring = (r: number, w: number, alpha: number): Shape => ({
+        s: 'path', close: true, ink: held ? 'open' : 'foe', w, alpha,
+        pts: Array.from({ length: 25 }, (_, i) => {
+          const a = (i / 24) * Math.PI * 2;
+          return { x: to.x + Math.cos(a) * r, y: to.y + Math.sin(a) * r };
+        }),
+      });
+      out.push(ring(11, 1.4 + 2.2 * m, 0.35 + 0.6 * m));
+      // The last stretch gets a second ring — a discrete change of shape, not
+      // a blink. Nothing on this board animates that a thumb has to hit.
+      if (m >= 0.85) out.push(ring(15, 1.6, held ? 0.5 : 0.85));
     }
     return out;
+  }
+
+  /** ★ CAUGHT IN THE OPEN, ON THE BOARD — 2026-08-14. An ambush is the one
+   *  piece of war news that is not about a place, so it was the one thing
+   *  the top strip could still claim. It is about a place: it is about the
+   *  stretch of road the hero is standing on. Two rings round the figure,
+   *  and the figure is already drawn there. */
+  function ambushShapes(): Shape[] {
+    if (game.ambush === null || heroAt === null) return [];
+    const at = heroAt;
+    const ring = (r: number, alpha: number): Shape => ({
+      s: 'path', close: true, ink: 'foe', w: 2.4, alpha,
+      pts: Array.from({ length: 25 }, (_, i) => {
+        const a = (i / 24) * Math.PI * 2;
+        return { x: at.x + Math.cos(a) * r, y: at.y + Math.sin(a) * r };
+      }),
+    });
+    return [ring(10, 0.9), ring(15, 0.5)];
   }
 
   /** ★ WHERE THE FIGURE GOES: beside the dot while standing, and on the road
@@ -811,8 +848,17 @@
       // holds it, how strong, what it is worth, how full its raid clock is,
       // and whether anything of yours would stop it. Split, one fact a line,
       // in `statusLines` below — the panel gives each its own row.
+      // ★★★ THE SWELL MOVED HERE, 2026-08-14, off the top strip — where the
+      // owner met it as *"a stupid thing to have"* in a stats menu. It is
+      // not a stat about the valley, it is the reason THIS number is bigger
+      // than it was: `spawnOf` refills a camp to a ceiling that rises with
+      // the clock, so "48 strong" already IS the swell. Said beside it, the
+      // number has a cause; said in the header, it was a percentage of
+      // nothing in particular.
+      const grown = swellOf(game) > 0.02
+        ? ` · ${MARK.waste}+${Math.round(swellOf(game) * 100)}% stronger than at first light` : '';
       return `goblins hold it · ${MARK.danger}${Math.ceil(game.goblins[picked] ?? 0)} strong`
-        + prizeOf(picked) + clock;
+        + grown + prizeOf(picked) + clock;
     }
     const n = game.stacks[picked] ?? 0;
     // ★ Won ground keeps saying what it is worth — a ×3 pit that reads the
@@ -1119,56 +1165,38 @@
            column cannot overlap anything. -->
       <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
     </div>
-    <!-- ★★ THE GOAL, AND THE WAR, ON SCREEN — 2026-08-10 (playtest). Two
-         complaints, one line. *"at the moment, I do not see any goal. I don't
-         understand what to do."* And: *"I'm not sure when the attack on the
-         camp is gonna happen. And if it's gonna happen."* The raid clock
-         existed but only on the holding's own panel, which you had to go and
-         tap — a war you cannot see coming is not a clock. -->
-    <!-- ★★★ HOW, WHY, AND WHAT TO DO — 2026-08-10. The owner: *"the goblin
-         raids mechanics is unclear how it happens, why and what can you do
-         about it."* All three go on one line, always:
-           HOW  — a percentage that fills, and the site it is coming for
-           WHY  — it only starts once you have taken ground (first blood)
-           WHAT — the hero stops one raid by being HOME, and taking the
-                  holding stops its clock for good -->
-    <div class="warline" class:hot={worst !== null && worst.m > 0.6} data-q="war">
+    <!-- ★★★ THE WAR CAME OFF THIS LINE — 2026-08-14. It used to carry five
+         facts: how full the worst raid was, what it was coming for, where
+         the hero was standing, how many camps were left, and how much the
+         goblins had swollen. The owner, reading it mid-game: *"it's a stupid
+         thing to have in the same… you know, this is a stats menu. Why is it
+         there?"* And, of the raids themselves: *"there is no clear visual
+         indicator that they are attacking on a path."*
+
+         Both complaints have the same answer. The clock, the target and the
+         hero's whereabouts are all facts about PLACES, so they went to the
+         board, where places are: the fuse burns along the road the raid will
+         walk, the reticle rings what it is coming for, the figure stands
+         where the hero stands. The swell is already in the number on each
+         holding's own panel — `spawnOf` refills a camp to the swollen
+         ceiling, so "48 strong" IS the swell, said once.
+
+         What is left is the goal — how much of the valley is still theirs —
+         and the ambush, which is the one piece of war news that is not a
+         standing fact about a place but a thing that HAPPENED, and which
+         clears itself after twelve seconds. -->
+    <div class="warline" class:hot={game.ambush !== null} data-q="war">
+      <!-- ⚠️ `shownHoldings`, NOT `holdings` (2026-08-11). An earlier version
+           tested every camp on the map and then printed the count the FOG
+           allows, so a valley whose camps were all still hidden announced
+           "0 goblin camps" while the branch that exists to say the valley is
+           yours sat unreached below it. Found by an audit, not by play. -->
       {#if game.ambush !== null}
-        <!-- ★ CAUGHT IN THE OPEN outranks every other war news for as long as
-             it lasts: it is the one thing that happened TO you. -->
-        {MARK.waste}ambushed on the road
-        · {MARK.hero}{game.hero.hp}/{heroMax(game)}
-      {:else if worst !== null}
-        {MARK.waste}{Math.round(worst.m * 100)}% → {worst.at}
-        · {worst.gate !== null && onWatchAt(game, worst.gate)
-          ? `${MARK.hero} holding it`
-          : game.hero.trip
-            ? `${MARK.hero}→${SITE.get(game.hero.trip.to)?.name ?? ''}`
-            : `${MARK.hero} ${SITE.get(game.hero.at)?.name ?? ''}`}
-        · {MARK.danger}{shownHoldings} camps left{swellOf(game) > 0.02
-          ? ` · ${MARK.waste}+${Math.round(swellOf(game) * 100)}%` : ''}
-      <!-- ⚠️ `shownHoldings`, NOT `holdings` (2026-08-11). This branch tested
-           every camp on the map and then printed the count the FOG allows, so
-           a valley whose camps were all still hidden announced "0 goblin camps
-           watch this valley" — while the branch that exists to say the valley
-           is yours sat unreached below it. Found by an audit, not by play. -->
+        {MARK.waste}ambushed on the road · {MARK.hero}{game.hero.hp}/{heroMax(game)}
       {:else if shownHoldings > 0}
-        <!-- ★ WHAT A HOLDING IS, not just how many. The owner: *"why holdings
-             are with skull and bones is not quite well understood by me…
-             What is a holding? They come once you take one — who comes?"* -->
-        <!-- ★★★ N4, 2026-08-11 — the owner: *"six goblin camps, take one and
-             the rest raid — that is meta. We should have a [narrator]
-             somewhere, against meta leading into the user."* The rules were
-             printed AS rules. They are said now, by the camp, about the
-             valley it is standing in. -->
-        {MARK.danger}{shownHoldings} goblin camps watch this valley
-        {#if swellOf(game) > 0.02}
-          · {MARK.waste}they grow {Math.round(swellOf(game) * 100)}% stronger
-        {:else}
-          · every day you wait, they grow
-        {/if}
+        {MARK.danger}{shownHoldings} goblin camps left
       {:else}
-        {MARK.danger}0 · the valley is yours
+        {MARK.danger}the valley is yours
       {/if}
     </div>
     {#if menu}

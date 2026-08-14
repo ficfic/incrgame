@@ -925,13 +925,39 @@ travel time is a real nerf to every rung and `chad-liquidity` should re-run it.
 
 ## ★★★ THE WAR, DRAWN — 2026-08-10, steps 3–4 of `docs/RAIDS.md`
 
-**Step 3 — the muster and the threat.** A gathering holding wears a **ring
-that fills 0→1**, so *how close* is a shape rather than a number in a line of
-text you have to go and read. From `MUSTER_SHOWS` (0.5) a **dotted line** runs
-from the holding to what it is coming *for*, brightening as it fills — this
-was the actually-missing part, because menace said *how much* and never *at
-what*. When the hero holds the target the line **stops at their marker**:
-"they were stopped, and by what", drawn.
+**Step 3 — the muster and the threat.** *(Rebuilt as the fuse, 2026-08-14 —
+see below. The original: a ring on the holding filling 0→1, plus a dotted
+line to its target from `MUSTER_SHOWS` (0.5) on.)*
+
+**★★★ THE FUSE — 2026-08-14.** The owner, mid-playthrough: *"there is no clear
+visual indicator that they are attacking on a path"*, and of the war line in
+the header, *"this is a stats menu. Why is it there?"* One answer to both. A
+gathering raid now draws on the road it will actually walk:
+
+| Mark | What it says |
+| --- | --- |
+| **the cord** | faint and dotted, the whole run, from the first spark — *this is the road they come down* |
+| **the fuse** | solid, from the holding, covering `menace` of the run, head at the tip — *how close*, drawn as a length on the ground it threatens |
+| **the reticle** | a ring on what it is coming *for*, thickening as the fuse nears, doubling past 85%, **green** when the hero or three guards hold it |
+
+The old dotted line waited until half full, so the first half of every raid
+was invisible. The swept arc is gone: it said the same 0→1 the fuse says,
+beside a dot that already swells with menace — three drawings of one number.
+Covered ground **dims the fuse, never hides it**: a guard does not stop the
+clock, and hiding it would say otherwise.
+
+Everything the header's war line used to carry — the percentage, the target,
+the hero's whereabouts, the swell — is a fact about a *place*, and all four
+are on the board now (the swell is on each holding's own panel, where the
+number it inflates is). The header keeps the goal and the ambush.
+
+⚠️ Guarded in `scripts/play-camp.mjs` by **near band against far band on one
+seed**: at half full the near fifth of the run is 21/21 lit and the far fifth
+6/21, and at 97% the far fifth is 21/21. A whole-run count cannot see this
+drawing at all — the cord runs the full length from the start, so a fuse stuck
+at zero and one burnt to the end count the same samples. Both sabotages were
+run: full-length fuse → far band 21/21 at 50%, red; no fuse → near band 7/21,
+red.
 
 ⚠️ **THE INK IS `foe`, NOT A FOURTH RED.** `docs/RAIDS.md` warned that a new
 red must be measured against every counted ink *and* against `foe` under
