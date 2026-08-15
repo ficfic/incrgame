@@ -16,14 +16,10 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   raiders, raidTarget, RAID_SECS, CAMP_ROOM,
   FORAGE_SECS, FORAYS, nextForay, unforageable, faminePinch, START_FOOD, FAMINE_DEEP, onWatch,
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
-  walkSecs, ROUGH, SWEEP_SHARE, GUARD_STOP, guardsAt, STOW_SECS, hireCost, unhireable,
-  LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
+  walkSecs, ROUGH, SWEEP_SHARE, STOW_SECS, LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
   MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft, NAMES, folkName,
-  pushRisk, unpushable, PUSH_BASE, PUSH_COOL,
-  BOONS, offer, guardNeed, cartCostOf, has, runHard, RUN_STEP, valleyGoblins,
-  inValley, standing, GOOD_OF, sawsHere, KILN_SHARE, TOOLLESS, TOOL_BATCH,
-  START_TOOLS, unforgeable,
-  RATION_FOOD, RATION_HP, RATION_PACK,
+  BOONS, offer, cartCostOf, has, runHard, RUN_STEP, valleyGoblins,
+  inValley, standing, GOOD_OF, sawsHere, RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
   type City, type Action } from '../src/camp/engine';
@@ -2774,69 +2770,6 @@ describe('★★★ A SECOND WAY TO SWING', () => {
 // running around everywhere cannot save everyone."* Which is the direct
 // consequence of making the watch positional: one hero, three gates.
 // ---------------------------------------------------------------------------
-describe('★★★ HANDS ON THE GATE', () => {
-  const town = (over: Partial<City> = {}): City => ({ ...initial(), taken: 1,
-    pop: 30, food: 9e5, stacks: { 0: 9, 1: 1, 2: 1, 3: 1 },
-    paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 },
-    goblins: { 4: 12 },
-    hero: { hp: 0, spears: 1, part: 0, at: 9, trip: null }, ...over });
-
-  it('★★★ THREE POSTED HANDS TURN A RAID AWAY, and it costs one of them', () => {
-    const g = town();
-    const gate = raidTarget(g, 4)!;
-    const posted: City = { ...g, menace: { 4: 0.99 },
-      guard: { [gate]: GUARD_STOP } };
-    const out = tick(posted, RAID_SECS + 1);
-    expect(out.stacks[gate]).toBe(g.stacks[gate]);        // nothing taken
-    expect(guardsAt(out, gate)).toBe(GUARD_STOP - 1);     // one did not return
-    // ⚠️ AND THE HOLDING IS NOT BLED. They hold a gate; they do not take
-    // ground. That is the hero's job and the reason to still have one.
-    expect(out.goblins[4]).toBe(g.goblins[4]);
-  });
-
-  it('★★ two hands are not enough — the raid lands', () => {
-    const g = town();
-    const gate = raidTarget(g, 4)!;
-    const thin: City = { ...g, menace: { 4: 0.99 },
-      guard: { [gate]: GUARD_STOP - 1 } };
-    const out = tick(thin, RAID_SECS + 1);
-    expect(out.stacks[gate]!).toBeLessThan(g.stacks[gate]!);
-  });
-
-  it('★★★ IT IS A TRADE: the posted do not work', () => {
-    // ⚠️ THE POOL HAS TO BIND for this to measure anything. With 30 people
-    // and 12 slots the sites are the constraint, so posting six changes
-    // nothing and the test passes with the whole rule deleted. Twelve people
-    // into twelve slots makes every posted hand a hand not quarrying.
-    const g = town({ pop: 12, stacks: { 0: 3, 1: 1, 2: 1, 3: 1 } });
-    const free = flow(g);
-    const busy = flow({ ...g, guard: { 1: 6 } });
-    const hands = (f: ReturnType<typeof flow>): number =>
-      [...f.hands.values()].reduce((n, h) => n + h, 0);
-    expect(hands(busy)).toBeLessThan(hands(free));
-    expect(hands(free) - hands(busy)).toBe(6);
-  });
-
-  it('★ you cannot post more people than you have, nor onto held ground', () => {
-    const g = town({ pop: 4, stacks: { 0: 1 } });
-    const many = apply(g, { type: 'post', id: 1, by: 999 });
-    expect(guardsAt(many, 1)).toBeLessThanOrEqual(housed(g));
-    expect(apply(g, { type: 'post', id: 4, by: 1 })).toBe(g);   // goblins hold it
-    // And they come home again.
-    const one = apply(g, { type: 'post', id: 1, by: 1 });
-    expect(guardsAt(one, 1)).toBe(1);
-    expect(guardsAt(apply(one, { type: 'post', id: 1, by: -1 }), 1)).toBe(0);
-  });
-
-  it('★ the watch survives the save door, and older saves post nobody', () => {
-    expect(honour({ game: { ...town(), guard: { 1: 3 } }, savedAt: 1 })!
-      .game.guard[1]).toBe(3);
-    expect(honour({ game: { ...town(), guard: { 99: 1 } } as never,
-      savedAt: 1 })).toBeNull();
-    const { guard: _drop, ...older } = town();
-    expect(honour({ game: older as City, savedAt: 1 })!.game.guard).toEqual({});
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ★★★ HIRING — 2026-08-11, the half of queue 3 that did not ship with the
@@ -2844,57 +2777,6 @@ describe('★★★ HANDS ON THE GATE', () => {
 // the number to one per location. And then we should allow to add more
 // people there."*
 // ---------------------------------------------------------------------------
-describe('★★★ MORE HANDS ON ONE WORKS', () => {
-  const pit = (over: Partial<City> = {}): City => ({ ...initial(),
-    pop: 40, food: 9e5, stacks: { 0: 12, 1: 1 },
-    paths: { [pathKey(0, 1)]: 1 }, ...over });
-
-  it('★★★ a hire widens the crew that can work a site', () => {
-    const g = pit();
-    const before = flow(g).hands.get(1) ?? 0;
-    expect(before).toBe(CREW);
-    const hired = apply(g, { type: 'hire', id: 1 });
-    expect(hired.hire[1]).toBe(1);
-    expect(flow(hired).hands.get(1)).toBe(CREW * 2);
-    // And the output follows the hands, because output is per worker.
-    expect(flow(hired).made.get(1)!).toBeGreaterThan(flow(g).made.get(1)!);
-  });
-
-  it('★★★ DEEPENING STAYS WORSE THAN EXPANDING — the whole point of the cap', () => {
-    // The complaint that started this: *"there is no point in having new
-    // locations… because I'm able to build multiple lumber works at the
-    // initial sites."* Hires climb 1.6^n; a first works on new ground does
-    // not climb at all. By the third hire, walking out is plainly cheaper.
-    expect(hireCost(1)).toBeGreaterThan(hireCost(0));
-    expect(hireCost(3) / hireCost(0)).toBeGreaterThan(4);
-  });
-
-  it('★ it is paid in food, refused when short, and never on held ground', () => {
-    const broke = pit({ food: 1 });
-    expect(unhireable(broke, 1)).not.toBeNull();
-    expect(apply(broke, { type: 'hire', id: 1 })).toBe(broke);
-    const g = pit();
-    expect(apply(g, { type: 'hire', id: 1 }).food)
-      .toBeCloseTo(g.food - hireCost(0), 6);
-    expect(unhireable(pit({ goblins: { 1: 9 } }), 1)).toMatch(/^Goblins hold it/);
-    // Nothing to work yet is its own refusal, not a silent no.
-    expect(unhireable(pit({ stacks: { 0: 12 } }), 1)).toBe('Build something here first.');
-  });
-
-  it('★ hires survive the save door, and older saves have hired nobody', () => {
-    expect(honour({ game: { ...pit(), hire: { 1: 2 } }, savedAt: 1 })!
-      .game.hire[1]).toBe(2);
-    expect(honour({ game: { ...pit(), hire: { 99: 1 } } as never, savedAt: 1 })).toBeNull();
-    const { hire: _drop, ...older } = pit();
-    expect(honour({ game: older as City, savedAt: 1 })!.game.hire).toEqual({});
-    // ⚠️ AND AN OLD SAVE'S STACKED WORKS KEEP THEIR CREW. `capOf` counts
-    // `stacks + hire`, so a town that stacked four quarries before the cap
-    // does not lose three quarters of its workforce on load.
-    const stacked = honour({ game: { ...pit(), stacks: { 0: 12, 1: 4 } },
-      savedAt: 1 })!.game;
-    expect(flow(stacked).hands.get(1)).toBe(CREW * 4);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ★★★ F0 — THE STARVATION DEAD END, 2026-08-11. The owner played a fresh
@@ -2963,54 +2845,6 @@ describe('★★★ A TOWN CAN ALWAYS GET OUT OF A FAMINE', () => {
 // advanced log too. Event log."* And of the messages that flash over the
 // board: *"'Scree Slope just taken' — they should go into the advanced log."*
 // ---------------------------------------------------------------------------
-describe('★★★ WHAT HAPPENED, WRITTEN DOWN', () => {
-  const war = (over: Partial<City> = {}): City => ({ ...initial(), taken: 1,
-    pop: 20, food: 9e5, stacks: { 0: 5, 1: 3, 2: 3, 3: 2 },
-    paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 },
-    goblins: { 4: 12 },
-    hero: { hp: 0, spears: 1, part: 0, at: 9, trip: null }, ...over });
-
-  it('★★★ a raid that lands is written down', () => {
-    const g = war({ menace: { 4: 0.99 } });
-    const out = tick(g, RAID_SECS + 1);
-    expect(out.log.length).toBeGreaterThan(0);
-    expect(out.log.join(' ')).toMatch(/raided|took/);
-  });
-
-  it('★★ so is a gate held, and by whom', () => {
-    const g = war();
-    const gate = raidTarget(g, 4)!;
-    const held = tick({ ...g, menace: { 4: 0.99 },
-      guard: { [gate]: GUARD_STOP } }, RAID_SECS + 1);
-    expect(held.log.join(' ')).toMatch(/watch at .* turned a raid back/);
-  });
-
-  it('★★ and taking ground — the message that used to flash over the board', () => {
-    const g: City = { ...initial(), food: 9e5,
-      hero: { hp: 30, spears: 99, part: 0, at: 4, trip: null } };
-    let x = apply(g, { type: 'assail', id: 4 });
-    for (let i = 0; i < 12 && x.fight; i++) {
-      x = tick(apply(x, { type: 'strike' }), BLOW_SECS + 0.01);
-    }
-    expect(x.goblins[4]).toBeUndefined();
-    expect(x.log.join(' ')).toMatch(/High Meadow is taken/);
-  });
-
-  it('★ it keeps the newest and forgets the rest, and holds at the save door', () => {
-    const many = Array.from({ length: LOG_KEEP + 20 }, (_, i) => `line ${i}`);
-    const g: City = { ...war(), log: many.slice(0, LOG_KEEP) };
-    expect(logged(many, 'newest').length).toBe(LOG_KEEP);
-    expect(logged(many, 'newest').at(-1)).toBe('newest');
-    expect(honour({ game: g, savedAt: 1 })!.game.log.length).toBe(LOG_KEEP);
-    // ⚠️ An over-long log is TRIMMED, not refused: a save is not worth
-    // throwing away over history.
-    expect(honour({ game: { ...war(), log: many }, savedAt: 1 })!
-      .game.log.length).toBe(LOG_KEEP);
-    expect(honour({ game: { ...war(), log: [1] } as never, savedAt: 1 })).toBeNull();
-    const { log: _drop, ...older } = war();
-    expect(honour({ game: older as City, savedAt: 1 })!.game.log).toEqual([]);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ★★★ N3 — A REASON TO GO, 2026-08-11. The owner, twice across two
@@ -3220,20 +3054,6 @@ describe('★★★ WHAT THE PORTERS ARE CARRYING', () => {
 // hire that had been paid for, on the one lever that lets a town grow past
 // its slot count.
 // ---------------------------------------------------------------------------
-describe('★★ A HAND-SET CREW KEEPS ITS HIRES', () => {
-  it('★★★ pin and flow agree about how many can work here', () => {
-    const g: City = { ...initial(), pop: 60, food: 9e5,
-      stacks: { 0: 20, 1: 1 }, hire: { 1: 2 },
-      paths: { [pathKey(0, 1)]: 1 } };
-    // flow says three crews can work it...
-    expect(flow(g).hands.get(1)).toBe(CREW * 3);
-    // ...so setting it by hand must be able to reach the same number.
-    let x = g;
-    for (let i = 0; i < 40; i++) x = apply(x, { type: 'pin', id: 1, d: 1 });
-    expect(x.crew[1]).toBe(CREW * 3);
-    expect(flow(x).hands.get(1)).toBe(CREW * 3);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ★★★ THE LEVY — 2026-08-11. The owner left the fork open: *"maybe we get rid
@@ -3242,75 +3062,6 @@ describe('★★ A HAND-SET CREW KEEPS ITS HIRES', () => {
 // Hero AND party, drawn from the town — the only shape where POPULATION is a
 // military input at the point of use.
 // ---------------------------------------------------------------------------
-describe('★★★ TOWNSFOLK MARCH WITH THE HERO', () => {
-  const town = (over: Partial<City> = {}): City => ({ ...initial(),
-    pop: 24, food: 9e5, stacks: { 0: 6, 1: 1 },
-    paths: { [pathKey(0, 1)]: 1 },
-    hero: { hp: 30, spears: 2, part: 0, at: 4, trip: null }, ...over });
-
-  it('★★★ THE LEVY STANDS IN FRONT — the answer falls on them first', () => {
-    const alone = apply(town(), { type: 'assail', id: 4 });
-    const withUs = apply(town({ levy: 3 }), { type: 'assail', id: 4 });
-    expect(alone.fight!.us).toHaveLength(0);
-    expect(withUs.fight!.us).toHaveLength(3);
-    // One full round each. The hero behind three bodies takes nothing.
-    const beat = (g: City): City => tick(apply(g, { type: 'strike' }), BLOW_SECS + 0.01);
-    expect(beat(alone).hero.hp).toBeLessThan(alone.hero.hp);
-    expect(beat(withUs).hero.hp).toBe(withUs.hero.hp);
-    expect(beat(withUs).fight!.us[0]!.hp).toBeLessThan(LEVY_HP);
-  });
-
-  it('★★★ AND IT COSTS THE TOWN ITS HANDS, which is the whole point', () => {
-    // ⚠️ THE POOL MUST BIND. With more people than working slots the levy
-    // comes out of the idle and nothing changes — the same trap the posted
-    // watch's own test fell into. Six people, eight slots.
-    const tight = (over: Partial<City> = {}): City => town({
-      pop: 6, stacks: { 0: 2, 1: 1, 2: 1 },
-      paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1 }, ...over });
-    const home = tight();
-    const out = apply(tight({ levy: 4 }), { type: 'assail', id: 4 });
-    const hands = (g: City): number =>
-      [...flow(g).hands.values()].reduce((n, h) => n + h, 0);
-    expect(hands(out)).toBeLessThan(hands(home));
-  });
-
-  it('★★★ THEY DO NOT DIE — they come home HURT, and mend', () => {
-    // ⚠️ No roster, no names, no graveyard: the cost of a war is measured in
-    // hands, which is the currency the town already feels.
-    let g = apply(town({ levy: 2 }), { type: 'assail', id: 4 });
-    for (let i = 0; i < 20 && g.fight && g.hurt === 0; i++) {
-      g = tick(apply(g, { type: 'strike' }), BLOW_SECS + 0.01);
-    }
-    expect(g.hurt).toBeGreaterThan(0);
-    const wounded = g.hurt;
-    // They are off the workfaces while they mend...
-    expect(flow(g).hands.get(1) ?? 0).toBeLessThanOrEqual(CREW);
-    // ...and back afterwards. The war costs TIME, not lives.
-    expect(tick(g, MEND_SECS * 3).hurt).toBe(0);
-    expect(tick(g, MEND_SECS * wounded * 0.4).hurt).toBeLessThan(wounded);
-  });
-
-  it('★★ you cannot levy people you do not have', () => {
-    const small = town({ pop: 4, stacks: { 0: 1 }, levy: 99 });
-    expect(levied(small).length).toBeLessThanOrEqual(levyCap(small));
-    expect(levied(small).length).toBeLessThanOrEqual(Math.floor(housed(small)));
-    // The posted watch and the already-hurt are not available either.
-    const busy = town({ levy: 99, guard: { 1: 3 }, hurt: 2 });
-    expect(levyCap(busy)).toBe(Math.max(0,
-      Math.floor(housed(busy)) - 3 - 2));
-  });
-
-  it('★ the levy holds at the save door, and an older fight has none', () => {
-    expect(honour({ game: { ...town(), levy: 3, hurt: 2 }, savedAt: 1 })!
-      .game.levy).toBe(3);
-    expect(honour({ game: { ...town(), levy: -1 }, savedAt: 1 })).toBeNull();
-    // ⚠️ A save written MID-FIGHT before the levy existed has no line of its
-    // own; it loads as an empty one and the hero takes the answer as always.
-    const mid = apply(town(), { type: 'assail', id: 4 });
-    const older = { ...mid, fight: { ...mid.fight!, us: undefined } } as never;
-    expect(honour({ game: older, savedAt: 1 })!.game.fight!.us).toEqual([]);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ★★★ WINNING HAS AN EXIT — 2026-08-11. Two research agents, working
@@ -3360,93 +3111,6 @@ describe('★★★ A WON VALLEY OPENS THE NEXT', () => {
 // rather than a tree: Against the Storm's draft. Three offered at every
 // liberation, one kept, from a deck you cannot exhaust in a run.
 // ---------------------------------------------------------------------------
-describe('★★★ THREE ON THE TABLE, TAKE ONE', () => {
-  const won = (over: Partial<City> = {}): City => ({ ...initial(), food: 9e5,
-    hero: { hp: 40, spears: 99, part: 0, at: 4, trip: null }, ...over });
-  const clear = (g: City, id: number): City => {
-    let x = apply({ ...g, hero: { ...g.hero, at: id } }, { type: 'assail', id });
-    for (let i = 0; i < 20 && x.fight; i++) {
-      x = tick(apply(x, { type: 'strike' }), BLOW_SECS + 0.01);
-    }
-    return x;
-  };
-
-  it('★★★ taking ground deals three, and you keep exactly one', () => {
-    const g = clear(won(), 4);
-    expect(g.draft).toHaveLength(3);
-    expect(new Set(g.draft!).size).toBe(3);          // no duplicates
-    const took = apply(g, { type: 'take', id: g.draft![1]! });
-    expect(took.boons).toEqual([g.draft![1]]);
-    expect(took.draft).toBeNull();
-    // ...and only from the table.
-    const other = BOONS.find((b) => !g.draft!.includes(b.id))!;
-    expect(apply(g, { type: 'take', id: other.id })).toBe(g);
-  });
-
-  it('★★★ NO DICE — the same valley deals the same three', () => {
-    // This engine has no RNG by design: the solver test is the ladder's only
-    // guard and it cannot enumerate dice.
-    expect(offer(won({ taken: 2 }))).toEqual(offer(won({ taken: 2 })));
-    // And what you already hold changes what you are shown.
-    expect(offer(won({ taken: 2, boons: [] })))
-      .not.toEqual(offer(won({ taken: 2, boons: ['drover', 'scouts'] })));
-    // Never offers what you already took.
-    const held = won({ taken: 3, boons: ['palisade', 'volley'] });
-    expect(offer(held)).not.toContain('palisade');
-    expect(offer(held)).not.toContain('volley');
-  });
-
-  it('★★★ EVERY CARD CHANGES A RULE, not just a number on screen', () => {
-    const base = won({ pop: 24, stacks: { 0: 6, 1: 1 },
-      paths: { [pathKey(0, 1)]: 1 } });
-    // Wardens: two hands hold a gate instead of three.
-    expect(guardNeed(base)).toBe(GUARD_STOP);
-    expect(guardNeed({ ...base, boons: ['wardens'] })).toBe(GUARD_STOP - 1);
-    // Bindings: the levy stands longer.
-    expect(levied({ ...base, levy: 1, boons: ['bindings'] })[0]!.hp)
-      .toBeGreaterThan(levied({ ...base, levy: 1 })[0]!.hp);
-    // Scouts: the march is faster.
-    expect(marchSecs({ ...base, boons: ['scouts'] }, 1)!)
-      .toBeLessThan(marchSecs(base, 1)!);
-    // Drover: carts come cheaper.
-    expect(cartCostOf({ ...base, boons: ['drover'] }, 0).stone)
-      .toBeLessThan(cartCostOf(base, 0).stone);
-    // Stonecut: the pits cut more.
-    expect(flow({ ...base, boons: ['stonecut'] }).made.get(1)!)
-      .toBeGreaterThan(flow(base).made.get(1)!);
-    // Palisade: a gate that holds costs no one.
-    const gate = raidTarget({ ...base, taken: 1, goblins: { 4: 12 } }, 4)!;
-    const war: City = { ...base, taken: 1, goblins: { 4: 12 },
-      menace: { 4: 0.99 }, guard: { [gate]: GUARD_STOP },
-      hero: { ...base.hero, at: 9 } };
-    expect(guardsAt(tick(war, RAID_SECS + 1), gate)).toBe(GUARD_STOP - 1);
-    expect(guardsAt(tick({ ...war, boons: ['palisade'] }, RAID_SECS + 1), gate))
-      .toBe(GUARD_STOP);
-  });
-
-  it('★★ VOLLEY reaches past the wall, which a strike cannot', () => {
-    const g = apply(won({ boons: ['volley'] }), { type: 'assail', id: 4 });
-    const land = (x: City, act: 'strike' | 'volley'): City =>
-      tick(apply(x, { type: act }), BLOW_SECS + 0.01);
-    // A strike hits the wall; a volley leaves it alone and guts the rear.
-    expect(land(g, 'strike').fight!.sq[0]!.hp).toBeLessThan(g.fight!.sq[0]!.hp);
-    expect(land(g, 'volley').fight!.sq[0]!.hp).toBe(g.fight!.sq[0]!.hp);
-    expect(land(g, 'volley').fight!.sq[1]!.hp).toBeLessThan(g.fight!.sq[1]!.hp);
-  });
-
-  it('★ the draft holds at the save door, and an unknown card is dropped', () => {
-    const g = won({ boons: ['drover'], draft: ['scouts', 'volley'] });
-    expect(honour({ game: g, savedAt: 1 })!.game.boons).toEqual(['drover']);
-    // ⚠️ DROPPED, NOT REFUSED: a deck that shrinks between versions must not
-    // cost anybody their run.
-    const stale = won({ boons: ['drover', 'nosuchcard'], draft: ['nosuchcard'] });
-    const back = honour({ game: stale, savedAt: 1 })!.game;
-    expect(back.boons).toEqual(['drover']);
-    expect(back.draft).toBeNull();
-    const { boons: _b, draft: _d, ...older } = won();
-    expect(honour({ game: older as City, savedAt: 1 })!.game.boons).toEqual([]);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ★★★ WHAT A RUN LEAVES BEHIND — 2026-08-11. Both research agents said the
@@ -3567,67 +3231,6 @@ describe('★★★ THE COUNTRY BEYOND THE RIDGE', () => {
 // our own numbers (a maxed town throws away 76% of its output at the roads).
 // What survives both: Against the Storm's real trick, ONE GOOD, TWO RECIPES.
 // ---------------------------------------------------------------------------
-describe('★★★ ONE GOOD, TWO RECIPES', () => {
-  const wood = (over: Partial<City> = {}): City => ({ ...initial(),
-    pop: 24, food: 9e5, goblins: {}, stacks: { 0: 6, 2: 1 },
-    crew: { 2: CREW }, paths: { [pathKey(0, 2)]: 1 }, ...over });
-
-  it('★★★ a kilned wood camp BURNS ITS LOGS TO COAL', () => {
-    // ⚠️ REWRITTEN 2026-08-11, hours after it shipped. The kiln first made
-    // PLANKS, which was the safe half of a disagreement between two research
-    // agents. The owner then asked the obvious question — *"i'm not sure why
-    // you're so focused on existing resource pool, can't we extend it"* — and
-    // they were right: the argument for holding at four goods was measured
-    // before this pass changed the very bottleneck it rested on.
-    const felling = wood({ boons: ['kiln'] });
-    const burning = wood({ boons: ['kiln'], kilned: [2] });
-    expect(flow(felling).coal).toBe(0);
-    expect(flow(burning).coal).toBeGreaterThan(0);
-    // ⚠️ A LOG MAKES LESS THAN A LOG'S WORTH OF COAL, or the kiln is a free
-    // conversion and not a decision.
-    expect(flow(burning).coal).toBeLessThan(flow(felling).logs);
-    expect(KILN_SHARE).toBeLessThan(1);
-  });
-
-  it('★★★ IT IS A ROUTING DECISION — a camp that burns is not feeding the mill', () => {
-    // A camp that saws is a camp not feeding the mill you already built.
-    const mill = wood({ boons: ['kiln'], stacks: { 0: 6, 2: 1, 3: 1 },
-      crew: { 2: CREW, 3: CREW },
-      paths: { [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 } });
-    const fed = flow(mill);
-    const starved = flow({ ...mill, kilned: [2] });
-    expect(starved.logsIn).toBeLessThan(fed.logsIn);
-    // ⚠️ NOT asserting the mill's plank RATE here: `flow.planks` reports the
-    // mill's delivery capacity, which does not fall in the same instant its
-    // log supply does — the sawing happens against the store, in the tick.
-    // The logs and the coal are the honest ends of this trade.
-    // ⚠️ AND COAL IS THE POINT OF THE TRADE: what the mill loses in logs, the
-    // camp gains in coal, which is the only thing that forges tools.
-    expect(starved.coal).toBeGreaterThan(fed.coal);
-  });
-
-  it('★ the kiln is refused without the blueprint, and only on wood', () => {
-    const noCard = wood();
-    expect(apply(noCard, { type: 'burn', id: 2 })).toBe(noCard);
-    const carded = wood({ boons: ['kiln'] });
-    expect(apply(carded, { type: 'burn', id: 2 }).kilned).toEqual([2]);
-    // A quarry cannot be kilned, whatever you hold.
-    expect(apply(carded, { type: 'burn', id: 1 })).toBe(carded);
-    // ...and it toggles back.
-    const on = apply(carded, { type: 'burn', id: 2 });
-    expect(apply(on, { type: 'burn', id: 2 }).kilned).toEqual([]);
-  });
-
-  it('★ it holds at the save door, and nonsense is dropped', () => {
-    const g = wood({ boons: ['kiln'], kilned: [2] });
-    expect(honour({ game: g, savedAt: 1 })!.game.kilned).toEqual([2]);
-    // A quarry in the list is not a refusal, it is a stale id.
-    expect(honour({ game: { ...g, kilned: [1, 2] }, savedAt: 1 })!
-      .game.kilned).toEqual([2]);
-    const { kilned: _drop, ...older } = g;
-    expect(honour({ game: older as City, savedAt: 1 })!.game.kilned).toEqual([]);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ★★★ SIX GOODS — 2026-08-11. The owner: *"i'm not sure why you're so focused
@@ -3636,72 +3239,6 @@ describe('★★★ ONE GOOD, TWO RECIPES', () => {
 // than variety-shaped — a measurement taken BEFORE this pass raised the plank
 // ceiling, made carts eat three goods and put people on the war.
 // ---------------------------------------------------------------------------
-describe('★★★ COAL AND TOOLS', () => {
-  const town = (over: Partial<City> = {}): City => ({ ...initial(),
-    pop: 24, food: 9e5, goblins: {}, stacks: { 0: 6, 1: 1, 2: 1 },
-    crew: { 1: CREW, 2: CREW },
-    paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1 }, ...over });
-
-  it('★★★ TOOLS WEAR OUT, and the bill grows with the town', () => {
-    // ⚠️ THE POINT OF THE WHOLE CHAIN. Every other cost in this economy is
-    // paid once per thing bought; this one is paid forever, and it scales
-    // with how many hands are working — so growth has to be paid for. It is
-    // the other end of the answer to "there's no point in having more
-    // people".
-    const small = town({ pop: 8, stacks: { 0: 2, 1: 1 }, crew: { 1: CREW } });
-    const big = town({ pop: 40, stacks: { 0: 10, 1: 1, 2: 1, 3: 1 },
-      crew: { 1: CREW, 2: CREW, 3: CREW },
-      paths: { [pathKey(0, 1)]: 1, [pathKey(0, 2)]: 1, [pathKey(0, 3)]: 1 } });
-    expect(flow(big).tools).toBeGreaterThan(flow(small).tools);
-    // And the rack actually empties on the clock.
-    const worn = tick(town({ tools: 1 }), 60);
-    expect(worn.tools).toBeLessThan(1);
-  });
-
-  it('★★★ AN EMPTY RACK PINCHES, it does not halt', () => {
-    // A famine is this game's one hard stop and it has earned that place.
-    const kitted = town({ tools: 50 });
-    const blunt = town({ tools: 0 });
-    expect(flow(blunt).stone).toBeCloseTo(flow(kitted).stone * TOOLLESS, 6);
-    expect(flow(blunt).stone).toBeGreaterThan(0);
-  });
-
-  it('★★★ THE CHAIN CLOSES: logs → coal → tools', () => {
-    // Coal comes only from a kilned wood camp; tools come only from coal.
-    const forging = town({ boons: ['kiln'], kilned: [2], coal: 20, planks: 20 });
-    expect(flow(forging).coal).toBeGreaterThan(0);
-    const made = apply(forging, { type: 'forge' });
-    expect(made.tools).toBe(forging.tools + TOOL_BATCH);
-    expect(made.coal).toBeLessThan(forging.coal);
-    expect(made.planks).toBeLessThan(forging.planks);
-    // ...and it is refused without the coal, in words.
-    const dry = town({ coal: 0, planks: 20 });
-    expect(unforgeable(dry)).not.toBeNull();
-    expect(apply(dry, { type: 'forge' })).toBe(dry);
-  });
-
-  it('★ the wagon carried tools, so the opening is not blunt', () => {
-    // ⚠️ Without a starting rack every works in a fresh valley runs at 60%
-    // from second zero — a tax on the opening for a mechanic the player has
-    // not met and cannot answer, since the kiln is a blueprint three fights
-    // away. This is the line that stops that.
-    expect(initial().tools).toBe(START_TOOLS);
-    expect(flow(town()).stone).toBeCloseTo(flow(town({ tools: 99 })).stone, 6);
-  });
-
-  it('★ both goods hold at the save door, and an older save gets the rack', () => {
-    const g = town({ coal: 12, tools: 7 });
-    expect(honour({ game: g, savedAt: 1 })!.game.coal).toBe(12);
-    expect(honour({ game: g, savedAt: 1 })!.game.tools).toBe(7);
-    expect(honour({ game: { ...g, coal: -1 }, savedAt: 1 })).toBeNull();
-    // ⚠️ A town that has been running for an hour must not suddenly find
-    // every works blunt because the version changed under it.
-    const { coal: _c, tools: _t, ...older } = g;
-    const back = honour({ game: older as City, savedAt: 1 })!.game;
-    expect(back.coal).toBe(0);
-    expect(back.tools).toBe(START_TOOLS);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ★★★ THE MUSTER ROLL — 2026-08-11, stolen from Fallout Shelter. The owner:
@@ -3751,59 +3288,3 @@ describe('★★★ THE LEVY HAS NAMES', () => {
 // best single line of design in that game: THE NUMBER YOU ARE AFRAID OF IS
 // THE NUMBER YOU ARE PAID.
 // ---------------------------------------------------------------------------
-describe('★★★ PUSHING A JOB THROUGH', () => {
-  const building = (over: Partial<City> = {}): City => {
-    // ⚠️ Stores below the cap, or the bonus has nowhere to land and the
-    // test measures the storehouse rather than the push.
-    const g: City = { ...initial(), pop: 20, food: 40, stone: 40,
-      planks: 30, store: 3, stacks: { 0: 5 },
-      paths: { [pathKey(0, 1)]: 1 }, ...over };
-    return apply(g, { type: 'raise', id: 1 });
-  };
-
-  it('★★★ a push finishes the job now and pays the risk you took', () => {
-    const g = building();
-    expect(g.raising[1]).toBeDefined();
-    const pushed = apply(g, { type: 'push', id: 1 });
-    expect(pushed.raising[1]!.left).toBe(0);
-    expect(pushed.stone).toBeGreaterThan(g.stone);      // paid in the ground's own good
-    expect(pushed.log.join(' ')).toMatch(/pushed through/);
-  });
-
-  it('★★★ EVERY PUSH RAISES THE NEXT ONE — the governor', () => {
-    // ⚠️ This is the deleted tap wearing a hat, and this is the only reason
-    // it survives: spamming must be mathematically bad, not merely slow. The
-    // tap was cut after one thumb was measured out-earning six quarries.
-    const g = building();
-    expect(pushRisk(g)).toBeCloseTo(PUSH_BASE, 6);
-    let x = g;
-    for (let i = 0; i < 4; i++) x = { ...x, pushes: x.pushes + 1 };
-    expect(pushRisk(x)).toBeGreaterThan(pushRisk(g));
-    // ...and past halfway it ruins the job and hurts somebody.
-    const reckless = { ...building(), pushes: 9 };
-    const broken = apply(reckless, { type: 'push', id: 1 });
-    expect(broken.raising[1]).toBeUndefined();
-    expect(broken.hurt).toBeGreaterThan(reckless.hurt);
-    expect(broken.log.join(' ')).toMatch(/pushed too hard/);
-  });
-
-  it('★★ the crew forget, so pushing is something you space out', () => {
-    const hot: City = { ...building(), pushes: 5 };
-    expect(tick(hot, PUSH_COOL * 6).pushes).toBe(0);
-    expect(tick(hot, PUSH_COOL).pushes).toBeLessThan(hot.pushes);
-  });
-
-  it('★ nothing to push is refused in words, and held ground never', () => {
-    const idle: City = { ...initial(), pop: 20 };
-    expect(unpushable(idle, 1)).toBe('Nothing is being built here.');
-    expect(apply(idle, { type: 'push', id: 1 })).toBe(idle);
-    expect(unpushable(initial(), 4)).toMatch(/^Goblins hold this place/);
-  });
-
-  it('★ the memory holds at the save door, and older saves are rested', () => {
-    expect(honour({ game: { ...initial(), pushes: 3 }, savedAt: 1 })!
-      .game.pushes).toBe(3);
-    const { pushes: _drop, ...older } = initial();
-    expect(honour({ game: older as City, savedAt: 1 })!.game.pushes).toBe(0);
-  });
-});

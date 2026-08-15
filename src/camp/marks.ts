@@ -17,8 +17,6 @@ export const MARK = {
   stone: '🪨',
   logs: '🪵',
   planks: '🟫',
-  coal: '⬛',
-  tools: '🔨',
   food: '🌾',
   people: '👤',
   huts: '🏠',
@@ -44,7 +42,7 @@ export const MARK = {
  *  threw away 76% of its output at the paths. That measurement was taken
  *  BEFORE this pass raised the plank ceiling, made carts eat three goods and
  *  put people on the war, so it no longer describes the game. */
-export type Good = 'stone' | 'logs' | 'planks' | 'food' | 'coal' | 'tools';
+export type Good = 'stone' | 'logs' | 'planks' | 'food';
 
 /** `🪨11` — a cost, or any bare amount of a good. */
 export const amount = (good: Good, n: number): string =>

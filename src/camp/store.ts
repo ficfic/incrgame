@@ -1,6 +1,6 @@
 // THE CAMP'S SAVE. Its own key, its own shape — the old game's saves stay
 // untouched on theirs, so flipping back loses nobody anything.
-import { BOONS, CITY_VERSION, START_TOOLS, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, initial,
+import { BOONS, CITY_VERSION, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, initial,
   pathKey, type City } from './engine';
 
 const KEY = 'camp-save';
@@ -148,14 +148,6 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   else if (!Array.isArray(g.boons)) return null;
   else g.boons = g.boons.filter((b: unknown) =>
     typeof b === 'string' && BOONS.some((x) => x.id === b));
-  // ★ WOOD CAMPS SWITCHED TO SAWING (the Kiln, 2026-08-11).
-  // ★ COAL AND TOOLS (2026-08-11). An older save has neither — and it gets
-  // the wagon's tool rack, because a town that has been running for an hour
-  // should not suddenly find every works blunt.
-  if (g.coal === undefined) g.coal = 0;
-  else if (!num(g.coal, 0, 9e12)) return null;
-  if (g.tools === undefined) g.tools = START_TOOLS;
-  else if (!num(g.tools, 0, 9e12)) return null;
   if (g.kilned === undefined || g.kilned === null) g.kilned = [];
   else if (!Array.isArray(g.kilned)) return null;
   else g.kilned = g.kilned.filter((id: unknown) =>
@@ -167,10 +159,6 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
       typeof b === 'string' && BOONS.some((x) => x.id === b));
     if (g.draft.length === 0) g.draft = null;
   }
-  // ★ PUSHES IN LIVING MEMORY (2026-08-11), defaulted for older saves —
-  // which is generous: their crews are fully rested.
-  if (g.pushes === undefined) g.pushes = 0;
-  else if (!num(g.pushes, 0, 999)) return null;
   if (g.levy === undefined) g.levy = 0;
   else if (!whole(g.levy, 0, 999)) return null;
   if (g.hurt === undefined) g.hurt = 0;
@@ -185,19 +173,9 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   if (g.log === undefined || g.log === null) g.log = [];
   else if (!Array.isArray(g.log) || g.log.some((l: unknown) => typeof l !== 'string')) return null;
   else if (g.log.length > LOG_KEEP) g.log = g.log.slice(-LOG_KEEP);
-  if (g.hire === undefined || g.hire === null) g.hire = {};
-  else if (typeof g.hire !== 'object') return null;
-  else for (const [k, v] of Object.entries(g.hire)) {
-    if (SITE.get(Number(k)) === undefined || !whole(v, 1, 99)) return null;
-  }
   if (g.stowing === undefined) g.stowing = null;
   else if (g.stowing !== null
     && (!num(g.stowing.left, 0, 9999) || !num(g.stowing.secs, 0.001, 9999))) return null;
-  if (g.guard === undefined || g.guard === null) g.guard = {};
-  else if (typeof g.guard !== 'object') return null;
-  else for (const [k, v] of Object.entries(g.guard)) {
-    if (SITE.get(Number(k)) === undefined || !whole(v, 1, 999)) return null;
-  }
   if (g.ambush === undefined || g.ambush === null) g.ambush = null;
   else if (typeof g.ambush !== 'object'
     || SITE.get(g.ambush.at) === undefined

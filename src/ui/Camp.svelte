@@ -9,15 +9,14 @@
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
     heroMax, WILD_FED, SITE, GOBLINS, RATE, MAX_GAUGE, CREW, PATH_SECS,
     raisingLeft, buildSecs, housed, blowLeft, spearLabel, SPEAR_MADE, SWEEP_SHARE,
-    guardsAt, guardsTotal, GUARD_STOP, unhireable, hireCost, levyCap, folkName,
+    levyCap, folkName,
     unforageable, nextForay, forageLeft, FORAGE_SECS, onWatch, RAID_SECS,
     unmarchable, marchSecs, onWatchAt, swellOf, spawnOf,
     holdingsLeft,
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
-    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE, unforgeable, toolCost, TOOL_BATCH, TOOLLESS, unpushable, pushRisk,
-    MEETS,
+    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE, MEETS,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
@@ -176,21 +175,6 @@
       { id: 'planks', cap: 'PLANKS', mark: MARK.planks, have: game.planks,
         state: brim(game.planks) ? 'brim' : null,
         note: brim(game.planks) ? 'full' : rate(planksNow) },
-      { id: 'coal', cap: 'COAL', mark: MARK.coal, have: game.coal,
-        state: brim(game.coal) ? 'brim' : null,
-        note: brim(game.coal) ? 'full' : rate(f.coal) },
-      // ⚠️ TOOLS ARE THE ONE GOOD THAT ONLY GOES DOWN, so the rate line says
-      // what wear is costing rather than borrowing the `+` every other cell
-      // uses. An empty rack is not a shortage like the others either — it is
-      // a 40% cut to every works, which is why it reads as hurt.
-      { id: 'tools', cap: 'TOOLS', mark: MARK.tools, have: game.tools,
-        state: game.tools <= 0 ? 'hurt' : brim(game.tools) ? 'brim' : null,
-        // ⚠️ ONE WORD, because 130px of cell holds about twenty characters and
-        // "NONE, works at 60%" came back from the screenshot as "NONE, works
-        // at 6…". What an empty rack COSTS is a sentence, and it is in the
-        // People sheet where there is room for a sentence.
-        note: game.tools <= 0 ? 'NONE'
-          : f.tools > 0.0001 ? `−${f.tools.toFixed(2)}/s` : 'holding' },
     ];
   })());
 
@@ -482,16 +466,16 @@
       const to = t === null ? null : SITE.get(t);
       if (t === null || !to) continue;
       aimed.set(t, Math.max(aimed.get(t) ?? 0, m));
-      const held = onWatchAt(game, t) || guardsAt(game, t) >= GUARD_STOP;
+      const held = onWatchAt(game, t);
       // The cord: the whole road, always, once anything is gathering at all.
       out.push({ s: 'path', pts: [{ x: from.x, y: from.y }, { x: to.x, y: to.y }],
         ink: 'foe', w: 1.6, dash: [4, 7], alpha: 0.3 });
       // The fuse: burning from the holding towards the prize.
       const hx = from.x + (to.x - from.x) * m;
       const hy = from.y + (to.y - from.y) * m;
-      // ⚠️ DIM WHEN IT IS COVERED, never hidden. A raid that something is
-      // standing in front of is still gathering, and hiding the fuse would
-      // make posting a guard look like it stopped the clock. It does not.
+      // ⚠️ DIM WHEN THE HERO IS THERE, never hidden. A raid the hero stands
+      // in front of is still gathering, and hiding the fuse would make
+      // holding a gate look like it stopped the clock. It does not.
       out.push({ s: 'path', pts: [{ x: from.x, y: from.y }, { x: hx, y: hy }],
         ink: 'foe', w: 3.2, alpha: held ? 0.55 : 0.9 });
       out.push({ s: 'disc', x: hx, y: hy, r: 3.4, ink: 'foe', alpha: held ? 0.6 : 1 });
@@ -499,7 +483,7 @@
     for (const [t, m] of aimed) {
       const to = SITE.get(t);
       if (!to) continue;
-      const held = onWatchAt(game, t) || guardsAt(game, t) >= GUARD_STOP;
+      const held = onWatchAt(game, t);
       // A circle of points, because `Shape` has no arc and this is one.
       const ring = (r: number, w: number, alpha: number): Shape => ({
         s: 'path', close: true, ink: held ? 'open' : 'foe', w, alpha,
@@ -635,21 +619,6 @@
     // stock (START_LOGS) is what buys the first one.
     const have = game.stacks[s.id] ?? 0;
     const why = unraisable(game, s.id);
-    // ★★★ PUSH THE CREW — 2026-08-11, Fallout Shelter's rush. The risk you
-    // are shown IS the bonus you are paid, which is the whole elegance of it:
-    // greed and fear are one number and it needs no explaining.
-    {
-      const w = unpushable(game, s.id);
-      if (w === null) {
-        const risk = Math.round(pushRisk(game) * 100);
-        out.push({
-          label: 'Push the crew',
-          note: `finish it now · ${MARK.waste}${risk}% risk → +${Math.ceil(risk * 0.2)} for the risk`,
-          why: null,
-          go: () => act({ type: 'push', id: s.id }),
-        });
-      }
-    }
     // ★ AND IT DISAPPEARS ONCE IT STANDS (2026-08-11). Leaving it on screen
     // as a permanently-refused card — "Build Quarry · one works per place" —
     // is a dead button explaining itself forever, which is worse than the
@@ -673,10 +642,10 @@
     if (has(game, 'kiln') && s.allows === 'lumber' && have > 0 && !game.goblins[s.id]) {
       const on = sawsHere(game, s.id);
       out.push({
-        label: on ? 'Fell timber again' : 'Light the kiln',
+        label: on ? 'Haul the logs out' : 'Saw them here',
         note: on
           ? `${MARK.logs}${(CREW * RATE.lumber).toFixed(2)}/s to the mill`
-          : `${MARK.coal}${(CREW * RATE.lumber * KILN_SHARE).toFixed(2)}/s for the forge`,
+          : `${MARK.planks}${(CREW * RATE.lumber * KILN_SHARE).toFixed(2)}/s straight to the camp`,
         why: null,
         go: () => act({ type: 'burn', id: s.id }),
       });
@@ -800,21 +769,6 @@
         go: () => act({ type: 'cart' }),
       });
       }
-      // ★★★ THE TOOLWRIGHT, 2026-08-11 — coal and planks in, tools out. The
-      // first thing in this economy you must keep paying for: every hand at a
-      // workface wears tools down, so a growing town has to keep forging just
-      // to stand still.
-      {
-        const w = unforgeable(game);
-        const tp = toolCost(game);
-        out.push({
-          label: `Forge tools ×${TOOL_BATCH}`,
-          note: w ?? `${amount('coal', tp.coal)} ${amount('planks', tp.planks)}`
-            + ` → ${MARK.tools}${TOOL_BATCH}`,
-          why: w,
-          go: () => act({ type: 'forge' }),
-        });
-      }
       const p = spearCost(game.hero.spears);
       const short = game.stone < p.stone || game.planks < p.planks;
       out.push({
@@ -898,15 +852,12 @@
       const clock = m > 0 && at !== null
         ? ` · ${MARK.waste}${Math.round(m * 100)}% → ${SITE.get(at)?.name ?? ''}`
           + ` every ${RAID_SECS}s · takes 1 building`
-          // ★ WHAT WOULD ACTUALLY STOP IT (2026-08-11). This still said "home
-          // turns one away", which stopped being true when the watch became
-          // positional and stopped being the whole story when hands could be
-          // posted. It names the gate, and who is standing on it.
-          + ` · ${at !== null && guardsAt(game, at) >= GUARD_STOP
-            ? `${MARK.people} ${guardsAt(game, at)} hold ${SITE.get(at)?.name ?? 'it'}`
-            : at !== null && onWatchAt(game, at)
-              ? `${MARK.hero} the hero holds it`
-              : `nothing is holding ${SITE.get(at ?? -1)?.name ?? 'it'}`}`
+          // ★ WHAT WOULD ACTUALLY STOP IT. This said "home turns one away",
+          // which stopped being true when the watch became positional. Since
+          // 2026-08-15 the hero is the ONLY thing that turns a raid back.
+          + ` · ${at !== null && onWatchAt(game, at)
+            ? `${MARK.hero} the hero holds it`
+            : `nothing is holding ${SITE.get(at ?? -1)?.name ?? 'it'}`}`
         : '';
       // ★★★ F9, 2026-08-11 — the owner, tapping the deepest holding: *"the
       // description of Goblin Knoll is absolutely crazy. Goblins hold it,
@@ -1474,24 +1425,8 @@
           · {(f.staff * 100).toFixed(0)}% of the works manned</p>
         <p class="note">{MARK.food}{f.food.toFixed(1)}/s brought in
           · {hunger(game).toFixed(1)}/s eaten</p>
-        <!-- ⚠️ COAL AND TOOLS LEFT THIS SHEET, 2026-08-14 — they are two of
-             the six goods and they are in the goods grid with the other four.
-             The reason they were here was that the grid held four columns,
-             which is a fact about a stylesheet and not about the game. What
-             stays is the WEAR, per hour, because that is the one cost in this
-             economy that grows with the size of the town rather than with
-             what it buys, and a per-second figure in the HUD hides it. -->
-        <p class="note">{MARK.tools}the tools wear {(f.tools * 60).toFixed(1)} an hour</p>
-        {#if game.tools <= 0}
-          <p class="note">{MARK.waste}the tools are gone. Every works is
-            running at {Math.round(TOOLLESS * 100)}%.</p>
-        {/if}
-        {#if guardsTotal(game) > 0}
-          <p class="note">{MARK.danger}{guardsTotal(game)} standing watch — they do not work</p>
-        {/if}
-        {#each shown(game).filter((s) => (game.stacks[s.id] ?? 0) > 0 || guardsAt(game, s.id) > 0) as s (s.id)}
-          <p class="note">{s.name} · {(f.hands.get(s.id) ?? 0)} working{
-            guardsAt(game, s.id) > 0 ? ` · ${guardsAt(game, s.id)} on watch` : ''}</p>
+        {#each shown(game).filter((s) => (game.stacks[s.id] ?? 0) > 0) as s (s.id)}
+          <p class="note">{s.name} · {(f.hands.get(s.id) ?? 0)} working</p>
         {/each}
         {#if game.boons.length > 0}
           <h2>What we have learned</h2>
@@ -1562,22 +1497,13 @@
         {#if worksLine(picked)}<p class="note">{worksLine(picked)}</p>{/if}
         {#each statusLines as row}<p class="note">{row}</p>{/each}
         {#if picked !== 0 && (game.stacks[picked] ?? 0) > 0 && !game.goblins[picked]}
-          <!-- ★ POSTED HANDS — the owner's ask. Pins win the pool; freeing
-               them returns everyone to farms-first auto. -->
-          <!-- ★★★ THE POSTED WATCH, 2026-08-11 — queue item 6. The owner:
-               *"we need to allow to have defensive job assignments for the
-               units because the hero running around everywhere cannot save
-               everyone."* They come out of the same pool as the workers, so
-               the row sits with the hands: it is the same people, and the
-               choice between digging and standing is the mechanic. -->
-          <div class="crew">
-            <button onclick={() => act({ type: 'post', id: picked!, by: -1 })}
-              disabled={guardsAt(game, picked) <= 0}>−</button>
-            <span>watch {guardsAt(game, picked)} of {GUARD_STOP} needed{
-              guardsAt(game, picked) >= GUARD_STOP ? ' · holds' : ''}</span>
-            <button onclick={() => act({ type: 'post', id: picked!, by: 1 })}
-              disabled={housed(game) - guardsTotal(game) <= 0}>+</button>
-          </div>
+          <!-- ★ PINNED HANDS — the owner's ask. Pins win the pool; freeing
+               them returns everyone to farms-first auto.
+               ⚠️ THE POSTED WATCH SAT ABOVE THIS ROW until 2026-08-15. Three
+               people standing at a gate forever, to save one building from a
+               raid every 300s, is strictly worse than rebuilding it — and it
+               is babysitting, which the brief forbids. The hero is the watch
+               now, and there is only one hero on purpose. -->
           <div class="crew">
             <button onclick={() => pinAt(picked!, -1)}
               disabled={(f.hands.get(picked) ?? 0) <= 0 && game.crew[picked] !== undefined}>−</button>

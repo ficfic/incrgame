@@ -727,19 +727,20 @@ if (!/4\d\/60/.test(stoneCell)) {
   misses.push(`the stone cell hides its ceiling until it is full: "${stoneCell}"`);
 }
 
-// ★★★ ALL SIX GOODS ARE IN THE HUD — 2026-08-14. Coal and tools spent three
-// days as a `<p class="note">` inside the People sheet because the goods grid
-// held four columns, which is a fact about a stylesheet and not about the
-// game. Every good must carry its NOUN (an emoji is a decoration on a word,
-// never a replacement for one) and its stock over the ceiling.
+// ★★★ EVERY GOOD IS IN THE HUD. Coal and tools once spent three days as a
+// `<p class="note">` inside the People sheet because the goods grid held four
+// columns — a fact about a stylesheet, not about the game — and were then cut
+// outright on 2026-08-15, so this list is the four that are left. Every good
+// must carry its NOUN (an emoji is a decoration on a word, never a
+// replacement for one) and its stock over the ceiling.
 for (const [q, noun] of [['food', 'FOOD'], ['stone', 'STONE'], ['logs', 'LOGS'],
-  ['planks', 'PLANKS'], ['coal', 'COAL'], ['tools', 'TOOLS']]) {
+  ['planks', 'PLANKS']]) {
   const txt = await cell(q).catch(() => '');
   if (!txt.includes(noun) || !/\d+\/\d+/.test(txt)) {
     misses.push(`the ${q} cell is missing from the HUD or unlabelled: "${txt}"`);
   }
 }
-console.log('  six     :', 'every good carries its noun and its ceiling');
+console.log('  goods   :', 'all four carry their noun and their ceiling');
 
 // ★ ITEM H — the goal is on screen without hunting for it.
 const warLine = await cell('war');
@@ -823,7 +824,7 @@ if (!floated) {
 // whose FOOD is climbing, which is the first cell in the grid.
 await seed({ version: 5, stacks: { 0: 3, 1: 2, 3: 3 },
   paths: { '0|1': 2, '0|3': 2 }, raising: {},
-  stone: 20, logs: 20, planks: 20, food: 5, coal: 2, tools: 20,
+  stone: 20, logs: 20, planks: 20, food: 5,
   pop: 10, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 10, spears: 0, part: 0, at: 0, trip: null },
   fight: null, store: 2, carts: 0, famine: 0, menace: {},
@@ -1015,7 +1016,7 @@ if (fullBurnt < 85) misses.push(`the fuse never reaches the target: ${fullBurnt}
 // board re-laid-out on every dock tap.
 console.log('\nTHE MAP HOLDS STILL');
 await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 2 }, paths: { '0|1': 2, '0|2': 1 },
-  stone: 60, logs: 10, planks: 25, food: 300, coal: 4, tools: 18,
+  stone: 60, logs: 10, planks: 25, food: 300,
   pop: 12, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 11, spears: 2, part: 0, at: 0, trip: null },
   fight: null, store: 1, carts: 1, famine: 0, menace: {},
@@ -1043,7 +1044,7 @@ if (tall - short > 1) {
 // identically to an affordable one and did nothing when tapped. A bare camp
 // can afford none of these.
 await seed({ version: 5, stacks: { 0: 1 }, paths: {},
-  stone: 0, logs: 0, planks: 0, food: 20, coal: 0, tools: 0,
+  stone: 0, logs: 0, planks: 0, food: 20,
   pop: 3, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 10, spears: 0, part: 0, at: 0, trip: null },
   fight: null, store: 0, carts: 0, famine: 0, menace: {},
@@ -1078,7 +1079,7 @@ else if (!townState.some((d) => d.off)) {
 // alongside the caches would trade a stale build for a wiped valley, which is
 // worse, and it would look identical from the outside on a fresh save.
 await seed({ version: 5, stacks: { 0: 4, 1: 3, 2: 2 }, paths: { '0|1': 2, '0|2': 1 },
-  stone: 77, logs: 12, planks: 31, food: 200, coal: 5, tools: 20,
+  stone: 77, logs: 12, planks: 31, food: 200,
   pop: 14, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 11, spears: 3, part: 0, at: 0, trip: null },
   fight: null, store: 1, carts: 1, famine: 0, menace: {},

@@ -344,16 +344,6 @@ export interface City {
   stone: number;
   logs: number;
   planks: number;
-  /** ★★★ CHARCOAL — 2026-08-11. Burnt from logs at a kilned wood camp, and
-   *  the reason logs stop being a good with ten seconds of lifetime demand. */
-  coal: number;
-  /** ★★★ TOOLS — coal and planks, made at the camp, and CONSUMED FOREVER by
-   *  every works that has hands on it. The first good in this economy that
-   *  DECAYS, which is what turns a shopping list into a living economy: the
-   *  bigger the town, the more it must keep making just to stand still. It is
-   *  also the answer to *"there's no point in having more people"* from the
-   *  other end — more people is more upkeep, so growth has to be paid for. */
-  tools: number;
   /** ★ FOOD — the wild feeds the first few; every settler past that eats
    *  from the stock, and an empty larder HALTS every works but the farms. */
   food: number;
@@ -404,9 +394,6 @@ export interface City {
    *  ambush that only moved a number would be exactly the invisibility this
    *  whole item exists to end. */
   ambush: { at: number; left: number } | null;
-  /** ★★★ POSTED TO DEFEND — 2026-08-11, queue item 6. Site id → people
-   *  standing watch there instead of working. */
-  guard: Record<number, number>;
   /** ★ THE STOREHOUSE UNDER THE HAMMER — 2026-08-11. It was the one thing in
    *  the valley that appeared the instant it was paid for. */
   stowing: { left: number; secs: number } | null;
@@ -434,16 +421,11 @@ export interface City {
   /** ★★★ WHAT THE HERO IS STANDING IN FRONT OF — N5. An index into `MEETS`,
    *  or null. It waits indefinitely and blocks nothing. */
   meet: number | null;
-  /** ★★★ PUSHES IN LIVING MEMORY — 2026-08-11. Decays over `PUSH_COOL`, and
-   *  every one of them raises the risk of the next. This is the governor that
-   *  stops "push the crew" from becoming the deleted tap. */
-  pushes: number;
   /** ★★★ SECONDS THE VALLEY HAS STOOD — N3, 2026-08-11. The camps swell on
    *  this clock, which is what makes waiting cost something. */
   since: number;
   /** ★★★ EXTRA HANDS HIRED ONTO A SITE'S WORKS — 2026-08-11. Site id → how
    *  many times its crew has been widened. */
-  hire: Record<number, number>;
   /** ★ WHAT OUTLIVES A RUN. The infrastructure does not; the veteran does —
    *  and what he carries out is the spears on his back. */
   /** ★★★ AND WHAT ELSE OUTLIVES IT, 2026-08-11. `boons` are the blueprints
@@ -535,13 +517,6 @@ export const initial = (): City => ({
   laying: {},
   raising: {},
   stone: START_STONE,
-  coal: 0,
-  // ★ THE WAGON CARRIED TOOLS. Without a starting rack every works in a fresh
-  // valley runs blunt from second zero, which is a 40% tax on the opening for
-  // a mechanic the player has not met yet and cannot answer — the kiln that
-  // makes coal is a BLUEPRINT, three fights away. Tools are a mid-game
-  // upkeep that creeps up on you, not an opening puzzle.
-  tools: START_TOOLS,
   logs: START_LOGS,
   planks: 0,
   food: START_FOOD,
@@ -565,12 +540,9 @@ export const initial = (): City => ({
   taken: 0,
   lost: false,
   ambush: null,
-  guard: {},
   stowing: null,
-  hire: {},
   log: [],
   since: 0,
-  pushes: 0,
   meet: null,
   boons: [],
   kilned: [],
@@ -837,31 +809,6 @@ export const RATE = { quarry: 0.15, lumber: 0.2, sawmill: 0.25, farm: 0.2 } as c
  *  under both `RATE.lumber` and `RATE.sawmill`: sawing where you felled saves
  *  a road, and a saved road has to cost something or the choice is not one. */
 export const KILN_SHARE = 0.6;
-/** ★★★ WHAT ONE PAIR OF HANDS WEARS OUT A SECOND. Small on purpose: a town of
- *  forty burns 0.02/s, which a single toolwright covers — the point is that it
- *  never stops, not that it hurts. */
-export const TOOL_WEAR = 0.0005;
-/** ★ What a works makes when its hands have no tools. Not zero: a famine
- *  halts the town and that is already this game's one hard stop. Blunt tools
- *  are a tax you can feel and dig out of, exactly like the famine ramp. */
-export const TOOLLESS = 0.6;
-/** How many tools one forging makes, and what it costs. */
-export const TOOL_BATCH = 12;
-/** What the wagon carried in — enough that the rack runs dry somewhere in the
- *  middle of a run, around the time the kiln becomes reachable. */
-export const START_TOOLS = 30;
-export const toolCost = (g: City): { coal: number; planks: number } => ({
-  coal: 6, planks: 4,
-});
-/** Why the forge cannot run, in plain words, or null. */
-export function unforgeable(g: City): string | null {
-  if (g.lost) return 'The valley is lost.';
-  const p = toolCost(g);
-  if (g.coal < p.coal) return outOf('coal', g.coal, p.coal);
-  if (g.planks < p.planks) return outOf('planks', g.planks, p.planks);
-  if (g.tools >= roomOf(g) - 1e-9) return 'The tool rack is full. Build a storehouse for more room.';
-  return null;
-}
 /** What each kind of workface actually sends down the road (N6). */
 export const GOOD_OF: Record<Kind, Good> = {
   hut: 'food', quarry: 'stone', lumber: 'logs', sawmill: 'planks', farm: 'food',
@@ -1075,28 +1022,6 @@ export const nextForay = (g: City): Foray => FORAYS[g.forays % FORAYS.length]!;
  *  which is the last non-spatial thing in the war. Now three holdings can be
  *  filling and the hero can be at ONE of them, and the roads decide which
  *  ones you can reach in time. */
-/** ★★★ WHAT IT TAKES TO TURN A RAID AWAY WITHOUT THE HERO — queue item 6,
- *  2026-08-11. The owner: *"we need to allow to have defensive job
- *  assignments for the units because the hero running around everywhere
- *  cannot save everyone."* They are right, and it is the direct consequence
- *  of making the watch positional: one hero cannot hold three gates.
- *
- *  Three posted hands turn one raid away, and it COSTS one of them — they do
- *  not fight for free, and a wall you never have to maintain is a wall that
- *  ends the war. The people come out of the working pool, so a guarded valley
- *  produces less: that is the whole trade, and it is why this is a decision
- *  rather than a tax. Unlike the hero, they do not BLEED the holding — they
- *  hold a gate, they do not take ground. */
-export const GUARD_STOP = 3;
-/** How many hands this town needs on a gate — ★ WARDENS makes it two. */
-export const guardNeed = (g: City): number =>
-  has(g, 'wardens') ? GUARD_STOP - 1 : GUARD_STOP;
-/** People standing watch at a site. */
-export const guardsAt = (g: City, id: number): number =>
-  Math.max(0, Math.floor(g.guard[id] ?? 0));
-/** Everyone posted anywhere — they are not available to work. */
-export const guardsTotal = (g: City): number =>
-  Object.keys(g.guard).reduce((n, k) => n + guardsAt(g, Number(k)), 0);
 
 export const onWatchAt = (g: City, site: number): boolean =>
   !g.lost && !g.fight && !g.forage && !g.hero.trip
@@ -1295,8 +1220,6 @@ export const BOONS: readonly Boon[] = [
   // A name now says what the thing DOES, and the sentence says what changes
   // on your screen. If a card cannot be explained in one plain line, the card
   // is wrong — not the wording.
-  { id: 'palisade', name: 'Free watch',
-    what: 'Guards who turn back a raid all come home. None are lost.' },
   { id: 'volley', name: 'Arrows',
     what: 'New attack: hits every goblin standing behind the front one' },
   { id: 'quartermaster', name: 'Bigger packs',
@@ -1315,14 +1238,12 @@ export const BOONS: readonly Boon[] = [
     what: 'Every sawmill makes a quarter more planks' },
   { id: 'granary', name: 'Better farms',
     what: 'Every farm makes a quarter more food' },
-  { id: 'wardens', name: 'Smaller watch',
-    what: 'It takes 2 people to hold a gate instead of 3' },
-  { id: 'kiln', name: 'Charcoal kilns',
-    what: 'Lumber camps can burn logs into coal. Coal makes tools.' },
+  { id: 'kiln', name: 'Sawpits',
+    what: 'Lumber camps can saw their own planks instead of hauling logs out' },
 ];
 /** Does the town hold this blueprint? */
 export const has = (g: City, id: string): boolean => g.boons.includes(id);
-/** Is this wood camp burning its logs to coal? */
+/** Is this wood camp sawing its own planks where they fell? */
 export const sawsHere = (g: City, id: number): boolean =>
   has(g, 'kiln') && g.kilned.includes(id);
 /** ★ THE THREE ON OFFER, chosen without dice: walk the deck from a point set
@@ -1354,48 +1275,6 @@ export function offer(g: City): string[] {
  *  health, and giving the levy individual stats would make the key wrong AND
  *  blow the state space from a multiset to an ordered tuple. A name may never
  *  become a number. */
-/** ★★★ PUSH THE CREW — 2026-08-11, stolen from Fallout Shelter's rush, which
- *  is the best single line of design in that game: **the number you are
- *  afraid of is the number you are paid.** You are shown a risk percentage;
- *  if it works you get the bonus AS that percentage. One glance, no tooltip,
- *  and the greed and the fear are the same number.
- *
- *  Here: a site with a job in hand can be pushed. It finishes NOW, and pays a
- *  bonus of the risk in goods. If it fails, the crew are hurt and the job is
- *  lost.
- *
- *  ⚠️ THIS IS THE DELETED TAP WEARING A HAT, and it only survives because of
- *  `PUSH_STEP`. The tap was cut after measuring one thumb out-earning six
- *  quarries; what makes this different is that every push RAISES the risk of
- *  the next, so spamming is mathematically bad rather than merely slow. Take
- *  the escalation out and this becomes the same disaster.
- *  ⚠️ AND IT MUST NEVER BE NEEDED. Idle stays viable: this is a lever for a
- *  player who is watching, never a tax on one who is not. */
-export const PUSH_BASE = 0.12;
-/** What each push in living memory adds to the risk of the next. */
-export const PUSH_STEP = 0.1;
-/** How fast the crew forget a push — the risk decays over this. */
-export const PUSH_COOL = 90;
-/** The risk of pushing right now, 0..0.9. */
-export const pushRisk = (g: City): number =>
-  Math.min(0.9, PUSH_BASE + PUSH_STEP * Math.max(0, g.pushes));
-/** Why the crew cannot be pushed, in plain words, or null. */
-export function unpushable(g: City, id: number): string | null {
-  if (g.lost) return 'The valley is lost.';
-  if (!SITE.get(id)) return 'Nothing can be built here.';
-  if (g.goblins[id]) return `Goblins hold this place, ${Math.ceil(g.goblins[id])} strong.`;
-  if (!g.raising[id] && !Object.keys(g.laying).some((k) => k.split('|').includes(String(id)))) {
-    return 'Nothing is being built here.';
-  }
-  // ⚠️ NOT "hands at this site". A site being BUILT has no works to staff
-  // yet, so requiring a crew there refused every push at the only moment one
-  // is wanted — caught by its own test on the first run. The crew that builds
-  // comes from the town, so the town is what must have people to spare.
-  if (housed(g) - guardsTotal(g) - Math.floor(g.hurt) <= 0) {
-    return 'Nobody is free to push.';
-  }
-  return null;
-}
 
 export const NAMES: readonly string[] = [
   'Mira', 'Bran', 'Ossa', 'Ketil', 'Wren', 'Dag', 'Isolde', 'Tam',
@@ -1417,7 +1296,7 @@ export const levied = (g: City): Array<{ hp: number }> =>
     // ★ BINDINGS: the levy stands longer.
     () => ({ hp: LEVY_HP + (has(g, 'bindings') ? 3 : 0) }));
 export const levyCap = (g: City): number =>
-  Math.max(0, Math.floor(housed(g) - guardsTotal(g) - g.hurt));
+  Math.max(0, Math.floor(housed(g) - g.hurt));
 
 /** ★ First copy's price, IN THE MATERIAL THAT MAKES SENSE — the owner:
  *  *"it's weird that i need stone to build lumberjack camp."* Huts are
@@ -1455,23 +1334,6 @@ export const PATH_SECS = 6;
  *  road, a mill is the heaviest thing in the valley, and a hut is the one
  *  you buy over and over so it is the quickest. The opening chain is
  *  therefore 6s of road + 10s of pit before the first stone moves. */
-/** ★★ WHAT ANOTHER CREW COSTS AT A SITE, and why it climbs faster than the
- *  works itself does. Deepening has to stay WORSE than expanding or the map
- *  loses its purpose all over again — that is the complaint that started
- *  this. A first works is a flat price on new ground; hires run 1.6^n, so
- *  the third one costs more than walking out and taking somewhere new.
- *  Paid in food, because what you are buying is mouths at a workface. */
-export const hireCost = (have: number): number =>
-  Math.ceil(40 * Math.pow(1.6, have));
-/** Why more hands cannot be hired here, in plain words, or null. */
-export function unhireable(g: City, id: number): string | null {
-  if (!SITE.get(id) || id === 0) return 'Nobody works here.';
-  if (g.goblins[id]) return `Goblins hold it, ${MARK.danger}${Math.ceil(g.goblins[id])} strong.`;
-  if ((g.stacks[id] ?? 0) <= 0) return 'Build something here first.';
-  const price = hireCost(g.hire[id] ?? 0);
-  if (g.food < price) return outOf('food', g.food, price);
-  return null;
-}
 
 /** ★ What a storehouse takes to raise. Between a hut and a sawmill: it is
  *  the biggest thing at the camp, and the only one that helps everything. */
@@ -1562,10 +1424,10 @@ export const popCap = (g: City): number =>
  *  holding. */
 export const jobsOf = (g: City): number => {
   const comp = component(g);
-  let n = guardsTotal(g);
+  let n = 0;
   for (const id of comp) {
     if (id === 0) continue;
-    n += CREW * ((g.stacks[id] ?? 0) + (g.hire[id] ?? 0));
+    n += CREW * (g.stacks[id] ?? 0);
   }
   return n;
 };
@@ -1639,16 +1501,6 @@ export interface Flow {
   stone: number;
   logs: number;
   planks: number;
-  /** ★★★ CHARCOAL — 2026-08-11. Burnt from logs at a kilned wood camp, and
-   *  the reason logs stop being a good with ten seconds of lifetime demand. */
-  coal: number;
-  /** ★★★ TOOLS — coal and planks, made at the camp, and CONSUMED FOREVER by
-   *  every works that has hands on it. The first good in this economy that
-   *  DECAYS, which is what turns a shopping list into a living economy: the
-   *  bigger the town, the more it must keep making just to stand still. It is
-   *  also the answer to *"there's no point in having more people"* from the
-   *  other end — more people is more upkeep, so growth has to be paid for. */
-  tools: number;
   food: number;
   /** ★ An empty larder with unmet hunger: every works but the farms
    *  stands down until there is bread again. */
@@ -1714,26 +1566,25 @@ export function flow(g: City): Flow {
   // ★★★ ONE WORKS, BUT NOT ONE CREW (2026-08-11). The owner asked for both
   // halves and only the first shipped at first: *"we should limit the number
   // to one per location. And then we should allow to add more people there."*
-  // A works holds CREW hands; each hire widens it by CREW more.
-  // ⚠️ `stacks + hire`, NOT `1 + hire`. In play a site holds one works, so
+  // A works holds CREW hands.
+  // ⚠️ `stacks`, NOT a bare 1. In play a site holds one works, so
   // the two read the same — but every save written before today has two,
   // three and four works standing, and reading only the first would have
   // quietly halved a grown town's workforce on load. It also keeps every
   // fixture that predates the cap meaning what it meant.
   const capOf = (id: number): number =>
-    CREW * ((g.stacks[id] ?? 0) + (g.hire[id] ?? 0));
+    CREW * (g.stacks[id] ?? 0);
   const hands = new Map<number, number>();
   // ★ ONLY THE HOUSED WORK — see `housed()`. Everyone past the huts' cap is
   // a mouth without a bunk, and a hand that has nowhere to sleep does not
   // turn up. They still eat: `hunger()` reads the whole population.
-  // ★ AND THE POSTED ARE NOT AVAILABLE (2026-08-11). Standing watch is a job;
   // the valley that guards itself makes less, which is the entire trade.
   // ★★★ AND NOR ARE THE LEVIED OR THE HURT (2026-08-11). Standing watch was
   // already a job; marching out is another, and mending is a third. This is
   // the line that makes a fight cost the ECONOMY rather than just the hero:
   // the bodies you took to the war are bodies not at a workface, and the
   // ones carried home stay off it until they mend.
-  let pool = Math.max(0, housed(g) - guardsTotal(g)
+  let pool = Math.max(0, housed(g)
     - (g.fight ? (g.fight.us ?? []).length : 0) - Math.floor(g.hurt));
   const autos: number[] = [];
   for (const id of worked) {
@@ -1777,15 +1628,10 @@ export function flow(g: City): Flow {
   let farmRaw = 0;
   for (const id of worked) {
     const st = SITE.get(id)!;
-    // ★ A KILNED WOOD CAMP BURNS its logs to coal instead of shipping them —
-    // see `case 'burn'`. At `KILN_SHARE` of the felling rate, because a log
-    // makes less than a log's worth of coal, and because a free conversion is
-    // not a decision.
+    // ★ A WOOD CAMP WITH SAWPITS saws where it felled — see `case 'burn'`.
+    // At `KILN_SHARE` of the felling rate, because sawing in the open makes
+    // less than a mill does, and because a free conversion is not a choice.
     const kilning = st.allows === 'lumber' && sawsHere(g, id);
-    // ★★★ BLUNT TOOLS PINCH (2026-08-11). Not a halt — a famine is this
-    // game's one hard stop and it has earned that place. An empty tool rack
-    // is a tax you can feel and dig out of, exactly like the famine ramp.
-    const kitted = g.tools > 1e-9 ? 1 : TOOLLESS;
     const base = (st.allows === 'quarry' ? RATE.quarry
       : kilning ? RATE.lumber * KILN_SHARE
       : st.allows === 'lumber' ? RATE.lumber
@@ -1795,8 +1641,7 @@ export function flow(g: City): Flow {
       // ★ THE BLUEPRINTS a town has taken: Stonecut, Mill hands, Granary.
       * ((st.allows === 'quarry' && has(g, 'stonecut'))
         || (st.allows === 'sawmill' && has(g, 'millhands'))
-        || (st.allows === 'farm' && has(g, 'granary')) ? 1.25 : 1)
-      * kitted;
+        || (st.allows === 'farm' && has(g, 'granary')) ? 1.25 : 1);
     made.set(id, hands.get(id)! * base);
     if (st.allows === 'farm') farmRaw += hands.get(id)! * base;
   }
@@ -1844,8 +1689,8 @@ export function flow(g: City): Flow {
     // mill, and a wood camp sawing is a wood camp not feeding the mill you
     // already built.
     const raw = SITE.get(id)!.allows;
-    // ★ A KILNED CAMP'S COAL walks to the CAMP like any finished good, never
-    // to a mill — coal is not sawn.
+    // ★ A SAWING CAMP'S PLANKS walk to the CAMP like any finished good,
+    // never to a mill — they are already sawn.
     const burning = raw === 'lumber' && sawsHere(g, id);
     const k: Kind = raw;
     if (raw === 'sawmill' || m <= 0) continue;
@@ -1885,8 +1730,8 @@ export function flow(g: City): Flow {
   let stone = 0;
   let food = 0;
   let logsIn = 0;
-  /** Coal arriving from kilned wood camps. */
-  let coal = 0;
+  /** Planks arriving already sawn, from wood camps with sawpits. */
+  let sawnHere = 0;
   for (const f of flows) {
     let scale = 1;
     for (const { e } of f.legs) {
@@ -1915,8 +1760,8 @@ export function flow(g: City): Flow {
     carried.set(f.id, got);
     if (f.kind === 'quarry') stone += got;
     else if (f.kind === 'farm') food += got;
-    // ★ A KILNED CAMP SENDS COAL, which never enters the mill's log pool.
-    else if (sawsHere(g, f.id)) coal += got;
+    // ★ A SAWING CAMP SENDS PLANKS, which never enter the mill's log pool.
+    else if (sawsHere(g, f.id)) sawnHere += got;
     else logsIn += got;
   }
 
@@ -1971,7 +1816,7 @@ export function flow(g: City): Flow {
     }
   }
 
-  return { stone, food, coal, logsIn, planks, millCap, sawing,
+  return { stone, food, sawnHere, logsIn, planks, millCap, sawing,
     made, carried, choked, loads, net, both,
     goods: new Map([...goods].map(([e, at]) => [e, {
       ab: topGood(at.ab), ba: topGood(at.ba),
@@ -2013,15 +1858,8 @@ export function flow(g: City): Flow {
   const dirs = new Map<string, number>();
   for (const [e, n] of net) if (Math.abs(n) > 1e-9) dirs.set(e, n > 0 ? 1 : -1);
 
-  // ★★★ TOOL WEAR, 2026-08-11 — the first cost in this economy that scales
-  // with how BIG the town is rather than with what it buys. Every hand at a
-  // workface wears tools out, so a growing town must keep making them just to
-  // stand still. That is what turns a shopping list into a living economy,
-  // and it is the other half of the answer to *"there's no point in having
-  // more people"*: more people is more upkeep, so growth has to be paid for.
-  const worn = [...hands.values()].reduce((n, h) => n + h, 0) * TOOL_WEAR;
 
-  return { stone, logs: logsIn, planks, food, coal: run.coal, tools: worn,
+  return { stone, logs: logsIn, planks, food,
     starving, logsIn, millCap,
     sawing, hands, made: run.made, carried, choked, loads, dirs, both, goods,
     staff, comp };
@@ -2130,20 +1968,14 @@ export type Action =
   | { type: 'answer'; way: 0 | 1 }
   /** ★ Spend food on the hero's health, outside a fight (2026-08-11). */
   | { type: 'eat' }
-  /** ★ Push a site's crew to finish a job now, at a risk (2026-08-11). */
-  | { type: 'push'; id: number }
-  /** ★ Forge a batch of tools from coal and planks (2026-08-11). */
-  | { type: 'forge' }
-  /** ★ Switch a wood camp between logs and coal — the Kiln (2026-08-11). */
+  /** ★ Switch a wood camp between hauling logs out and sawing its own
+   *  planks — the Sawpits blueprint (2026-08-11, repurposed 2026-08-15). */
   | { type: 'burn'; id: number }
   /** ★ Keep one of the three blueprints on the table (2026-08-11). */
   | { type: 'take'; id: string }
   /** ★ Set how many townsfolk march with the hero (2026-08-11). */
   | { type: 'levy'; by: number }
-  /** ★ Hire another crew onto a site's works (2026-08-11). */
-  | { type: 'hire'; id: number }
   /** ★ Post or unpost a defender at a site (2026-08-11). */
-  | { type: 'post'; id: number; by: number }
   /** Set the hero walking to a site. Held ground starts a fight on arrival. */
   | { type: 'march'; to: number }
   /** Send the hero at held ground — the battle strip opens. */
@@ -2370,9 +2202,6 @@ export function apply(g: City, a: Action): City {
       // ★ THE HURT MEND. A whole person back at work every `MEND_SECS`, so a
       // hard fight is a dent in production that fills itself in — the war's
       // cost is time, not lives.
-      // ★ THE CREW FORGET. Without this the risk only ever climbs and the
-      // lever is a one-shot; with it, pushing is something you SPACE OUT.
-      const pushes = Math.max(0, g.pushes - s / PUSH_COOL);
       let hurt = g.hurt;
       if (hurt > 0) {
         hurt = Math.max(0, hurt - s / MEND_SECS);
@@ -2527,7 +2356,6 @@ export function apply(g: City, a: Action): City {
       let arrived: number | null = null;
       /** Where the hero was caught on the road this tick, for the board. */
       let ambushed: number | null = null;
-      let guard = g.guard;
       // ★ The storehouse lands like every other hammer — on an away tick too.
       let store = g.store;
       let stowing = g.stowing;
@@ -2634,16 +2462,6 @@ export function apply(g: City, a: Action): City {
             if (t === 0) lost = true;
             continue;
           }
-          // ★★★ THE POSTED HANDS HOLD THE GATE. Checked before the hero, so
-          // a guarded gate frees them to be somewhere else — which is the
-          // point of being able to post anyone at all.
-          if (guardsAt({ ...g, guard }, t) >= guardNeed(g)) {
-            guard = guard === g.guard ? { ...g.guard } : guard;
-            // ★ PALISADE: a gate that holds costs no one.
-            if (!has(g, 'palisade')) guard[t] = guardsAt(g, t) - 1;
-            said.push(`The watch at ${SITE.get(t)?.name ?? 'the gate'} turned a raid back. One did not come home.`);
-            continue;
-          }
           if (watch && onWatchAt(g, t)) {
             watch = false;
             said.push(`The hero met the raid at ${SITE.get(t)?.name ?? 'the gate'} and turned it back.`);
@@ -2683,12 +2501,6 @@ export function apply(g: City, a: Action): City {
         stone: hold(g.stone, g.stone + f.stone * s + (loot?.stone ?? 0)),
         logs: hold(g.logs, cut - sawn + (loot?.logs ?? 0)),
         planks: hold(g.planks, g.planks + shipped + (loot?.planks ?? 0)),
-        // ★★★ COAL IN, TOOLS OUT (2026-08-11). Coal banks like any good the
-        // roads bring home. Tools only ever go DOWN here — they are made by
-        // hand at the forge and worn out by the works, which is what makes
-        // them the first thing in this economy you must keep paying for.
-        coal: hold(g.coal, g.coal + f.coal * s),
-        tools: Math.max(0, g.tools - f.tools * s),
         food: hold(g.food,
           Math.max(0, g.food + (f.food - hunger(g)) * s) + (loot?.food ?? 0)),
         pop,
@@ -2705,12 +2517,10 @@ export function apply(g: City, a: Action): City {
         forays,
         famine,
         ambush: ambushed === null ? ambush : { at: ambushed, left: AMBUSH_TELL },
-        guard,
         store,
         stowing,
         log: logged(g.log, ...said),
         since,
-        pushes,
         meet,
         hurt,
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
@@ -2771,11 +2581,11 @@ export function apply(g: City, a: Action): City {
       // From auto, the first touch takes over at TODAY'S hands and steps
       // from there; a held works can go all the way to zero.
       // ⚠️ HIRES COUNT HERE TOO, 2026-08-11 (chad-liquidity). `flow`'s own
-      // `capOf` reads `stacks + hire`; this read `stacks` alone, so the moment
-      // you set a hired site's crew BY HAND every hire you had paid for was
+      // ⚠️ This must agree with `capOf`, which reads `stacks`; when the two
+      // disagreed, setting a site's crew BY HAND silently lost capacity
       // silently discarded — on the one lever that let a town grow past its
       // slot count. The two must agree, and now they do.
-      const cap = CREW * ((g.stacks[a.id] ?? 0) + (g.hire[a.id] ?? 0));
+      const cap = CREW * (g.stacks[a.id] ?? 0);
       const now = g.crew[a.id] ?? Math.round(flow(g).hands.get(a.id) ?? 0);
       const next = Math.max(0, Math.min(cap, now + a.d));
       if (g.crew[a.id] !== undefined && next === now) return g;
@@ -2891,64 +2701,12 @@ export function apply(g: City, a: Action): City {
     // ★★ MARCHING IS THE ONLY WAY ANYWHERE NOW. `assail` still exists and
     // still starts a fight, but only from the ground itself — the UI sends a
     // march, and arriving on held ground is what draws the sword.
-    case 'push': {
-      if (unpushable(g, a.id) !== null) return g;
-      const risk = pushRisk(g);
-      // ⚠️ NO DICE. This engine has no RNG by design — the fight solver is the
-      // ladder's only guard and it cannot enumerate randomness. The outcome is
-      // a pure function of the state: a push fails when the risk has climbed
-      // past what this crew can carry, which is legible AND deterministic.
-      // You can always see whether the next one is safe; that is the point.
-      const failed = risk >= 0.5;
-      let out: City = { ...g, pushes: g.pushes + 1 };
-      if (failed) {
-        // The job is lost and the crew are hurt. Never fatal, never a stat.
-        const raising = { ...out.raising };
-        delete raising[a.id];
-        return { ...out, raising,
-          hurt: out.hurt + 1,
-          log: logged(out.log,
-            `The crew at ${SITE.get(a.id)?.name ?? 'the works'} were pushed too hard. The job is ruined and someone is hurt.`) };
-      }
-      // ★ IT LANDS NOW, and pays the risk you accepted, in the goods the
-      // ground itself makes.
-      const job = out.raising[a.id];
-      if (job) {
-        const raising = { ...out.raising, [a.id]: { ...job, left: 0 } };
-        out = { ...out, raising };
-      }
-      const kind = SITE.get(a.id)?.allows ?? 'quarry';
-      const good = GOOD_OF[kind];
-      const bonus = Math.ceil(risk * 100 * 0.2);
-      return { ...out,
-        // ⚠️ NEVER BELOW WHAT YOU HAD. A bare `Math.min(roomOf, x + bonus)`
-        // will REDUCE a stock that is already over the cap, so a reward
-        // becomes a punishment. Cap the gain, never the holding.
-        [good]: Math.max(out[good], Math.min(roomOf(out), out[good] + bonus)),
-        log: logged(out.log,
-          `The crew at ${SITE.get(a.id)?.name ?? 'the works'} pushed through it — ${bonus} ${good} for the risk.`) };
-    }
-
-    case 'forge': {
-      // ★★★ THE TOOLWRIGHT, 2026-08-11 — coal and planks in, tools out, made
-      // at the camp like spears and carts. The batch is deliberately large:
-      // this is a thing you top up now and then, not a thing you babysit.
-      const price = toolCost(g);
-      if (g.coal < price.coal || g.planks < price.planks) return g;
-      return { ...g,
-        coal: g.coal - price.coal,
-        planks: g.planks - price.planks,
-        tools: Math.min(roomOf(g), g.tools + TOOL_BATCH) };
-    }
-
     case 'burn': {
-      // ★★★ THE KILN, 2026-08-11 — the production-chain ask, in the one shape
-      // two research agents could both live with. One wanted charcoal and
-      // tools; the other called a fifth good bookkeeping on a bottleneck that
-      // is not variety-shaped, and cited our own numbers (a maxed town throws
-      // away 76% of its output at the roads). What survives both arguments is
-      // Against the Storm's real trick: ONE GOOD, TWO RECIPES. A wood camp
-      // with a kiln saws its own planks instead of shipping logs.
+      // ★★★ SAWPITS, 2026-08-11 as the Kiln, cut back to this on 2026-08-15.
+      // It shipped as charcoal → tools and the charcoal was a fifth noun on a
+      // bottleneck that is not variety-shaped; what was always worth keeping
+      // is Against the Storm's real trick, ONE GOOD, TWO RECIPES: a wood camp
+      // with sawpits saws its own planks instead of shipping logs.
       //
       // The decision is routing, not bookkeeping: planks at the source need
       // no road to a mill, but a wood camp sawing is a wood camp not feeding
@@ -2976,27 +2734,6 @@ export function apply(g: City, a: Action): City {
       if (g.lost) return g;
       const next = Math.max(0, Math.min(levyCap(g), g.levy + a.by));
       return next === g.levy ? g : { ...g, levy: next };
-    }
-
-    case 'hire': {
-      if (unhireable(g, a.id) !== null) return g;
-      return { ...g,
-        food: g.food - hireCost(g.hire[a.id] ?? 0),
-        hire: { ...g.hire, [a.id]: (g.hire[a.id] ?? 0) + 1 } };
-    }
-
-    case 'post': {
-      if (g.lost || !SITE.get(a.id) || g.goblins[a.id]) return g;
-      const now = guardsAt(g, a.id);
-      // ⚠️ ONLY THE HOUSED CAN BE POSTED, and only those not already posted
-      // somewhere else — the pool is one pool, and a person cannot both
-      // stand a watch and swing a pick.
-      const spare = Math.max(0, housed(g) - guardsTotal(g));
-      const next = Math.max(0, Math.min(now + a.by, now + spare));
-      if (next === now) return g;
-      const guard = { ...g.guard };
-      if (next <= 0) delete guard[a.id]; else guard[a.id] = next;
-      return { ...g, guard };
     }
 
     case 'answer': {
