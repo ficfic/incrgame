@@ -152,13 +152,6 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   else if (!Array.isArray(g.kilned)) return null;
   else g.kilned = g.kilned.filter((id: unknown) =>
     typeof id === 'number' && SITE.get(id)?.allows === 'lumber');
-  if (g.draft === undefined) g.draft = null;
-  else if (g.draft !== null) {
-    if (!Array.isArray(g.draft)) return null;
-    g.draft = g.draft.filter((b: unknown) =>
-      typeof b === 'string' && BOONS.some((x) => x.id === b));
-    if (g.draft.length === 0) g.draft = null;
-  }
   if (g.levy === undefined) g.levy = 0;
   else if (!whole(g.levy, 0, 999)) return null;
   if (g.hurt === undefined) g.hurt = 0;

@@ -1331,31 +1331,6 @@
         </div>
       {/if}
 
-      {#if !game.fight && game.draft !== null}
-        <!-- ★★★ THE BLUEPRINT DRAFT, 2026-08-11 — the owner: *"we also need a
-             research tree or something to unlock shit."* Against the Storm's
-             shape rather than a tree: a tree earns its keep when the tree IS
-             the content and a run is hundreds of hours; across six fights in
-             forty minutes it is a checklist ticked in a fixed order. Three
-             offered, one kept, and a deck you cannot exhaust — so a run has an
-             identity and the next one differs without the map changing.
-             ⚠️ Like the meetings, it waits and blocks nothing. -->
-        <div class="meet draft">
-          <h2>What the ground taught us</h2>
-          <p class="tale">Three ways to build on what you have taken. One of
-            them, and the rest go back in the pack.</p>
-          <div class="dock">
-            {#each game.draft as id (id)}
-              {@const b = BOONS.find((x) => x.id === id)}
-              {#if b}
-                <button class="deed" onclick={() => act({ type: 'take', id })}>
-                  {b.name}<em>{b.what}</em>
-                </button>
-              {/if}
-            {/each}
-          </div>
-        </div>
-      {/if}
       {#if !game.fight && game.meet !== null}
         <!-- ★★★ N5, 2026-08-11 — the owner: *"I feel like we would benefit
              from choose your own adventure events."* It sits above the tabs
@@ -1690,7 +1665,6 @@
   .meet { background: #f4eee1; border: 1px solid #e2d9c3; border-radius: 10px;
     padding: 10px 12px; margin: 0 0 10px; }
   .meet h2 { margin: 0 0 4px; }
-  .meet.draft { border-color: #1f7a3f; background: #f1f6ef; }
   .tale { margin: 0 0 8px; color: #4a4030; line-height: 1.45; }
   .logline { border-left: 3px solid #e2d9c3; padding-left: 8px;
     margin: 5px 0; }

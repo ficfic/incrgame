@@ -410,8 +410,6 @@ export interface City {
    *  research tree or something to unlock shit."* Three are offered every
    *  time you take a holding; you keep one. */
   boons: string[];
-  /** The three on the table right now, or null. */
-  draft: string[] | null;
   /** ★★★ HOW MANY TOWNSFOLK MARCH WITH THE HERO — 2026-08-11. Chosen before
    *  you go, taken out of the working pool while they are away. */
   levy: number;
@@ -546,7 +544,6 @@ export const initial = (): City => ({
   meet: null,
   boons: [],
   kilned: [],
-  draft: null,
   levy: 0,
   hurt: 0,
   legacy: { runs: 0, spears: 0, boons: [] },
@@ -1215,29 +1212,25 @@ export const BOONS: readonly Boon[] = [
   // the owner met them at the one moment they had earned a reward: *"the
   // ground totters three ways… Four is Stonecut Roadwright. What the fuck? I
   // don't understand. What does it say in English? It's not plain English."*
-  // And: *"Volley. I don't understand. What does it mean?"*
   //
-  // A name now says what the thing DOES, and the sentence says what changes
-  // on your screen. If a card cannot be explained in one plain line, the card
+  // A name says what the thing DOES, and the sentence says what changes on
+  // your screen. If a card cannot be explained in one plain line, the card
   // is wrong — not the wording.
+  //
+  // ★★★ AND SEVEN OF THE TEN WENT IN THE BIN, 2026-08-15. Better quarries,
+  // Better sawmills, Better farms, Cheaper carts, Bigger packs, Levy armour
+  // and Better foraging were each ±25% on one number. Three of those on a
+  // table is not a choice between three things, it is the same choice
+  // rendered three ways, and the arithmetic is invisible the moment it is
+  // taken. WHAT SURVIVES CHANGES A RULE: a new attack, a routing decision on
+  // the graph, and roads that finish in half the time. ⚠️ A NEW CARD MUST
+  // PASS THAT BAR — if the honest sentence is "n% more of a thing you
+  // already have", it is a tuning constant, not a blueprint.
+  // ⚠️ THE ORDER IS THE UNLOCK ORDER. First holding, second, third.
   { id: 'volley', name: 'Arrows',
     what: 'New attack: hits every goblin standing behind the front one' },
-  { id: 'quartermaster', name: 'Bigger packs',
-    what: 'The hero carries 4 rations into a fight instead of 2' },
-  { id: 'bindings', name: 'Levy armour',
-    what: 'Townsfolk who march take 8 hits before falling, not 5' },
-  { id: 'drover', name: 'Cheaper carts',
-    what: 'Every cart costs a quarter less' },
   { id: 'roadwright', name: 'Faster roads',
     what: 'Roads finish building in half the time' },
-  { id: 'forager', name: 'Better foraging',
-    what: 'The hero brings back twice as much from every foray' },
-  { id: 'stonecut', name: 'Better quarries',
-    what: 'Every quarry makes a quarter more stone' },
-  { id: 'millhands', name: 'Better sawmills',
-    what: 'Every sawmill makes a quarter more planks' },
-  { id: 'granary', name: 'Better farms',
-    what: 'Every farm makes a quarter more food' },
   { id: 'kiln', name: 'Sawpits',
     what: 'Lumber camps can saw their own planks instead of hauling logs out' },
 ];
@@ -1246,15 +1239,17 @@ export const has = (g: City, id: string): boolean => g.boons.includes(id);
 /** Is this wood camp sawing its own planks where they fell? */
 export const sawsHere = (g: City, id: number): boolean =>
   has(g, 'kiln') && g.kilned.includes(id);
-/** ★ THE THREE ON OFFER, chosen without dice: walk the deck from a point set
- *  by how much ground you hold, skipping what you already took. */
-export function offer(g: City): string[] {
-  const left = BOONS.filter((b) => !g.boons.includes(b.id));
-  if (left.length === 0) return [];
-  const from = (g.taken * 5 + g.boons.length * 3) % left.length;
-  return Array.from({ length: Math.min(3, left.length) },
-    (_, i) => left[(from + i) % left.length]!.id);
-}
+/** ★★★ THE NEXT BLUEPRINT, or null when the town holds them all.
+ *
+ *  ⚠️ THIS WAS A DRAFT OF THREE until 2026-08-15, and it stopped being one
+ *  when the deck went from ten cards to three: offering three of three is
+ *  not a choice, it is a list, and picking the order you receive things in
+ *  is not a decision either. So the ceremony is gone. Taking a holding hands
+ *  over the next blueprint in a FIXED order — the fight one, the road one,
+ *  the graph one — which is a reward you can read in one line instead of a
+ *  modal that asks you to rank three multipliers you cannot feel. */
+export const nextBoon = (g: City): string | null =>
+  BOONS.find((b) => !g.boons.includes(b.id))?.id ?? null;
 
 /** ★★★ THE MUSTER ROLL — 2026-08-11. The owner: *"what other stuff can we
  *  steal from fallout shelter, i love it so much."*
@@ -1971,8 +1966,6 @@ export type Action =
   /** ★ Switch a wood camp between hauling logs out and sawing its own
    *  planks — the Sawpits blueprint (2026-08-11, repurposed 2026-08-15). */
   | { type: 'burn'; id: number }
-  /** ★ Keep one of the three blueprints on the table (2026-08-11). */
-  | { type: 'take'; id: string }
   /** ★ Set how many townsfolk march with the hero (2026-08-11). */
   | { type: 'levy'; by: number }
   /** ★ Post or unpost a defender at a site (2026-08-11). */
@@ -2152,13 +2145,18 @@ function liberate(g: City, now: NonNullable<City['fight']>): City {
   const menace = { ...g.menace };
   delete menace[now.site];
   const grown = { ...g, taken: g.taken + 1 };
+  // ★ THE REWARD FOR THE GROUND, decided before the record is written so the
+  // log line can name it in the same breath as the taking.
+  const won = nextBoon(grown);
+  const b = won === null ? null : BOONS.find((x) => x.id === won) ?? null;
   return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES,
     taken: g.taken + 1,
-    // ★★★ THREE BLUEPRINTS ON THE TABLE. Dealt from the ground you just took,
-    // waiting as long as you like — the same never-nag rule the meetings obey.
-    draft: g.draft ?? (offer(grown).length > 0 ? offer(grown) : null),
+    // ★★★ AND THE BLUEPRINT IS SIMPLY HANDED OVER (2026-08-15). It used to
+    // deal three and wait; see `nextBoon` for why a deck of three cannot.
+    boons: won === null ? grown.boons : [...grown.boons, won],
     log: logged(g.log,
-      `${SITE.get(now.site)?.name ?? 'Ground'} is taken. Two captives walk home with the hero.`) };
+      `${SITE.get(now.site)?.name ?? 'Ground'} is taken. Two captives walk home with the hero.`
+      + (b === null ? '' : ` ${b.name}: ${b.what}.`)) };
 }
 
 /** ★ THE LONGEST A SINGLE TICK MAY STAND FOR. One `tick` is one Euler
@@ -2717,15 +2715,6 @@ export function apply(g: City, a: Action): City {
       const on = g.kilned.includes(a.id);
       return { ...g,
         kilned: on ? g.kilned.filter((x) => x !== a.id) : [...g.kilned, a.id] };
-    }
-
-    case 'take': {
-      if (g.draft === null || !g.draft.includes(a.id)) return g;
-      if (g.boons.includes(a.id)) return g;
-      const b = BOONS.find((x) => x.id === a.id);
-      if (!b) return g;
-      return { ...g, boons: [...g.boons, a.id], draft: null,
-        log: logged(g.log, `${b.name}: ${b.what}.`) };
     }
 
     case 'levy': {

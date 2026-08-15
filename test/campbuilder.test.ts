@@ -18,7 +18,7 @@ import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroM
   WALK_SECS, marchSecs, legsBetween, unmarchable, AMBUSH_TELL, MUSTER_SHOWS,
   walkSecs, ROUGH, SWEEP_SHARE, STOW_SECS, LEAVE_SECS, GROW_STORE, LOG_KEEP, logged, swellOf, spawnOf, SWELL_SECS, SWELL_MAX,
   MEETS, meetFor, LEVY_HP, MEND_SECS, levied, levyCap, holdingsLeft, NAMES, folkName,
-  BOONS, offer, cartCostOf, has, runHard, RUN_STEP, valleyGoblins,
+  BOONS, nextBoon, cartCostOf, has, runHard, RUN_STEP, valleyGoblins,
   inValley, standing, GOOD_OF, sawsHere, RATION_FOOD, RATION_HP, RATION_PACK,
   BLOW_SECS, blowLeft, SPEAR_NAME, SPEAR_MADE, spearLabel,
   HERO_HP, HEAL_SECS, WILD_FED, EAT, CAPTIVES,
@@ -619,6 +619,60 @@ describe('★★ SLICE 3 — food: the wild feeds six, the fields feed the town'
     const full: City = { ...initial(), stacks: { 0: 9 }, pop: WILD_FED, food: 0 };
     expect(tick(full, 3600).pop).toBe(WILD_FED);       // no bread, no growth
     expect(tick({ ...full, food: 50 }, GROW_SECS * 2 + 1).pop).toBe(WILD_FED + 2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE BLUEPRINTS. Ten cards became three on 2026-08-15 and the draft went
+// with them: three of three on a table is a list, not a choice. Taking
+// ground hands the next one over, in the deck's own order.
+// ---------------------------------------------------------------------------
+describe('★★★ THE BLUEPRINT FOR THE GROUND', () => {
+  /** Win the holding at site 4 outright: one strike per living square. */
+  const clear = (g: City): City => {
+    let out = apply({ ...g, hero: { hp: 99, spears: 99, part: 0, at: 4, trip: null } },
+      { type: 'assail', id: 4 });
+    for (let i = 0; i < 60 && out.fight; i++) {
+      const live = out.fight.sq.findIndex((q) => q.hp > 0);
+      if (live < 0) break;
+      out = beat(beat(out, { type: 'aim', at: live }), { type: 'strike' });
+    }
+    return out;
+  };
+
+  it('★★★ every card left changes a RULE, never a number', () => {
+    // ⚠️ THE BAR, and the whole point of the cut. If a card's sentence is
+    // "n% more of a thing you already have", it is a tuning constant.
+    expect(BOONS).toHaveLength(3);
+    for (const b of BOONS) {
+      expect(b.what).not.toMatch(/quarter|twice|more \w+ than|%/i);
+    }
+    expect(BOONS.map((b) => b.id)).toEqual(['volley', 'roadwright', 'kiln']);
+  });
+
+  it('★★★ taking ground hands over the next blueprint, in order', () => {
+    expect(nextBoon(initial())).toBe('volley');
+    expect(nextBoon({ ...initial(), boons: ['volley'] })).toBe('roadwright');
+    expect(nextBoon({ ...initial(), boons: ['volley', 'roadwright'] })).toBe('kiln');
+    // ★ AND IT RUNS DRY rather than repeating or throwing.
+    expect(nextBoon({ ...initial(), boons: ['volley', 'roadwright', 'kiln'] })).toBeNull();
+  });
+
+  it('★★★ the win itself grants it, and says so in the log', () => {
+    const won = clear(initial());
+    expect(won.fight).toBeNull();
+    expect(won.boons).toEqual(['volley']);
+    expect(won.log.some((l) => l.includes('Arrows'))).toBe(true);
+    // ★ The SECOND holding pays the second card, not the first again.
+    const twice = clear({ ...won, goblins: { ...initial().goblins } });
+    expect(twice.boons).toEqual(['volley', 'roadwright']);
+  });
+
+  it('★ a town holding every card takes ground and is simply not paid', () => {
+    const full: City = { ...initial(), boons: ['volley', 'roadwright', 'kiln'] };
+    const won = clear(full);
+    expect(won.boons).toEqual(['volley', 'roadwright', 'kiln']);
+    expect(won.taken).toBe(full.taken + 1);   // the ground still counts
   });
 });
 
@@ -3118,52 +3172,6 @@ describe('★★★ A WON VALLEY OPENS THE NEXT', () => {
 // a stat carry is not one. The redditor's verdict was blunt — prestige here
 // was "a retry button with a participation trophy".
 // ---------------------------------------------------------------------------
-describe('★★★ THE NEXT VALLEY KNOWS WHAT YOU LEARNED', () => {
-  const done = (over: Partial<City> = {}): City => ({ ...initial(),
-    goblins: {}, taken: 6, pop: 20, food: 500, boons: ['volley', 'scouts'],
-    hero: { hp: 12, spears: 7, part: 0, at: 0, trip: null },
-    legacy: { runs: 1, spears: 3, boons: ['drover'] }, ...over });
-
-  it('★★★ A WON RUN CARRIES ITS BLUEPRINTS — horizontally, never a multiplier', () => {
-    const next = apply(done(), { type: 'found' });
-    expect(next.boons.sort()).toEqual(['drover', 'scouts', 'volley']);
-    expect(next.legacy.boons.sort()).toEqual(['drover', 'scouts', 'volley']);
-    // You begin the next valley KNOWING things, not multiplying things.
-    expect(has(next, 'volley')).toBe(true);
-  });
-
-  it('★★★ A LOST RUN KEEPS ONLY WHAT IT HAD ALREADY BANKED', () => {
-    // Finishing is what buys knowledge; being driven out does not.
-    const beaten: City = { ...done(), lost: true, goblins: { 4: 12 } };
-    const next = apply(beaten, { type: 'found' });
-    expect(next.boons).toEqual(['drover']);
-    expect(has(next, 'volley')).toBe(false);
-  });
-
-  it('★★★ AND THE COUNTRY BEYOND THE RIDGE IS HARDER EVERY TIME', () => {
-    // ⚠️ This is what stops carried blueprints turning run three into a
-    // walkover: you come back knowing more, to ground that needs it.
-    const first = initial();
-    const third: City = { ...initial(), legacy: { runs: 2, spears: 5, boons: [] } };
-    expect(runHard(first)).toBe(1);
-    expect(runHard(third)).toBeCloseTo(1 + 2 * RUN_STEP, 9);
-    expect(spawnOf(third, 9)).toBeGreaterThan(spawnOf(first, 9));
-    // ...and the ladder is untouched on run ONE, so the solver's tuning holds.
-    for (const id of [4, 5, 6, 7, 8, 9]) {
-      expect(spawnOf(first, id)).toBe(GOBLINS[id]!.strength);
-    }
-  });
-
-  it('★ the carried blueprints hold at the save door', () => {
-    const g = done();
-    expect(honour({ game: g, savedAt: 1 })!.game.legacy.boons).toEqual(['drover']);
-    const stale = { ...done(),
-      legacy: { runs: 1, spears: 3, boons: ['drover', 'nosuchcard'] } };
-    expect(honour({ game: stale, savedAt: 1 })!.game.legacy.boons).toEqual(['drover']);
-    const older = { ...done(), legacy: { runs: 1, spears: 3 } } as never;
-    expect(honour({ game: older, savedAt: 1 })!.game.legacy.boons).toEqual([]);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // ★★★ THE MAP GROWS BETWEEN RUNS — 2026-08-11. The genre reviewer's actual
