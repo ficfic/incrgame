@@ -82,14 +82,27 @@ const stoneNow = async () => cellNum('stone');
  *  check pass with the entire drawing deleted. This samples the straight run
  *  between the two dots, skipping the ends so the dots themselves cannot
  *  count, which is the one thing only the line can explain. */
-const onLine = async (fromSel, toSel, lo = 25, hi = 75) => {
+/** ★★★ HOW FAR THE FUSE HAS BURNT, as a percentage of the run — 2026-08-14.
+ *
+ *  ⚠️ THIS REPLACED A BAND COUNT, WHICH WAS NOT MEASURING THE FUSE. The old
+ *  check counted `foe` pixels in a stretch of the road, and the faint dotted
+ *  CORD runs the whole length: its dashes are 4 on, 7 off, and the sampler
+ *  looks in a 7px neighbourhood, so a window lands on a dash almost
+ *  everywhere. The far band read 6/21 on one build and 13/21 on the next
+ *  with the drawing untouched — the map had moved four pixels down when the
+ *  goods grid gained a row.
+ *
+ *  So measure the one thing the cord CANNOT fake: the fuse is UNBROKEN from
+ *  the holding, and the cord is not. This walks out from the holding and
+ *  stops at the first sample with no `foe` ink, which is the head. */
+const burnt = async (fromSel, toSel) => {
   const box = async (sel) => {
     const b = await page.locator(sel).boundingBox().catch(() => null);
     return b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null;
   };
   const a = await box(fromSel), b = await box(toSel);
   if (!a || !b) return -1;
-  return page.evaluate(([a, b, lo, hi]) => {
+  return page.evaluate(([a, b]) => {
     const INK = window.__INK ?? {};
     const hex = INK.foe;
     const cv = document.querySelector('.map canvas');
@@ -100,26 +113,22 @@ const onLine = async (fromSel, toSel, lo = 25, hi = 75) => {
       bl = parseInt(hex.slice(5, 7), 16);
     const d = cv.getContext('2d', { willReadFrequently: true })
       .getImageData(0, 0, cv.width, cv.height).data;
-    let hits = 0;
-    // Skip the outer quarter at each end by default: those are the dots.
-    // ★ THE BAND IS A PARAMETER because the fuse (2026-08-14) fills from the
-    // holding's end, so the check that matters is NEAR half against FAR half
-    // of the same run — a length, which is the thing menace is supposed to
-    // draw. A whole-run count cannot tell a full fuse from an empty cord.
-    for (let i = lo; i <= hi; i++) {
-      const t = i / 100;
+    const lit = (t) => {
       const px = Math.round(((a.x + (b.x - a.x) * t) - cb.left) * sx);
       const py = Math.round(((a.y + (b.y - a.y) * t) - cb.top) * sy);
-      // A dotted line is thin and the layout is not pixel-exact, so look in a
-      // small neighbourhood rather than at one pixel.
+      // A thin stroke and a layout that is not pixel-exact, so look in a small
+      // neighbourhood rather than at one pixel.
       for (let ox = -3; ox <= 3; ox++) for (let oy = -3; oy <= 3; oy++) {
         const k = ((py + oy) * cv.width + (px + ox)) * 4;
         if (d[k + 3] > 40 && Math.abs(d[k] - r) <= 20 && Math.abs(d[k + 1] - g) <= 20
-          && Math.abs(d[k + 2] - bl) <= 20) { hits++; ox = 9; oy = 9; }
+          && Math.abs(d[k + 2] - bl) <= 20) return true;
       }
-    }
-    return hits;
-  }, [a, b, lo, hi]);
+      return false;
+    };
+    let i = 0;
+    while (i <= 100 && lit(i / 100)) i++;
+    return i;
+  }, [a, b]);
 };
 
 
@@ -698,6 +707,20 @@ if (!/4\d\/60/.test(stoneCell)) {
   misses.push(`the stone cell hides its ceiling until it is full: "${stoneCell}"`);
 }
 
+// ★★★ ALL SIX GOODS ARE IN THE HUD — 2026-08-14. Coal and tools spent three
+// days as a `<p class="note">` inside the People sheet because the goods grid
+// held four columns, which is a fact about a stylesheet and not about the
+// game. Every good must carry its NOUN (an emoji is a decoration on a word,
+// never a replacement for one) and its stock over the ceiling.
+for (const [q, noun] of [['food', 'FOOD'], ['stone', 'STONE'], ['logs', 'LOGS'],
+  ['planks', 'PLANKS'], ['coal', 'COAL'], ['tools', 'TOOLS']]) {
+  const txt = await cell(q).catch(() => '');
+  if (!txt.includes(noun) || !/\d+\/\d+/.test(txt)) {
+    misses.push(`the ${q} cell is missing from the HUD or unlabelled: "${txt}"`);
+  }
+}
+console.log('  six     :', 'every good carries its noun and its ceiling');
+
 // ★ ITEM H — the goal is on screen without hunting for it.
 const warLine = await cell('war');
 console.log('  war     :', `"${warLine}"`);
@@ -882,22 +905,20 @@ const fuseSeed = (m) => ({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },
   taken: 1, lost: false, forage: null, forays: 0, ambush: null,
   legacy: { runs: 0, spears: 0 } });
 const FOE_FROM = '.map .node[data-id="site:4"]', FOE_TO = '.map .node[data-id="site:1"]';
-// ⚠️ THE BANDS STAND WELL CLEAR OF THE HEAD. A 3.2-wide stroke, a head disc
-// and a 3px search neighbourhood put the lit run about 12% of a 137px road
-// past the tip, so a band that ended at the halfway mark would measure the
-// bleed rather than the burn. Measured on the built page: at half full the
-// near band is 21/21 and the far band 6/21, and at 97% the far band is 21/21.
+// ⚠️ THE HEAD SITS PAST THE TRUE MARK, and that is the drawing, not a bug:
+// a 3.2-wide stroke, a head disc and the sampler's own 3px neighbourhood add
+// about a tenth of a 137px road. Measured on the built page: 62% burnt at
+// half full, 98% at 97%. The window allows the bleed and nothing else.
 await seed(fuseSeed(0.5));
-const nearBurn = await onLine(FOE_FROM, FOE_TO, 20, 40);
-const farBurn = await onLine(FOE_FROM, FOE_TO, 72, 92);
-console.log('  at 50%  :', `near ${nearBurn}/21 lit · far ${farBurn}/21`);
-if (nearBurn < 19) misses.push(`the fuse is not burning at 50%: near ${nearBurn}/21`);
-if (farBurn > 12) misses.push(`the fuse does not stop half way: far ${farBurn}/21 at 50%`);
+const halfBurnt = await burnt(FOE_FROM, FOE_TO);
+console.log('  at 50%  :', `${halfBurnt}% of the road burnt`);
+if (halfBurnt < 42) misses.push(`the fuse is not burning at 50%: ${halfBurnt}% of the road`);
+if (halfBurnt > 75) misses.push(`the fuse does not stop half way: ${halfBurnt}% burnt at 50%`);
 // And it reaches what it is coming for when the raid is about to land.
 await seed(fuseSeed(0.97));
-const farFull = await onLine(FOE_FROM, FOE_TO, 72, 92);
-console.log('  at 97%  :', `far ${farFull}/21 lit`);
-if (farFull < 18) misses.push(`the fuse never reaches the target: far ${farFull}/21 at 97%`);
+const fullBurnt = await burnt(FOE_FROM, FOE_TO);
+console.log('  at 97%  :', `${fullBurnt}% of the road burnt`);
+if (fullBurnt < 85) misses.push(`the fuse never reaches the target: ${fullBurnt}% at 97%`);
 
 // ★ AND BEING CAUGHT ON THE ROAD IS SAID OUT LOUD.
 await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },

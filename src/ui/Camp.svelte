@@ -127,6 +127,53 @@
   const planksNow = $derived(
     game.logs > 0.05 ? f.planks : Math.min(f.planks, f.logs));
 
+  /** ★★★ THE SIX GOODS, RANKED AND DECLARED ONCE — 2026-08-14. Six cells that
+   *  used to be four hand-written blocks and a note buried in a sheet. The
+   *  order is the PRODUCTION CHAIN, fixed, and never sorted at runtime: a
+   *  counter that moves when the game changes is a counter you cannot learn
+   *  the position of, and this HUD exists because the owner could not find
+   *  things. Food leads because it is the one that kills you.
+   *
+   *  Each cell says the same three things it always did — the noun, the stock
+   *  over the ceiling, and what it is doing per second — so the three states
+   *  the HUD comment below insists on (full, starving, the rate) survive the
+   *  regrid. `mark` is the marks table, never a second hand-typed icon. */
+  const goodCells = $derived<Array<{ id: string; cap: string; mark: string;
+    have: number; note: string; state: 'brim' | 'hurt' | null }>>((() => {
+    const rate = (n: number): string => n > 0.001 ? `+${n.toFixed(1)}/s` : '—';
+    return [
+      { id: 'food', cap: 'FOOD', mark: MARK.food, have: game.food,
+        state: f.starving ? 'hurt' : brim(game.food) ? 'brim' : null,
+        note: f.starving ? 'STARVING' : brim(game.food) ? 'full'
+          : `${hunger(game) > 0 ? `−${hunger(game).toFixed(1)}/s` : ''}${
+            f.food > 0 ? ` +${f.food.toFixed(1)}/s` : ''}`.trim() || '—' },
+      { id: 'stone', cap: 'STONE', mark: MARK.stone, have: game.stone,
+        state: brim(game.stone) ? 'brim' : null,
+        note: brim(game.stone) ? 'full' : rate(f.stone) },
+      { id: 'logs', cap: 'LOGS', mark: MARK.logs, have: game.logs,
+        state: brim(game.logs) ? 'brim' : null,
+        note: brim(game.logs) ? 'full' : rate(f.logsIn) },
+      { id: 'planks', cap: 'PLANKS', mark: MARK.planks, have: game.planks,
+        state: brim(game.planks) ? 'brim' : null,
+        note: brim(game.planks) ? 'full' : rate(planksNow) },
+      { id: 'coal', cap: 'COAL', mark: MARK.coal, have: game.coal,
+        state: brim(game.coal) ? 'brim' : null,
+        note: brim(game.coal) ? 'full' : rate(f.coal) },
+      // ⚠️ TOOLS ARE THE ONE GOOD THAT ONLY GOES DOWN, so the rate line says
+      // what wear is costing rather than borrowing the `+` every other cell
+      // uses. An empty rack is not a shortage like the others either — it is
+      // a 40% cut to every works, which is why it reads as hurt.
+      { id: 'tools', cap: 'TOOLS', mark: MARK.tools, have: game.tools,
+        state: game.tools <= 0 ? 'hurt' : brim(game.tools) ? 'brim' : null,
+        // ⚠️ ONE WORD, because 130px of cell holds about twenty characters and
+        // "NONE, works at 60%" came back from the screenshot as "NONE, works
+        // at 6…". What an empty rack COSTS is a sentence, and it is in the
+        // People sheet where there is room for a sentence.
+        note: game.tools <= 0 ? 'NONE'
+          : f.tools > 0.0001 ? `−${f.tools.toFixed(2)}/s` : 'holding' },
+    ];
+  })());
+
   // ★★ +1 POPS over the camp, NAMED — 2026-08-10 (playtest). The owner:
   // *"I also don't see plus one pop up with the appropriate icon once the
   // resource is mined."* It watched stone alone and floated a bare `+1`, so
@@ -1080,64 +1127,32 @@
          STARVING town (every works but the farms halts), and the tap rate
          on stone. A HUD that looks better and hides those is worse. -->
     <div class="hud goods">
-      <div class="cell" class:brim={brim(game.stone)} data-q="stone">
-        {#each bumps.filter((b) => b.good === 'stone') as b (b.id)}
-          <span class="bump"
-            onanimationend={() => {
-              recentBumps = recentBumps.filter((x) => x.id !== b.id);
-              bumps = recentBumps;
-            }}
-            >+1</span>
-        {/each}
-        <span class="cap">STONE</span>
-        <b>{Math.floor(game.stone)}<span class="cap-of">/{roomOf(game)}</span></b>
-        <em>🪨 {brim(game.stone) ? 'full'
-          : f.stone > 0 ? `+${f.stone.toFixed(1)}/s` : '—'}</em>
-      </div>
-      <div class="cell" class:brim={brim(game.logs)} data-q="logs">
-        {#each bumps.filter((b) => b.good === 'logs') as b (b.id)}
-          <span class="bump"
-            onanimationend={() => {
-              recentBumps = recentBumps.filter((x) => x.id !== b.id);
-              bumps = recentBumps;
-            }}
-            >+1</span>
-        {/each}
-        <span class="cap">LOGS</span>
-        <b>{Math.floor(game.logs)}<span class="cap-of">/{roomOf(game)}</span></b>
-        <em>🪵 {brim(game.logs) ? 'full'
-          : f.logsIn > 0 ? `+${f.logsIn.toFixed(1)}/s` : '—'}</em>
-      </div>
-      <div class="cell" class:brim={brim(game.planks)} data-q="planks">
-        {#each bumps.filter((b) => b.good === 'planks') as b (b.id)}
-          <span class="bump"
-            onanimationend={() => {
-              recentBumps = recentBumps.filter((x) => x.id !== b.id);
-              bumps = recentBumps;
-            }}
-            >+1</span>
-        {/each}
-        <span class="cap">PLANKS</span>
-        <b>{Math.floor(game.planks)}<span class="cap-of">/{roomOf(game)}</span></b>
-        <em>🟫 {brim(game.planks) ? 'full'
-          : planksNow > 0 ? `+${planksNow.toFixed(1)}/s` : '—'}</em>
-      </div>
-      <div class="cell" class:hurt={f.starving} class:brim={brim(game.food) && !f.starving}
-        data-q="food">
-        {#each bumps.filter((b) => b.good === 'food') as b (b.id)}
-          <span class="bump"
-            onanimationend={() => {
-              recentBumps = recentBumps.filter((x) => x.id !== b.id);
-              bumps = recentBumps;
-            }}
-            >+1</span>
-        {/each}
-        <span class="cap">FOOD</span>
-        <b>{Math.floor(game.food)}<span class="cap-of">/{roomOf(game)}</span></b>
-        <em>🌾 {f.starving ? 'STARVING' : brim(game.food) ? 'full'
-          : `${hunger(game) > 0 ? `−${hunger(game).toFixed(1)}/s` : ''}${
-            f.food > 0 ? ` +${f.food.toFixed(1)}/s` : ''}`.trim() || '—'}</em>
-      </div>
+      <!-- ★★★ ALL SIX GOODS, ONE GRID — 2026-08-14, step 3 of the restructure.
+           The camp gained coal and tools and the HUD did not: four goods sat
+           across the top and the other two were a `<p class="note">` inside
+           the Town sheet, so the two NEWEST rungs of the chain were the two
+           you could not see. Planks pinned, coal exiled.
+
+           Three columns and two rows, so a good's place never depends on how
+           the game is going. ⚠️ NOT six across: an emoji is a decoration on a
+           word and never a replacement for it (the owner, twice), so every
+           cell has to carry its noun, and six nouns do not fit 390px. -->
+      {#each goodCells as g (g.id)}
+        <div class="cell" class:brim={g.state === 'brim'} class:hurt={g.state === 'hurt'}
+          data-q={g.id}>
+          {#each bumps.filter((b) => b.good === g.id) as b (b.id)}
+            <span class="bump"
+              onanimationend={() => {
+                recentBumps = recentBumps.filter((x) => x.id !== b.id);
+                bumps = recentBumps;
+              }}
+              >+1</span>
+          {/each}
+          <span class="cap">{g.cap}</span>
+          <b>{Math.floor(g.have)}<span class="cap-of">/{roomOf(game)}</span></b>
+          <em>{g.mark} {g.note}</em>
+        </div>
+      {/each}
     </div>
     <div class="hud standings">
       <span class="cell" class:lv={game.pop < cap} data-q="people"
@@ -1433,17 +1448,17 @@
           · {(f.staff * 100).toFixed(0)}% of the works manned</p>
         <p class="note">{MARK.food}{f.food.toFixed(1)}/s brought in
           · {hunger(game).toFixed(1)}/s eaten</p>
-        <!-- ★★★ COAL AND TOOLS, 2026-08-11. They live here rather than in the
-             top row because that row is four columns of the goods you WATCH;
-             these two are a chain you tend now and then. ⚠️ The tool line is
-             the one that matters: it is the only cost in this economy that
-             grows with the size of the town rather than with what it buys. -->
-        <p class="note">{MARK.coal}{Math.floor(game.coal)} coal
-          · {MARK.tools}{Math.floor(game.tools)} tools, wearing
-          {(f.tools * 60).toFixed(1)} an hour</p>
+        <!-- ⚠️ COAL AND TOOLS LEFT THIS SHEET, 2026-08-14 — they are two of
+             the six goods and they are in the goods grid with the other four.
+             The reason they were here was that the grid held four columns,
+             which is a fact about a stylesheet and not about the game. What
+             stays is the WEAR, per hour, because that is the one cost in this
+             economy that grows with the size of the town rather than with
+             what it buys, and a per-second figure in the HUD hides it. -->
+        <p class="note">{MARK.tools}the tools wear {(f.tools * 60).toFixed(1)} an hour</p>
         {#if game.tools <= 0}
-          <p class="note">{MARK.waste}the tools are gone — every works is
-            running at {Math.round(TOOLLESS * 100)}%</p>
+          <p class="note">{MARK.waste}the tools are gone. Every works is
+            running at {Math.round(TOOLLESS * 100)}%.</p>
         {/if}
         {#if guardsTotal(game) > 0}
           <p class="note">{MARK.danger}{guardsTotal(game)} standing watch — they do not work</p>
@@ -1605,6 +1620,23 @@
      this HUD replaced. */
   .hud { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
     align-items: stretch; }
+  /* ★ THREE ACROSS, TWO DOWN — six goods, and every one of them keeps its
+     noun. The row rule has to go with it: with two rows, `:last-child` only
+     clears the border on the sixth cell and left a rule hanging off the
+     third. `nth-child(3n)` is the right-hand edge of both rows. */
+  .hud.goods { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* ⚠️ SIX CELLS COST A ROW, AND THE MAP PAID FOR IT. The grid went from one
+     row to two and the board lost 62px of a 295px map — so the cells are
+     tighter than the four-across ones were: less padding, a smaller number.
+     Measured: 62px a row down to 47px, which buys 30px of the 62 back. The
+     three states still read (`full` in red, `STARVING`, the rate). */
+  .hud.goods .cell { padding: 4px 2px 5px; }
+  .hud.goods .cell b { font-size: 18px; }
+  .hud.goods .cap-of { font-size: 11px; }
+  .hud.goods .cell em { font-size: 10.5px; }
+  .hud.goods .cell { border-bottom: 1px solid #e6dfcf; }
+  .hud.goods .cell:nth-child(3n) { border-right: 0; }
+  .hud.goods .cell:nth-child(n + 4) { border-bottom: 0; }
   .hud .cell { display: flex; flex-direction: column; align-items: center;
     gap: 1px; padding: 7px 2px 8px; border: 0; border-right: 1px solid #e6dfcf;
     background: none; font: inherit; text-align: center; min-width: 0; }

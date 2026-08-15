@@ -9,9 +9,9 @@ streamlined."* Five steps, in the order they were agreed. **One per session.**
 | # | step | state |
 |---|---|---|
 | 1 | **The dock** — place is what the map gives you, town/people/hero/log are sheets over it | ✅ `a808387` |
-| 2 | **The war off the stats strip, onto the board** — the fuse, the reticle, the goal alone in the header | ✅ this session |
-| 3 | **One ranked readout row** — food and people pinned, the rest behind a Stores cell | ⬜ next |
-| 4 | **Three standing objectives, one free skip** — the Fallout Shelter steal the teardown ranked #1 | ⬜ |
+| 2 | **The war off the stats strip, onto the board** — the fuse, the reticle, the goal alone in the header | ✅ `5e547e0` |
+| 3 | **All six goods in the HUD** — three columns, two rows, chain order, food first | ✅ this session |
+| 4 | **Three standing objectives, one free skip** — the Fallout Shelter steal the teardown ranked #1 | ⬜ next |
 | 5 | **More jobs for people** — haulers, builders. The real answer to "no point in more people" | ⬜ |
 
 Then: incidents that spread along roads; expeditions with recall. Still open
