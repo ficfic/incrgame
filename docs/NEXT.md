@@ -1,5 +1,28 @@
 # NEXT — the queue
 
+## ★★★ THE CUT, 2026-08-15 — the owner: *"cut the mechanics"*
+
+After playtest 4, with the chrome fixed, the owner looked at what was under
+it and said cut. Three review agents (`the-owner`, `the-redditor`,
+`chad-liquidity`) ranked the same things at the top of the same list.
+
+**✅ Shipped this session** — coal, tools, the forge, push the crew, the
+posted watch, the Free watch and Smaller watch blueprints, and the dead
+`hire` action. The Good union is four again. The Kiln's one real idea
+survives as **Sawpits**: a wood camp still chooses between hauling logs to
+a mill and sawing its own planks where it felled them, which is a routing
+choice on the graph — the part worth keeping.
+
+**Still queued from the same review, in the agents' order:**
+
+| # | cut | why it was ranked |
+|---|---|---|
+| 1 | **Blueprint draft** — 12 cards, most of them ±25% | A choice between three numbers is not a choice. Either make them change how the town works, or cut the deck |
+| 2 | **Sites 10–13** | The valley has more ground than reasons to go there |
+| 3 | **Foraging / meets** | A timer that pays loot, with a two-option text box on top |
+
+Take one per session, smallest first, and LOOK at the board after each.
+
 ## ★★★ PLAYTEST 4, 2026-08-15 — the owner on the restructured build
 
 Verbatim, then what it is. **Three were confirmed in the code before any of
