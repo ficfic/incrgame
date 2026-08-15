@@ -8,6 +8,17 @@ URL, invariants, and the next moves in one page (written 2026-07-25).
 
 ## Now / next
 
+- [ ] **Prune `docs/NEXT.md` (1697 lines) and `docs/DECISIONS.md` (1867) to
+      what is still true.** They are read every session and are mostly the
+      history of three dead designs; the pivot voided whole sections. Keep
+      the reversals and the ⚠️ traps, banner the rest RETIRED or delete it.
+      Bigger win than adopting anyone else's ways-of-working repo — checked
+      2026-08-15, our `CLAUDE.md` is 145 lines and already tighter than the
+      public advice. (Steal one thing from `DietrichGebert/ponytail`, MIT:
+      a `ponytail:`-style comment marking a deliberate corner-cut with its
+      ceiling and upgrade path. Not the persistent mode — it fights
+      `CLAUDE.md` for the same slot.)
+
 - [x] Game concept chosen: **knowledge-graph incremental** (see
       `docs/GAME_DESIGN.md`). Core engine locked: inference = compounding.
 - [x] Educational angle set: "faithful but playable"; GLOSSARY.md is the
