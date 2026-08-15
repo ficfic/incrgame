@@ -55,6 +55,16 @@ const openSheet = async (name) => {
   return true;
 };
 
+/** ⚠️ AND PUT IT AWAY AGAIN. A sheet rises OVER the place panel, so anything
+ *  that opens one and then reads `panel()` is reading the sheet — which is how
+ *  "the ground did not keep its wounds" fired on a build where the ground kept
+ *  its wounds perfectly. Tapping the lit button is what a player does. */
+const shutSheet = async () => {
+  const on = page.locator('.deckbtn[aria-pressed="true"]');
+  if (await on.count()) await on.first().click({ timeout: 2000 }).catch(() => {});
+  await page.waitForTimeout(180);
+};
+
 const header = async () => (await page.locator('header').textContent())
   .replace(/\s+/g, ' ').trim();
 const panel = async () => (await page.locator('.panel').textContent())
@@ -406,9 +416,14 @@ for (let i = 0; i < 4; i++) {
 }
 const beaten = await header();
 console.log('  mashed  :', `"${beaten.slice(30, 110)}"`);
-if (!/\b0\/10\b/.test(await cell('hero'))) {
+// ⚠️ THE HERO'S NUMBERS LEFT THE HEADER, 2026-08-15 — the owner: *"why is it
+// even there and not on the hero panel?"* So this reads the Hero sheet, which
+// is where a player would read it, and says "0 of 10" rather than "0/10".
+await openSheet('Hero');
+if (!/\b0 of 10\b/.test(await cell('hero'))) {
   misses.push(`mash-attacking bare-handed should beat the hero home: "${await cell('hero')}"`);
 }
+await shutSheet();
 // site:4 is STILL picked from the assail — no second tap, that toggles.
 const bled = await panel();
 console.log('  bled    :', `"${bled.slice(0, 60)}"`);
@@ -582,9 +597,11 @@ if (!/own path to camp/.test(gate)) {
   misses.push(`the gate does not offer its own artery: "${gate.slice(0, 80)}"`);
 }
 const heroLine = await header();
-if (!/\b16\/16\b/.test(await cell('hero'))) {
-  misses.push(`two liberations should read hero 16/16: "${await cell('hero')}"`);
+await openSheet('Hero');
+if (!/\b16 of 16\b/.test(await cell('hero'))) {
+  misses.push(`two liberations should read hero 16 of 16: "${await cell('hero')}"`);
 }
+await shutSheet();
 // -------------------------------------------------- the raid ------------
 console.log('\nTHE GOBLINS COME');
 // Held ground used to sit there and heal. A holding with something of yours
@@ -680,13 +697,16 @@ if (!covers) misses.push('the end-of-run screen does not cover the board');
 await page.locator('.gone button').click({ timeout: 2000 })
   .catch(() => misses.push('no button founds the next camp'));
 await page.waitForTimeout(900);
-// ★ SPEARS HAVE THEIR OWN CELL SINCE 2026-08-11 — the hero cell says health
-// in words now, because the crossed swords were being read as a sword count.
-const armsAfter = await cell('spears');
+// ★ SPEARS SIT BESIDE THE HERO'S HEALTH ON THE HERO SHEET since 2026-08-15;
+// before that they had their own header cell, and before that they were a
+// crossed-swords icon that was being read as a sword count.
+await openSheet('Hero');
+const armsAfter = await cell('hero');
 console.log('  founded :', `"${armsAfter}"`);
 if (!/spears ×4/.test(armsAfter)) {
   misses.push(`the veteran did not walk out of the lost valley: "${armsAfter}"`);
 }
+await shutSheet();
 if (await page.locator('.gone').count() > 0) {
   misses.push('the next camp was founded and the end screen is still up');
 }
@@ -766,18 +786,85 @@ await seed({ version: 5, stacks: { 0: 3, 2: 2, 3: 2 },
 // what must be true is that the counter whose number is climbing shows a +1,
 // which is a stronger claim than the old one — it says WHICH good landed by
 // WHERE the float appeared, rather than by an emoji inside it.
+// ★★★ AND IT HAS TO BE ON THE SCREEN WHILE IT DOES IT — 2026-08-15. The
+// owner: *"the +1 indicators start a bit too high up, so they are not
+// visible, they go beyond the screen."* It was anchored to the TOP of a cell
+// with 3px above it and then rose 14px further, so on the first row of the
+// goods grid it left the header entirely and clipped against the status bar.
+//
+// ⚠️ MEASURE THE REAL ONE. The first cut of this check appended a `<span
+// class="bump">` and measured that, and it read the same number with the CSS
+// sabotaged — because Svelte scopes its styles with a hash class, so a
+// hand-made element matches none of the rules under test. It reads the float
+// the game itself put there, and `rise` is the distance the keyframe travels.
 let floated = '';
+let floatRoom = null;
 for (let i = 0; i < 14 && !floated; i++) {
   await page.waitForTimeout(900);
-  floated = await page.evaluate(() => {
+  const seenFloat = await page.evaluate(() => {
     const cell = [...document.querySelectorAll('.hud .cell')]
       .find((c) => c.querySelector('.bump'));
-    return cell ? (cell.getAttribute('data-q') ?? 'somewhere') : '';
+    if (!cell) return null;
+    const b = cell.querySelector('.bump').getBoundingClientRect();
+    return { q: cell.getAttribute('data-q') ?? 'somewhere', top: b.top };
   });
+  if (seenFloat) { floated = seenFloat.q; floatRoom = seenFloat.top; }
 }
-console.log('  floats  :', floated ? `"+1 at ${floated}"` : 'NOTHING FLOATED');
+console.log('  floats  :', floated
+  ? `"+1 at ${floated}", ${floatRoom.toFixed(0)}px down the screen` : 'NOTHING FLOATED');
 if (!floated) {
   misses.push('planks landed and no +1 floated at any counter');
+}
+
+// ⚠️ AND IT HAS TO BE THE TOP ROW OF THE GRID, or the check cannot bite. The
+// float above lands on PLANKS, which is the second row and 23px down — far
+// enough that even the broken anchoring stayed on screen. The bug lived in
+// row one, where a cell begins 3px below the top of the phone. So: a town
+// whose FOOD is climbing, which is the first cell in the grid.
+await seed({ version: 5, stacks: { 0: 3, 1: 2, 3: 3 },
+  paths: { '0|1': 2, '0|3': 2 }, raising: {},
+  stone: 20, logs: 20, planks: 20, food: 5, coal: 2, tools: 20,
+  pop: 10, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, spears: 0, part: 0, at: 0, trip: null },
+  fight: null, store: 2, carts: 0, famine: 0, menace: {},
+  taken: 0, lost: false, forage: null, forays: 0, ambush: null,
+  legacy: { runs: 0, spears: 0 } });
+// ⚠️ AND SAMPLE FAST, THROUGH THE WHOLE FLIGHT. A model of where the float
+// ENDS UP has to know how it is anchored and how far it travels, and every
+// version of this check that carried such a model was wrong about one of
+// them. `getBoundingClientRect` already includes the live transform, so the
+// honest measurement is the LOWEST top seen while it is in the air — which is
+// the thing the owner was looking at.
+let topRow = null;
+for (let i = 0; i < 130 && topRow === null; i++) {
+  await page.waitForTimeout(120);
+  topRow = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll('.hud.goods .cell')];
+    const cell = cells.find((c) => c.querySelector('.bump'));
+    // Only the first row can prove this: a second-row cell begins 23px down,
+    // which is far enough that even the broken anchoring stayed on screen.
+    if (!cell || cells.indexOf(cell) > 1) return null;
+    return { q: cell.getAttribute('data-q') ?? '?', top: cell.querySelector('.bump').getBoundingClientRect().top };
+  });
+  if (topRow) {
+    // Follow this one float all the way up.
+    for (let k = 0; k < 10; k++) {
+      await page.waitForTimeout(110);
+      const now = await page.evaluate(() => {
+        const b = document.querySelector('.hud.goods .cell .bump');
+        return b ? b.getBoundingClientRect().top : null;
+      });
+      if (now === null) break;
+      topRow.top = Math.min(topRow.top, now);
+    }
+  }
+}
+console.log('  top row :', topRow
+  ? `+1 at ${topRow.q}, ${topRow.top.toFixed(0)}px down the screen at its highest`
+  : 'nothing floated in the top row');
+if (topRow === null) misses.push('nothing landed in the top row of the goods grid to measure');
+else if (topRow.top < 0) {
+  misses.push(`the +1 rises off the top of the screen: ${topRow.top.toFixed(0)}px at its highest`);
 }
 
 // -------------------------------------------------- the march -----------
@@ -919,6 +1006,67 @@ await seed(fuseSeed(0.97));
 const fullBurnt = await burnt(FOE_FROM, FOE_TO);
 console.log('  at 97%  :', `${fullBurnt}% of the road burnt`);
 if (fullBurnt < 85) misses.push(`the fuse never reaches the target: ${fullBurnt}% at 97%`);
+
+// ★★★ THE MAP DOES NOT MOVE WHEN YOU CHANGE SHEETS — 2026-08-15. The owner:
+// *"switching between town, hero and along repositions the height of the
+// bottom panel a little bit, and it makes the map jam every time."* It did:
+// `.panel` was `min-height: 148px; max-height: 44dvh`, so it was as tall as
+// whatever was in it, `.map { flex: 1 }` absorbed the difference, and the
+// board re-laid-out on every dock tap.
+console.log('\nTHE MAP HOLDS STILL');
+await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 2 }, paths: { '0|1': 2, '0|2': 1 },
+  stone: 60, logs: 10, planks: 25, food: 300, coal: 4, tools: 18,
+  pop: 12, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 11, spears: 2, part: 0, at: 0, trip: null },
+  fight: null, store: 1, carts: 1, famine: 0, menace: {},
+  taken: 1, lost: false, forage: null, forays: 0, ambush: null,
+  legacy: { runs: 0, spears: 0 } });
+const mapH = async () => (await page.locator('.map').boundingBox())?.height ?? -1;
+const heights = [['place', await mapH()]];
+for (const name of ['Town', 'People', 'Hero', 'Log']) {
+  if (await openSheet(name)) heights.push([name, await mapH()]);
+}
+await shutSheet();
+console.log('  heights :', heights.map(([n, h]) => `${n} ${h.toFixed(0)}`).join(' · '));
+const tall = Math.max(...heights.map(([, h]) => h));
+const short = Math.min(...heights.map(([, h]) => h));
+// ⚠️ NOT "roughly equal". A board that re-lays-out is the complaint, and a
+// single pixel of change is a relayout, so the tolerance is a rounding one.
+if (tall - short > 1) {
+  misses.push(`the map resizes when you change sheets: ${short.toFixed(0)}px to ${tall.toFixed(0)}px`);
+}
+
+// ★★★ A TOWN DEED YOU CANNOT AFFORD LOOKS LIKE ONE YOU CANNOT AFFORD —
+// 2026-08-15. The owner: *"all of these are highlighted as if they are
+// available to me, but they are not."* The sheet emitted `class:cant` and
+// there was no `.cant` rule in the stylesheet, so an unaffordable deed drew
+// identically to an affordable one and did nothing when tapped. A bare camp
+// can afford none of these.
+await seed({ version: 5, stacks: { 0: 1 }, paths: {},
+  stone: 0, logs: 0, planks: 0, food: 20, coal: 0, tools: 0,
+  pop: 3, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 10, spears: 0, part: 0, at: 0, trip: null },
+  fight: null, store: 0, carts: 0, famine: 0, menace: {},
+  taken: 0, lost: false, forage: null, forays: 0, ambush: null,
+  legacy: { runs: 0, spears: 0 } });
+await openSheet('Town');
+const townState = await page.locator('.panel .deed').evaluateAll((els) => els.map((e) => ({
+  label: (e.querySelector('.what')?.textContent ?? '').trim().slice(0, 22),
+  off: e.hasAttribute('disabled'),
+  // The one that matters: does it LOOK different. `.deed:disabled` repaints
+  // the background, so a class with no rule behind it fails right here.
+  bg: getComputedStyle(e).backgroundColor,
+})));
+const live = townState.filter((d) => !d.off);
+const offBgs = new Set(townState.filter((d) => d.off).map((d) => d.bg));
+const liveBgs = new Set(live.map((d) => d.bg));
+console.log('  town    :', townState.map((d) => `${d.label}${d.off ? ' (off)' : ''}`).join(' · ') || 'no deeds');
+if (!townState.length) misses.push('the town sheet offers nothing at all on a bare camp');
+else if (!townState.some((d) => d.off)) {
+  misses.push(`a penniless camp is offered every town deed as available: ${townState.map((d) => d.label).join(', ')}`);
+} else if ([...offBgs].some((b) => liveBgs.has(b))) {
+  misses.push(`a town deed you cannot afford is painted like one you can: ${[...offBgs].join(' / ')}`);
+}
 
 // ★★★ THE ESCAPE HATCH WORKS, AND KEEPS THE SAVE — 2026-08-15. The owner has
 // reported "i don't see anything new live" three times; this button is the one

@@ -1170,7 +1170,7 @@
           {/each}
           <span class="cap">{g.cap}</span>
           <b>{Math.floor(g.have)}<span class="cap-of">/{roomOf(game)}</span></b>
-          <em>{g.mark} {g.note}</em>
+          <em>{g.mark}{g.note}</em>
         </div>
       {/each}
     </div>
@@ -1179,60 +1179,39 @@
         aria-label="people">👤 {Math.floor(game.pop)}/{cap}</span>
       <span class="cell" class:brim={game.pop >= cap} data-q="huts"
         aria-label="huts">🏠 {game.pop >= cap ? 'full' : `×${game.stacks[0] ?? 0}`}</span>
-      <!-- ★★★ THE WORDS WENT BACK IN, 2026-08-11. From the playthrough:
-           *"I don't understand the swords. I think it's hp of the hero"* —
-           it is, and the crossed swords never said so. And of the cart
-           wheel: *"the weird symbol with a zero and a pentagram… I don't
-           understand the wheel sign at all"*, asked twice and never answered.
-           An emoji is a decoration on a word, never a replacement for it. -->
-      <span class="cell" class:hurt={game.hero.hp < heroMax(game) / 3} data-q="hero"
-        aria-label="hero">hero {game.hero.hp}/{heroMax(game)}</span>
-      <!-- ⚠️ NO EMOJI ON THESE THREE. With the words in, the marks pushed the
-           row into a second line and left the gear stranded on its own. The
-           word is the part that was missing; the picture was never the part
-           that was working. -->
-      <span class="cell" data-q="spears" aria-label="spears"
-        >{spearLabel(game.hero.spears).toLowerCase()}</span>
-      <span class="cell" data-q="carts" aria-label="carts">carts {game.carts}</span>
+      <!-- ★★★ THE HERO, THE SPEARS AND THE CARTS LEFT THIS ROW, 2026-08-15.
+           The owner, on the rebuilt HUD: *"ten out of ten, why is it even
+           there and not on the hero panel? And what spears and carts, why
+           are they different from the other resources?"* Both halves are
+           right. Hero hit points and a spear count are not stocks, they were
+           sitting in a strip of stocks, and there is a HERO SHEET one tap
+           away that is about exactly them. Carts went to the Town sheet,
+           beside the deed that buys them.
+           *(The words `hero` and `carts` are kept on those surfaces: they
+           were added in 2026-08-11 because the crossed swords and the cart
+           wheel were asked about twice and never answered, and an emoji is a
+           decoration on a word, never a replacement for it.)* -->
+      <!-- ★ THE GOAL COMES UP ONTO THIS ROW, so the header is two blocks
+           instead of four. It is the same sentence it was on its own line. -->
+      <!-- ⚠️ `shownHoldings`, NOT `holdings` (2026-08-11). An earlier version
+           tested every camp on the map and then printed the count the FOG
+           allows, so a valley whose camps were all still hidden announced
+           "0 goblin camps" while the branch that exists to say the valley is
+           yours sat unreached below it. Found by an audit, not by play.
+           ★ The ambush takes this cell while it lasts: it is the one piece of
+           war news that HAPPENED rather than standing, and it clears itself
+           after twelve seconds. -->
+      <span class="cell goal" class:hurt={game.ambush !== null} data-q="war"
+        >{game.ambush !== null
+          ? `${MARK.waste}ambushed on the road · ${MARK.hero}${game.hero.hp}/${heroMax(game)}`
+          : shownHoldings > 0
+            ? `${MARK.danger}${shownHoldings} goblin camps left`
+            : `${MARK.danger}the valley is yours`}</span>
       <!-- ⚠️ THE GEAR LIVES IN THIS ROW, not pinned over the top corner. It
            was absolute, and it sat on the FOOD column and clipped its label
            to "FOO" — caught in the first screenshot. A trailing `auto`
            column cannot overlap anything. -->
       <button class="reset gear" onclick={() => (menu = !menu)}>{menu ? 'Close' : '⋯'}</button>
-    </div>
-    <!-- ★★★ THE WAR CAME OFF THIS LINE — 2026-08-14. It used to carry five
-         facts: how full the worst raid was, what it was coming for, where
-         the hero was standing, how many camps were left, and how much the
-         goblins had swollen. The owner, reading it mid-game: *"it's a stupid
-         thing to have in the same… you know, this is a stats menu. Why is it
-         there?"* And, of the raids themselves: *"there is no clear visual
-         indicator that they are attacking on a path."*
-
-         Both complaints have the same answer. The clock, the target and the
-         hero's whereabouts are all facts about PLACES, so they went to the
-         board, where places are: the fuse burns along the road the raid will
-         walk, the reticle rings what it is coming for, the figure stands
-         where the hero stands. The swell is already in the number on each
-         holding's own panel — `spawnOf` refills a camp to the swollen
-         ceiling, so "48 strong" IS the swell, said once.
-
-         What is left is the goal — how much of the valley is still theirs —
-         and the ambush, which is the one piece of war news that is not a
-         standing fact about a place but a thing that HAPPENED, and which
-         clears itself after twelve seconds. -->
-    <div class="warline" class:hot={game.ambush !== null} data-q="war">
-      <!-- ⚠️ `shownHoldings`, NOT `holdings` (2026-08-11). An earlier version
-           tested every camp on the map and then printed the count the FOG
-           allows, so a valley whose camps were all still hidden announced
-           "0 goblin camps" while the branch that exists to say the valley is
-           yours sat unreached below it. Found by an audit, not by play. -->
-      {#if game.ambush !== null}
-        {MARK.waste}ambushed on the road · {MARK.hero}{game.hero.hp}/{heroMax(game)}
-      {:else if shownHoldings > 0}
-        {MARK.danger}{shownHoldings} goblin camps left
-      {:else}
-        {MARK.danger}the valley is yours
-      {/if}
     </div>
     {#if menu}
     <div class="menurow">
@@ -1460,6 +1439,9 @@
              whole camp. These deeds used to live inside the PLACE inspector,
              reachable only by tapping one particular dot on the map. -->
         <h2>The town</h2>
+        <!-- ★ THE CARTS CAME OFF THE TOP STRIP TOO, and they belong beside the
+             deed that buys them rather than in a strip of stocks. -->
+        <p class="note">carts {game.carts} · {MARK.people}{Math.floor(game.pop)} of {cap} housed</p>
         <!-- ⚠️ `.deeds`, not `.dock`. `.dock` has no grid rules in this
              component, so the buttons stacked one per row at whatever height
              they liked — the browser probe caught it as "one column of 5" and
@@ -1471,7 +1453,15 @@
                  two-column sizing both hang off `.row`; without it the
                  buttons were 0px-floored and full width. The probe reads the
                  computed `min-height`, which is why it caught this. -->
-            <button class="deed row" class:cant={d.why !== null} onclick={d.go}>
+            <!-- ⚠️ `disabled`, NOT `class:cant` — 2026-08-15. This emitted a
+                 `cant` class and THERE IS NO `.cant` RULE IN THIS
+                 STYLESHEET, so every town deed you could not afford drew
+                 exactly like one you could and then did nothing when tapped.
+                 The owner: *"all of these are highlighted as if they are
+                 available to me, but they are not."* Mine, from `a808387`.
+                 The place panel below has always used `disabled`, which is
+                 what `.deed:disabled` is styled for. -->
+            <button class="deed row" disabled={d.why !== null} onclick={d.go}>
               <span class="what">{d.label}</span><em>{d.note}</em>
             </button>
           {/each}
@@ -1512,7 +1502,11 @@
         {/if}
       {:else if !game.fight && sheet === 'hero'}
         <h2>The hero</h2>
-        <p class="note">{MARK.hero}{game.hero.hp} of {heroMax(game)}
+        <!-- ★ THESE TWO CAME OFF THE TOP STRIP, 2026-08-15 (the owner: *"why
+             is it even there and not on the hero panel?"*). They keep their
+             WORDS: the crossed swords were asked about twice and never
+             answered until the word went in. -->
+        <p class="note" data-q="hero">hero {game.hero.hp} of {heroMax(game)}
           · {spearLabel(game.hero.spears).toLowerCase()}</p>
         <p class="note">{game.hero.trip
           ? `on the road to ${SITE.get(game.hero.trip.to)?.name ?? ''} · ${MARK.time}${Math.ceil(game.hero.trip.left)}s`
@@ -1661,18 +1655,32 @@
      clears the border on the sixth cell and left a rule hanging off the
      third. `nth-child(3n)` is the right-hand edge of both rows. */
   .hud.goods { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  /* ⚠️ SIX CELLS COST A ROW, AND THE MAP PAID FOR IT. The grid went from one
-     row to two and the board lost 62px of a 295px map — so the cells are
-     tighter than the four-across ones were: less padding, a smaller number.
-     Measured: 62px a row down to 47px, which buys 30px of the 62 back. The
-     three states still read (`full` in red, `STARVING`, the rate). */
-  .hud.goods .cell { padding: 4px 2px 5px; }
-  .hud.goods .cell b { font-size: 18px; }
+  /* ★★★ THE GOODS LIE DOWN — 2026-08-15. The owner: *"the top menu is too
+     vertical. I don't understand why we're not using anything horizontally
+     while having three rows of various height, text, numbers and icons
+     vertically."* Exactly right: each cell stacked its noun over its number
+     over its rate, three lines tall, inside a cell 130px wide and mostly
+     empty. One line each now, and TWO columns instead of three, so the row
+     is wider and the block is shorter.
+     Measured: the goods block 94px → 69px, and the header 164px → 97px once
+     the war line folded into the standings row. The map got 67px back. */
+  .hud.goods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hud.goods .cell { flex-direction: row; align-items: baseline; gap: 5px;
+    padding: 3px 10px 3px 8px; justify-content: flex-start; }
+  .hud.goods .cell b { font-size: 15px; }
   .hud.goods .cap-of { font-size: 11px; }
-  .hud.goods .cell em { font-size: 10.5px; }
+  /* ⚠️ `min-width: 0` OR THE RATE RUNS OFF THE SCREEN. A flex item's default
+     `min-width: auto` refuses to shrink below its content, so `🪨full` in the
+     right-hand column overran the cell's own padding and lost its last letter
+     against the screen edge. Caught in the screenshot, not by any check. */
+  .hud.goods .cell em { font-size: 11px; margin-left: auto; min-width: 0; }
+  /* The noun is a fixed share so the numbers line up down the column — a
+     ragged left edge on six numbers is the "cannot find anything" complaint
+     in miniature. */
+  .hud.goods .cap { min-width: 46px; text-align: left; }
   .hud.goods .cell { border-bottom: 1px solid #e6dfcf; }
-  .hud.goods .cell:nth-child(3n) { border-right: 0; }
-  .hud.goods .cell:nth-child(n + 4) { border-bottom: 0; }
+  .hud.goods .cell:nth-child(2n) { border-right: 0; }
+  .hud.goods .cell:nth-child(n + 5) { border-bottom: 0; }
   .hud .cell { display: flex; flex-direction: column; align-items: center;
     gap: 1px; padding: 7px 2px 8px; border: 0; border-right: 1px solid #e6dfcf;
     background: none; font: inherit; text-align: center; min-width: 0; }
@@ -1698,22 +1706,20 @@
   .hud .cell.brim b, .hud .cell.brim em { color: #b3452f; }
   .hud .cell.hurt b, .hud .cell.hurt em { color: #b3452f; font-weight: 700; }
 
-  .warline { padding: 5px 10px; font-size: 12.5px; font-weight: 600;
-    text-align: center; color: #6b5d3f; background: #f2ece0;
-    border-top: 1px solid #e6dfcf; white-space: nowrap; overflow: hidden;
-    text-overflow: ellipsis; }
-  /* Past two thirds it stops being background information. */
-  .warline.hot { color: #b3452f; background: #f7e9e5; }
 
   .standings { border-top: 1px solid #e6dfcf; background: #f7f2e7;
     /* ⚠️ NOT FOUR EQUAL COLUMNS like the row above. The standings are wildly
        uneven in length — "🛞 3" against "⚔️ 8/10 · arms 1" — and equal shares
        clipped the hero's arms count to "arms" with nothing after it. The
        short ones take what they need; the hero takes the slack. */
-    /* ★ SIX COLUMNS SINCE 2026-08-11: spears left the hero's cell so the
-       hero's could say "hero 10/10" in words. Five columns left the gear
-       wrapping onto a row of its own. */
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto auto; }
+    /* ★ FOUR COLUMNS SINCE 2026-08-15: the hero, the spears and the carts
+       went to the sheets that are about them, and the goal came up off its
+       own row. The goal takes the slack, because it is the only one of the
+       four that is a sentence. */
+    grid-template-columns: auto auto minmax(0, 1fr) auto; }
+  .standings .cell.goal { justify-content: center; font-weight: 700;
+    color: #6b5d3f; }
+  .standings .cell.goal.hurt { color: #b3452f; }
   .standings .cell { padding-left: 8px; padding-right: 8px; }
   .standings .cell { flex-direction: row; justify-content: center; gap: 4px;
     padding: 6px 2px; font-size: 13px; color: #6b5d3f; font-weight: 600;
@@ -1764,11 +1770,24 @@
     margin: 5px 0; }
   /* ★ F3: the +1 rises out of the counter it belongs to. */
   .goods .cell { position: relative; }
-  .bump { position: absolute; right: 6px; top: 2px; font-size: 12px;
+  /* ★ IT RISES INTO THE CELL, NOT OUT OF THE TOP OF THE PHONE — 2026-08-15.
+     The owner: *"the +1 indicators start a bit too high up, so they are not
+     visible, they go beyond the screen."* It was anchored to the TOP of a
+     cell with 3px of padding above it and then travelled 14px further up, so
+     on the first row of the grid it left the header and clipped against the
+     status bar. Anchored to the bottom now, and the rise is shorter than the
+     cell is tall, so the whole flight happens inside the counter it belongs
+     to. */
+  .bump { position: absolute; right: 6px; bottom: 1px; font-size: 12px;
     font-weight: 800; color: #1f7a3f; pointer-events: none;
     animation: bump 1s ease-out forwards; }
+  /* ⚠️ AND THE RISE IS 6px, NOT 13. Anchoring to the bottom was not enough:
+     a 14px float in a 23px cell has 8px of headroom, and 13px of travel spent
+     five of them above the top of the phone. The probe measured it at −5px,
+     which is the owner's complaint in one number. The cells are short and
+     horizontal now, so a short lift with the fade reads perfectly well. */
   @keyframes bump { from { opacity: 0.95; transform: translateY(0); }
-    to { opacity: 0; transform: translateY(-14px); } }
+    to { opacity: 0; transform: translateY(-6px); } }
   @media (prefers-reduced-motion: reduce) { .bump { animation-duration: 0.01s; } }
   .swinging { color: #b3452f; font-weight: 700; text-align: center; margin: 2px 0; }
   /* ★ The wind-up is the one beat where Guard is right, so it shouts. */
@@ -1788,9 +1807,28 @@
   .reset.gear { padding: 2px 10px; line-height: 1.3; align-self: center;
     margin: 0 6px 0 2px; }
   .reset.armed { background: #b3452f; color: #fff; }
-  .map { flex: 1; min-height: 0; position: relative; margin: 10px; }
+  /* ★★★ THE MAP IS THE FIXED ONE, AND THE PANEL ABSORBS — 2026-08-15.
+     ⚠️ THE FIRST CUT OF THIS FIX FROZE THE PANEL INSTEAD, and the screenshot
+     killed it: a 40dvh panel under a three-line place inspector is 80px of
+     empty parchment, every time, for a stability the map could have had for
+     free. It is the MAP that must not move — that is the whole complaint —
+     so the map takes a fixed share and the panel takes what is left. The
+     board never hears about a dock tap, and the emptiness lands in a panel
+     that already looks like a panel and scrolls when there is more. */
+  .map { flex: 0 0 auto; height: 42dvh; min-height: 0; position: relative;
+    margin: 10px; }
+  /* ★★★ A FIXED HEIGHT, AND THAT IS THE WHOLE FIX — 2026-08-15. The owner:
+     *"switching between town, hero and along repositions the height of the
+     bottom panel a little bit, and it makes the map jam every time."* It did.
+     `min-height: 148px; max-height: 44dvh` meant the panel was as tall as
+     whatever sheet was open, `.map { flex: 1 }` absorbed the difference, and
+     the board re-laid-out on EVERY dock tap — a graph that jumps under your
+     thumb because you looked at a different menu.
+     `height` instead of `min-height`, so the map is the same size no matter
+     which sheet is up and the board never hears about it. The content
+     scrolls inside, which is what `overflow-y` was always for. */
   .panel { padding: 8px 14px 16px; border-top: 1px solid #d8d0bf; background: #f7f2e7;
-    min-height: 148px; max-height: 44dvh; overflow-y: auto; }
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   .menurow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
     padding: 8px 14px; border-top: 1px solid #e6dfcf; }
   .panel h2 { margin: 4px 0 6px; font-size: 18px; }

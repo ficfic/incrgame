@@ -1,5 +1,27 @@
 # NEXT — the queue
 
+## ★★★ PLAYTEST 4, 2026-08-15 — the owner on the restructured build
+
+Verbatim, then what it is. **Three were confirmed in the code before any of
+this was written**, and they are marked.
+
+| # | what they said | what it is |
+|---|---|---|
+| C1 | *"switching between town, hero and along repositions the height of the bottom panel a little bit, and it makes the map jam every time"* | ✔ confirmed. `.panel` is `min-height: 148px; max-height: 44dvh`, so every sheet is a different height and `.map { flex: 1 }` absorbs it. The board re-lays-out on every dock tap. |
+| C2 | *"the top menu is too vertical. I don't understand why we're not using anything horizontally while having three rows of various height, text, numbers and icons vertically"* | Four rows, 164px. Each goods cell stacks noun over number over rate, so it is tall and narrow in a cell that is wide and empty. |
+| C3 | *"ten out of ten, why is it even there and not on the hero panel? And what spears and carts, why are they different from the other resources"* | Hero hp, spears and carts are in the goods strip. They are not goods, and there is a Hero sheet. |
+| C4 | *"why are we talking about goblin camps [at the top]"* | The goal line. It is the objective, and it reads as a stat because it sits in a strip of stats. Step 4 (standing objectives) owns this. |
+| C5 | *"town, watch, tools: all of these are highlighted as if they are available to me, but they are not"* | ✔ confirmed, and it is mine from `a808387`. The Town sheet emits `class:cant={d.why !== null}` and **there is no `.cant` rule in the stylesheet**. Unaffordable town deeds render as available and do nothing when tapped. |
+| C6 | *"what do you mean by the town? Is it the camp, is it all of them?"* | The dock's word. "Town" means the whole holding; the camp is a dot on the map. |
+| C7 | *"I don't understand why I'm not running out of food anymore even though we used to"* | Balance. F0's growth gate (grow only on surplus or a stocked larder) may have removed the squeeze along with the dead end. Needs `chad-liquidity` on real numbers, not an opinion. |
+| C8 | *"the +1 indicators start a bit too high up, so they are not visible, they go beyond the screen"* | ✔ confirmed. `.bump` is `top: 2px` and rises 14px, out of a cell whose padding is 4px — so it leaves the header and clips. |
+
+**✅ Shipped:** C1, C2, C3, C5, C8 as one item — the chrome moved, was too
+tall, held things that were not goods, and lied about what you could afford.
+Header 164px → 96px, map 307px → 354px and identical across all four sheets.
+**Queued:** C4 (folded into step 4), C6 (what "Town" means), C7 (food never
+runs out — needs `chad-liquidity` on real numbers).
+
 ## ★★★ THE IA RESTRUCTURE, 2026-08-14 — five steps, from playtest 3
 
 The owner, after the third playthrough: *"we need to gather all of our
