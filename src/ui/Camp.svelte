@@ -50,6 +50,26 @@
   let menu = $state(false);
   let wiping = $state(false);
   let ported = $state<'copied' | 'refused' | null>(null);
+  /** ★ Throw away every cached copy of the app and come back on the current
+   *  one. See the button's own comment for why this exists. Deliberately not
+   *  clever: it does not ask whether an update is available, because the
+   *  machinery that answers that question is the machinery under suspicion. */
+  const freshen = async (): Promise<void> => {
+    // The save first, and synchronously as far as this can be — the reload
+    // below cancels the 2-second autosave mid-interval otherwise.
+    try { save(game); } catch { /* a full disk is not a reason to stay stale */ }
+    try {
+      const regs = await navigator.serviceWorker?.getRegistrations() ?? [];
+      await Promise.all(regs.map((r) => r.unregister()));
+    } catch { /* no worker to unregister */ }
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    } catch { /* no cache storage */ }
+    // ⚠️ A QUERY STRING, because `location.reload()` is allowed to come back
+    // out of the URL cache and this whole button exists because a cache lied.
+    location.replace(`${location.pathname}?fresh=${Date.now()}`);
+  };
 
   const act = (a: Parameters<typeof apply>[1]): void => { game = apply(game, a); };
 
@@ -1229,7 +1249,23 @@
       <button class="reset porter" onclick={pasteSave}>
         {ported === 'refused' ? 'That save was refused' : 'Load a save'}
       </button>
-      <span class="keep build">{__BUILD_ID__}</span>
+      <!-- ★★★ THE ESCAPE HATCH, 2026-08-15. The owner, for the THIRD time:
+           *"i don't see anything new live."* The deploy was green and the
+           server was serving the right build both times before, and the
+           comment in `src/main.ts` names the two causes already found (a dead
+           CI job, then a worker that only ever looked for an update at page
+           load). This is the admission that the diagnosis cannot be done from
+           here: the phone is the only place the stale copy exists, and it is
+           the one place there is no console.
+
+           So: one tap that throws away every cached copy and comes back on
+           the current one. It unregisters the workers, empties the caches and
+           reloads past the URL cache. THE SAVE IS NOT TOUCHED — it lives in
+           localStorage, and it is flushed to disk first, because a reload
+           that ate an hour of play to fix a stale button would be worse than
+           the stale button. -->
+      <button class="reset porter" onclick={freshen}>Get the latest build</button>
+      <span class="keep build" data-q="build">build {__BUILD_ID__}</span>
     </div>
     {/if}
   </header>

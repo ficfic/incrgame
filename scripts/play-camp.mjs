@@ -920,6 +920,44 @@ const fullBurnt = await burnt(FOE_FROM, FOE_TO);
 console.log('  at 97%  :', `${fullBurnt}% of the road burnt`);
 if (fullBurnt < 85) misses.push(`the fuse never reaches the target: ${fullBurnt}% at 97%`);
 
+// ★★★ THE ESCAPE HATCH WORKS, AND KEEPS THE SAVE — 2026-08-15. The owner has
+// reported "i don't see anything new live" three times; this button is the one
+// thing that cannot be diagnosed from here, so it is the one thing that has to
+// be proven from here. Two claims: it comes back on a fresh URL, and the town
+// is still standing when it does.
+//
+// ⚠️ THE SAVE HALF IS THE HALF THAT MATTERS. A reload that clears storage
+// alongside the caches would trade a stale build for a wiped valley, which is
+// worse, and it would look identical from the outside on a fresh save.
+await seed({ version: 5, stacks: { 0: 4, 1: 3, 2: 2 }, paths: { '0|1': 2, '0|2': 1 },
+  stone: 77, logs: 12, planks: 31, food: 200, coal: 5, tools: 20,
+  pop: 14, popPart: 0, goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
+  hero: { hp: 11, spears: 3, part: 0, at: 0, trip: null },
+  fight: null, store: 1, carts: 1, famine: 0, menace: {},
+  taken: 1, lost: false, forage: null, forays: 0, ambush: null,
+  legacy: { runs: 0, spears: 0 } });
+await page.locator('.gear').click({ timeout: 2000 }).catch(() => {});
+await page.waitForTimeout(200);
+const buildBefore = await cell('build').catch(() => '');
+// ⚠️ NOT THE SEEDED SAVE. `seed()` reinstalls `camp-save` through an init
+// script on EVERY load, including the one this button causes, so asserting the
+// town survived was VACUOUS — proven by making the button call `wipe()`, which
+// the check passed. A key the init script never writes is the honest witness,
+// and it fails for the one reason that matters: storage was cleared alongside
+// the caches, which would trade a stale build for a wiped valley.
+await page.evaluate(() => localStorage.setItem('probe-keepsake', 'still here'));
+const fresher = page.locator('.menurow button', { hasText: 'Get the latest build' });
+if (!(await fresher.count())) misses.push('there is no way to force a fresh build from the menu');
+else {
+  await fresher.first().click({ timeout: 2000 }).catch(() => {});
+  await page.waitForTimeout(1400);
+  const url = page.url();
+  const kept = await page.evaluate(() => localStorage.getItem('probe-keepsake'));
+  console.log('  fresh   :', `${buildBefore} · ${url.includes('?fresh=') ? 'came back on a fresh URL' : `URL UNCHANGED: ${url}`} · storage ${kept ? 'kept' : 'CLEARED'}`);
+  if (!url.includes('?fresh=')) misses.push(`the fresh-build button did not reload past the cache: ${url}`);
+  if (!kept) misses.push('the fresh-build button cleared localStorage, which is where the save lives');
+}
+
 // ★ AND BEING CAUGHT ON THE ROAD IS SAID OUT LOUD.
 await seed({ version: 5, stacks: { 0: 3, 1: 3, 2: 3 },
   paths: { '0|1': 2, '0|2': 2 }, stone: 30, logs: 6, planks: 20, food: 9e5,
