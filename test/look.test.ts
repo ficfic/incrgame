@@ -62,6 +62,17 @@ describe('★★★ THE CHROME IS ONE SYSTEM', () => {
     expect(PAPER.moss).toBe(INK.open);
   });
 
+  it("★★ the global sheet's two typed colours are copies, not a fourth family", () => {
+    // `style.css` paints before any JavaScript, so it cannot read the
+    // runtime tokens and its values must be written out. That is allowed
+    // ONLY while they are exact copies — they were a third parchment and a
+    // fourth text ink until the look pass, living in the overscroll gutter.
+    const css = readFileSync(new URL('../src/style.css', import.meta.url), 'utf8');
+    const typed = css.replace(/\/\*[\s\S]*?\*\//g, '').match(/#[0-9a-fA-F]{3,8}\b/g) ?? [];
+    expect(typed.length).toBe(2);
+    expect(new Set(typed)).toEqual(new Set([PAPER.page, PAPER.text]));
+  });
+
   it('★ a mark is never printed beside the noun it stands for', () => {
     // The owner's own rule, read the other way (2026-08-15): an emoji is a
     // decoration on a word, so a cell CAPTIONED `FOOD` must not then say

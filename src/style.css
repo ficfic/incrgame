@@ -5,12 +5,20 @@
 :root {
   color-scheme: light;
 }
+/* ⚠️ THE ONLY TWO COLOURS OUTSIDE THE TOKEN SYSTEM, AND THEY ARE COPIES.
+   This sheet is painted before any JavaScript runs, so it cannot use the
+   `:root` custom properties `Camp.svelte` writes at mount — a `var()` here
+   would be unset on the very first frame and flash. So the values are typed,
+   and `test/look.test.ts` asserts they are EXACTLY `PAPER.page` and
+   `PAPER.text`. They were `#e8e0d0` and `#33302a` until 2026-08-15: a THIRD
+   parchment and a FOURTH text ink, neither of which appeared anywhere else,
+   sitting in the overscroll gutter where the page bounces. */
 html,
 body {
   margin: 0;
   padding: 0;
-  background: #e8e0d0;
-  color: #33302a;
+  background: #efe9dc;
+  color: #4a4030;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;

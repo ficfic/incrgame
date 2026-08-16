@@ -1530,7 +1530,12 @@
           </button>
         {/each}
         </div>
-      {:else}
+      {:else if !game.fight}
+        <!-- ⚠️ AND NOT DURING A FIGHT, 2026-08-15. Every branch above this one
+             is guarded by `!game.fight`, so a battle fell through the whole
+             chain to here and printed "Tap a site." underneath the strip —
+             an instruction to do the one thing that does nothing while a
+             fight is on. The strip IS the panel's content then. -->
         <p class="note">Tap a site.</p>
       {/if}
     </section>
