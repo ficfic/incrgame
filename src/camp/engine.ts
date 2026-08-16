@@ -702,12 +702,22 @@ export const heroMax = (g: City): number => HERO_HP + 3 * g.taken;
  *  ⚠️ THE SOLVER'S LADDER IS UNTOUCHED at a levy of zero, which is what every
  *  rung was tuned against. Bringing people is a choice that makes fights
  *  easier and the town poorer, never a tax on the fights already balanced. */
-/** ★★★ AND WAR IS THE FIFTH SKILL — 2026-08-16. One more damage every third
+/** ★★★ AND WAR IS THE FIFTH SKILL — 2026-08-16. One more damage every sixth
  *  level, which is deliberately coarse: the fight solver is the ladder's only
  *  guard and it reasons about WHOLE hit points, so a fractional bonus would
  *  make its answers meaningless. Coarse also means it is felt as an event —
- *  "the hero hits harder now" — instead of a decimal creeping upward. */
-export const WAR_PER_HIT = 3;
+ *  "the hero hits harder now" — instead of a decimal creeping upward.
+ *
+ *  ⚠️ IT SHIPPED AT 3 AND DISSOLVED THE SPEAR GATE. The ladder's guard built
+ *  every rung from `initial()` — `taken: 0`, war level 1 — a state no player
+ *  is ever in, so it certified "one spear under cannot win it AT ALL" while
+ *  the war skill was quietly handing the hero the rung's own damage at one
+ *  spear fewer on FOUR OF SIX RUNGS. Found independently by `the-graph` and
+ *  `chad-liquidity`. The fixture now carries the real `taken` and war xp, and
+ *  this constant was walked up until the ladder held again: 4 leaves three
+ *  rungs broken, 5 leaves two, 6 holds all six. The armoury still decides who
+ *  you can fight; the war skill is a nudge inside a rung, not a free spear. */
+export const WAR_PER_HIT = 6;
 export const heroHit = (g: City): number =>
   2 + g.hero.spears + standing(g)
   + Math.floor((skillOf(g, 'war') - 1) / WAR_PER_HIT);

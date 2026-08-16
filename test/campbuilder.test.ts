@@ -5,7 +5,7 @@
 // ---- PROVEN RED, 2026-08-08 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
 import { held } from '../src/camp/barrier';
-import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax,
+import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax, XP_PER_FIGHT,
   unlayable, unraisable, unassailable, component, heroHit, spearCost, hunger,
   RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
   roomToGrow, jobsOf,
@@ -1061,11 +1061,30 @@ describe('★★★ THE LADDER HOLDS — solved, not felt', () => {
   }
 
   /** The rung: every earlier ground freed, the hero full, the larder deep. */
+  /** ★★★ THE STATE THE PLAYER ACTUALLY ARRIVES IN — 2026-08-16.
+   *
+   *  ⚠️ THIS FIXTURE BUILT EVERY RUNG FROM `initial()`: `taken: 0`, `xp: {}`.
+   *  Nobody reaches the fourth holding having taken none and learned nothing,
+   *  so the ladder's ONLY guard was measuring a fight that does not happen.
+   *  The war skill then shipped and quietly handed the hero the rung's own
+   *  damage at ONE SPEAR FEWER on four of six rungs, while this check went on
+   *  certifying that one under "cannot win it AT ALL". Found independently by
+   *  `the-graph` and `chad-liquidity`.
+   *
+   *  Proven, in that order: old fixture + the shipped WAR_PER_HIT of 3 → 0
+   *  failures, the vacuous state. This fixture + 3 → 4 failures. This fixture
+   *  + 6 → the ladder holds again.
+   *
+   *  `taken` and war xp come from where the rung sits in the order now, and
+   *  `heroMax` reads `taken`, so the hero also has the hit points they would
+   *  really have arrived with. */
   const rung = (site: number, spears: number): City => {
     const order = [4, 5, 6, 7, 8, 9];
+    const at = order.indexOf(site);
     const goblins: Record<number, number> = {};
-    for (const s of order.slice(order.indexOf(site))) goblins[s] = GOBLINS[s]!.strength;
-    const base: City = { ...initial(), goblins, food: 99 };
+    for (const s of order.slice(at)) goblins[s] = GOBLINS[s]!.strength;
+    const base: City = { ...initial(), goblins, food: 99,
+      taken: at, xp: { war: XP_PER_FIGHT * at } };
     return apply({ ...base, hero: { hp: heroMax(base), spears, part: 0, at: site, trip: null } },
       { type: 'assail', id: site });
   };
