@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, levelOf, nextAt, skillOf, skillBonus,
   SKILLS, TRAINS, LEVEL_BASE, XP_PER_FIGHT, SKILL_GAIN, heroHit,
-  worksMax, WORKS_PER_LEVEL, WORKS_MAX, unraisable, nextAt as _n,
+  worksMax, WORKS_PER_LEVEL, WORKS_MAX, WORKS_CAP, unraisable, blowLeft,
   pathKey, type City } from '../src/camp/engine';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
@@ -114,11 +114,54 @@ describe('★★★ WHAT A LEVEL IS WORTH', () => {
     expect(skilled).toBeGreaterThan(green * 1.15);
   });
 
-  it('★★ war is trained by winning ground, and it sharpens the hero', () => {
+  it('★★★ war is trained by ACTUALLY WINNING GROUND', () => {
+    // ⚠️ THIS TEST WAS A LIE UNTIL 2026-08-16. It was named "war is trained
+    // by winning ground" and then built `{ xp: { war: … } }` BY HAND — so
+    // deleting the award site in the engine left it green. `the-process`
+    // found it by sabotage, in the same commit where I had caught and fixed
+    // the identical shape in the choked-road test. Finding one instance of a
+    // mistake is not the same as looking for the others.
+    const g: City = { ...initial(),
+      hero: { hp: 99, spears: 99, part: 0, at: 4, trip: null } };
+    // ⚠️ A BLOW TAKES TIME. `apply({strike})` only ORDERS the swing; it
+    // lands on a later tick, so a loop of bare strikes never finishes a
+    // fight — settle each one, exactly as `campbuilder.test.ts` does.
+    const settle = (x: City): City => {
+      let out = x;
+      for (let n = 0; n < 40 && blowLeft(out) !== null; n++) {
+        out = apply(out, { type: 'tick', secs: 0.25 });
+      }
+      return out;
+    };
+    let f = settle(apply(g, { type: 'assail', id: 4 }));
+    for (let i = 0; i < 60 && f.fight; i++) {
+      const live = f.fight.sq.findIndex((q) => q.hp > 0);
+      if (live < 0) break;
+      f = settle(apply(settle(apply(f, { type: 'aim', at: live })), { type: 'strike' }));
+    }
+    expect(f.fight).toBeNull();
+    expect(f.xp.war ?? 0).toBeGreaterThanOrEqual(XP_PER_FIGHT);
+  });
+
+  it('★★ and enough of it sharpens the hero', () => {
     const before = heroHit(initial());
     const veteran = { ...initial(), xp: { war: XP_PER_FIGHT * 40 } };
     expect(skillOf(veteran, 'war')).toBeGreaterThan(3);
     expect(heroHit(veteran)).toBeGreaterThan(before);
+  });
+
+  it('★★★ the works ceiling is THREE, and the refusal says the same number', () => {
+    // ⚠️ `ec3e096` shipped WORKS_CAP=3 with NOTHING guarding it — set it to
+    // 99 and the whole suite stayed green. The cap is the one thing keeping
+    // "more output means more GROUND" true, and the refusal string hardcodes
+    // the word "Three" while the cap is a constant, so they can disagree in
+    // silence. They cannot now.
+    expect(WORKS_CAP).toBe(3);
+    const maxed = { ...initial(), xp: { quarrying: 9e6 } };
+    expect(worksMax(maxed, 'quarry')).toBe(WORKS_CAP);
+    const g: City = { ...maxed, stone: 999,
+      stacks: { 1: WORKS_CAP }, paths: { [pathKey(0, 1)]: 1 } };
+    expect(unraisable(g, 1)).toContain('Three');
   });
 });
 

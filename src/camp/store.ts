@@ -1,6 +1,6 @@
 // THE CAMP'S SAVE. Its own key, its own shape — the old game's saves stay
 // untouched on theirs, so flipping back loses nobody anything.
-import { BOONS, CITY_VERSION, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, SKILLS, initial,
+import { BOONS, CITY_VERSION, LOG_KEEP, MAX_GAUGE, MEETS, RATION_PACK, SITE, SKILLS, initial,
   pathKey, type City } from './engine';
 
 const KEY = 'camp-save';
@@ -173,8 +173,12 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   if (g.fight !== undefined && g.fight !== null && g.fight.us === undefined) {
     g.fight.us = [];
   }
+  // ⚠️ BOUNDED BY THE CONTENT, not by 99. An out-of-range meeting renders
+  // nothing, `answer` refuses it, and the tick only deals a new one when
+  // `meet` is null — so a single bad index stopped every meeting FOREVER,
+  // with nothing on screen to say why.
   if (g.meet === undefined) g.meet = null;
-  else if (g.meet !== null && !whole(g.meet, 0, 99)) return null;
+  else if (g.meet !== null && !whole(g.meet, 0, MEETS.length - 1)) return null;
   if (g.since === undefined) g.since = 0;
   else if (!num(g.since, 0, 1e9)) return null;
   if (g.log === undefined || g.log === null) g.log = [];
@@ -215,7 +219,13 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
       // ⚠️ A REAL HELD GROUND, not merely an integer: `site: 99` used to be
       // accepted, and the panel's `SITE.get(99)!.name` then threw on the
       // first render — a crafted save killed the whole screen.
-      && GOBLINS[f.site as number] !== undefined
+      // ⚠️ `SITE`, NOT `GOBLINS` — 2026-08-16. A raid can put goblins on
+      // ground that never started held (`raidTarget` reaches sites 1–3 and
+      // the town itself), and a fight there was refused by this line and
+      // silently discarded. It is the same widening `g.goblins` already got;
+      // the fight validator kept the old assumption. What it must reject is
+      // still an id that is not a place at all, which `SITE` answers.
+      && SITE.get(f.site as number) !== undefined
       && Array.isArray(f.sq) && f.sq.length === 3
       && f.sq.every(q => q && num(q.hp, 0, 9999) && num(q.poke, 0, 99)
         && (q.kind === 'brute' || q.kind === 'runt'))
@@ -233,8 +243,17 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
       && (f.blow === undefined || f.blow === null
         || (typeof f.blow === 'object'
           && num(f.blow.left, 0, 1e6) && num(f.blow.secs, 0, 1e6)
+          // ⚠️ SWEEP AND VOLLEY WERE MISSING FOR FIVE DAYS. They have been
+          // player verbs since 2026-08-11 and this list was never told. A
+          // save taken with either in flight failed here, `sound` went
+          // false, and THE WHOLE FIGHT WAS DISCARDED — every hit landed in
+          // it refunded to the goblins. Autosave runs every 2s and flushes
+          // on `visibilitychange`, and `BLOW_SECS` is 1, so backgrounding
+          // the phone just after tapping Sweep is the ORDINARY case on the
+          // one browser this game is played in.
           && (f.blow.act === 'strike' || f.blow.act === 'guard'
-            || f.blow.act === 'ration')));
+            || f.blow.act === 'ration' || f.blow.act === 'sweep'
+            || f.blow.act === 'volley')));
     if (!sound) g.fight = null;
     else g.fight = { ...(f as NonNullable<City['fight']>), blow: f.blow ?? null };
   }

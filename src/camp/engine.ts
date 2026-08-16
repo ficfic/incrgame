@@ -1726,6 +1726,11 @@ export interface Flow {
   logs: number;
   planks: number;
   food: number;
+  /** ★★★ PLANKS SAWN AT THE WOOD CAMPS THEMSELVES, already counted inside
+   *  `planks`. Kept separately because the TICK has to bank them by a
+   *  different road: the mill's share is metered through `sawing`, and these
+   *  never touch a mill. */
+  sawnHere: number;
   /** ★ An empty larder with unmet hunger: every works but the farms
    *  stands down until there is bread again. */
   starving: boolean;
@@ -2074,8 +2079,8 @@ export function flow(g: City): Flow {
     }
   }
   const run = starving ? deliver(halted) : open;
-  const { stone, food, logsIn, planks, millCap, sawing, carried, choked,
-    loads, net, both, goods } = run;
+  const { stone, food, sawnHere, logsIn, planks, millCap, sawing, carried,
+    choked, loads, net, both, goods } = run;
 
   // The net decides the walk: a path where logs out and planks back
   // cancel exactly shows nobody, which is honest.
@@ -2083,7 +2088,17 @@ export function flow(g: City): Flow {
   for (const [e, n] of net) if (Math.abs(n) > 1e-9) dirs.set(e, n > 0 ? 1 : -1);
 
 
-  return { stone, logs: logsIn, planks, food,
+  // ★★★ AND THE SAWPITS' OWN PLANKS ARE ADDED — 2026-08-16. ⚠️ THEY WERE
+  // DROPPED ON THE FLOOR FOR A DAY. `deliver()` has always accumulated a
+  // sawing camp's output and returned it; the field was called `coal` and
+  // `flow()` returned `coal: run.coal`. The 2026-08-15 cut renamed it to
+  // `sawnHere` and did not re-wire it, so `flow()` destructured everything
+  // EXCEPT this and the planks went nowhere. Sawpits — one of the three
+  // surviving blueprints, handed over for the third holding — was a silent
+  // 100% loss of that site: the board drew porters, the deed promised a
+  // rate, and the town received zero. Nothing caught it because no test
+  // exercised `burn`'s delivery, which is now `test/sawpits.test.ts`.
+  return { stone, logs: logsIn, planks: planks + sawnHere, sawnHere, food,
     starving, logsIn, millCap,
     sawing, hands, made: run.made, carried, choked, loads, dirs, both, goods,
     staff, comp };
@@ -2458,7 +2473,15 @@ export function apply(g: City, a: Action): City {
       // a choked mill's output is waste, same rule as everything else.
       const cut = g.logs + f.logsIn * s;
       const sawn = Math.min((f.millCap || 0) * s, cut);
-      const shipped = f.sawing > 1e-9 ? sawn * (f.planks / f.sawing) : 0;
+      // ⚠️ THE MILL'S OWN RATE, NOT `f.planks` — 2026-08-16. `f.planks` also
+      // carries the sawpits camps, which never pass through a mill, so using
+      // it here both corrupted the mill's ratio AND paid nothing at all when
+      // there was no mill (`f.sawing` 0 → `shipped` 0). A sawing camp with no
+      // mill in the valley delivered zero planks while the board drew its
+      // porters walking. The camps are banked on the next line instead.
+      const milled = Math.max(0, f.planks - f.sawnHere);
+      const shipped = (f.sawing > 1e-9 ? sawn * (milled / f.sawing) : 0)
+        + f.sawnHere * s;
       // People grow toward the huts' room, one at a time — and only where
       // there is bread: past the wild's table, settlers want a stocked
       // larder before they move in. Captives are the exception (fights).
@@ -2748,11 +2771,26 @@ export function apply(g: City, a: Action): City {
       // would have made a blocked road silently stop your progression too,
       // which is a punishment nobody could see the cause of.
       let xp = g.xp;
+      // ⚠️ A MILL IS PAID ON WHAT IT SAWS, NOT ON ITS CAPACITY — 2026-08-16.
+      // For a quarry, a wood camp or a farm, `made` IS production. For a
+      // sawmill it is only how much it COULD cut; `sawing` is what actually
+      // went through it, and a mill with no road and no logs arriving still
+      // carried a full `made`. Measured: such a mill reached milling 6 in
+      // ten minutes and produced not one plank — minting xp from nothing,
+      // and opening the works door on the strength of it. That is a
+      // different thing from the choked-road rule below, which pays for
+      // goods that were really dug and then wasted at the roads.
+      const millShare = (id: number, rate: number): number => {
+        if (SITE.get(id)?.allows !== 'sawmill') return rate;
+        const cap = f.millCap;
+        return cap <= 1e-9 ? 0 : rate * (f.sawing / cap);
+      };
       for (const [id, rate] of f.made) {
         const trains = TRAINS[SITE.get(id)?.allows ?? 'hut'];
-        if (trains === null || rate <= 0) continue;
+        const got = millShare(id, rate);
+        if (trains === null || got <= 0) continue;
         if (xp === g.xp) xp = { ...g.xp };
-        xp[trains] = (xp[trains] ?? 0) + rate * s * XP_PER_GOOD;
+        xp[trains] = (xp[trains] ?? 0) + got * s * XP_PER_GOOD;
       }
       const out: City = {
         ...g,

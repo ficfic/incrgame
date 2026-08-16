@@ -293,20 +293,32 @@
    *  Two columns, because a chip is ~132px and a phone is 390. */
   const SPOKE_COLS = 2;
   const SPOKE_W = 168;
-  /** ⚠️ 44px, WHICH IS THE THUMB FLOOR AND NOT NEGOTIABLE. The first band
-   *  packed the chips at 34px to fit more of them, which is the same trade
-   *  this repo has already refused once for the deed rows: a compact list you
-   *  cannot reliably hit is not compact, it is broken. Seven deeds at two
-   *  columns is four rows — 176px of a 490px board, and the graph keeps the
-   *  rest. */
-  const SPOKE_H = 44;
-  const spokeBand = $derived(
-    spokes.length === 0 ? 0
-      : Math.ceil(spokes.length / SPOKE_COLS) * SPOKE_H + 10);
+  /** ⚠️ 48px OF PITCH FOR A 44px BUTTON. 44 is the thumb floor and it is the
+   *  BUTTON that has to meet it — the first cut set the pitch to 44 and the
+   *  chip to 40, which is not the same thing and was measured at 40. */
+  const SPOKE_H = 48;
+  /** ★★★ THE BAND IS ALWAYS THE SAME HEIGHT, AND THAT IS THE WHOLE POINT —
+   *  2026-08-16, fixed the day after it broke.
+   *
+   *  ⚠️ IT WAS SIZED TO THE DEEDS ON OFFER, and it feeds `fit()`, so the
+   *  camera re-framed the whole graph every time you tapped a place with a
+   *  different number of things to do. Measured: SEVEN OF SEVEN NODES MOVED
+   *  from a single tap, the worst by 23px. That is *"switching… repositions
+   *  the height of the bottom panel a little bit, and it makes the map jam
+   *  every time"* — the owner's most-repeated UI complaint, reintroduced one
+   *  day after it was fixed for the panel, by the same mistake in a new
+   *  place.
+   *
+   *  So the board reserves the same strip forever: four rows, whether there
+   *  are seven deeds or none. The graph is framed once and never moves.
+   *  Empty band is cheap; a map that jumps under your thumb is not. */
+  const SPOKE_ROWS = 4;
+  const spokeBand = SPOKE_ROWS * SPOKE_H + 10;
   const spokeAt = $derived((i: number) => {
-    const rows = Math.ceil(spokes.length / SPOKE_COLS);
-    const col = Math.floor(i / rows);
-    const row = i % rows;
+    // ⚠️ ROW-MAJOR — left to right, then down. It was column-major, which
+    // reads down-then-across: the one order a list of words is never in.
+    const col = i % SPOKE_COLS;
+    const row = Math.floor(i / SPOKE_COLS);
     return {
       x: 8 + col * (SPOKE_W + 6),
       y: cssH - spokeBand + 6 + row * SPOKE_H,
@@ -1071,7 +1083,7 @@
   .spoke { position: absolute;
     display: flex; flex-direction: column; align-items: flex-start; gap: 0;
     font: inherit; text-align: left;
-    box-sizing: border-box; height: 40px;
+    box-sizing: border-box; height: 44px;
     background: var(--card); border: 1px solid var(--moss);
     border-radius: var(--r1); padding: 5px 9px; min-height: 30px;
     justify-content: center; cursor: pointer; z-index: 3;

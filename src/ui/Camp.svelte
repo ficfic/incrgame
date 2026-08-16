@@ -16,7 +16,7 @@
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
-    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE, MEETS, SKILLS, skillOf, nextAt,
+    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE, MEETS, SKILLS, skillOf, nextAt, WORKS_CAP,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
@@ -620,11 +620,22 @@
     // stock (START_LOGS) is what buys the first one.
     const have = game.stacks[s.id] ?? 0;
     const why = unraisable(game, s.id);
-    // ★ AND IT DISAPPEARS ONCE IT STANDS (2026-08-11). Leaving it on screen
-    // as a permanently-refused card — "Build Quarry · one works per place" —
-    // is a dead button explaining itself forever, which is worse than the
-    // stacking it replaced. Hiring takes its place below.
-    if (s.id === 0 || have <= 0) {
+    // ★★★ IT DISAPPEARS ONLY AT THE TRUE CEILING — 2026-08-16, and this was
+    // a SHIPPED-BROKEN FEATURE for one day. The rule was `have <= 0`: the
+    // deed vanished the moment one works stood, which was right when one
+    // works per site was the whole rule. Trades then earned the right to
+    // build deeper (`worksMax`, up to `WORKS_CAP`) — and no button ever
+    // offered it. The refusal text named a level that unlocked nothing you
+    // could reach. Every engine test passed, because every engine test asked
+    // `unraisable()` and none asked whether the PLAYER IS EVER SHOWN A DEED.
+    // ⚠️ AND THE LOCKED DOOR STAYS ON SCREEN, which is the other half:
+    // `docs/BRIEF.md` item 4 wants a door you cannot open and can SEE from
+    // here. It is hidden only when no level will ever open it again.
+    // ⚠️ `have < WORKS_CAP`, NOT `have > 0 && …`. The first attempt at this
+    // fix wrote the second condition and hid the deed at `have === 0` — i.e.
+    // it broke the FIRST build on every site while fixing the second. Caught
+    // by driving a real browser, not by a test.
+    if (s.id === 0 || have < WORKS_CAP) {
     out.push({
       // ★ ONE WORKS PER PLACE (2026-08-11), so this deed only ever raises the
       // FIRST one and the count in the label had nothing left to count.
@@ -788,10 +799,16 @@
       ? fightVerbs.map((d, i) => ({
           id: `fight:${i}`, parent: siteId(game.fight!.site),
           label: d.label, note: d.note, off: d.why !== null }))
-      : meetWays.length > 0
-        // ★ A MEETING OWNS THE GRAPH while it waits — it is the one thing on
-        //   screen asking you something. It still never nags: it waits as
-        //   long as you like (`CLAUDE.md` — HITL is never mandatory).
+      // ★★★ A MEETING WAITS ON THE HERO'S OWN GROUND — 2026-08-16, fixed the
+      // day it shipped. It used to outrank the picked place outright, so a
+      // pending meeting meant you could not lay a road or raise a works until
+      // you answered it — and `meet` only clears by answering. That is a
+      // modal wearing a graph, and `CLAUDE.md` is explicit: HITL IS NEVER
+      // MANDATORY, an idle game that demands babysitting is not one.
+      // It hangs off the ground the hero is standing on, and tapping anywhere
+      // else gets on with the town. The tale stays in the panel meanwhile, so
+      // it is never lost — it waits as long as you like.
+      : (meetWays.length > 0 && (picked === null || picked === game.hero.at))
         ? meetWays.map((d, i) => ({
             id: `meet:${i}`, parent: siteId(game.hero.at),
             label: d.label, note: d.note, off: false }))
@@ -1063,6 +1080,15 @@
     if (!back) { ported = 'refused'; setTimeout(() => (ported = null), 2500); return; }
     game = back.game;
   }
+
+  /** ★ A MEETING ARRIVES ON THE HERO'S GROUND, so pick that ground for the
+   *  player — the answers hang there. It is a SELECTION, not a modal: tap
+   *  anywhere else and the town carries on with the tale still waiting. */
+  let lastMeet = $state<number | null>(null);
+  $effect(() => {
+    if (game.meet !== null && game.meet !== lastMeet) picked = game.hero.at;
+    lastMeet = game.meet;
+  });
 
   onMount(() => {
     // ★★★ THE CHROME'S PALETTE AND TYPE SCALE, WRITTEN ONCE (2026-08-15).
