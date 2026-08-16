@@ -702,6 +702,53 @@
     return out;
   })());
 
+  /** ★★★ THE FIGHT'S OWN DEEDS — 2026-08-16, `docs/BRIEF.md` item 7: *"your
+   *  dot pokes their dot… combat is graph-native, NOT A SEPARATE SCREEN."*
+   *  It had become a JRPG panel: a strip of squares and a grid of buttons at
+   *  the bottom of the phone, with the board sitting inert above it during
+   *  the one moment the game is most about a place. The verbs hang off the
+   *  CONTESTED NODE now, on the same stalks every other deed uses, so a fight
+   *  happens ON the ground it is a fight over.
+   *  ⚠️ THE STRIP STAYS. It is the READOUT — who is standing, how hurt, what
+   *  answer is coming — and a readout is not an interaction. What moved onto
+   *  the graph is the part where you decide something. */
+  const fightVerbs = $derived<Deed[]>((() => {
+    const fi = game.fight;
+    if (!fi) return [];
+    const mid = blowLeft(game) !== null;
+    const aim = fi.target ?? 0;
+    const out: Deed[] = [
+      { label: 'Attack', note: `${heroHit(game)} into the ${fi.sq[aim]?.kind ?? 'line'}`,
+        why: mid ? 'mid-swing' : null, go: () => act({ type: 'strike' }) },
+      { label: 'Sweep',
+        note: `${Math.max(1, Math.floor(heroHit(game) * SWEEP_SHARE))} into each of `
+          + `${fi.sq.filter((q) => q.hp > 0).length}`,
+        why: mid ? 'mid-swing' : null, go: () => act({ type: 'sweep' }) },
+    ];
+    if (has(game, 'volley')) {
+      out.push({ label: 'Volley', note: `${heroHit(game)} past the wall`,
+        why: mid ? 'mid-swing' : null, go: () => act({ type: 'volley' }) });
+    }
+    out.push({ label: 'Guard', note: 'block their whole answer',
+      why: mid ? 'mid-swing' : null, go: () => act({ type: 'guard' }) });
+    out.push({ label: `Rations ×${fi.packs}`,
+      note: `${RATION_FOOD} food → +${RATION_HP} hero`,
+      why: mid ? 'mid-swing' : fi.packs <= 0 ? 'No packs left.'
+        : game.food < RATION_FOOD ? 'No food for it.' : null,
+      go: () => act({ type: 'ration' }) });
+    // ⚠️ FALL BACK KEEPS ITS BUTTON MID-SWING ON PURPOSE — a safety valve you
+    // have to wait for is not a safety valve.
+    out.push({ label: 'Fall back', note: 'home — the ground keeps its wounds',
+      why: null, go: () => act({ type: 'flee' }) });
+    return out;
+  })());
+
+  const fireSpoke = (id: string): void => {
+    const [what, n] = id.split(':');
+    const d = (what === 'fight' ? fightVerbs : deeds)[Number(n)];
+    if (d && d.why === null) d.go();
+  };
+
   /** ★★★ THE PICKED PLACE'S DEEDS, ON THE GRAPH — 2026-08-16, brief item 5.
    *
    *  ⚠️ THE SAME `deeds` THE PANEL USED, deliberately: this is a change of
@@ -713,15 +760,17 @@
    *  blooming under a sheet you are reading would be furniture arguing with
    *  furniture. */
   const spokes = $derived<Spoke[]>(
-    (!game.fight && sheet === null && picked !== null && SITE.has(picked))
-      ? deeds.map((d, i) => ({
-          id: `${picked}:${i}`, parent: siteId(picked!),
+    game.fight
+      // ★ A FIGHT OWNS THE GRAPH while it lasts, and it hangs off the ground
+      // being fought over — never off whatever you last tapped.
+      ? fightVerbs.map((d, i) => ({
+          id: `fight:${i}`, parent: siteId(game.fight!.site),
           label: d.label, note: d.note, off: d.why !== null }))
-      : []);
-  const fireSpoke = (id: string): void => {
-    const d = deeds[Number(id.split(':')[1])];
-    if (d && d.why === null) d.go();
-  };
+      : (sheet === null && picked !== null && SITE.has(picked))
+        ? deeds.map((d, i) => ({
+            id: `${picked}:${i}`, parent: siteId(picked!),
+            label: d.label, note: d.note, off: d.why !== null }))
+        : []);
 
   /** ★★★ THE TOWN'S OWN DEEDS — 2026-08-11. Everything you build for the
    *  whole camp rather than for one place on the map: the storehouse, the
@@ -1331,49 +1380,10 @@
             {#if windup(fi.round)} · {MARK.waste}they wind up{/if}
           </p>
         {/if}
-        <div class="verbs" class:mid={blowLeft(game) !== null}>
-          <button class="deed" disabled={blowLeft(game) !== null}
-            onclick={() => act({ type: 'strike' })}>
-            Attack
-            <em>{heroHit(game)} into the {fi.sq[aimedAt]?.kind ?? 'line'}</em>
-          </button>
-          <!-- ★★★ A SECOND WAY TO SWING, 2026-08-11 — the owner: *"the hero
-               doesn't have any skills, so the battles are boring."* Attack
-               puts everything into one square, which is right against a wall
-               and wrong against a line of runts. Sweep spends the same swing
-               across all of them. Reading the line is now the decision. -->
-          <button class="deed" disabled={blowLeft(game) !== null}
-            onclick={() => act({ type: 'sweep' })}>
-            Sweep
-            <em>{Math.max(1, Math.floor(heroHit(game) * SWEEP_SHARE))} into
-              every one of the {fi.sq.filter((q) => q.hp > 0).length} standing</em>
-          </button>
-          {#if has(game, 'volley')}
-            <!-- ★ VOLLEY (blueprint): over the wall, into the squares behind
-                 it, at full weight. The wall is the thing you cannot get
-                 past; this is the card that says otherwise. -->
-            <button class="deed" disabled={blowLeft(game) !== null}
-              onclick={() => act({ type: 'volley' })}>
-              Volley
-              <em>{heroHit(game)} past the wall, into the rest</em>
-            </button>
-          {/if}
-          <button class="deed" disabled={blowLeft(game) !== null}
-            onclick={() => act({ type: 'guard' })}>
-            Guard
-            <em>block their whole answer</em>
-          </button>
-          <button class="deed"
-            disabled={blowLeft(game) !== null || fi.packs <= 0 || game.food < RATION_FOOD}
-            onclick={() => act({ type: 'ration' })}>
-            Rations ×{fi.packs}
-            <em>{RATION_FOOD} food → +{RATION_HP} hero</em>
-          </button>
-          <button class="deed" onclick={() => act({ type: 'flee' })}>
-            Fall back
-            <em>home — the ground keeps its wounds</em>
-          </button>
-        </div>
+        <!-- ★★★ THE VERB GRID LEFT THIS PANEL, 2026-08-16 — it is on the
+             board, hanging off the ground being fought over (brief item 7).
+             What stays here is the STRIP above: who is standing, how hurt
+             they are, and what answer is coming. A readout, not a screen. -->
       {/if}
 
       {#if !game.fight && game.meet !== null}
