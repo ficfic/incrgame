@@ -188,6 +188,12 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   // with nothing on screen to say why.
   if (g.meet === undefined) g.meet = null;
   else if (g.meet !== null && !whole(g.meet, 0, MEETS.length - 1)) return null;
+  // ★★★ SECONDS ACTUALLY PLAYED — 2026-08-16. An older save has none; it
+  // starts at 0, which is generous exactly once (the camps un-swell) and is
+  // the right way round: a save should never load into a HARDER valley than
+  // it was written in.
+  if (g.played === undefined) g.played = 0;
+  else if (!num(g.played, 0, 1e9)) return null;
   if (g.since === undefined) g.since = 0;
   else if (!num(g.since, 0, 1e9)) return null;
   if (g.log === undefined || g.log === null) g.log = [];

@@ -295,6 +295,9 @@ export const GOBLIN_REGEN = 0.0075;
  *  ⚠️ IT STARTS AT ZERO, so every ladder number the solver tuned is exactly
  *  what it was at the first minute. The pressure is on the CLOCK, not on the
  *  opening. */
+/** ★ Where a raid that had to wait its turn is parked: still all but ready,
+ *  so it lands soon and the board keeps showing it coming. */
+export const RAID_HOLD = 0.92;
 export const SWELL_SECS = 900;
 export const SWELL_MAX = 1.0;
 /** How far the camps have swollen, 0 at the start and `SWELL_MAX` at most. */
@@ -380,6 +383,23 @@ export interface City {
   /** ★ STOREHOUSES at the camp — how many stand. They are the CAP on every
    *  good; a full store wastes what arrives, the same law the paths obey. */
   store: number;
+  /** ★★★ SECONDS ACTUALLY PLAYED — 2026-08-16, as against `since`, which
+   *  counts every second the valley has existed including the ones nobody
+   *  was here for. Used by the away-learning cap.
+   *
+   *  ⚠️ IT IS *NOT* WHAT THE SWELL READS, and that was tried and reverted the
+   *  same hour. `the-redditor`: closing the tab overnight returns every
+   *  holding permanently at `SWELL_MAX` — twice spawn — and the fight ladder
+   *  is only solved at swell 0, so absence costs you the war. That is real,
+   *  and `docs/BRIEF.md`'s standing constraint says in as many words *"timers
+   *  bank work; they never punish absence."* BUT the camps swelling while you
+   *  are gone is decision N3, taken deliberately (*"the camps do not wait
+   *  politely for you to look"*), and a test asserts it by name. A brief
+   *  constraint against a recorded decision is not something to flip in
+   *  passing, and doing it properly means re-solving the ladder at realistic
+   *  swell — the same job the war-skill fixture just needed. Queued with the
+   *  conflict named, not decided quietly here. */
+  played: number;
   /** ★★★ SKILL EXPERIENCE — 2026-08-16, `docs/BRIEF.md` item 2, and the last
    *  of the ten load-bearing things that had never been built. The owner:
    *  *"RuneScape's skill progression elements… what accrues is our stats."*
@@ -572,6 +592,7 @@ export const initial = (): City => ({
   hero: { hp: 10, spears: 0, part: 0, at: 0, trip: null },
   store: 0,
   xp: {},
+  played: 0,
   carts: 0,
   famine: 0,
   forage: null,
@@ -1682,6 +1703,15 @@ export const TRAINS: Record<Kind, Skill | null> = {
 export const XP_PER_GOOD = 1;
 /** ★ XP FOR TAKING A HOLDING. A fight is rare and dear; it pays like it. */
 export const XP_PER_FIGHT = 120;
+/** ★★★ HOW LONG A TOWN KEEPS LEARNING WITH NOBODY WATCHING — 2026-08-16.
+ *
+ *  ⚠️ EVERY OTHER STOCK BANKS AGAINST A CEILING AND XP DID NOT. Twelve hours
+ *  in a pocket was measured at ×4 output and carried BOTH works doors, so an
+ *  overnight absence skipped the entire trade ladder — the opposite failure
+ *  to the swell, and just as bad: the game plays itself better than you do.
+ *  An hour of unattended work still teaches; after that the crews are doing
+ *  by rote what they already know. */
+export const AWAY_LEARNS = 3600;
 /** ★ How much of a won valley's learning crosses into the next one. */
 export const LEGACY_SHARE = 0.5;
 
@@ -2514,6 +2544,8 @@ export function apply(g: City, a: Action): City {
       // `docs/BRIEF.md` holds: you come back to a harder valley, never a
       // poorer one.
       const since = g.since + s;
+      // ⚠️ AWAY SECONDS DO NOT SWELL THE CAMPS. See `played`.
+      const played = (g.played ?? 0) + (a.away ? 0 : s);
       let meet = g.meet;
       // ★ THE HURT MEND. A whole person back at work every `MEND_SECS`, so a
       // hard fight is a dent in production that fills itself in — the war's
@@ -2673,6 +2705,30 @@ export function apply(g: City, a: Action): City {
         if (menace === g.menace) menace = { ...g.menace };
         menace[id] = next;
       }
+      // ★★★ ONLY ONE RAID MAY BE WAITING WHEN YOU COME BACK — 2026-08-16.
+      //
+      // ⚠️ RAIDS DO NOT RESOLVE ON AWAY TICKS, but menace still fills and
+      // clamps at 1 — so a night in a pocket left EVERY holding sitting on a
+      // full fuse, and the first live tick resolved all of them in one frame.
+      // The hero can stand in front of exactly one gate (that is the design,
+      // and it is deliberate), so three banked raiders meant two buildings
+      // gone before the board had finished drawing, for the crime of closing
+      // the tab. `docs/BRIEF.md`, standing constraint: *"Timers bank work;
+      // they never punish absence."*
+      //
+      // ⚠️ AWAY ONLY. Live play is untouched — raids arriving together while
+      // you watch is the war working, and `ONE HERO, ONE GATE` below is the
+      // whole point of it. What is capped is the BACKLOG.
+      // The rest are parked just under the line: still coming, still drawn,
+      // and you get a move first.
+      if (a.away) {
+        let ready = 0;
+        for (const id of able) {
+          if ((menace[id] ?? 0) < 1) continue;
+          ready += 1;
+          if (ready > 1) menace[id] = RAID_HOLD;
+        }
+      }
       // ★★ THE MARCH. It banks like every other timer and lands on an away
       // tick — walking is work you are owed, not a threat held over you.
       // Arriving on held ground starts the fight, which is why a march is
@@ -2825,6 +2881,10 @@ export function apply(g: City, a: Action): City {
       // would have made a blocked road silently stop your progression too,
       // which is a punishment nobody could see the cause of.
       let xp = g.xp;
+      // ⚠️ AND AWAY WORK ONLY TEACHES FOR THE FIRST `AWAY_LEARNS` OF IT.
+      const learn = a.away
+        ? Math.max(0, Math.min(s, AWAY_LEARNS - Math.max(0, g.since - (g.played ?? 0))))
+        : s;
       // ⚠️ A MILL IS PAID ON WHAT IT SAWS, NOT ON ITS CAPACITY — 2026-08-16.
       // For a quarry, a wood camp or a farm, `made` IS production. For a
       // sawmill it is only how much it COULD cut; `sawing` is what actually
@@ -2842,9 +2902,9 @@ export function apply(g: City, a: Action): City {
       for (const [id, rate] of f.made) {
         const trains = TRAINS[SITE.get(id)?.allows ?? 'hut'];
         const got = millShare(id, rate);
-        if (trains === null || got <= 0) continue;
+        if (trains === null || got <= 0 || learn <= 0) continue;
         if (xp === g.xp) xp = { ...g.xp };
-        xp[trains] = (xp[trains] ?? 0) + got * s * XP_PER_GOOD;
+        xp[trains] = (xp[trains] ?? 0) + got * learn * XP_PER_GOOD;
       }
       const out: City = {
         ...g,
@@ -2872,6 +2932,7 @@ export function apply(g: City, a: Action): City {
         stowing,
         log: logged(g.log, ...said),
         since,
+        played,
         meet,
         hurt,
         // ★ ARRIVING ON HELD GROUND DRAWS THE SWORD. Done here rather than in
