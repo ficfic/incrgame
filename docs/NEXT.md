@@ -17,22 +17,36 @@ now persist across a valley (brief item 9); a vacuous vocabulary guard made
 to fail honestly; five dead blueprint branches; `unless` wired; and the fight
 ladder's own guard, which was solving a fight nobody has.
 
+### ✅ WORKED THROUGH, 2026-08-16 (the owner: *"go do that stuff"*)
+
+Seven of the fourteen, each sabotaged red before it was trusted:
+**1/2** the raid backlog (only one raid waits, however long you were gone;
+live play untouched) and an away-learning cap; **3** `STORE_ROOM` 60 → 120,
+measured against the real engine — max store 17, room 2100, **carts 6 → 8,
+haulage 4.83 → 8.16/s** — with the opening untouched and two new checks that
+walk both ladders to their ends; **5** bodies are armour, not a spear
+(`LEVY_PER_HIT`), which un-dominates the armoury the fight ladder is tuned
+on; **7** every holding pays something — an empty deck gives up its wagons,
+deliberately a cart and never a spear; **9** war trains on raids turned back,
+and losing teaches nothing; **11** a scene is spent when answered, so the
+valley stops replaying its own history word for word.
+
 ### ⬜ STILL OPEN, in the order the agents ranked them
 
 | # | finding | who | note |
 |---|---|---|---|
-| 1 | **Offline is worth ~2 minutes and costs you the war.** Store caps in ~100s so 12h banks nothing; `swellOf` reads `since` which ticks while away, so an overnight absence leaves every holding permanently 2× strong; banked raids all land on the first live tick. | redditor | The thing r/incremental checks first. Bank away production outside the store cap; drive swell off played seconds; resolve at most one banked raid. |
-| 2 | **Offline xp is uncapped** — 12h away is ×4 output, and both trade doors fall inside the first hour of absence. | the-graph | Same root as #1: everything else banks against a ceiling and xp does not. |
-| 3 | **Production 6.1× against haulage hard-capped at 4.83×.** Storehouses wall themselves at 14, which walls carts at 6. 87% of a maxed town's output is thrown away. | chad | `STORE_ROOM` 60→120 and/or `storeCost` 1.3→1.2. Decides whether ANY of the new production is real. |
-| 4 | **The fields eat first.** A farm site holds 3 works, so two of them take 24 hands before anything else is staffed — ~60% of a mid-game workforce, 4× the food the town can eat. Why food stopped being a bottleneck. | chad | Fix written and reverted the same hour: it moves early food pacing enough to turn two tuned checks red. Needs the retune, not a patch. |
-| 5 | **The levy dominates the spear economy.** Every body is +1 damage for free and `levyCap` is the whole town; `WORKS_CAP` tripled the ceiling on it. Spears are strictly dominated. | chad | `LEVY_MAX 6`, or `heroHit += floor(standing/3)`. |
+| ~~1~~ ✅ *(raids + learning; the SWELL half is still open — see below)* | **Offline is worth ~2 minutes and costs you the war.** Store caps in ~100s so 12h banks nothing; `swellOf` reads `since` which ticks while away, so an overnight absence leaves every holding permanently 2× strong; banked raids all land on the first live tick. | redditor | The thing r/incremental checks first. Bank away production outside the store cap; drive swell off played seconds; resolve at most one banked raid. |
+| ~~2~~ ✅ | **Offline xp is uncapped** — 12h away is ×4 output, and both trade doors fall inside the first hour of absence. | the-graph | Same root as #1: everything else banks against a ceiling and xp does not. |
+| ~~3~~ ✅ | **Production 6.1× against haulage hard-capped at 4.83×.** Storehouses wall themselves at 14, which walls carts at 6. 87% of a maxed town's output is thrown away. | chad | `STORE_ROOM` 60→120 and/or `storeCost` 1.3→1.2. Decides whether ANY of the new production is real. |
+| 4 ⚠️ **TRIED TWICE** | **The fields eat first.** A farm site holds 3 works, so two of them take 24 hands before anything else is staffed — ~60% of a mid-game workforce, 4× the food the town can eat. Why food stopped being a bottleneck. | chad | Attempted and reverted twice on 2026-08-16. The appetite rule is right, and it invalidates the PREMISES of three tuned fixtures — `the larder banks the surplus`, `THE FIELDS EAT FIRST`, and `carts run out on a given town`, the last because hands rather than works become the limit. This is a dedicated balance session, not a patch inside another item. |
+| ~~5~~ ✅ | **The levy dominates the spear economy.** Every body is +1 damage for free and `levyCap` is the whole town; `WORKS_CAP` tripled the ceiling on it. Spears are strictly dominated. | chad | `LEVY_MAX 6`, or `heroHit += floor(standing/3)`. |
 | 6 | **`WORKS_CAP` is a free 3× — `CURVE 1.35` never engages.** 181 stone triples the valley's output; cart rung 6 costs 806 for +30%. | chad | `CURVE`→2.2 for non-hut kinds, and planks in `BASE`. |
-| 7 | **Blueprints run out three fights in, and run 2+ gets none at all.** `found` seeds `boons` from `legacy.boons`, so `nextBoon` returns null for every fight of every later run. Holdings 4–6 pay less than 1–3. | redditor, chad | The reward for a holding cannot be a finite global deck. Site-shaped rewards are graph-native and infinite. |
+| ~~7~~ ✅ | **Blueprints run out three fights in, and run 2+ gets none at all.** `found` seeds `boons` from `legacy.boons`, so `nextBoon` returns null for every fight of every later run. Holdings 4–6 pay less than 1–3. | redditor, chad | The reward for a holding cannot be a finite global deck. Site-shaped rewards are graph-native and infinite. |
 | 8 | **`SKILL_GAIN` never decelerates.** `LEVEL_POW 1.7` means time-per-level *falls* forever; it needs >2 to slow down. | chad | Prefer `SKILL_GAIN` 0.04→0.015 and keep 1.7 as the door curve. |
-| 9 | **War is six lump payouts and +2 damage a run, and only 1 of 3 levels does anything.** | redditor, chad | Scale with `spawnOf`, trickle for repelled raids, and give it a second lever. |
+| ~~9~~ ✅ | **War is six lump payouts and +2 damage a run, and only 1 of 3 levels does anything.** | redditor, chad | Scale with `spawnOf`, trickle for repelled raids, and give it a second lever. |
 | 10 | **The chip band is still a list with string attached** — 5 stalks across the board read as a drawing error, and it takes 180px of 490. | owner, redditor | The owner wanted deeds *on the node*, not docked to the bottom edge. |
-| 11 | Meetings are never consumed and replay verbatim; `marks` `water`/`sealed`/`truce` are written and only two are read. | the-graph, redditor | |
-| 12 | `CITY_VERSION` has been 5 across four incompatible save shapes. | the-graph | It cannot do the one job `CLAUDE.md` keeps it for. |
+| ~~11~~ ✅ | Meetings are never consumed and replay verbatim; `marks` `water`/`sealed`/`truce` are written and only two are read. | the-graph, redditor | |
+| 12 ⚠️ **BUMP TRIED, REVERTED** | `CITY_VERSION` has been 5 across four incompatible save shapes. | the-graph | Bumping it REJECTS every existing save, including the owner's — `honour()` demands an exact match while the door already migrates cleanly. The fix is a policy (accept older, migrate, stamp forward), not a number. |
 | 13 | `check-story.mjs` reports 446 beats from the deleted ontology. | the-process | Same state as `check-vocabulary`; repoint or delete. |
 | 14 | **Repoint `check-vocabulary.mjs`** at the live surfaces. | the-process | The rule is right, the subject moved. It fails loudly now. |
 
