@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, levelOf, nextAt, skillOf, skillBonus,
   SKILLS, TRAINS, LEVEL_BASE, XP_PER_FIGHT, SKILL_GAIN, heroHit,
   worksMax, WORKS_PER_LEVEL, WORKS_MAX, WORKS_CAP, unraisable, blowLeft, LEGACY_SHARE,
-  storeCost, cartCost, roomOf, CART_GAIN, STORE_ROOM, BOONS,
+  storeCost, cartCost, roomOf, CART_GAIN, STORE_ROOM, BOONS, RAID_XP, raidTarget, onWatchAt,
   pathKey, type City } from '../src/camp/engine';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
@@ -334,5 +334,48 @@ describe('★★★ EVERY HOLDING PAYS SOMETHING', () => {
   it('★ and a cart is NOT a spear — the fight ladder is never paid into', () => {
     const won = clear(holding({ boons: BOONS.map((b) => b.id) }));
     expect(won.hero.spears).toBe(99);
+  });
+});
+
+describe('★★★ WAR IS TRAINED BETWEEN THE SIEGES TOO', () => {
+  // ⚠️ WAR WAS THE ONLY SKILL WITH NOTHING TO DO. Paid a flat lump for taking
+  // a holding, and a valley has six — so between fights the one martial trade
+  // in a RuneScape-shaped game was completely inert. `the-redditor`: the
+  // melee skill being the least trainable one is the joke that writes itself.
+  const gate = (): City => ({
+    ...initial(), pop: 12, food: 9000, store: 4,
+    stacks: { 0: 4, 1: 1 }, paths: { [pathKey(0, 1)]: 1 },
+    taken: 1, menace: { 4: 1 },
+    hero: { hp: 99, spears: 2, part: 0, at: 1, trip: null } });
+
+  it('★★★ turning a raid back teaches the hero something', () => {
+    // The hero has to be standing ON the ground the raid is coming for —
+    // that is the positional watch, and it is what makes this a choice.
+    const g = gate();
+    const t = raidTarget(g, 4);
+    if (t === null) return;
+    const held: City = { ...g, hero: { ...g.hero, at: t } };
+    const after = apply(held, { type: 'tick', secs: 1 });
+    expect(after.xp.war ?? 0).toBeGreaterThan(0);
+  });
+
+  it('★★★ but far less than taking the ground — a gate is not a siege', () => {
+    expect(RAID_XP).toBeLessThan(XP_PER_FIGHT / 10);
+  });
+
+  it('★★★ a raid nobody meets teaches NOTHING — losing is not training', () => {
+    // ⚠️ THE HERO MUST BE THERE. Paying for a raid that walked in and pulled
+    // a building down would pay the player for losing, which is the exact
+    // shape of reward that teaches people to ignore a mechanic.
+    // ⚠️ AND THE FIRST VERSION OF THIS TEST EARLY-RETURNED past its own
+    // assertion, so wiring xp into the building-lost branch left it green.
+    // Found by sabotage, again.
+    const g = gate();
+    const t = raidTarget(g, 4);
+    expect(t).not.toBeNull();
+    const away: City = { ...g, hero: { ...g.hero, at: t === 0 ? 1 : 0 } };
+    expect(onWatchAt(away, t!)).toBe(false);       // genuinely unmet
+    const after = apply(away, { type: 'tick', secs: 1 });
+    expect(after.xp.war ?? 0).toBe(0);
   });
 });

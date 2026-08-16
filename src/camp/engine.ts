@@ -535,6 +535,17 @@ export type Blow = 'strike' | 'guard' | 'ration' | 'sweep' | 'volley';
 /** What each square takes from a sweep, against a strike's whole blow. */
 export const SWEEP_SHARE = 0.5;
 
+/** ⚠️ STILL 5, AND A BUMP WAS TRIED AND REVERTED ON 2026-08-16.
+ *  `the-graph` is right that this has been 5 since 2026-08-08 across four
+ *  incompatible shapes, so it cannot do the one job `CLAUDE.md` keeps it for
+ *  — *"so the code can tell which format it has."* But `honour()` REJECTS any
+ *  save whose version is not this exact number, and the door already migrates
+ *  every one of those shapes cleanly (defaults for `xp`, `marks`, `played`,
+ *  `legacy.xp`). So bumping it throws away saves that would have loaded
+ *  perfectly, including the owner's live one, and buys nothing.
+ *  The fix is a POLICY, not a number: accept older versions, migrate, and
+ *  stamp forward — then the field means something and a bump is safe. Queued
+ *  in `docs/NEXT.md`; the probe caught the bump inside a minute. */
 export const CITY_VERSION = 5;
 
 /** ★★★ THE WAGON YOU ARRIVED WITH, 2026-08-10 — and the reason there is no
@@ -1758,6 +1769,9 @@ export const TRAINS: Record<Kind, Skill | null> = {
 export const XP_PER_GOOD = 1;
 /** ★ XP FOR TAKING A HOLDING. A fight is rare and dear; it pays like it. */
 export const XP_PER_FIGHT = 120;
+/** ★ What turning a raid away teaches. A twentieth of a holding: real, and
+ *  nowhere near a substitute for the war itself. */
+export const RAID_XP = 6;
 /** ★★★ HOW LONG A TOWN KEEPS LEARNING WITH NOBODY WATCHING — 2026-08-16.
  *
  *  ⚠️ EVERY OTHER STOCK BANKS AGAINST A CEILING AND XP DID NOT. Twelve hours
@@ -2869,6 +2883,8 @@ export function apply(g: City, a: Action): City {
       // the mechanic deleting itself. Three raiders means one is stopped and
       // two get through; the defence is real, and it is not a wall.
       let watch = onWatch(g);
+      /** War learned this tick, outside of taking ground. */
+      let wonXp = 0;
       if (!a.away) {
         for (const id of able) {
           if ((menace[id] ?? 0) < 1) continue;
@@ -2913,6 +2929,15 @@ export function apply(g: City, a: Action): City {
           }
           if (watch && onWatchAt(g, t)) {
             watch = false;
+            // ★★★ AND TURNING A RAID BACK IS TRAINING — 2026-08-16.
+            // ⚠️ WAR WAS THE ONLY SKILL WITH NOTHING TO DO. It was paid a
+            // flat lump for taking a holding and a valley has six of them,
+            // so between fights the one martial trade in a RuneScape-shaped
+            // game was completely inert — and the melee skill being the
+            // least trainable one is the joke `the-redditor` said writes
+            // itself. Standing on your own gate and sending them home is
+            // war, and it is the thing a player does between sieges.
+            wonXp += RAID_XP;
             said.push(`The hero met the raid at ${SITE.get(t)?.name ?? 'the gate'} and turned it back.`);
             if (goblins === g.goblins) goblins = { ...goblins };
             goblins[id] = Math.max(1, (goblins[id] ?? 1) - heroHit(g));
@@ -2952,7 +2977,7 @@ export function apply(g: City, a: Action): City {
       // would have learned if the carts had kept up. Paying on ARRIVALS
       // would have made a blocked road silently stop your progression too,
       // which is a punishment nobody could see the cause of.
-      let xp = g.xp;
+      let xp = wonXp > 0 ? { ...g.xp, war: (g.xp.war ?? 0) + wonXp } : g.xp;
       // ⚠️ AND AWAY WORK ONLY TEACHES FOR THE FIRST `AWAY_LEARNS` OF IT.
       const learn = a.away
         ? Math.max(0, Math.min(s, AWAY_LEARNS - Math.max(0, g.since - (g.played ?? 0))))
