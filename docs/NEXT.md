@@ -1,5 +1,56 @@
 # NEXT — the queue
 
+## ★★★ THE REVIEW ROUND, 2026-08-16 — five agents, harshly
+
+The owner: *"run agents first to harshly critique and then refine based on
+their feedback."* `the-owner`, `the-redditor`, `chad-liquidity`, `the-graph`
+and `the-process` all ran with no knowledge of each other. They found more
+than a refinement pass would have, including **two shipped features that did
+not work at all**.
+
+**✅ Fixed and deployed the same day** — the unreachable works door; Sawpits
+deleting a site's output; a meeting taking the board hostage; the map jumping
+23px on every tap; an idle mill training milling; dead buttons on the Hero
+sheet; five save-door holes (sweep/volley discarding a whole fight, retaken
+ground, an unvalidated levy, an unbounded meet index, `legacy.xp`); trades
+now persist across a valley (brief item 9); a vacuous vocabulary guard made
+to fail honestly; five dead blueprint branches; `unless` wired; and the fight
+ladder's own guard, which was solving a fight nobody has.
+
+### ⬜ STILL OPEN, in the order the agents ranked them
+
+| # | finding | who | note |
+|---|---|---|---|
+| 1 | **Offline is worth ~2 minutes and costs you the war.** Store caps in ~100s so 12h banks nothing; `swellOf` reads `since` which ticks while away, so an overnight absence leaves every holding permanently 2× strong; banked raids all land on the first live tick. | redditor | The thing r/incremental checks first. Bank away production outside the store cap; drive swell off played seconds; resolve at most one banked raid. |
+| 2 | **Offline xp is uncapped** — 12h away is ×4 output, and both trade doors fall inside the first hour of absence. | the-graph | Same root as #1: everything else banks against a ceiling and xp does not. |
+| 3 | **Production 6.1× against haulage hard-capped at 4.83×.** Storehouses wall themselves at 14, which walls carts at 6. 87% of a maxed town's output is thrown away. | chad | `STORE_ROOM` 60→120 and/or `storeCost` 1.3→1.2. Decides whether ANY of the new production is real. |
+| 4 | **The fields eat first.** A farm site holds 3 works, so two of them take 24 hands before anything else is staffed — ~60% of a mid-game workforce, 4× the food the town can eat. Why food stopped being a bottleneck. | chad | Fix written and reverted the same hour: it moves early food pacing enough to turn two tuned checks red. Needs the retune, not a patch. |
+| 5 | **The levy dominates the spear economy.** Every body is +1 damage for free and `levyCap` is the whole town; `WORKS_CAP` tripled the ceiling on it. Spears are strictly dominated. | chad | `LEVY_MAX 6`, or `heroHit += floor(standing/3)`. |
+| 6 | **`WORKS_CAP` is a free 3× — `CURVE 1.35` never engages.** 181 stone triples the valley's output; cart rung 6 costs 806 for +30%. | chad | `CURVE`→2.2 for non-hut kinds, and planks in `BASE`. |
+| 7 | **Blueprints run out three fights in, and run 2+ gets none at all.** `found` seeds `boons` from `legacy.boons`, so `nextBoon` returns null for every fight of every later run. Holdings 4–6 pay less than 1–3. | redditor, chad | The reward for a holding cannot be a finite global deck. Site-shaped rewards are graph-native and infinite. |
+| 8 | **`SKILL_GAIN` never decelerates.** `LEVEL_POW 1.7` means time-per-level *falls* forever; it needs >2 to slow down. | chad | Prefer `SKILL_GAIN` 0.04→0.015 and keep 1.7 as the door curve. |
+| 9 | **War is six lump payouts and +2 damage a run, and only 1 of 3 levels does anything.** | redditor, chad | Scale with `spawnOf`, trickle for repelled raids, and give it a second lever. |
+| 10 | **The chip band is still a list with string attached** — 5 stalks across the board read as a drawing error, and it takes 180px of 490. | owner, redditor | The owner wanted deeds *on the node*, not docked to the bottom edge. |
+| 11 | Meetings are never consumed and replay verbatim; `marks` `water`/`sealed`/`truce` are written and only two are read. | the-graph, redditor | |
+| 12 | `CITY_VERSION` has been 5 across four incompatible save shapes. | the-graph | It cannot do the one job `CLAUDE.md` keeps it for. |
+| 13 | `check-story.mjs` reports 446 beats from the deleted ontology. | the-process | Same state as `check-vocabulary`; repoint or delete. |
+| 14 | **Repoint `check-vocabulary.mjs`** at the live surfaces. | the-process | The rule is right, the subject moved. It fails loudly now. |
+
+### ⚠️ AND THE PROCESS AUDIT, which is about me and not the game
+
+`the-process` measured this stretch: **58.8% player-visible commits against a
+25.6% baseline, and zero new design documents** — both good. But: WIP=1 broke
+in 2 of 4 sessions; **NEXT.md decided 1 of 10 shipping commits** and was
+twice written *after* the work to match it; 8 cases of starting the next
+thing unprompted; and 5 of 12 sabotages stayed green, i.e. rule 4 was
+claimed more often than it was done. DECISIONS entries averaged 355 words
+against a 117 base.
+
+**The queue below this line is older.** Step 4 of the IA restructure
+(*standing objectives*) has been marked `⬜ next` across 17 commits and is
+still not done.
+
+
 ## ★★★ THE PILLARS, 2026-08-16 — where the game stands against `BRIEF.md`
 
 The owner: *"i think we're losing identity again."* They were right. Ten

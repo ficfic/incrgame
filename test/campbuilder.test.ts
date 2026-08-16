@@ -156,6 +156,13 @@ describe('★★ RULE 2 — people are the multiplier, and the ladder', () => {
   it('★★ THE FIELDS EAT FIRST: hands fill the farms before anything else', () => {
     // 3 people, one farm (4 slots) + quarries: every hand goes to the
     // fields first; the quarries get whoever is left — today, nobody.
+    // ⚠️ AND THIS IS A KNOWN DEFECT AS OF 2026-08-16, kept because it is what
+    // the engine does. `chad-liquidity`: with `WORKS_CAP` a farm site holds
+    // three works, so two farm sites take TWENTY-FOUR hands before anything
+    // else is staffed — ~60% of a mid-game workforce, making four times the
+    // food the town can eat. The fix (staff the fields to the APPETITE) was
+    // written and reverted the same hour because it moves early food pacing
+    // enough to turn two tuned checks red. Queued in `docs/NEXT.md`.
     const g: City = { ...initial(), pop: 3, food: 999, goblins: {},
       stacks: { 0: huts(3), 1: 4, 4: 1 },
       paths: { [pathKey(0, 1)]: 3, [pathKey(0, 4)]: 3 } };

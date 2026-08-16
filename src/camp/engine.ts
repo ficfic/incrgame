@@ -1864,6 +1864,25 @@ export function flow(g: City): Flow {
       autos.push(id);
     }
   }
+  // ⚠️ THE FIELDS STILL EAT FIRST, AND THAT IS NOW A KNOWN DEFECT — 2026-08-16.
+  //
+  // `chad-liquidity` costed it: `WORKS_CAP` lets a farm site hold three works,
+  // so two farm sites take TWENTY-FOUR HANDS off the top before a quarry, a
+  // wood camp or a mill sees one person — roughly 60% of a mid-game
+  // workforce, making about four times the food the town can eat, for ever.
+  // It is also the mechanism behind the owner's *"I don't understand why I'm
+  // not running out of food anymore"*: food cannot BE a bottleneck.
+  //
+  // ⚠️ THE FIX WAS WRITTEN AND THEN REVERTED THE SAME HOUR, deliberately.
+  // Staffing the fields to the APPETITE instead of to capacity is one small
+  // block of code and it is almost certainly right — but it moved early-game
+  // food pacing enough to turn two tuned checks red (`the larder banks the
+  // surplus`, and `carts run out on a given town`), and those numbers are
+  // load-bearing for growth gating and the famine ramp. chad's own note says
+  // everything else in that review is tuned against numbers this change
+  // invalidates. Shipping it half-tuned would trade a known imbalance for an
+  // unknown one. It is queued in `docs/NEXT.md` as a balance item with the
+  // prescription, not left as a surprise for the next session to rediscover.
   for (const id of autos) {                          // the fields eat first
     if (SITE.get(id)!.allows !== 'farm') continue;
     const take = Math.min(capOf(id) - hands.get(id)!, pool);
