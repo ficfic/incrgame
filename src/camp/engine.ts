@@ -1245,9 +1245,20 @@ export const MEETS: readonly Meet[] = [
 ];
 
 /** ★ Is this meeting one the valley can be offered right now? */
+/** ★★★ A SCENE THE VALLEY HAS ALREADY LIVED THROUGH — 2026-08-16. Written as
+ *  a mark rather than a new save field, because `marks` IS *"what the valley
+ *  remembers"* and this is exactly that. */
+export const metMark = (i: number): string => `met:${i}`;
 export const meetOpen = (g: City, i: number): boolean => {
   const m = MEETS[i];
   if (!m || m.beat) return false;
+  // ⚠️ ONCE ONLY. `meetFor` walks the deck by foray count with no memory, so
+  // the same six scenes came round again and again, WORD FOR WORD — the
+  // stranger you already turned away knocking a second time with the same
+  // sentence. `the-graph` and `the-redditor` both named it. A valley that
+  // remembers cannot re-run its own history; when the deck is spent the
+  // forays simply pay their loot, which is what they were for.
+  if (g.marks.includes(metMark(i))) return false;
   if (m.needs !== undefined && !g.marks.includes(m.needs)) return false;
   if (m.unless !== undefined && g.marks.includes(m.unless)) return false;
   return true;
@@ -3216,13 +3227,16 @@ export function apply(g: City, a: Action): City {
       // answered with the first.
       const way = m?.ways[Math.max(0, Math.min(m.ways.length - 1, a.way))];
       if (!m || !way) return g;
+      // ★ THE SCENE IS SPENT, whichever way it was answered.
+      const spent = g.meet === null || g.marks.includes(metMark(g.meet))
+        ? g.marks : [...g.marks, metMark(g.meet)];
       let out: City = { ...g,
         // ★★★ THE SECOND BEAT, brief item 6: an answer can OPEN a situation
         // rather than close one. `then` walks straight into the next scene
         // with no foray in between.
         meet: way.then ?? null,
-        marks: way.mark === undefined || g.marks.includes(way.mark)
-          ? g.marks : [...g.marks, way.mark],
+        marks: way.mark === undefined || spent.includes(way.mark)
+          ? spent : [...spent, way.mark],
         log: logged(g.log, way.said),
         pop: g.pop + (way.pop ?? 0),
         hero: { ...g.hero,

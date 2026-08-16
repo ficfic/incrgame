@@ -6,7 +6,7 @@
 // three — a SECOND BEAT, a valley that REMEMBERS, and memory changing what
 // you are offered later.
 import { describe, it, expect } from 'vitest';
-import { apply, initial, MEETS, meetFor, meetOpen, type City } from '../src/camp/engine';
+import { apply, initial, metMark, MEETS, meetFor, meetOpen, type City } from '../src/camp/engine';
 
 const answer = (g: City, way: number): City => apply(g, { type: 'answer', way });
 const at = (i: number, over: Partial<City> = {}): City =>
@@ -132,5 +132,45 @@ describe('★★★ THE VALLEY REMEMBERS', () => {
 
   it('★ and an even foray still turns nothing up', () => {
     for (let f = 0; f < 20; f += 2) expect(meetFor(initial(), f)).toBeNull();
+  });
+});
+
+describe('★★★ A VALLEY DOES NOT LIVE THE SAME SCENE TWICE', () => {
+  // ⚠️ `meetFor` walks the deck by foray count with no memory of what has
+  // already happened, so the same six scenes came round again and again WORD
+  // FOR WORD — the stranger you already turned away knocking a second time
+  // with the same sentence. Both `the-graph` and `the-redditor` named it, and
+  // it makes "a world that remembers" into a claim the code contradicts.
+  it('★★★ an answered scene never comes back', () => {
+    const g: City = { ...initial(), meet: 0 };
+    const done = apply(g, { type: 'answer', way: 0 });
+    expect(meetOpen(done, 0)).toBe(false);
+    expect(done.marks).toContain(metMark(0));
+    // ★ And the walk skips it rather than stalling on it.
+    for (let f = 1; f < 24; f += 2) expect(meetFor(done, f)).not.toBe(0);
+  });
+
+  it('★★★ whichever way it was answered', () => {
+    const g: City = { ...initial(), meet: 0 };
+    for (let w = 0; w < (MEETS[0]?.ways.length ?? 1); w++) {
+      expect(apply(g, { type: 'answer', way: w }).marks).toContain(metMark(0));
+    }
+  });
+
+  it('★★ and when every scene is spent the forays just pay their loot', () => {
+    const spent: City = { ...initial(),
+      marks: MEETS.map((_, i) => metMark(i)) };
+    for (let f = 1; f < 30; f += 2) expect(meetFor(spent, f)).toBeNull();
+  });
+
+  it('★ a second beat opened by `then` is still reachable after the first', () => {
+    // ⚠️ THE TRAP THIS AVOIDS: marking the scene spent must not close the
+    // scene its own answer opens.
+    const withThen = MEETS.findIndex((m) => m.ways.some((w) => w.then !== undefined));
+    if (withThen < 0) return;
+    const way = MEETS[withThen]!.ways.findIndex((w) => w.then !== undefined);
+    const g: City = { ...initial(), meet: withThen };
+    expect(apply(g, { type: 'answer', way }).meet)
+      .toBe(MEETS[withThen]!.ways[way]!.then);
   });
 });
