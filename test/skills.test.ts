@@ -9,7 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, levelOf, nextAt, skillOf, skillBonus,
   SKILLS, TRAINS, LEVEL_BASE, XP_PER_FIGHT, SKILL_GAIN, heroHit,
   worksMax, WORKS_PER_LEVEL, WORKS_MAX, WORKS_CAP, unraisable, blowLeft, LEGACY_SHARE,
-  storeCost, cartCost, roomOf, CART_GAIN, STORE_ROOM,
+  storeCost, cartCost, roomOf, CART_GAIN, STORE_ROOM, BOONS,
   pathKey, type City } from '../src/camp/engine';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
@@ -277,5 +277,62 @@ describe('★★★ THE TWO LADDERS, WALKED TO THEIR ENDS', () => {
   it('★ room stays FLAT per house — one more building, never a multiplier', () => {
     expect(roomOf({ ...initial(), store: 3 }) - roomOf({ ...initial(), store: 2 }))
       .toBe(STORE_ROOM);
+  });
+});
+
+describe('★★★ EVERY HOLDING PAYS SOMETHING', () => {
+  // ⚠️ THE DEAD END BOTH REVIEWERS FOUND. `nextBoon` walks a deck of THREE,
+  // so holdings 4-6 of the first valley paid nothing — and `found` seeds
+  // `boons` from `legacy.boons`, so every fight of every LATER run paid
+  // nothing either, while `RUN_STEP` made each valley harder. The reward
+  // curve ran backwards: hardest ground, smallest prize.
+  const holding = (over: Partial<City> = {}): City => ({
+    ...initial(), hero: { hp: 99, spears: 99, part: 0, at: 4, trip: null },
+    ...over });
+  const clear = (g: City): City => {
+    const settle = (x: City): City => {
+      let out = x;
+      for (let n = 0; n < 40 && blowLeft(out) !== null; n++) {
+        out = apply(out, { type: 'tick', secs: 0.25 });
+      }
+      return out;
+    };
+    let f = settle(apply(g, { type: 'assail', id: 4 }));
+    for (let i = 0; i < 60 && f.fight; i++) {
+      const live = f.fight.sq.findIndex((q) => q.hp > 0);
+      if (live < 0) break;
+      f = settle(apply(settle(apply(f, { type: 'aim', at: live })), { type: 'strike' }));
+    }
+    return f;
+  };
+
+  it('★★★ a blueprint while the deck has one', () => {
+    const won = clear(holding());
+    expect(won.boons.length).toBe(1);
+    expect(won.carts).toBe(initial().carts);      // not both
+  });
+
+  it('★★★ and a CART once it is empty — never nothing', () => {
+    const full = holding({ boons: BOONS.map((b) => b.id) });
+    const won = clear(full);
+    expect(won.fight).toBeNull();
+    expect(won.carts).toBe(full.carts + 1);
+    expect(won.log.some((l) => /wagons/i.test(l))).toBe(true);
+  });
+
+  it('★★★ so a SECOND valley still pays for its fights', () => {
+    // The structural half: a won run carries its blueprints, so run two
+    // starts with the deck already spent.
+    const second = apply({ ...initial(), goblins: {},
+      boons: BOONS.map((b) => b.id) }, { type: 'found' });
+    expect(second.boons.length).toBe(BOONS.length);
+    const won = clear({ ...second,
+      hero: { hp: 99, spears: 99, part: 0, at: 4, trip: null } });
+    expect(won.carts).toBeGreaterThan(second.carts);
+  });
+
+  it('★ and a cart is NOT a spear — the fight ladder is never paid into', () => {
+    const won = clear(holding({ boons: BOONS.map((b) => b.id) }));
+    expect(won.hero.spears).toBe(99);
   });
 });

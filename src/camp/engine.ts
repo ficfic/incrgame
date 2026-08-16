@@ -2546,9 +2546,26 @@ function liberate(g: City, now: NonNullable<City['fight']>): City {
     // ★★★ AND THE BLUEPRINT IS SIMPLY HANDED OVER (2026-08-15). It used to
     // deal three and wait; see `nextBoon` for why a deck of three cannot.
     boons: won === null ? grown.boons : [...grown.boons, won],
+    // ★★★ AND WHEN THE DECK IS EMPTY, THE GROUND GIVES UP ITS WAGONS —
+    // 2026-08-16. `the-redditor` and `chad-liquidity` both found the same
+    // dead end: `nextBoon` walks a deck of THREE, so holdings 4, 5 and 6 of
+    // the first valley paid nothing at all — and `found` seeds `boons` from
+    // `legacy.boons`, so every fight of EVERY LATER RUN paid nothing, while
+    // `RUN_STEP` made each valley harder. The reward curve ran backwards:
+    // the hardest holdings gave the smallest prize, and a second run gave
+    // none.
+    // ⚠️ A CART, DELIBERATELY, AND NOT A SPEAR. Spears are the good the fight
+    // ladder is solved on — a free one per holding would hand the player most
+    // of the armoury the rungs are meant to charge for, which is the mistake
+    // the war skill already made once today. A cart is the RELIEF ladder: it
+    // is expensive, it is the thing a big town actually chokes on, and it
+    // touches no fight anywhere.
+    carts: won === null ? g.carts + 1 : g.carts,
     log: logged(g.log,
       `${SITE.get(now.site)?.name ?? 'Ground'} is taken. Two captives walk home with the hero.`
-      + (b === null ? '' : ` ${b.name}: ${b.what}.`)) };
+      + (b === null
+        ? ' The wagons in its yard are yours.'
+        : ` ${b.name}: ${b.what}.`)) };
 }
 
 /** ★ THE LONGEST A SINGLE TICK MAY STAND FOR. One `tick` is one Euler
