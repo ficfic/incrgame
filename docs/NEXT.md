@@ -1,5 +1,34 @@
 # NEXT — the queue
 
+## ★★★ THE PILLARS, 2026-08-16 — where the game stands against `BRIEF.md`
+
+The owner: *"i think we're losing identity again."* They were right. Ten
+things were made load-bearing on 2026-07-29; three had never been built and
+the game had drifted into a tasteful phone app with a map in it.
+
+| # | pillar | state |
+|---|---|---|
+| 1 | Classical fantasy on the surface | ✅ |
+| 2 | RuneScape progression — skills, XP | ✅ **built 2026-08-16** |
+| 3 | Timers | ✅ |
+| 4 | Thresholds — a door you can see from here | ✅ **built 2026-08-16** |
+| 5 | **Everything a graph, incl. the UI** *(non-negotiable)* | ✅ **built 2026-08-16** — deeds are nodes |
+| 6 | Choose-your-own-adventure | ⚠️ thin — `MEETS` is two options and a paragraph |
+| 7 | Battles, graph-native | ✅ **built 2026-08-16** |
+| 8 | ~~The AI twist~~ | VOID, owner |
+| 9 | ~~Prestige on the twist~~ | VOID → the veteran hero |
+| 10 | Inventory and resources | ✅ |
+
+**The one gap left is 6.** `MEETS` is a name, a paragraph and two buttons; the
+brief asked for *branching, authored* choose-your-own-adventure. It is also
+the only pillar that needs WRITING rather than building, so it wants the
+owner's hand on the prose (`CLAUDE.md`: drafts are a starting point).
+
+**Then, in the agents' order from the cut review:** sites 10–13 (the valley
+has more ground than reasons to go there), and foraging (a timer that pays
+loot). Both are still queued as CUTS, not builds.
+
+
 ## ★★★ THE CUT, 2026-08-15 — the owner: *"cut the mechanics"*
 
 After playtest 4, with the chrome fixed, the owner looked at what was under

@@ -1898,9 +1898,10 @@
      buttons at the bottom, they take too much space."* Full-width rows were
      54px each and the list ran to 234px of an 844px screen; the map got 374.
      This is the same answer the battle strip already reached for the same
-     reason (`.verbs`, "four stacked full-width deeds pushed the strip off
-     small screens") — so the dock now uses the precedent instead of
-     inventing a second one. */
+     reason — the fight's own verbs, when they still lived in this panel,
+     for which "four stacked full-width deeds pushed the strip off small
+     screens". Those are spokes on the board since 2026-08-16; this grid is
+     the surviving use of the precedent. */
   .deeds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0; }
   /* ⚠️ `box-sizing` AND `width:auto` ARE LOAD-BEARING HERE. The base `.deed`
      rule sets `width:100%`, and there is no border-box reset anywhere in this
@@ -1945,7 +1946,4 @@
   .vs { font-size: var(--t5); color: var(--faint); flex: 1; text-align: center; }
   .vs.hurt { color: var(--rust); font-size: var(--t3); }
   .windnote { color: var(--rust); font-weight: 600; }
-  .verbs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-  .verbs .deed { margin: 0; padding: 8px 10px; }
-  .verbs .deed em { font-size: var(--t7); }
 </style>
