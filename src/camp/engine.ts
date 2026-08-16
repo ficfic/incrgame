@@ -831,6 +831,28 @@ export const CREW = 4;
  *  ⚠️ The camp is exempt: its "works" are HUTS, and huts are housing. */
 export const WORKS_MAX = 1;
 
+/** ★★★ AND THE TRADE IS WHAT RAISES IT — 2026-08-16, `docs/BRIEF.md` item 4:
+ *  *"a level you have not reached is a door you cannot open, and you can see
+ *  it from here."*
+ *
+ *  The comment above says the fix for idle hands is to raise the per-site cap
+ *  THEN, with the town in front of us. This is that, with the raise EARNED
+ *  rather than granted: every `WORKS_PER_LEVEL` levels of a trade lets its
+ *  works stand one deeper on a site. So the skills built the day before stop
+ *  being a quiet +4% and become the unlock ladder the brief asked for — and
+ *  the answer to "there is no point in more people" is now a door with a
+ *  number on it, visible from the moment you can read the trade.
+ *
+ *  ⚠️ THE COST CURVE IS WHAT KEEPS THIS HONEST. The n-th copy still costs
+ *  1.15^n, so a second quarry is a real price and never a free doubling.
+ *  ⚠️ THE CAMP IS STILL EXEMPT — huts are housing, not a trade. */
+export const WORKS_PER_LEVEL = 4;
+export const worksMax = (g: City, k: Kind): number => {
+  const t = TRAINS[k];
+  return t === null ? WORKS_MAX
+    : WORKS_MAX + Math.floor((skillOf(g, t) - 1) / WORKS_PER_LEVEL);
+};
+
 /** Output per WORKER per second. */
 export const RATE = { quarry: 0.15, lumber: 0.2, sawmill: 0.25, farm: 0.2 } as const;
 /** ★ What a wood camp's own kiln manages against a proper mill. Deliberately
@@ -1968,9 +1990,17 @@ export function unraisable(g: City, id: number): string | null {
   // building is already being built? It is being built, not being raised."*
   // `raising` is this file's word for the job; it was never the player's.
   if (g.raising[id]) return 'Already building here.';
-  // ★ ONE WORKS PER SITE (2026-08-11) — see WORKS_MAX. More output means more
-  // ground now, not more buildings on the ground you hold.
-  if (id !== 0 && (g.stacks[id] ?? 0) >= WORKS_MAX) return 'One building per place. Add people to it instead.';
+  // ★ ONE WORKS PER SITE (2026-08-11), UNTIL THE TRADE EARNS ANOTHER
+  // (2026-08-16) — see `worksMax`. More output means more ground, or a
+  // better-practised trade; never just more money.
+  if (id !== 0 && (g.stacks[id] ?? 0) >= worksMax(g, s.allows)) {
+    const t = TRAINS[s.allows];
+    const need = t === null ? 0
+      : (worksMax(g, s.allows) - WORKS_MAX + 1) * WORKS_PER_LEVEL + 1;
+    return t === null
+      ? 'One building per place. Add people to it instead.'
+      : `${t} ${need} builds another here. You are ${skillOf(g, t)}.`;
+  }
   return shortOf(g, costOf(s.allows, g.stacks[id] ?? 0));
 }
 

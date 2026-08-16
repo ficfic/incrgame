@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, levelOf, nextAt, skillOf, skillBonus,
   SKILLS, TRAINS, LEVEL_BASE, XP_PER_FIGHT, SKILL_GAIN, heroHit,
+  worksMax, WORKS_PER_LEVEL, WORKS_MAX, unraisable, nextAt as _n,
   pathKey, type City } from '../src/camp/engine';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
@@ -118,5 +119,35 @@ describe('★★★ WHAT A LEVEL IS WORTH', () => {
     const veteran = { ...initial(), xp: { war: XP_PER_FIGHT * 40 } };
     expect(skillOf(veteran, 'war')).toBeGreaterThan(3);
     expect(heroHit(veteran)).toBeGreaterThan(before);
+  });
+});
+
+describe('★★★ THE DOOR YOU CAN SEE FROM HERE', () => {
+  // `docs/BRIEF.md` item 4. A trade does not only make the works faster — it
+  // is what lets a second one stand on the same ground. This is the answer to
+  // "there is no point in more people" that the one-works-per-site rule left
+  // open, with the raise EARNED rather than granted.
+  it('★★★ a green town gets one works per place', () => {
+    expect(worksMax(initial(), 'quarry')).toBe(WORKS_MAX);
+  });
+
+  it('★★★ and a practised trade builds deeper', () => {
+    const skilled = { ...initial(), xp: { quarrying: nextAt(WORKS_PER_LEVEL) } };
+    expect(skillOf(skilled, 'quarrying')).toBeGreaterThan(WORKS_PER_LEVEL);
+    expect(worksMax(skilled, 'quarry')).toBe(WORKS_MAX + 1);
+    // ⚠️ AND ONLY ITS OWN KIND — quarrying must not deepen the farms.
+    expect(worksMax(skilled, 'farm')).toBe(WORKS_MAX);
+  });
+
+  it('★★★ the refusal NAMES the trade and the level, never just "no"', () => {
+    const g: City = { ...initial(), stone: 999, stacks: { 1: 1 },
+      paths: { [pathKey(0, 1)]: 1 } };
+    const why = unraisable(g, 1);
+    expect(why).toContain('quarrying');
+    expect(why).toMatch(/\d/);          // the door has a number on it
+  });
+
+  it('★ huts are housing, not a trade, and stay exempt', () => {
+    expect(worksMax({ ...initial(), xp: { quarrying: 9e6 } }, 'hut')).toBe(WORKS_MAX);
   });
 });

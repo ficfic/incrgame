@@ -103,8 +103,12 @@ describe('★★ RULE 1 — buildings come in counts, on the compounding curve',
     g = tick(g, BUILD_SECS.quarry);
     expect(g.stacks[1]).toBe(1);
     expect(g.stone).toBeCloseTo(99 - costOf('quarry', 0).stone!, 9);
-    // ★ AND THE SECOND WORKS IS REFUSED, in words, with the alternative named.
-    expect(unraisable(g, 1)).toBe('One building per place. Add people to it instead.');
+    // ★ AND THE SECOND WORKS IS REFUSED, in words, NAMING THE DOOR — 2026-08-16.
+    // It used to say "One building per place. Add people to it instead." The
+    // cap is earned now (`worksMax`), so the refusal states the trade and the
+    // level that opens it: a door you cannot open and can see from here, which
+    // is `docs/BRIEF.md` item 4. See `test/skills.test.ts` for the ladder.
+    expect(unraisable(g, 1)).toBe('quarrying 5 builds another here. You are 1.');
     expect(apply(g, { type: 'raise', id: 1 })).toBe(g);
     // ⚠️ THE CAMP IS EXEMPT: its works are HUTS, and huts are housing.
     expect(unraisable({ ...initial(), planks: 9e5 }, 0)).toBeNull();
