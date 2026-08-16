@@ -247,13 +247,13 @@ console.log('  refuses :', `"${unreached.slice(0, 70)}"`);
 if (!/No road reaches here/i.test(unreached)) {
   misses.push(`unreached ground does not refuse the works: "${unreached.slice(0, 60)}"`);
 }
-await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
+await page.locator('.deed', { hasText: 'Path · The Town' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed lays the path home'));
 // ★ Paths take time now: the deed flips to 'Laying ·' and the line fills.
 await page.waitForTimeout(400);
 const laying = await panel();
 console.log('  laying  :', `"${laying.slice(0, 60)}"`);
-if (!/Laying · The Camp/.test(laying)) {
+if (!/Laying · The Town/.test(laying)) {
   misses.push(`the spade went in silently: "${laying.slice(0, 60)}"`);
 }
 await page.waitForTimeout(6800);
@@ -340,7 +340,7 @@ await page.waitForTimeout(200);
 if (await page.locator('.deed', { hasText: 'Chop logs' }).count() > 0) {
   misses.push('the hand-chop deed is back at the pines');
 }
-await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
+await page.locator('.deed', { hasText: 'Path · The Town' }).click({ timeout: 2000 })
   .catch(() => misses.push('no path deed at the pines'));
 await page.waitForTimeout(7000);
 await page.locator('.deed', { hasText: 'Build Lumberworks' }).click({ timeout: 2000 })
@@ -499,7 +499,7 @@ if (!/TAKEN — \+2 settlers/.test(cheer)) {
 }
 // The freed ground takes works and paths like any other. It is STILL the
 // picked site from the fight — no second tap, that would toggle it off.
-await page.locator('.deed', { hasText: 'Path · The Camp' }).click({ timeout: 2000 })
+await page.locator('.deed', { hasText: 'Path · The Town' }).click({ timeout: 2000 })
   .catch(() => misses.push('liberated ground refuses the path'));
 await page.waitForTimeout(6800);
 await page.locator('.deed', { hasText: 'Build Farm' }).click({ timeout: 2000 })

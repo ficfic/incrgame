@@ -1064,7 +1064,7 @@
          not tap the board at all. -->
     <div class="wonbar">
       <h1>THE VALLEY IS YOURS</h1>
-      <p class="note">{MARK.danger}0 goblin camps · {MARK.people}{Math.floor(game.pop)} living here
+      <p class="note">0 goblin camps · {MARK.people}{Math.floor(game.pop)} living here
         · {MARK.time}{Math.round(game.since / 60)} minutes</p>
       <p class="note">there is more country beyond the ridge, and it is
         {Math.round(RUN_STEP * 100)}% harder for every valley you have taken</p>

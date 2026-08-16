@@ -47,7 +47,17 @@ export interface Site {
 /** ★ THE WILDERNESS. Hand-placed; the board draws exactly these. Beyond
  *  the starter ring the ground is GOBLIN-HELD — the hero's ladder. */
 export const SITES: readonly Site[] = [
-  { id: 0, name: 'The Camp', x: 200, y: 205, allows: 'hut', near: [1, 2, 3] },
+  // ★★★ 'The Camp' UNTIL 2026-08-16. The owner, twice — playtest 4's C6 and
+  // then again out loud: *"what does the town tab mean, what and where is the
+  // town?"* The answer was that the dock said TOWN, the sheet it opened was
+  // titled "The town", and the map called that same single dot "The Camp".
+  // Three surfaces, one place, two words, and nothing pointing between them.
+  // ⚠️ AND `camp` WAS ALREADY TAKEN. The goal line counts "3 goblin camps
+  // left", so the one word named the player's home AND the enemy's holdings —
+  // which is why renaming the DOT is the fix and renaming the TAB would not
+  // have been: the player's place is now the Town on every surface, and camp
+  // belongs to the goblins alone.
+  { id: 0, name: 'The Town', x: 200, y: 205, allows: 'hut', near: [1, 2, 3] },
   { id: 1, name: 'Rock Face', x: 118, y: 122, allows: 'quarry', near: [0, 2] },
   { id: 2, name: 'Tall Pines', x: 296, y: 118, allows: 'lumber', near: [0, 1, 3] },
   { id: 3, name: 'River Bend', x: 292, y: 296, allows: 'sawmill', near: [0, 2, 5] },
