@@ -16,7 +16,7 @@
     richOf, storeCost, roomOf, STORE_ROOM, cartCost, cartHaul, CARRY, CART_GAIN,
     raiders, raidTarget,
     windup, RATION_FOOD, RATION_HP, answerBite, uneatable, MEAL_FOOD, MEAL_HP,
-    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE, MEETS,
+    BOONS, has, RUN_STEP, sawsHere, KILN_SHARE, MEETS, SKILLS, skillOf, nextAt,
     type City } from '../camp/engine';
   import { load, save, wipe, exportRaw, importRaw, elapsedSince } from '../camp/store';
   import { CAMP_SHAPES } from '../camp/scenery';
@@ -1448,8 +1448,28 @@
         {#each shown(game).filter((s) => (game.stacks[s.id] ?? 0) > 0) as s (s.id)}
           <p class="note">{s.name} · {(f.hands.get(s.id) ?? 0)} working</p>
         {/each}
+        <!-- ★★★ WHAT THE TOWN HAS LEARNED BY DOING — 2026-08-16, brief item
+             2, the last of the ten load-bearing things to be built. It sits
+             on PEOPLE because that is whose hands got better, and because
+             this sheet held four lines and 300px of empty parchment.
+             ⚠️ THE BAR IS THE POINT. A level with no visible distance to the
+             next one is a number that changes while you are looking away and
+             means nothing when you look back. -->
+        <h2>Trades</h2>
+        {#each SKILLS as k (k)}
+          {@const lv = skillOf(game, k)}
+          {@const have = game.xp[k] ?? 0}
+          {@const from = lv < 2 ? 0 : nextAt(lv - 1)}
+          {@const to = nextAt(lv)}
+          <div class="skill">
+            <span class="nm">{k}</span>
+            <span class="lv">{lv}</span>
+            <span class="bar"><i style="width:{Math.max(0, Math.min(100,
+              ((have - from) / Math.max(1, to - from)) * 100)).toFixed(0)}%"></i></span>
+          </div>
+        {/each}
         {#if game.boons.length > 0}
-          <h2>What we have learned</h2>
+          <h2>Blueprints</h2>
           {#each game.boons as id (id)}
             {@const b = BOONS.find((x) => x.id === id)}
             {#if b}<p class="note">{b.name} — {b.what}</p>{/if}
@@ -1788,6 +1808,15 @@
   @keyframes windup { from { opacity: 0.75; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .swinging.windup { animation: none; } }
 
+  /* ★ ONE ROW PER SKILL: what it is, what level, and how far to the next. */
+  .skill { display: grid; grid-template-columns: 1fr auto 88px;
+    align-items: center; gap: 8px; margin: 5px 0; }
+  .skill .nm { font-size: var(--t5); color: var(--soft); font-weight: 600;
+    text-transform: capitalize; }
+  .skill .lv { font-size: var(--t4); color: var(--ink); font-weight: 700; }
+  .skill .bar { height: 6px; border-radius: var(--r1); background: var(--sunk);
+    overflow: hidden; }
+  .skill .bar i { display: block; height: 100%; background: var(--moss); }
   .keep { font-size: var(--t5); color: var(--soft); font-weight: 600; }
   .keep.build { color: var(--off); font-weight: 400; font-size: var(--t6); }
   .reset { font: inherit; font-size: var(--t5); border: 1px solid var(--edge);

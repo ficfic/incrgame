@@ -380,6 +380,19 @@ export interface City {
   /** ★ STOREHOUSES at the camp — how many stand. They are the CAP on every
    *  good; a full store wastes what arrives, the same law the paths obey. */
   store: number;
+  /** ★★★ SKILL EXPERIENCE — 2026-08-16, `docs/BRIEF.md` item 2, and the last
+   *  of the ten load-bearing things that had never been built. The owner:
+   *  *"RuneScape's skill progression elements… what accrues is our stats."*
+   *
+   *  Keyed by `Skill`, counted in raw xp. ⚠️ XP IS EARNED BY DOING THE WORK,
+   *  never bought and never chosen — that is the whole difference between
+   *  this and the seven ±25% blueprints cut the day before it. A card asked
+   *  you to pick which number went up; a level is a wage for work already
+   *  done, and it arrives while you are looking at something else.
+   *
+   *  ⚠️ FRACTIONAL, and deliberately not rounded on the way in. A quarry
+   *  making 0.15/s would earn nothing at all on an integer counter. */
+  xp: Record<string, number>;
   /** ★ CARTS — how many times the cartwright has re-shod the haulage.
    *  The one exponential in this engine that runs FOR the player. */
   carts: number;
@@ -540,6 +553,7 @@ export const initial = (): City => ({
   goblins: valleyGoblins(0),
   hero: { hp: 10, spears: 0, part: 0, at: 0, trip: null },
   store: 0,
+  xp: {},
   carts: 0,
   famine: 0,
   forage: null,
@@ -669,8 +683,15 @@ export const heroMax = (g: City): number => HERO_HP + 3 * g.taken;
  *  ⚠️ THE SOLVER'S LADDER IS UNTOUCHED at a levy of zero, which is what every
  *  rung was tuned against. Bringing people is a choice that makes fights
  *  easier and the town poorer, never a tax on the fights already balanced. */
+/** ★★★ AND WAR IS THE FIFTH SKILL — 2026-08-16. One more damage every third
+ *  level, which is deliberately coarse: the fight solver is the ladder's only
+ *  guard and it reasons about WHOLE hit points, so a fractional bonus would
+ *  make its answers meaningless. Coarse also means it is felt as an event —
+ *  "the hero hits harder now" — instead of a decimal creeping upward. */
+export const WAR_PER_HIT = 3;
 export const heroHit = (g: City): number =>
-  2 + g.hero.spears + standing(g);
+  2 + g.hero.spears + standing(g)
+  + Math.floor((skillOf(g, 'war') - 1) / WAR_PER_HIT);
 /** Townsfolk still on their feet in the fight, if there is one. */
 export const standing = (g: City): number =>
   (g.fight?.us ?? []).filter((u) => u.hp > 0).length;
@@ -1466,6 +1487,63 @@ export const roomToGrow = (g: City): number =>
 export const housed = (g: City): number =>
   Math.min(Math.floor(g.pop), popCap(g));
 
+/** ★★★ THE SKILLS — 2026-08-16. One per thing you can spend a life doing in
+ *  this valley, and no more: a skill nobody can name the source of is a
+ *  number pretending to be progression. */
+export const SKILLS = ['quarrying', 'forestry', 'milling', 'farming', 'war'] as const;
+export type Skill = typeof SKILLS[number];
+
+/** What each works trains. The war is trained by fighting, not by a works. */
+export const TRAINS: Record<Kind, Skill | null> = {
+  quarry: 'quarrying', lumber: 'forestry', sawmill: 'milling',
+  farm: 'farming', hut: null,
+};
+
+/** ★ XP PER UNIT OF GOOD PRODUCED. One, exactly — so the number a player sees
+ *  climbing IS the stone they dug, and the ladder can be reasoned about with
+ *  no conversion in the way. */
+export const XP_PER_GOOD = 1;
+/** ★ XP FOR TAKING A HOLDING. A fight is rare and dear; it pays like it. */
+export const XP_PER_FIGHT = 120;
+
+/** ★★★ THE LADDER, and it is deliberately steep at the start and generous
+ *  after. `xp` for level n is `LEVEL_BASE * n^LEVEL_POW`, which puts level 2
+ *  inside the first minute of a single quarry (so the mechanic ANNOUNCES
+ *  itself while you are still learning the board) and level 10 a long way
+ *  out. ⚠️ NOT RuneScape's own curve: that one is tuned for thousands of
+ *  hours and this valley ends at ~200 people. */
+/** ⚠️ 40 UNTIL IT WAS MEASURED. One quarry, staffed and roaded, earns 36 xp
+ *  in its first minute — so 40 put the second level just past the minute the
+ *  design claims it inside, which would have shipped as a mechanic nobody
+ *  noticed announcing itself. 30 lands it at ~50s. The number came off the
+ *  engine, not off a guess; `test/skills.test.ts` re-measures it. */
+export const LEVEL_BASE = 30;
+export const LEVEL_POW = 1.7;
+
+/** What level this much experience is worth. Level 1 from the first moment —
+ *  a town that cannot dig at all is not a town. */
+export const levelOf = (xp: number): number =>
+  Math.max(1, Math.floor((Math.max(0, xp) / LEVEL_BASE) ** (1 / LEVEL_POW)) + 1);
+
+/** The xp the NEXT level wants, so a bar can be drawn honestly. */
+export const nextAt = (level: number): number =>
+  Math.ceil(LEVEL_BASE * level ** LEVEL_POW);
+
+/** This town's level in a skill. */
+export const skillOf = (g: City, s: Skill): number => levelOf(g.xp[s] ?? 0);
+
+/** ★★★ WHAT A LEVEL IS WORTH AT THE WORKFACE — 4% a level, compounding
+ *  against nothing (it is linear). Ten levels of quarrying is a quarry and a
+ *  third, which is felt over a session and cannot run away over a valley.
+ *  ⚠️ THE ONE NUMBER TO BE CAREFUL WITH. This multiplies EVERY works of its
+ *  kind, so it is the closest thing in this game to a compounding curve;
+ *  `chad-liquidity` should see any change to it. */
+export const SKILL_GAIN = 0.04;
+export const skillBonus = (g: City, k: Kind): number => {
+  const s = TRAINS[k];
+  return s === null ? 1 : 1 + (skillOf(g, s) - 1) * SKILL_GAIN;
+};
+
 /** ★ THE COMPONENT: every site a path chain joins to the camp. */
 export function component(g: City): Set<number> {
   const out = new Set<number>([0]);
@@ -1643,10 +1721,10 @@ export function flow(g: City): Flow {
       : st.allows === 'farm' ? RATE.farm : RATE.sawmill)
       // ★ THE GROUND ITSELF, not just how many hands stand on it.
       * richOf(id)
-      // ★ THE BLUEPRINTS a town has taken: Stonecut, Mill hands, Granary.
-      * ((st.allows === 'quarry' && has(g, 'stonecut'))
-        || (st.allows === 'sawmill' && has(g, 'millhands'))
-        || (st.allows === 'farm' && has(g, 'granary')) ? 1.25 : 1);
+      // ★★★ AND WHAT THE TOWN HAS LEARNED BY DOING IT (2026-08-16). The
+      // blueprint multipliers that used to sit here were cut the day before
+      // — they were a choice between three numbers. This one is not chosen.
+      * skillBonus(g, st.allows);
     made.set(id, hands.get(id)! * base);
     if (st.allows === 'farm') farmRaw += hands.get(id)! * base;
   }
@@ -2161,6 +2239,10 @@ function liberate(g: City, now: NonNullable<City['fight']>): City {
   const b = won === null ? null : BOONS.find((x) => x.id === won) ?? null;
   return { ...g, goblins, menace, fight: null, pop: g.pop + CAPTIVES,
     taken: g.taken + 1,
+    // ★★★ AND THE WAR IS A SKILL TOO (brief item 2). Trained the only way it
+    // can be — by winning ground. It is the one skill with no works, so it
+    // is paid in a lump rather than by the second.
+    xp: { ...g.xp, war: (g.xp.war ?? 0) + XP_PER_FIGHT },
     // ★★★ AND THE BLUEPRINT IS SIMPLY HANDED OVER (2026-08-15). It used to
     // deal three and wait; see `nextBoon` for why a deck of three cannot.
     boons: won === null ? grown.boons : [...grown.boons, won],
@@ -2504,8 +2586,23 @@ export function apply(g: City, a: Action): City {
       // just the only thing holding it) is left alone rather than
       // confiscated; it simply cannot grow.
       const hold = (was: number, now: number): number => stow(g, was, now);
+      // ★★★ THE WAGE FOR WORK DONE — 2026-08-16, brief item 2.
+      // ⚠️ FROM `f.made`, WHICH IS WHAT THE WORKS PRODUCED, not from what
+      // arrived at the camp. A quarry whose road is choked is still being
+      // quarried in, and the crew standing there learn the same trade they
+      // would have learned if the carts had kept up. Paying on ARRIVALS
+      // would have made a blocked road silently stop your progression too,
+      // which is a punishment nobody could see the cause of.
+      let xp = g.xp;
+      for (const [id, rate] of f.made) {
+        const trains = TRAINS[SITE.get(id)?.allows ?? 'hut'];
+        if (trains === null || rate <= 0) continue;
+        if (xp === g.xp) xp = { ...g.xp };
+        xp[trains] = (xp[trains] ?? 0) + rate * s * XP_PER_GOOD;
+      }
       const out: City = {
         ...g,
+        xp,
         stone: hold(g.stone, g.stone + f.stone * s + (loot?.stone ?? 0)),
         logs: hold(g.logs, cut - sawn + (loot?.logs ?? 0)),
         planks: hold(g.planks, g.planks + shipped + (loot?.planks ?? 0)),

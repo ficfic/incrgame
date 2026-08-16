@@ -1,6 +1,6 @@
 // THE CAMP'S SAVE. Its own key, its own shape — the old game's saves stay
 // untouched on theirs, so flipping back loses nobody anything.
-import { BOONS, CITY_VERSION, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, initial,
+import { BOONS, CITY_VERSION, GOBLINS, LOG_KEEP, MAX_GAUGE, RATION_PACK, SITE, SKILLS, initial,
   pathKey, type City } from './engine';
 
 const KEY = 'camp-save';
@@ -152,6 +152,14 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   else if (!Array.isArray(g.kilned)) return null;
   else g.kilned = g.kilned.filter((id: unknown) =>
     typeof id === 'number' && SITE.get(id)?.allows === 'lumber');
+  // ★★★ SKILL EXPERIENCE — 2026-08-16. An older save has none and starts at
+  // level 1 in everything, which is exactly right: it has not done the work
+  // under a system that was counting.
+  if (g.xp === undefined || g.xp === null) g.xp = {};
+  else if (typeof g.xp !== 'object') return null;
+  else for (const [k, v] of Object.entries(g.xp)) {
+    if (!SKILLS.includes(k as never) || !num(v, 0, 9e12)) return null;
+  }
   if (g.levy === undefined) g.levy = 0;
   else if (!whole(g.levy, 0, 999)) return null;
   if (g.hurt === undefined) g.hurt = 0;
