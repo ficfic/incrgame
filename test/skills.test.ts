@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, levelOf, nextAt, skillOf, skillBonus,
   SKILLS, TRAINS, LEVEL_BASE, XP_PER_FIGHT, SKILL_GAIN, heroHit,
   worksMax, WORKS_PER_LEVEL, WORKS_MAX, WORKS_CAP, unraisable, blowLeft, LEGACY_SHARE,
+  storeCost, cartCost, roomOf, CART_GAIN, STORE_ROOM,
   pathKey, type City } from '../src/camp/engine';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
@@ -225,5 +226,56 @@ describe('★★★ WHAT THE HANDS REMEMBER ACROSS A VALLEY', () => {
   it('★ and it never goes backwards across runs', () => {
     const rich = wonValley({ legacy: { runs: 1, spears: 0, boons: [], xp: { quarrying: 9000 } } });
     expect(apply(rich, { type: 'found' }).xp.quarrying).toBe(9000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ★★★ THE RELIEF LADDER MUST OUTLAST THE PRODUCTION LADDER — 2026-08-16.
+//
+// `chad-liquidity` traced a chain nobody had costed end to end, and every link
+// held: the STORE ladder walls itself (storehouse n costs 25·1.3^n against a
+// room of `STORE_BASE + STORE_ROOM·n`), the room then walls the CART ladder
+// (carts are priced in stone at 90·1.55^n), and haulage is therefore hard
+// capped — it was 1.3^6 = 4.83/s, the maximum throughput of any road in this
+// game at any point, for ever. Meanwhile trades and `WORKS_CAP` multiply
+// PRODUCTION to roughly 6.1×. The town could buy output it was physically
+// unable to move, which is the exact failure `CART_GAIN`'s own comment warned
+// about in writing — and none of it was guarded, because no test had ever
+// walked either ladder to its end.
+// ---------------------------------------------------------------------------
+describe('★★★ THE TWO LADDERS, WALKED TO THEIR ENDS', () => {
+  const storeReach = (): number => {
+    let n = 0;
+    while (n < 200 && storeCost(n).stone <= roomOf({ ...initial(), store: n })) n++;
+    return n;
+  };
+  const cartReach = (room: number): number => {
+    let c = 0;
+    while (c < 200 && cartCost(c).stone <= room) c++;
+    return c;
+  };
+
+  it('★★★ the store ladder ends, and it is the room that ends it', () => {
+    const reach = storeReach();
+    expect(reach).toBeGreaterThan(10);
+    expect(reach).toBeLessThan(40);          // a ladder with no end runs away
+    expect(storeCost(reach).stone)
+      .toBeGreaterThan(roomOf({ ...initial(), store: reach }));
+  });
+
+  it('★★★ and the room it leaves buys enough carts to move a maxed town', () => {
+    const room = roomOf({ ...initial(), store: storeReach() });
+    const haul = Math.pow(CART_GAIN, cartReach(room));
+    // ⚠️ THE INVARIANT. Production reaches ~6.1× base (WORKS_CAP 3 × a trade
+    // bonus around 2.0). Haulage must not be capped BELOW it, or the top of
+    // the build ladder mints goods the graph cannot carry and every point of
+    // trade past mid-game is thrown away at the roads.
+    // At STORE_ROOM 60 this was 4.83 and the check reads red.
+    expect(haul).toBeGreaterThan(6.1);
+  });
+
+  it('★ room stays FLAT per house — one more building, never a multiplier', () => {
+    expect(roomOf({ ...initial(), store: 3 }) - roomOf({ ...initial(), store: 2 }))
+      .toBe(STORE_ROOM);
   });
 });

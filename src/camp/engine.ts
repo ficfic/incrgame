@@ -836,7 +836,32 @@ export const spearCost = (have: number): { stone: number; planks: number } => ({
  *  Room is FLAT per house, not compounding: the whole point is that the
  *  answer to "I need a bigger number" is always one more building. */
 export const STORE_BASE = 60;
-export const STORE_ROOM = 60;
+/** ★★★ 60 → 120 PER HOUSE, 2026-08-16, and this is the number that decides
+ *  whether any of the town's production is real.
+ *
+ *  ⚠️ THE STORE WALLED ITSELF, AND THE WALL WALLED THE CARTS.
+ *  `chad-liquidity` costed the whole chain and it holds exactly:
+ *    · storehouse #14 costs 25·1.3¹⁴ = 985 stone against a room of 900, so
+ *      the store ladder ENDS at 14 and the town can never hold more than 900;
+ *    · carts are priced in stone at 90·1.55ⁿ, so 900 stone buys SIX rungs and
+ *      `cartHaul` = 1.3⁶ = 4.83/s is the maximum throughput of any road in
+ *      this game, at any point, for ever;
+ *    · meanwhile trades and `WORKS_CAP` multiply PRODUCTION to about 6.1×.
+ *  So the relief ladder was hard-capped below the production ladder, and
+ *  `CART_GAIN`'s own note already warned in writing that multiplying output
+ *  without multiplying haulage "delivers nothing". Skills did exactly that.
+ *
+ *  At 120 the store ends at 17 for 2100 room, which buys EIGHT cart rungs —
+ *  haul 8.16/s. That is chad's own target band and it closes most of the gap
+ *  without touching the cart curve, which is the steeper and more dangerous
+ *  of the two.
+ *
+ *  ⚠️ THE OPENING IS UNCHANGED. `STORE_BASE` is still 60, so the first
+ *  pressure a player feels — a full larder before any storehouse stands — is
+ *  exactly where it was. What moved is what a storehouse BUYS, and how far
+ *  the ladder goes. It also gives an absence somewhere to bank into, which is
+ *  queue item 1's other half. */
+export const STORE_ROOM = 120;
 /** How much of each good the town can hold. */
 export const roomOf = (g: City): number =>
   STORE_BASE + STORE_ROOM * g.store;

@@ -1413,7 +1413,16 @@ await openSheet('Town');
 const storeDeed = page.locator('.spoke, .deed', { hasText: 'Storehouse ×1' });
 const storeNote = await storeDeed.textContent().catch(() => '');
 console.log('  offers  :', `"${storeNote.trim().replace(/\s+/g, ' ').slice(0, 60)}"`);
-if (!/📦120/.test(storeNote)) {
+// ⚠️ A RELATIONSHIP, NOT A MAGIC NUMBER. This asserted `📦120` and went red
+// when `STORE_ROOM` moved on 2026-08-16 — correctly, but for the wrong
+// reason: it was guarding a CONSTANT when the thing that matters is that the
+// deed prices its room and that the room is BIGGER THAN THE ONE YOU HAVE.
+// A typed-in total is also a lie waiting for `STORE_BASE` to move, and the
+// probe cannot import the engine (plain node, extensionless TS imports).
+const roomNow = Number((await cell('stone')).match(/\/(\d+)/)?.[1] ?? 0);
+const roomOffered = Number(storeNote.match(/📦(\d+)/)?.[1] ?? 0);
+console.log('  room    :', `${roomNow} now, ${roomOffered} offered`);
+if (!(roomOffered > roomNow)) {
   misses.push(`the storehouse does not price its room: "${storeNote.trim().slice(0, 60)}"`);
 }
 await storeDeed.click({ timeout: 2000 })
