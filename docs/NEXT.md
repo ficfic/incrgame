@@ -13,20 +13,26 @@ the game had drifted into a tasteful phone app with a map in it.
 | 3 | Timers | ✅ |
 | 4 | Thresholds — a door you can see from here | ✅ **built 2026-08-16** |
 | 5 | **Everything a graph, incl. the UI** *(non-negotiable)* | ✅ **built 2026-08-16** — deeds are nodes |
-| 6 | Choose-your-own-adventure | ⚠️ thin — `MEETS` is two options and a paragraph |
+| 6 | Choose-your-own-adventure | ✅ **built 2026-08-16** — branches, marks, beats |
 | 7 | Battles, graph-native | ✅ **built 2026-08-16** |
 | 8 | ~~The AI twist~~ | VOID, owner |
 | 9 | ~~Prestige on the twist~~ | VOID → the veteran hero |
 | 10 | Inventory and resources | ✅ |
 
-**The one gap left is 6.** `MEETS` is a name, a paragraph and two buttons; the
-brief asked for *branching, authored* choose-your-own-adventure. It is also
-the only pillar that needs WRITING rather than building, so it wants the
-owner's hand on the prose (`CLAUDE.md`: drafts are a starting point).
+**Every pillar that is not void is now built.** 8 and 9 were voided by the
+owner in August; the other eight stand.
 
-**Then, in the agents' order from the cut review:** sites 10–13 (the valley
-has more ground than reasons to go there), and foraging (a timer that pays
-loot). Both are still queued as CUTS, not builds.
+**What the pillars do NOT cover, and what to do next:**
+
+| # | next | why |
+|---|---|---|
+| 1 | **The owner reads the meeting prose** | It is machine-drafted per `CLAUDE.md` and MEANT to be rewritten. Eight scenes, two beats, three marks — the shapes are right, the lines are a starting point |
+| 2 | **More scenes, once the voice is settled** | Branching is cheap now: a `then` and a `mark`. The content is the work, not the machinery |
+| 3 | **Sites 10–13** | Still queued as a CUT — the valley has more ground than reasons to go there |
+| 4 | **Foraging** | Still queued as a CUT, but it is now the delivery mechanism for the story. Cutting it needs a new one first |
+
+⚠️ **`the-process` has not audited this stretch.** Four sessions of work went
+in without one, which is exactly when this project has drifted before.
 
 
 ## ★★★ THE CUT, 2026-08-15 — the owner: *"cut the mechanics"*
