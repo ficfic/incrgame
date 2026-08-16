@@ -5,7 +5,7 @@
 // ---- PROVEN RED, 2026-08-08 (sabotage log in the commit message) -----------
 import { describe, it, expect } from 'vitest';
 import { held } from '../src/camp/barrier';
-import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax, XP_PER_FIGHT,
+import { apply, initial, flow, shown, popCap, pathKey, costOf, pathCostOf, heroMax, XP_PER_FIGHT, LEVY_PER_HIT,
   unlayable, unraisable, unassailable, component, heroHit, spearCost, hunger,
   RATE, BASE, HUT_ROOM, GROW_SECS, CARRY, SITES, GOBLINS, CREW, GOBLIN_REGEN,
   roomToGrow, jobsOf,
@@ -3314,16 +3314,28 @@ describe('★★★ THE COUNTRY BEYOND THE RIDGE', () => {
       .toBeGreaterThan(Object.keys(done.goblins).length + 6);
   });
 
-  it('★★★ AND THE LEVY SWINGS — people are damage, not just armour', () => {
+  it('★★★ AND THE LEVY SWINGS — but at a THIRD, because bodies are armour', () => {
     // The owner: *"spears is a stupid resource… there's no point in having
     // more people."* Both halves were the same bug: spears were the only way
     // to hit harder, so the economy was a pipeline into one number.
+    // ⚠️ REWRITTEN 2026-08-16. It was +1 A BODY, and `chad-liquidity` costed
+    // what that meant: ten spears are 341 stone and 170 planks on a 1.3
+    // curve, ten townsfolk are FREE and mend themselves — so the armoury,
+    // the good the whole fight ladder is tuned on, was strictly dominated by
+    // walking the town to the fight. `WORKS_CAP` had just raised the maximum
+    // levy from about 40 to 112 on top of that. Three neighbours swinging are
+    // worth one spear now; standing in front of the hero is still free.
     const g: City = { ...initial(), pop: 24, food: 9e5, stacks: { 0: 6 },
       hero: { hp: 30, spears: 2, part: 0, at: 4, trip: null } };
     const alone = apply(g, { type: 'assail', id: 4 });
-    const withUs = apply({ ...g, levy: 3 }, { type: 'assail', id: 4 });
+    const withUs = apply({ ...g, levy: LEVY_PER_HIT * 2 }, { type: 'assail', id: 4 });
     expect(heroHit(withUs)).toBeGreaterThan(heroHit(alone));
-    expect(heroHit(withUs)).toBe(heroHit(alone) + 3);
+    expect(heroHit(withUs)).toBe(heroHit(alone) + 2);
+    // ★ AND A LEVY TOO SMALL TO MAKE A WHOLE SPEAR STILL BUYS NOTHING extra —
+    // it is armour, and armour is what it is for.
+    const few = apply({ ...g, levy: LEVY_PER_HIT - 1 }, { type: 'assail', id: 4 });
+    expect(heroHit(few)).toBe(heroHit(alone));
+    expect(standing(few)).toBe(LEVY_PER_HIT - 1);
     // ⚠️ AND THE SOLVER'S LADDER IS UNTOUCHED at a levy of zero, which is what
     // every rung was tuned against.
     expect(heroHit(alone)).toBe(2 + g.hero.spears);

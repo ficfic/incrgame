@@ -739,8 +739,27 @@ export const heroMax = (g: City): number => HERO_HP + 3 * g.taken;
  *  rungs broken, 5 leaves two, 6 holds all six. The armoury still decides who
  *  you can fight; the war skill is a nudge inside a rung, not a free spear. */
 export const WAR_PER_HIT = 6;
+/** ★★★ BODIES ARE ARMOUR, NOT A SPEAR — 2026-08-16, `chad-liquidity`'s
+ *  first critical, and the sentence three lines above already said so.
+ *
+ *  ⚠️ EVERY LEVY BODY WAS +1 DAMAGE, PERMANENTLY, FOR NOTHING. Ten spears
+ *  cost 341 stone and 170 planks cumulative on a 1.3 curve; ten townsfolk
+ *  cost NOTHING — they come home hurt and mend in `MEND_SECS`. So the whole
+ *  armoury, the good the fight ladder is actually tuned on, was strictly
+ *  dominated by walking the town to the fight. Costed: site 9 fully swollen,
+ *  levy 20, ZERO spears — the hero is never touched and wins in seven blows.
+ *  And `WORKS_CAP` had just tripled `jobsOf`, which raised `roomToGrow` and
+ *  therefore the maximum levy from about 40 to 112.
+ *
+ *  A levy still helps, at a third of the rate — three neighbours swinging
+ *  make one more spear's worth of difference — and it still does what it was
+ *  always for: it stands IN FRONT of the hero and eats the answer.
+ *
+ *  ⚠️ THE LADDER IS UNTOUCHED AT LEVY ZERO, which is where it is solved:
+ *  `Math.floor(0 / 3)` is 0, exactly as `standing(g)` was. */
+export const LEVY_PER_HIT = 3;
 export const heroHit = (g: City): number =>
-  2 + g.hero.spears + standing(g)
+  2 + g.hero.spears + Math.floor(standing(g) / LEVY_PER_HIT)
   + Math.floor((skillOf(g, 'war') - 1) / WAR_PER_HIT);
 /** Townsfolk still on their feet in the fight, if there is one. */
 export const standing = (g: City): number =>
