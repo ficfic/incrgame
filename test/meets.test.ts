@@ -90,6 +90,25 @@ describe('★★★ THE VALLEY REMEMBERS', () => {
     expect(twice.marks.filter((m) => m === mark)).toHaveLength(1);
   });
 
+  it('★★★ a scene CLOSES once the valley has moved past it', () => {
+    // ⚠️ `unless` SHIPPED DEAD: declared, branched, and used by nothing, so
+    // `the-process` deleted the branch and all 947 tests stayed green. Both
+    // halves of remembering have to bite — one scene opened by a mark, one
+    // shut by one.
+    const shut = MEETS.findIndex((m) => m.unless !== undefined);
+    expect(shut).toBeGreaterThanOrEqual(0);
+    const mark = MEETS[shut]!.unless!;
+    expect(meetOpen(initial(), shut)).toBe(true);
+    expect(meetOpen({ ...initial(), marks: [mark] }, shut)).toBe(false);
+    // ★ And the walk skips it rather than going silent.
+    const past = { ...initial(), marks: [mark] };
+    for (let f = 1; f < 20; f += 2) {
+      const i = meetFor(past, f);
+      expect(i).not.toBeNull();
+      expect(i).not.toBe(shut);
+    }
+  });
+
   it('★★★ and a gated meeting is closed until the valley has earned it', () => {
     const gated = MEETS.findIndex((m) => m.needs !== undefined);
     expect(gated).toBeGreaterThanOrEqual(0);

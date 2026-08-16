@@ -1009,7 +1009,7 @@ export const marchSecs = (g: City, to: number): number | null => {
   const secs = walkSecs(g, g.hero.at, to);
   // ★ SCOUTS: the hero marches half again as fast.
   return secs === null ? null
-    : Math.round(has(g, 'scouts') ? secs / 1.5 : secs);
+    : Math.round(secs);
 };
 /** Why the hero cannot set out for this site, or null. */
 export function unmarchable(g: City, to: number): string | null {
@@ -1072,7 +1072,12 @@ export const MEETS: readonly Meet[] = [
   // ⚠️ INDICES ARE LOAD-BEARING — `then` points at them. Append, do not
   //   reorder; `test/meets.test.ts` checks every link resolves.
   /* 0 */
-  { name: 'A cold camp',
+  // ⚠️ `unless` WAS SHIPPED DEAD on 2026-08-16 — declared in the interface,
+  // branched in `meetOpen`, and used by no scene at all, so deleting the
+  // branch changed nothing and no test noticed. Two scenes close themselves
+  // now, which is what a valley remembering is FOR: the track up the scree
+  // is the one you brought the rockfall down on.
+  { name: 'A cold camp', unless: 'sealed',
     text: 'Someone slept here a week ago and left in a hurry. There is a '
       + 'good axe under the bracken, and a track heading up the scree.',
     ways: [
@@ -1115,7 +1120,7 @@ export const MEETS: readonly Meet[] = [
         said: 'The old channel is a heap of good cut stone now. It will not run again.' },
     ] },
   /* 4 */
-  { name: 'A goblin with its hands up',
+  { name: 'A goblin with its hands up', unless: 'truce',
     text: 'It is small, and alone, and it has put down whatever it was '
       + 'carrying. It says a word that might be a place, and points north.',
     ways: [
@@ -1300,10 +1305,8 @@ export const carriesOf = (g: City, key: string): number =>
 export const cartCostOf = (g: City, have: number): { stone: number;
   logs: number; planks: number } => {
   const c = cartCost(have);
-  // ★ DROVER: carts come cheaper.
-  const off = has(g, 'drover') ? 0.75 : 1;
-  return { stone: Math.ceil(c.stone * off), logs: Math.ceil(c.logs * off),
-    planks: Math.ceil(c.planks * off) };
+  return { stone: Math.ceil(c.stone), logs: Math.ceil(c.logs),
+    planks: Math.ceil(c.planks) };
 };
 export const cartCost = (have: number): { stone: number; logs: number;
   planks: number } => ({
@@ -1418,7 +1421,19 @@ export const BOONS: readonly Boon[] = [
   { id: 'kiln', name: 'Sawpits',
     what: 'Lumber camps can saw their own planks instead of hauling logs out' },
 ];
-/** Does the town hold this blueprint? */
+/** ★★★ FIVE DEAD BRANCHES WERE CUT OUT OF THIS FILE ON 2026-08-16.
+ *
+ *  `scouts`, `drover`, `bindings`, `forager` and `quartermaster` were all
+ *  asked about with `has(g, …)` long after the 2026-08-15 deck cut removed
+ *  them from `BOONS` — and `honour()` filters unknown ids out of a save, so
+ *  not one of those tests could ever be true again. They read like live
+ *  tuning (*"DROVER: carts come cheaper"*, *"BINDINGS: the levy stands
+ *  longer"*) while doing nothing at all, which is worse than absent: the next
+ *  session balances against a modifier that cannot fire.
+ *  ⚠️ IF A BLUEPRINT IS CUT, ITS BRANCHES GO WITH IT. `the-graph` found these
+ *  by grepping `has(` against `BOONS`; that is a cheap thing to re-run.
+ *
+ *  Does the town hold this blueprint? */
 export const has = (g: City, id: string): boolean => g.boons.includes(id);
 /** Is this wood camp sawing its own planks where they fell? */
 export const sawsHere = (g: City, id: number): boolean =>
@@ -1472,8 +1487,7 @@ export const MEND_SECS = 45;
 /** The squares the town's levy fields — one per townsperson who marched. */
 export const levied = (g: City): Array<{ hp: number }> =>
   Array.from({ length: Math.max(0, Math.min(g.levy, levyCap(g))) },
-    // ★ BINDINGS: the levy stands longer.
-    () => ({ hp: LEVY_HP + (has(g, 'bindings') ? 3 : 0) }));
+    () => ({ hp: LEVY_HP }));
 export const levyCap = (g: City): number =>
   Math.max(0, Math.floor(housed(g) - g.hurt));
 
@@ -2682,10 +2696,7 @@ export function apply(g: City, a: Action): City {
         const left = forage.left - s;
         if (left > 0) forage = { ...forage, left };
         else {
-          loot = has(g, 'forager')
-            ? Object.fromEntries(Object.entries(nextForay(g).loot)
-              .map(([k, v]) => [k, (v ?? 0) * 2]))
-            : nextForay(g).loot;
+          loot = nextForay(g).loot;
           forays = g.forays + 1;
           forage = null;
           said.push(`The hero came back from ${nextForay(g).name.toLowerCase()}.`);
@@ -2844,7 +2855,7 @@ export function apply(g: City, a: Action): City {
               sq: lineOf(goblins[arrived]!, GOBLINS[arrived]?.bite ?? 2,
                 GOBLINS[arrived]?.runt ?? 0, GOBLINS[arrived]?.screen),
               target: 0, round: 0,
-              packs: RATION_PACK + (has(g, 'quartermaster') ? 2 : 0),
+              packs: RATION_PACK,
               blow: null, us: levied(g),
             } }
           : {}),
@@ -3092,8 +3103,7 @@ export function apply(g: City, a: Action): City {
         sq: lineOf(g.goblins[a.id] ?? 0, spec?.bite ?? 2, spec?.runt ?? 0, spec?.screen),
         target: 0,
         round: 0,
-        // ★ QUARTERMASTER: two more rations a sortie.
-        packs: RATION_PACK + (has(g, 'quartermaster') ? 2 : 0),
+        packs: RATION_PACK,
         us: levied(g),
         blow: null,
       } };

@@ -1,3 +1,31 @@
+// ⚠️⚠️ THIS CHECK HAS NO SUBJECT AND EXITS NON-ZERO ON PURPOSE — 2026-08-16.
+//
+// Read the note below: this file was written BECAUSE a guard whose subject had
+// been deleted went on passing, green, policing a field that could no longer
+// exist. It has now done exactly that itself, for nine days, and `the-process`
+// caught it by sabotage: it reads `src/core/types.ts` and `src/core/readouts.ts`
+// — the PRE-PIVOT game — and reports "7 quantity fields off limits: solid, raw,
+// rot, …" and "4 readouts declared and shown: words, solid, raw, rot". None of
+// those exist. `READOUTS` is referenced ZERO times from `src/camp/` or from
+// `src/ui/Camp.svelte`, which is the whole of the shipped game.
+//
+// It was proven vacuous with the exact defect it exists to catch: two nouns for
+// one quantity, printed into the live HUD (`hoard {n} · stockpile {n}`). Exit 0.
+//
+// `CLAUDE.md` listed it under "Guardrails (enforced, not requested)". It
+// enforced nothing. Rather than leave a green tick over a corpse, it now FAILS
+// and says so, which is the honest state until somebody repoints it at the
+// live surfaces. THE RULE IS STILL RIGHT — the board once said "25 nodes"
+// beside a HUD saying "3 recovered" — it is the subject that moved.
+//
+// TO REVIVE IT: declare the town's real quantities (stone, logs, planks, food,
+// people, huts, hero, carts, room, and the trade levels) in one table the live
+// UI reads, then point the scan below at `src/ui/Camp.svelte`,
+// `src/ui/Board.svelte` and `src/camp/`. Queued in docs/NEXT.md.
+console.error('✗ check-vocabulary has no subject: it polices the pre-pivot');
+console.error('  game (src/core/readouts.ts). See the note at the top of this');
+console.error('  file. Repoint it at src/camp + src/ui/Camp.svelte or delete it.');
+process.exit(1);
 // ONE WORD, ONE QUANTITY — the build gate.
 //
 // ---- The bug this exists to prevent, stated once ---------------------------

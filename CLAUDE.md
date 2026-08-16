@@ -123,9 +123,17 @@ tests for the check script.
   load-bearing for months: it named mechanics, killed others, and is why
   `GLOSSARY.md` and `SIMPLIFICATIONS.md` exist.)* The ontology it policed is
   gone. Invented fantasy answers to the brief, not to a citation.
-- **One word, one quantity.** Every player-facing number is declared in
-  `src/core/readouts.ts`; `scripts/check-vocabulary.mjs` enforces it. The board
-  once said "25 nodes" beside a HUD saying "3 recovered", both correct.
+- **One word, one quantity.** The board once said "25 nodes" beside a HUD
+  saying "3 recovered", both correct. ⚠️ **THE RULE STANDS; ITS CHECK DOES
+  NOT.** This line claimed `scripts/check-vocabulary.mjs` enforced it. It
+  enforced nothing: it reads `src/core/readouts.ts`, the PRE-PIVOT game, and
+  reported "solid, raw, rot" while `READOUTS` was referenced zero times by
+  anything shipped. `the-process` proved it by printing two nouns for one
+  quantity into the live HUD — exit 0. It now exits 1 and says so, which is
+  the honest state until somebody repoints it. **Enforce this rule by hand
+  until then**, and do not cite the script as cover.
+  *(`scripts/check-story.mjs` is in the same condition — it reports 446 beats
+  and 3,686 concepts from the deleted ontology. Neither is in `npm run guard`.)*
 - **HITL review is never mandatory.** Manual review is an optional min-max lever,
   never an attention tax. An idle game that demands babysitting isn't one.
 - **Respect the mobile performance budget** (`docs/GAME_DESIGN.md`): simulate in
