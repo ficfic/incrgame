@@ -460,7 +460,19 @@ export interface City {
    *  percentage: you begin the next one knowing things, not multiplying
    *  things. And every run the country beyond the ridge is harder, so the
    *  knowledge is spent rather than banked. */
-  legacy: { runs: number; spears: number; boons: string[] };
+  legacy: { runs: number; spears: number; boons: string[];
+    /** ★★★ WHAT THE HANDS REMEMBER — 2026-08-16. `docs/BRIEF.md` item 9, the
+     *  replacement for the voided AI prestige, is verbatim: *"what you
+     *  learned about the terrain does not [reset]… Knowledge persists,
+     *  infrastructure does not."* The one system in this game literally
+     *  captioned "Trades" was the one thing that did NOT persist — into a
+     *  valley `RUN_STEP` makes harder every time. War in particular went
+     *  from level 7 back to level 1 against tougher goblins.
+     *  ⚠️ CARRIED AT HALF, not whole. Whole would make valley two open with
+     *  the ceiling already unlocked and no ladder left to climb; nothing
+     *  would make the brief's own promise false. Half keeps the doors worth
+     *  walking through twice while the town is plainly better at its work. */
+    xp?: Record<string, number> };
   /** ★ A FIGHT IN PROGRESS, or null — the owner's own screen: our square
    *  left, three goblin squares right. Turn-based: every round is yours.
    *  `sq` is the line — a BRUTE up front (the mash trap) and two RUNTS
@@ -577,7 +589,7 @@ export const initial = (): City => ({
   kilned: [],
   levy: 0,
   hurt: 0,
-  legacy: { runs: 0, spears: 0, boons: [] },
+  legacy: { runs: 0, spears: 0, boons: [], xp: {} },
   fight: null,
 });
 
@@ -1646,6 +1658,8 @@ export const TRAINS: Record<Kind, Skill | null> = {
 export const XP_PER_GOOD = 1;
 /** ★ XP FOR TAKING A HOLDING. A fight is rare and dear; it pays like it. */
 export const XP_PER_FIGHT = 120;
+/** ★ How much of a won valley's learning crosses into the next one. */
+export const LEGACY_SHARE = 0.5;
 
 /** ★★★ THE LADDER, and it is deliberately steep at the start and generous
  *  after. `xp` for level n is `LEVEL_BASE * n^LEVEL_POW`, which puts level 2
@@ -2977,9 +2991,17 @@ export function apply(g: City, a: Action): City {
         boons: won
           ? [...new Set([...g.legacy.boons, ...g.boons])]
           : [...g.legacy.boons],
+        // ★★★ AND THE TRADES CARRY, AT HALF (brief item 9). A lost run keeps
+        // what it had banked and learns nothing new, exactly like the
+        // blueprints — finishing is what buys knowledge.
+        xp: won
+          ? Object.fromEntries(SKILLS.map((k) => [k,
+              Math.max(g.legacy.xp?.[k] ?? 0, (g.xp[k] ?? 0) * LEGACY_SHARE)]))
+          : { ...(g.legacy.xp ?? {}) },
       };
       const next = initial();
       return { ...next, legacy,
+        xp: { ...(legacy.xp ?? {}) },
         // ★ A BIGGER VALLEY, not just a harder one — the far country appears
         // on the map for the first time on run two, and again on run three.
         goblins: valleyGoblins(legacy.runs),

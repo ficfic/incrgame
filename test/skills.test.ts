@@ -8,7 +8,7 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, flow, levelOf, nextAt, skillOf, skillBonus,
   SKILLS, TRAINS, LEVEL_BASE, XP_PER_FIGHT, SKILL_GAIN, heroHit,
-  worksMax, WORKS_PER_LEVEL, WORKS_MAX, WORKS_CAP, unraisable, blowLeft,
+  worksMax, WORKS_PER_LEVEL, WORKS_MAX, WORKS_CAP, unraisable, blowLeft, LEGACY_SHARE,
   pathKey, type City } from '../src/camp/engine';
 
 const tick = (g: City, secs: number): City => apply(g, { type: 'tick', secs });
@@ -192,5 +192,38 @@ describe('★★★ THE DOOR YOU CAN SEE FROM HERE', () => {
 
   it('★ huts are housing, not a trade, and stay exempt', () => {
     expect(worksMax({ ...initial(), xp: { quarrying: 9e6 } }, 'hut')).toBe(WORKS_MAX);
+  });
+});
+
+describe('★★★ WHAT THE HANDS REMEMBER ACROSS A VALLEY', () => {
+  // `docs/BRIEF.md` item 9, the replacement for the voided AI prestige:
+  // *"what you learned about the terrain does not [reset]… Knowledge
+  // persists, infrastructure does not."* The one system in this game
+  // captioned "Trades" was the one thing that did NOT persist, into a valley
+  // RUN_STEP makes harder every time. Found by `the-redditor`, 2026-08-16.
+  const wonValley = (over: Partial<City> = {}): City => ({
+    ...initial(), goblins: {}, xp: { quarrying: 4000, war: 600 }, ...over });
+
+  it('★★★ a WON valley carries its trades into the next one', () => {
+    const next = apply(wonValley(), { type: 'found' });
+    expect(next.xp.quarrying ?? 0).toBeGreaterThan(0);
+    expect(skillOf(next, 'quarrying')).toBeGreaterThan(1);
+  });
+
+  it('★★★ at half, so the doors are still worth walking through twice', () => {
+    const next = apply(wonValley(), { type: 'found' });
+    expect(next.xp.quarrying).toBeCloseTo(4000 * LEGACY_SHARE, 6);
+    expect(LEGACY_SHARE).toBeLessThan(1);
+  });
+
+  it('★★ the town itself still starts cold — knowledge, not infrastructure', () => {
+    const next = apply(wonValley({ stacks: { 0: 6, 1: 3 }, pop: 90 }), { type: 'found' });
+    expect(next.stacks).toEqual(initial().stacks);
+    expect(next.pop).toBe(initial().pop);
+  });
+
+  it('★ and it never goes backwards across runs', () => {
+    const rich = wonValley({ legacy: { runs: 1, spears: 0, boons: [], xp: { quarrying: 9000 } } });
+    expect(apply(rich, { type: 'found' }).xp.quarrying).toBe(9000);
   });
 });

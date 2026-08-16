@@ -52,6 +52,15 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   if (g.legacy !== undefined) {
     if (typeof g.legacy !== 'object' || g.legacy === null) return null;
     if (!whole(g.legacy.runs, 0, 9999) || !whole(g.legacy.spears, 0, 999)) return null;
+    // ★★★ WHAT THE HANDS REMEMBER — 2026-08-16, brief item 9. Defaulted for
+    // every save written before trades crossed a valley, and checked to the
+    // leaf like every other map: an unvalidated number here would NaN-poison
+    // every rate on the FIRST TICK of the next run.
+    if (g.legacy.xp === undefined || g.legacy.xp === null) g.legacy.xp = {};
+    else if (typeof g.legacy.xp !== 'object') return null;
+    else for (const [k, v] of Object.entries(g.legacy.xp)) {
+      if (!SKILLS.includes(k as never) || !num(v, 0, 9e12)) return null;
+    }
   }
   if (g.menace !== undefined) {
     if (typeof g.menace !== 'object' || g.menace === null) return null;
@@ -229,6 +238,15 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
       && Array.isArray(f.sq) && f.sq.length === 3
       && f.sq.every(q => q && num(q.hp, 0, 9999) && num(q.poke, 0, 99)
         && (q.kind === 'brute' || q.kind === 'runt'))
+      // ⚠️ THE LEVY IS A LEAF AND IT WAS NEVER CHECKED — 2026-08-16. `us` was
+      // defaulted when absent and then trusted: `{"us":[{"hp":"x"}]}` loaded
+      // clean, `standing()` counted it, one strike made `hero.hp` NaN, and
+      // the NEXT save was refused outright — the run gone, from an import.
+      // The file's own rule at the top is VALUES, NOT JUST SHAPES, checked to
+      // the leaf on every map. This was the leaf that was missed.
+      && Array.isArray(f.us)
+      && f.us.every((u: unknown) => u !== null && typeof u === 'object'
+        && num((u as { hp?: unknown }).hp, 0, 9999))
       && whole(f.target, 0, 2)
       && whole(f.round, 0, 1e6)
       // ⚠️ THE PACK IS THE RATION RULING. Missing, it read `undefined <= 0`

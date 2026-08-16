@@ -1008,7 +1008,7 @@ describe('★★★ WHAT THE TOWN MAKES IS A SPEAR', () => {
     const back = honour({ game: old, savedAt: 1 })!.game;
     expect(back.hero.spears).toBe(5);
     expect(heroHit(back)).toBe(7);
-    expect(back.legacy).toEqual({ runs: 2, spears: 3, boons: [] });
+    expect(back.legacy).toEqual({ runs: 2, spears: 3, boons: [], xp: {} });
     // And junk is still junk, whichever word it arrives under.
     expect(honour({ game: { ...old, hero: { hp: 10, arms: -1, part: 0 } },
       savedAt: 1 })).toBeNull();
@@ -1983,7 +1983,7 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
       hero: { hp: 3, spears: 7, part: 0, at: 0, trip: null }, legacy: { runs: 0, spears: 0, boons: [] } };
     const next = apply(dead, { type: 'found' });
     expect(next.lost).toBe(false);
-    expect(next.legacy).toEqual({ runs: 1, spears: 4, boons: [] });
+    expect(next.legacy).toEqual({ runs: 1, spears: 4, boons: [], xp: {} });
     expect(next.hero.spears).toBe(4);
     // Everything else is gone — that is what losing the valley means.
     expect(next.stacks).toEqual({});
@@ -2021,7 +2021,7 @@ describe('★★★ LOSE THE VALLEY, KEEP THE VETERAN', () => {
     expect(honour({ game: { ...initial(), legacy: { runs: 1, spears: 1.5 } }, savedAt: 1 })).toBeNull();
     const { legacy: _, taken: __, lost: ___, ...old } = initial();
     const back = honour({ game: old as never, savedAt: 1 })!.game;
-    expect(back.legacy).toEqual({ runs: 0, spears: 0, boons: [] });
+    expect(back.legacy).toEqual({ runs: 0, spears: 0, boons: [], xp: {} });
     expect(back.taken).toBe(0);
   });
 });
@@ -2225,6 +2225,66 @@ describe('★★★ PEOPLE OVER THE HUT CAP DO NOT WORK — but they still eat',
 // ★★★ THE TWO BLOCKERS THE TAP LEFT BEHIND, 2026-08-10. Both were found by a
 // balance audit and then VERIFIED BY RUNNING THEM before either was touched.
 // ---------------------------------------------------------------------------
+describe('★★★ THE SAVE DOOR, WHERE THE REVIEW FOUND HOLES (2026-08-16)', () => {
+  const door = (over: Record<string, unknown>): City | null => {
+    const back = honour({ savedAt: 1, game: { ...initial(), ...over } as City });
+    return back === null ? null : back.game;
+  };
+
+  it('★★★ a sweep or a volley in flight KEEPS the fight', () => {
+    // ⚠️ `blow.act` accepted strike/guard/ration and had not been told about
+    // sweep or volley in five days, so a save taken with either in flight
+    // failed the check, `sound` went false, and THE WHOLE FIGHT WAS THROWN
+    // AWAY — every hit landed in it refunded to the goblins. Autosave is 2s
+    // and BLOW_SECS is 1, so backgrounding the phone just after tapping
+    // Sweep is the ordinary case on the one browser this is played in.
+    const fight = {
+      site: 4, target: 0, round: 1, packs: 2, us: [],
+      sq: [{ hp: 6, poke: 1, kind: 'brute' }, { hp: 3, poke: 2, kind: 'runt' },
+        { hp: 3, poke: 2, kind: 'runt' }] };
+    for (const act of ['strike', 'guard', 'ration', 'sweep', 'volley']) {
+      const back = door({ fight: { ...fight, blow: { left: 0.5, secs: 1, act } } });
+      expect(back?.fight, `${act} was discarded`).not.toBeNull();
+      expect(back?.fight?.blow?.act).toBe(act);
+    }
+  });
+
+  it('★★★ a junk levy is refused instead of NaN-poisoning the run', () => {
+    // ⚠️ `us` was defaulted when absent and then TRUSTED. A crafted or
+    // corrupt import loaded clean, `standing()` counted it, one strike made
+    // `hero.hp` NaN, and the next save was refused outright — the run gone.
+    // Import/export is a supported path, so this was reachable.
+    const fight = {
+      site: 4, target: 0, round: 0, packs: 2, blow: null,
+      sq: [{ hp: 6, poke: 1, kind: 'brute' }, { hp: 3, poke: 2, kind: 'runt' },
+        { hp: 3, poke: 2, kind: 'runt' }] };
+    const junk = door({ fight: { ...fight, us: [{ hp: 'x' }] } as never });
+    expect(junk?.fight ?? null).toBeNull();          // dropped at the door
+    const good = door({ fight: { ...fight, us: [{ hp: 5 }] } as never });
+    expect(good?.fight).not.toBeNull();
+  });
+
+  it('★★ a meeting index beyond the content is refused, not silently mute', () => {
+    // ⚠️ Bounded at 99 against 8 scenes. An out-of-range meeting renders
+    // nothing, `answer` refuses it, and the tick only deals a new one when
+    // `meet` is null — so one bad index stopped every meeting FOREVER with
+    // nothing on screen to say why.
+    expect(door({ meet: MEETS.length })).toBeNull();
+    expect(door({ meet: MEETS.length - 1 })?.meet).toBe(MEETS.length - 1);
+  });
+
+  it('★★ a fight on ground the goblins RETOOK survives the door', () => {
+    // `raidTarget` can put goblins on sites that never started held, and the
+    // validator still asked `GOBLINS[site] !== undefined` — the old
+    // assumption, kept after `g.goblins` was widened for exactly this.
+    const back = door({ goblins: { 1: 9 }, fight: {
+      site: 1, target: 0, round: 0, packs: 2, blow: null, us: [],
+      sq: [{ hp: 6, poke: 1, kind: 'brute' }, { hp: 3, poke: 2, kind: 'runt' },
+        { hp: 3, poke: 2, kind: 'runt' }] } as never });
+    expect(back?.fight).not.toBeNull();
+  });
+});
+
 describe('★★★ THE WAGON CANNOT BE SPENT INTO A DEAD SAVE', () => {
   it('★★★ THE SOFTLOCK: three roads and a widen used to end the run forever', () => {
     // Lay all three camp roads, wait for them, widen one: 9 + 6 = the whole

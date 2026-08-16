@@ -1565,7 +1565,15 @@
         {/if}
         <div class="deeds">
           {#each heroDeeds() as d (d.label)}
-            <button class="deed row" class:cant={d.why !== null} onclick={d.go}>
+            <!-- ⚠️ `disabled`, NOT `class:cant` — and THIS SHEET WAS MISSED
+                 when the Town sheet was fixed on 2026-08-15. There is no
+                 `.cant` rule in this stylesheet, so "Feed the hero" with no
+                 food and "Send the hero out" mid-march both drew as
+                 available and did nothing when pressed. Playtest 4's C5
+                 verbatim — *"all of these are highlighted as if they are
+                 available to me, but they are not"* — fixed on one sheet
+                 and left live one sheet over for a day. -->
+            <button class="deed row" disabled={d.why !== null} onclick={d.go}>
               <span class="what">{d.label}</span><em>{d.note}</em>
             </button>
           {/each}
