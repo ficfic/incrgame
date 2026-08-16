@@ -2,7 +2,7 @@
   // THE CITY BUILDER'S ONE SCREEN — docs/CITY.md made flesh. Header of
   // numbers, the board, a dock of deeds. NO PROSE: nouns and numbers.
   import { onMount } from 'svelte';
-  import Board, { type Dot, type Line } from './Board.svelte';
+  import Board, { type Dot, type Line, type Spoke } from './Board.svelte';
   import { INK, PAPER, TOL, type InkName } from '../game/ink';
   import type { Box } from '../game/layout';
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
@@ -535,6 +535,7 @@
 
   interface Deed { label: string; note: string; why: string | null; go: () => void }
 
+
   /** ★★ THE HERO'S OWN DEEDS (N1) — the two that are about the person rather
    *  than about a place, so they belong on the Hero tab and not in the middle
    *  of the camp's building list. Marching stays with the PLACE you are
@@ -700,6 +701,27 @@
     }
     return out;
   })());
+
+  /** ★★★ THE PICKED PLACE'S DEEDS, ON THE GRAPH — 2026-08-16, brief item 5.
+   *
+   *  ⚠️ THE SAME `deeds` THE PANEL USED, deliberately: this is a change of
+   *  WHERE the game is touched, not of what it offers, and duplicating the
+   *  list into a second derivation is how two surfaces come to disagree
+   *  about what you can do. One list, drawn somewhere truer.
+   *
+   *  ⚠️ AND ONLY WHEN NO SHEET IS OPEN. The sheets rise OVER the board; deeds
+   *  blooming under a sheet you are reading would be furniture arguing with
+   *  furniture. */
+  const spokes = $derived<Spoke[]>(
+    (!game.fight && sheet === null && picked !== null && SITE.has(picked))
+      ? deeds.map((d, i) => ({
+          id: `${picked}:${i}`, parent: siteId(picked!),
+          label: d.label, note: d.note, off: d.why !== null }))
+      : []);
+  const fireSpoke = (id: string): void => {
+    const d = deeds[Number(id.split(':')[1])];
+    if (d && d.why === null) d.go();
+  };
 
   /** ★★★ THE TOWN'S OWN DEEDS — 2026-08-11. Everything you build for the
    *  whole camp rather than for one place on the map: the storehouse, the
@@ -1231,7 +1253,7 @@
            owner's own suggestion. Leaving both would be the clutter F10 is
            about. -->
       <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false}
-        decor={scene} mark={heroMark} />
+        decor={scene} mark={heroMark} {spokes} onSpoke={fireSpoke} />
     </div>
     <section class="panel">
       {#if awayLine}
@@ -1514,6 +1536,25 @@
             {/if}
           </div>
         {/if}
+        <!-- ★★★ AND THE LIST IS GONE WHEN THE GRAPH HAS THEM — 2026-08-16.
+             The deeds hang off their own node now (brief item 5); printing
+             them here as well would be the same offer in two places, which is
+             how the hero's Feed deed once sat on two tabs at once. The panel
+             keeps what a place IS — its name, its works, its hands — and the
+             graph keeps what you can DO there. -->
+        <!-- ★★★ AND THE PANEL SAYS WHY — 2026-08-16. A blocked deed on the
+             graph shows its NAME only: the refusals are sentences, and seven
+             sentences hanging off the camp buried the board. But a door you
+             cannot open still has to say what is holding it, or the dimming
+             is just a shrug. The reasons land here, where there is room for a
+             sentence — which is also what this panel is FOR now that the
+             deeds themselves have gone onto the graph. -->
+        {#if spokes.length > 0}
+          {#each deeds.filter((d) => d.why !== null) as d (d.label)}
+            <p class="note"><b>{d.label}</b> — {d.why}</p>
+          {/each}
+        {/if}
+        {#if spokes.length === 0}
         <div class="deeds">
         {#each deeds as d (d.label)}
           <!-- ★ ONE LINE PER DEED, 2026-08-09. The owner, on the phone: *"the
@@ -1530,6 +1571,7 @@
           </button>
         {/each}
         </div>
+        {/if}
       {:else if !game.fight}
         <!-- ⚠️ AND NOT DURING A FIGHT, 2026-08-15. Every branch above this one
              is guarded by `!game.fight`, so a battle fell through the whole
@@ -1765,7 +1807,16 @@
      so the map takes a fixed share and the panel takes what is left. The
      board never hears about a dock tap, and the emptiness lands in a panel
      that already looks like a panel and scrolls when there is more. */
-  .map { flex: 0 0 auto; height: 42dvh; min-height: 0; position: relative;
+  /* ★★★ 42dvh → 58dvh, 2026-08-16. The deeds moved ONTO the graph (brief
+     item 5), so the panel that used to list them holds a name and a couple of
+     status lines — it was 40dvh of empty parchment under a three-line
+     inspector, while five deed chips fought each other over a 355px board.
+     The board is the interface now and it takes the screen; the panel keeps
+     what a place IS and the graph keeps what you can DO there.
+     ⚠️ STILL A FIXED HEIGHT, WHICH IS THE WHOLE POINT OF THIS RULE — the
+     number changed, the law did not. The map must not resize when a sheet
+     opens (*"it makes the map jam every time"*), so the panel still absorbs. */
+  .map { flex: 0 0 auto; height: 58dvh; min-height: 0; position: relative;
     margin: 10px; }
   /* ★★★ A FIXED HEIGHT, AND THAT IS THE WHOLE FIX — 2026-08-15. The owner:
      *"switching between town, hero and along repositions the height of the
@@ -1783,6 +1834,7 @@
     padding: 8px 14px; border-top: 1px solid var(--sunk); }
   .panel h2 { margin: 4px 0 6px; font-size: var(--t3); }
   .note { color: var(--faint); font-size: var(--t5); margin: 4px 0; }
+  .note b { color: var(--soft); font-weight: 700; }
   /* ★★★ THE MARKS SIT ON THE PAPER — 2026-08-15, the look pass. The board is
      a hiking map in a measured, muted palette and the furniture was studded
      with full-saturation OS emoji: a grey lump for stone, a cardboard

@@ -24,8 +24,16 @@ await page.waitForTimeout(900);
 /** ★ MARCH, THEN FIGHT — 2026-08-10. A fight is a PLACE now, so the deed on
  *  held ground you are not standing on is the walk. Click it, let the hero
  *  arrive (the sword is drawn on arrival), and the strip opens. */
+// ★★★ A DEED IS A SPOKE NOW — 2026-08-16, brief item 5. What you can do at a
+// PLACE hangs off that place on the graph (`.spoke`); what you can do for the
+// whole town or the hero is still a card in a sheet (`.deed`). The probe
+// deliberately does not care which: it checks that the player can REACH the
+// action, and hard-coding the furniture is how a check comes to test the
+// panel instead of the game.
+const anyDeed = (text) => page.locator('.spoke, .deed', { hasText: text });
+
 const marchTo = async (site) => {
-  const march = page.locator('.deed', { hasText: 'March on' });
+  const march = page.locator('.spoke, .deed', { hasText: 'March on' });
   if (await march.count()) {
     await march.first().click({ timeout: 2000 }).catch(() => {});
     // ⚠️ WALK_SECS per LAID leg, ROUGH times that over open country — and a
@@ -67,8 +75,19 @@ const shutSheet = async () => {
 
 const header = async () => (await page.locator('header').textContent())
   .replace(/\s+/g, ' ').trim();
-const panel = async () => (await page.locator('.panel').textContent())
-  .replace(/\s+/g, ' ').trim();
+/** ★★★ WHAT THE GAME IS SAYING ABOUT THE PICKED PLACE — panel AND graph.
+ *
+ *  ⚠️ IT WAS `.panel` ALONE UNTIL 2026-08-16, and then the deeds moved onto
+ *  the board (brief item 5) and half of what this returns went with them. The
+ *  checks below ask questions like "does unreached ground refuse the works"
+ *  and "does a works under the hammer show its clock" — those are questions
+ *  about the GAME, not about which box the answer is printed in, so this
+ *  reads both surfaces and the checks did not have to change. */
+const panel = async () => {
+  const box = (await page.locator('.panel').textContent()) ?? '';
+  const spokes = (await page.locator('.spoke').allTextContents()).join(' ');
+  return `${box} ${spokes}`.replace(/\s+/g, ' ').trim();
+};
 /** ★ ONE HUD CELL, by the `data-q` it carries — 2026-08-09. The checks below
  *  used to regex the whole header ("0 stone", "2/2 people"), which meant every
  *  one of them was coupled to the ORDER and PUNCTUATION of a run-on line and
@@ -247,7 +266,7 @@ console.log('  refuses :', `"${unreached.slice(0, 70)}"`);
 if (!/No road reaches here/i.test(unreached)) {
   misses.push(`unreached ground does not refuse the works: "${unreached.slice(0, 60)}"`);
 }
-await page.locator('.deed', { hasText: 'Path · The Town' }).click({ timeout: 2000 })
+await page.locator('.spoke, .deed', { hasText: 'Path · The Town' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed lays the path home'));
 // ★ Paths take time now: the deed flips to 'Laying ·' and the line fills.
 await page.waitForTimeout(400);
@@ -257,7 +276,7 @@ if (!/Laying · The Town/.test(laying)) {
   misses.push(`the spade went in silently: "${laying.slice(0, 60)}"`);
 }
 await page.waitForTimeout(6800);
-await page.locator('.deed', { hasText: 'Build Quarry' }).click({ timeout: 2000 })
+await page.locator('.spoke, .deed', { hasText: 'Build Quarry' }).click({ timeout: 2000 })
   .catch(() => misses.push('no deed stacks the first quarry'));
 // ★ A WORKS TAKES TIME NOW. It is ordered here and STANDS later — the
 // label must say so while the hammers are out, and the pit must not
@@ -337,13 +356,13 @@ if (!(openLogs >= 8)) {
 }
 await page.locator('.map .node[data-id="site:2"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(200);
-if (await page.locator('.deed', { hasText: 'Chop logs' }).count() > 0) {
+if (await page.locator('.spoke, .deed', { hasText: 'Chop logs' }).count() > 0) {
   misses.push('the hand-chop deed is back at the pines');
 }
-await page.locator('.deed', { hasText: 'Path · The Town' }).click({ timeout: 2000 })
+await page.locator('.spoke, .deed', { hasText: 'Path · The Town' }).click({ timeout: 2000 })
   .catch(() => misses.push('no path deed at the pines'));
 await page.waitForTimeout(7000);
-await page.locator('.deed', { hasText: 'Build Lumberworks' }).click({ timeout: 2000 })
+await page.locator('.spoke, .deed', { hasText: 'Build Lumberworks' }).click({ timeout: 2000 })
   .catch(() => misses.push('the wagon holds eight logs and the lumberworks still refuses'));
 await page.waitForTimeout(11000);
 const raised = await page.locator('.panel h2[data-q="title"]').textContent();
@@ -384,7 +403,7 @@ console.log('\nTHE WIDENING IS GONE');
 // every road at once instead of the same deed on each. THE CARTWRIGHT phase
 // below proves a cart actually clears a choke; this one proves the deed is
 // gone and the panel sends you to the right place.
-const widens = await page.locator('.deed', { hasText: 'Widen' }).count();
+const widens = await page.locator('.spoke, .deed', { hasText: 'Widen' }).count();
 console.log('  widens  :', `${widens} widen deeds offered`);
 if (widens > 0) misses.push('a Widen deed is still offered — it was meant to be deleted');
 if (!/cart/i.test(chokedPanel)) {
@@ -409,7 +428,7 @@ await page.waitForTimeout(300);
 await page.screenshot({ path: SHOT.replace(/\.png$/, '-fight.png') });
 // Bare hands, Attack-Attack-Attack into the wall: the runts eat you.
 for (let i = 0; i < 4; i++) {
-  const bt = page.locator('.deed', { hasText: 'Attack' });
+  const bt = page.locator('.spoke, .deed', { hasText: 'Attack' });
   if (!(await bt.count())) break;
   await bt.click({ timeout: 1500 }).catch(() => {});
   await page.waitForTimeout(2400);
@@ -448,7 +467,7 @@ await seed({ version: 5, stacks: { 0: 1, 1: 1 }, paths: { '0|1': 1 },
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
 await marchTo(4);
 await page.waitForTimeout(200);
-const attack = page.locator('.deed', { hasText: 'Attack' });
+const attack = page.locator('.spoke, .deed', { hasText: 'Attack' });
 for (const at of [1, 2]) {
   await page.locator(`.strip .sq.them >> nth=${at}`).click({ timeout: 1500 }).catch(() => {});
   await page.waitForTimeout(120);
@@ -499,10 +518,10 @@ if (!/TAKEN — \+2 settlers/.test(cheer)) {
 }
 // The freed ground takes works and paths like any other. It is STILL the
 // picked site from the fight — no second tap, that would toggle it off.
-await page.locator('.deed', { hasText: 'Path · The Town' }).click({ timeout: 2000 })
+await page.locator('.spoke, .deed', { hasText: 'Path · The Town' }).click({ timeout: 2000 })
   .catch(() => misses.push('liberated ground refuses the path'));
 await page.waitForTimeout(6800);
-await page.locator('.deed', { hasText: 'Build Farm' }).click({ timeout: 2000 })
+await page.locator('.spoke, .deed', { hasText: 'Build Farm' }).click({ timeout: 2000 })
   .catch(() => misses.push('liberated ground refuses the works'));
 await page.waitForTimeout(600);
 const freedTitle = await page.locator('.panel h2[data-q="title"]').textContent();
@@ -883,7 +902,7 @@ await seed({ version: 5, stacks: { 0: 3, 1: 2 }, paths: { '0|1': 2 },
 // ★ Held ground you are not standing on offers the WALK, priced in seconds.
 await page.locator('.map .node[data-id="site:4"]').click({ timeout: 2000 }).catch(() => {});
 await page.waitForTimeout(250);
-const marchDeed = page.locator('.deed', { hasText: 'March on' });
+const marchDeed = page.locator('.spoke, .deed', { hasText: 'March on' });
 const marchNote = (await marchDeed.textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
 console.log('  offers  :', `"${marchNote.slice(0, 60)}"`);
 if (!/⏱\d+s →/.test(marchNote)) {
@@ -1215,7 +1234,7 @@ await seed({ version: 5, stacks: {}, paths: {},
   forage: null, forays: 0, legacy: { runs: 0, spears: 0 } });
 const ruinStone = await cellNum('stone');
 await openSheet('Hero');
-const forayDeed = page.locator('.deed', { hasText: 'Send the hero out' });
+const forayDeed = page.locator('.spoke, .deed', { hasText: 'Send the hero out' });
 const forayNote = (await forayDeed.textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
 console.log('  offers  :', `"${forayNote.slice(0, 64)}"`);
 if (!/⏱\d+s →/.test(forayNote)) {
@@ -1224,7 +1243,7 @@ if (!/⏱\d+s →/.test(forayNote)) {
 await forayDeed.click({ timeout: 2000 })
   .catch(() => misses.push('no deed sends the hero out'));
 await page.waitForTimeout(600);
-const outNote = (await page.locator('.deed', { hasText: 'Foraging' })
+const outNote = (await page.locator('.spoke, .deed', { hasText: 'Foraging' })
   .textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
 console.log('  out     :', `"${outNote.slice(0, 50)}"`);
 if (!/⏱\d+s/.test(outNote)) misses.push(`the hero went out and the deed does not say so: "${outNote}"`);
@@ -1313,7 +1332,7 @@ await seed({ version: 5, stacks: { 0: 6, 1: 6, 2: 6, 3: 4 },
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 20, carts: 0 });
 await openSheet('Town');
-const cartDeed = page.locator('.deed', { hasText: 'Carts ×1' });
+const cartDeed = page.locator('.spoke, .deed', { hasText: 'Carts ×1' });
 const cartNote = (await cartDeed.textContent().catch(() => '')).trim().replace(/\s+/g, ' ');
 console.log('  offers  :', `"${cartNote.slice(0, 76)}"`);
 if (!/⚠\d/.test(cartNote)) {
@@ -1370,7 +1389,7 @@ await seed({ version: 5, stacks: { 0: 1, 1: 1 }, paths: { '0|1': 3 },
   goblins: { 4: 12, 5: 18, 6: 24, 7: 32, 8: 48, 9: 60 },
   hero: { hp: 10, arms: 0, part: 0 }, fight: null, store: 20, carts: 0 });
 await openSheet('Town');
-const offeredIdle = await page.locator('.deed', { hasText: 'Carts ×' }).count();
+const offeredIdle = await page.locator('.spoke, .deed', { hasText: 'Carts ×' }).count();
 console.log('  unchoked:', offeredIdle === 0
   ? 'no cart deed, correctly' : 'CART OFFERED TO A TOWN THAT WASTES NOTHING');
 if (offeredIdle > 0) misses.push('the cartwright is offered to a town with nothing to gain');
@@ -1391,7 +1410,7 @@ if (!/60\/60/.test(await cell('stone')) || !/full/.test(await cell('stone'))) {
 }
 // The camp is pre-selected on boot, so the deed is already on the dock.
 await openSheet('Town');
-const storeDeed = page.locator('.deed', { hasText: 'Storehouse ×1' });
+const storeDeed = page.locator('.spoke, .deed', { hasText: 'Storehouse ×1' });
 const storeNote = await storeDeed.textContent().catch(() => '');
 console.log('  offers  :', `"${storeNote.trim().replace(/\s+/g, ' ').slice(0, 60)}"`);
 if (!/📦120/.test(storeNote)) {
