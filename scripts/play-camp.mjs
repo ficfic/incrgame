@@ -745,7 +745,11 @@ console.log('  goods   :', 'all four carry their noun and their ceiling');
 // ★ ITEM H — the goal is on screen without hunting for it.
 const warLine = await cell('war');
 console.log('  war     :', `"${warLine}"`);
-if (!/☠\d+ goblin camps left/.test(warLine)) {
+// ⚠️ NO MARK IN THIS PATTERN SINCE 2026-08-15. It required `☠` and the look
+// pass removed it — a skull beside the word "goblin" is a decoration on a
+// word, which is the owner's own rule. The check is about the GOAL being on
+// screen and legible, never about which glyph decorates it.
+if (!/\d+ goblin camps left/.test(warLine)) {
   misses.push(`the goal is not on screen: "${warLine}"`);
 }
 // ★★★ AND THE WAR IS NOT — 2026-08-14. This line used to carry the raid

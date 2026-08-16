@@ -166,6 +166,80 @@ export const INK = {
   fog: '#e7dcc0',
 } as const;
 
+/** ★★★ THE CHROME'S PALETTE — 2026-08-15. Everything that is NOT the map.
+ *
+ *  ⚠️ THIS EXISTS FOR THE SAME REASON `INK` DOES, one layer up. `INK` made the
+ *  BOARD one system and left the furniture alone, so `Camp.svelte` grew its
+ *  own palette by accretion: **33 distinct hex values**, including four pairs
+ *  a person cannot tell apart (`#e6dfcf` and `#e3ddd0` were both "a face you
+ *  cannot press"), and a red — `#b3452f` — that belonged to no map ink at
+ *  all. A map drawn from a measured palette, framed in chrome drawn from
+ *  none, is exactly the incoherence the owner asked to fix.
+ *
+ *  ⚠️ AND IT IS NOT A REPAINT. Nearly every value here was already on screen
+ *  and several were tuned against measured contrast (see the audit note in
+ *  `INK`). What changed is that there is now ONE of each, with a name saying
+ *  what it is FOR, so the next screen cannot invent a thirty-fourth. The
+ *  greens and the parchments are pulled onto `INK`'s own where they were
+ *  within a hair of it.
+ *
+ *  Written onto `:root` at runtime by `Camp.svelte`, so the stylesheet says
+ *  `var(--card)` and never a hex. `test/look.test.ts` holds that line. */
+export const PAPER = {
+  /** The page behind everything. */
+  page: '#efe9dc',
+  /** The sheet that rises over the board. */
+  panel: '#f7f2e7',
+  /** A face you can press. */
+  card: '#fdfaf2',
+  /** A face you cannot — priced out, already done, held by goblins. */
+  sunk: '#e6dfcf',
+  /** What the phone column casts onto the desk behind it. */
+  shadow: 'rgb(0 0 0 / 0.13)',
+  /** The desk the phone column sits on, when the window is wider than one. */
+  offpage: '#e3dccb',
+  /** The band the dock sits in. */
+  dock: '#f2ecdd',
+  /** A structural edge — the panel's top, the phone's sides. */
+  edge: '#d8d0bf',
+  /** A hairline INSIDE something: cell to cell, card border. */
+  rule: '#e2d9c3',
+
+  /** A number you are meant to read first. */
+  ink: '#2c2822',
+  /** Running text. */
+  text: '#4a4030',
+  /** A label, a unit, a standing figure. */
+  soft: '#6b5d3f',
+  /** A note under a deed — present, not competing. */
+  faint: '#8a8172',
+  /** A ceiling, a caption. The quietest thing that is still a word. */
+  dim: '#9a8f79',
+  /** Disabled ink. */
+  off: '#c9c1ae',
+
+  /** ★ YES — made, afforded, ours. `INK.open`, the same green the board
+   *  draws a road you can lay in, because they mean the same thing. */
+  moss: INK.open,
+  /** The same green, one step down, for text on parchment. */
+  mossInk: '#1f6b3a',
+  /** A field of it — the away line, our own square, the win. */
+  mossWash: '#eef5ec',
+
+  /** ★ NO — full, starving, hurt, lost. Held one step off `INK.foe` on
+   *  purpose: the map's red is the goblins themselves, and a full store is
+   *  not a goblin. */
+  rust: '#b3452f',
+  /** A field of it — a wound, a wind-up. */
+  rustWash: '#f7e9e5',
+
+  /** ★ THEM — a goblin square in the strip. Earth, not blood: the strip is
+   *  furniture and the map owns the strong red. */
+  clay: '#7a4a2f',
+  /** A field of it — the square you have aimed at. */
+  clayWash: '#f4ead9',
+} as const;
+
 export type InkName = keyof typeof INK;
 
 /** ⚠️ THE INKS THE PROBE COUNTS PIXELS OF, and HOW PRECISELY it may count each.

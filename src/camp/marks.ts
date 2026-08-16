@@ -12,7 +12,20 @@
 //
 // Pure data. Nothing here imports the game.
 
-/** What a good looks like, wherever it is named. */
+/** What a good looks like, wherever it is named.
+ *
+ *  ⚠️ THESE STAY PICTORIAL, AND A MONOCHROME SET WAS TRIED AND REJECTED ON
+ *  2026-08-15. During the look pass they were swapped for map-key glyphs —
+ *  `◆` stone, `≡` planks, `▣` room — which sat on the parchment beautifully
+ *  and could not be told apart at 11px: `◆25 ≡15 → ▣120` is a cipher. The
+ *  owner's own ruling is why the emoji are here at all (*"too much prose
+ *  there, please icons and indicators"*, 2026-08-09) and the complaint
+ *  underneath it, over and over, is not being able to tell what something
+ *  means. Tone loses to legibility.
+ *  What the look pass DID fix is where they appear: a mark is decoration
+ *  wherever the word is already on screen (the HUD captions its cells, so
+ *  the rate under FOOD carries no `🌾`), and it is calmed by `.marked` in
+ *  `Camp.svelte` so it sits on the paper instead of shouting off it. */
 export const MARK = {
   stone: '🪨',
   logs: '🪵',

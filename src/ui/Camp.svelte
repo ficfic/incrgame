@@ -3,7 +3,7 @@
   // numbers, the board, a dock of deeds. NO PROSE: nouns and numbers.
   import { onMount } from 'svelte';
   import Board, { type Dot, type Line } from './Board.svelte';
-  import { INK, TOL, type InkName } from '../game/ink';
+  import { INK, PAPER, TOL, type InkName } from '../game/ink';
   import type { Box } from '../game/layout';
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
     priceLine, unlayable, unraisable, unassailable, heroHit, spearCost, hunger,
@@ -965,6 +965,23 @@
   }
 
   onMount(() => {
+    // ★★★ THE CHROME'S PALETTE AND TYPE SCALE, WRITTEN ONCE (2026-08-15).
+    // ⚠️ FROM THE TYPESCRIPT, NEVER TYPED INTO THE CSS. This is the same
+    // rule `src/game/ink.ts` was created for and the same failure it was
+    // created by: a colour that lives in two files drifts, and the check
+    // that watches it goes on passing while it does. The stylesheet below
+    // holds no hex at all — `test/look.test.ts` fails if one returns.
+    const root = document.documentElement.style;
+    for (const [k, v] of Object.entries(PAPER)) root.setProperty(`--${k}`, v);
+    // Eight steps, and the gaps get smaller as they get smaller — the same
+    // shape every type scale has, because the eye reads a 2px difference at
+    // 11px and does not at 21px.
+    const STEPS = [26, 21, 18, 15, 13, 12, 11, 10];
+    STEPS.forEach((px, i) => root.setProperty(`--t${i + 1}`, `${px}px`));
+    // Two radii and a hairline, so nothing has to guess.
+    root.setProperty('--r1', '8px');
+    root.setProperty('--r2', '12px');
+
     const back = load();
     if (back) {
       const secs = Math.min(elapsedSince(back.savedAt), 12 * 3600);
@@ -1104,10 +1121,16 @@
            the Town sheet, so the two NEWEST rungs of the chain were the two
            you could not see. Planks pinned, coal exiled.
 
-           Three columns and two rows, so a good's place never depends on how
-           the game is going. ⚠️ NOT six across: an emoji is a decoration on a
-           word and never a replacement for it (the owner, twice), so every
-           cell has to carry its noun, and six nouns do not fit 390px. -->
+           Two columns, so a good's place never depends on how the game is
+           going. ⚠️ EVERY CELL CARRIES ITS NOUN: an emoji is a decoration on
+           a word and never a replacement for it (the owner, twice).
+           ★★★ AND THEREFORE NO MARK ON THE RATE, 2026-08-15. The cell is
+           captioned FOOD and then said `🌾−0.1/s` underneath it — the same
+           rule read the other way. A mark earns its place where there is no
+           room for the word (a price line, a square in the strip) and is
+           decoration anywhere the word is already on screen. Four full-colour
+           emoji left the top of the board this way, which is most of why the
+           header stopped looking like a different app from the map. -->
       {#each goodCells as g (g.id)}
         <div class="cell" class:brim={g.state === 'brim'} class:hurt={g.state === 'hurt'}
           data-q={g.id}>
@@ -1121,15 +1144,15 @@
           {/each}
           <span class="cap">{g.cap}</span>
           <b>{Math.floor(g.have)}<span class="cap-of">/{roomOf(game)}</span></b>
-          <em>{g.mark}{g.note}</em>
+          <em>{g.note}</em>
         </div>
       {/each}
     </div>
     <div class="hud standings">
       <span class="cell" class:lv={game.pop < cap} data-q="people"
-        aria-label="people">👤 {Math.floor(game.pop)}/{cap}</span>
+        aria-label="people">{MARK.people} {Math.floor(game.pop)}/{cap}</span>
       <span class="cell" class:brim={game.pop >= cap} data-q="huts"
-        aria-label="huts">🏠 {game.pop >= cap ? 'full' : `×${game.stacks[0] ?? 0}`}</span>
+        aria-label="huts">{MARK.huts} {game.pop >= cap ? 'full' : `×${game.stacks[0] ?? 0}`}</span>
       <!-- ★★★ THE HERO, THE SPEARS AND THE CARTS LEFT THIS ROW, 2026-08-15.
            The owner, on the rebuilt HUD: *"ten out of ten, why is it even
            there and not on the hero panel? And what spears and carts, why
@@ -1156,8 +1179,8 @@
         >{game.ambush !== null
           ? `${MARK.waste}ambushed on the road · ${MARK.hero}${game.hero.hp}/${heroMax(game)}`
           : shownHoldings > 0
-            ? `${MARK.danger}${shownHoldings} goblin camps left`
-            : `${MARK.danger}the valley is yours`}</span>
+            ? `${shownHoldings} goblin camps left`
+            : 'the valley is yours'}</span>
       <!-- ⚠️ THE GEAR LIVES IN THIS ROW, not pinned over the top corner. It
            was absolute, and it sat on the FOOD column and clipped its label
            to "FOO" — caught in the first screenshot. A trailing `auto`
@@ -1532,18 +1555,32 @@
 </main>
 
 <style>
+  /* ★★★ ONE PALETTE AND ONE TYPE SCALE — 2026-08-15, the owner: *"do a pass
+     on the entire looks of the game for it to be cohesive."*
+     ⚠️ THERE ARE NO HEX VALUES IN THIS STYLESHEET AND THERE MUST NOT BE.
+     Every colour is a token from `PAPER` in `src/game/ink.ts`, written onto
+     `:root` at runtime a few lines up in this file, so the chrome and the
+     BOARD are finally one system — the board has had a measured palette
+     since 2026-08-02 and the furniture around it had thirty-three unnamed
+     hexes, four of which were duplicates a person cannot tell apart.
+     `test/look.test.ts` fails the build if a hex comes back.
+     ⚠️ AND NO BARE PIXEL FONT SIZES. There were SIXTEEN, including 10.5,
+     11.5, 12.5 and 14.5 — which is nudging, not a scale, and it is why no
+     two surfaces agreed. Eight steps, `--t1` (the one big moment) down to
+     `--t8` (a micro-cap). Reach for the nearest step; do not add one. */
+
   /* ★ ONE COLUMN EVERYWHERE — the owner, off a desktop screenshot: "it's
      very weird on desktop." The game is a phone column; a wide window gets
      the same column, centred, not a map squeezed over furniture-sized
      buttons. */
-  main { display: flex; flex-direction: column; height: 100dvh; background: #efe9dc;
+  main { display: flex; flex-direction: column; height: 100dvh; background: var(--page);
     max-width: 520px; margin: 0 auto; }
   @media (min-width: 560px) {
-    main { border-inline: 1px solid #d8d0bf; box-shadow: 0 0 42px #0002; }
-    :global(body) { background: #e3dccb; }
+    main { border-inline: 1px solid var(--edge); box-shadow: 0 0 42px var(--shadow); }
+    :global(body) { background: var(--offpage); }
   }
   header { display: flex; flex-direction: column; gap: 0;
-    border-bottom: 1px solid #d8d0bf; position: relative; }
+    border-bottom: 1px solid var(--edge); position: relative; }
 
   /* ★ FOUR EQUAL COLUMNS. `minmax(0, 1fr)` and not `1fr`: a long rate line
      ("−0.9/s +1.2/s") would otherwise push its column wider than its share
@@ -1568,47 +1605,47 @@
   .hud.goods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hud.goods .cell { flex-direction: row; align-items: baseline; gap: 5px;
     padding: 3px 10px 3px 8px; justify-content: flex-start; }
-  .hud.goods .cell b { font-size: 15px; }
-  .hud.goods .cap-of { font-size: 11px; }
+  .hud.goods .cell b { font-size: var(--t4); }
+  .hud.goods .cap-of { font-size: var(--t7); }
   /* ⚠️ `min-width: 0` OR THE RATE RUNS OFF THE SCREEN. A flex item's default
      `min-width: auto` refuses to shrink below its content, so `🪨full` in the
      right-hand column overran the cell's own padding and lost its last letter
      against the screen edge. Caught in the screenshot, not by any check. */
-  .hud.goods .cell em { font-size: 11px; margin-left: auto; min-width: 0; }
+  .hud.goods .cell em { font-size: var(--t7); margin-left: auto; min-width: 0; }
   /* The noun is a fixed share so the numbers line up down the column — a
      ragged left edge on six numbers is the "cannot find anything" complaint
      in miniature. */
   .hud.goods .cap { min-width: 46px; text-align: left; }
-  .hud.goods .cell { border-bottom: 1px solid #e6dfcf; }
+  .hud.goods .cell { border-bottom: 1px solid var(--sunk); }
   .hud.goods .cell:nth-child(2n) { border-right: 0; }
   .hud.goods .cell:nth-child(n + 5) { border-bottom: 0; }
   .hud .cell { display: flex; flex-direction: column; align-items: center;
-    gap: 1px; padding: 7px 2px 8px; border: 0; border-right: 1px solid #e6dfcf;
+    gap: 1px; padding: 7px 2px 8px; border: 0; border-right: 1px solid var(--sunk);
     background: none; font: inherit; text-align: center; min-width: 0; }
   .hud .cell:last-child { border-right: 0; }
-  .cap { font-size: 10px; letter-spacing: .09em; color: #9a8f79; font-weight: 700; }
-  .hud .cell b { font-size: 21px; line-height: 1.05; color: #2c2822; font-weight: 700; }
+  .cap { font-size: var(--t8); letter-spacing: .09em; color: var(--dim); font-weight: 700; }
+  .hud .cell b { font-size: var(--t2); line-height: 1.05; color: var(--ink); font-weight: 700; }
   /* ★ THE CEILING IS ALWAYS ON SCREEN, 2026-08-10 (playtest). The owner:
      *"I don't seem to have any storage capacity... it doesn't say anywhere
      what is my limit for the stone"* — it only said `full of 60` once it was
      already full, which is the one moment the number is no longer useful.
      Dimmer and smaller than the amount, so `41/60` still reads as "41". */
-  .cap-of { font-size: 13px; color: #9a8f79; font-weight: 600; }
-  .hud .cell.brim .cap-of, .hud .cell.hurt .cap-of { color: #b3452f; }
-  .hud .cell em { font-style: normal; font-size: 11px; color: #8a8172;
+  .cap-of { font-size: var(--t5); color: var(--dim); font-weight: 600; }
+  .hud .cell.brim .cap-of, .hud .cell.hurt .cap-of { color: var(--rust); }
+  .hud .cell em { font-style: normal; font-size: var(--t7); color: var(--faint);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
   /* The tap target is the whole stone column, which is a far bigger thumb
      mark than the old chip — and it is the one thing here you can press. */
   .hud .cell.tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  .hud .cell.tap:active { background: #efe8d9; }
+  .hud .cell.tap:active { background: var(--sunk); }
 
   /* A stock that has stopped climbing, and a town that has stopped eating. */
-  .hud .cell.brim b, .hud .cell.brim em { color: #b3452f; }
-  .hud .cell.hurt b, .hud .cell.hurt em { color: #b3452f; font-weight: 700; }
+  .hud .cell.brim b, .hud .cell.brim em { color: var(--rust); }
+  .hud .cell.hurt b, .hud .cell.hurt em { color: var(--rust); font-weight: 700; }
 
 
-  .standings { border-top: 1px solid #e6dfcf; background: #f7f2e7;
+  .standings { border-top: 1px solid var(--sunk); background: var(--panel);
     /* ⚠️ NOT FOUR EQUAL COLUMNS like the row above. The standings are wildly
        uneven in length — "🛞 3" against "⚔️ 8/10 · arms 1" — and equal shares
        clipped the hero's arms count to "arms" with nothing after it. The
@@ -1619,25 +1656,25 @@
        four that is a sentence. */
     grid-template-columns: auto auto minmax(0, 1fr) auto; }
   .standings .cell.goal { justify-content: center; font-weight: 700;
-    color: #6b5d3f; }
-  .standings .cell.goal.hurt { color: #b3452f; }
+    color: var(--soft); }
+  .standings .cell.goal.hurt { color: var(--rust); }
   .standings .cell { padding-left: 8px; padding-right: 8px; }
   .standings .cell { flex-direction: row; justify-content: center; gap: 4px;
-    padding: 6px 2px; font-size: 13px; color: #6b5d3f; font-weight: 600;
+    padding: 6px 2px; font-size: var(--t5); color: var(--soft); font-weight: 600;
     white-space: nowrap; overflow: hidden; }
-  .standings .cell.lv { color: #1f6b3a; }
-  .standings .cell.brim { color: #b3452f; }
-  .standings .cell.hurt { color: #b3452f; }
+  .standings .cell.lv { color: var(--mossInk); }
+  .standings .cell.brim { color: var(--rust); }
+  .standings .cell.hurt { color: var(--rust); }
 
   /* ★ THE END OF A RUN COVERS THE BOARD. It is the one moment the game
      has, and it must not be a line in a corner. */
   .gone { position: fixed; inset: 0; z-index: 50; display: flex;
     flex-direction: column; align-items: center; justify-content: center;
-    gap: 10px; padding: 24px; text-align: center; background: #efe6d6; }
-  .gone h1 { font-size: 26px; letter-spacing: .04em; color: #b3452f; margin: 0; }
+    gap: 10px; padding: 24px; text-align: center; background: var(--page); }
+  .gone h1 { font-size: var(--t1); letter-spacing: .04em; color: var(--rust); margin: 0; }
   .gone .note { margin: 0; }
   .gone .deed.row.big { align-items: center; min-height: 56px; max-width: 320px;
-    background: #fdfaf2; border-color: #b3452f; margin-top: 8px; }
+    background: var(--card); border-color: var(--rust); margin-top: 8px; }
 
   /* ⚠️ `flee` KEEPS ITS BUTTON MID-SWING ON PURPOSE — a safety valve you
      have to wait for is not a safety valve. */
@@ -1646,27 +1683,35 @@
      one puts it away. */
   .deck { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
-    background: #f2ecdd; border-top: 1px solid #e2d9c3; }
-  .deckbtn { font: inherit; font-size: 13px; font-weight: 700; color: #6b5d3f;
-    background: #f7f2e7; border: 1px solid #e2d9c3; border-radius: 8px;
+    background: var(--dock); border-top: 1px solid var(--rule); }
+  .deckbtn { font: inherit; font-size: var(--t5); font-weight: 700; color: var(--soft);
+    background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r1);
     padding: 11px 4px; min-height: 44px; cursor: pointer; }
-  .deckbtn.on { background: #1f7a3f; border-color: #1f7a3f; color: #fdfaf2; }
-  .deckbtn i { font-style: normal; font-size: 11px; opacity: 0.75;
+  /* ★★★ THE LIT TAB IS NOT A GREEN SLAB — 2026-08-15. It was a solid fill of
+     `--moss`, which made a piece of NAVIGATION the most saturated thing on
+     the screen: louder than the goblin ground, louder than the river, louder
+     than the map the whole game happens on. Chrome must never outrank the
+     board. It is the parchment card lifted, with the green kept for a 2px
+     rule along the top edge and the word — present, findable, and quieter
+     than everything it sits under. */
+  .deckbtn.on { background: var(--card); border-color: var(--moss);
+    color: var(--mossInk); box-shadow: inset 0 2px 0 var(--moss); }
+  .deckbtn i { font-style: normal; font-size: var(--t7); opacity: 0.75;
     margin-left: 4px; }
   /* ★ N5: the meeting reads as a page, not as another row of numbers. */
   .sq.levy { opacity: 0.92; }
   .sq.levy.down { opacity: 0.45; }
   /* ★ The win sits ABOVE the board and leaves it usable. */
-  .wonbar { background: #eef6ee; border-bottom: 2px solid #1f7a3f;
+  .wonbar { background: var(--mossWash); border-bottom: 2px solid var(--moss);
     padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
-  .wonbar h1 { font-size: 19px; letter-spacing: .04em; color: #1f7a3f; margin: 0; }
+  .wonbar h1 { font-size: var(--t3); letter-spacing: .04em; color: var(--moss); margin: 0; }
   .wonbar .note { margin: 0; }
-  .wonbar .deed.row { background: #fdfaf2; }
-  .meet { background: #f4eee1; border: 1px solid #e2d9c3; border-radius: 10px;
+  .wonbar .deed.row { background: var(--card); }
+  .meet { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r2);
     padding: 10px 12px; margin: 0 0 10px; }
   .meet h2 { margin: 0 0 4px; }
-  .tale { margin: 0 0 8px; color: #4a4030; line-height: 1.45; }
-  .logline { border-left: 3px solid #e2d9c3; padding-left: 8px;
+  .tale { margin: 0 0 8px; color: var(--text); line-height: 1.45; }
+  .logline { border-left: 3px solid var(--rule); padding-left: 8px;
     margin: 5px 0; }
   /* ★ F3: the +1 rises out of the counter it belongs to. */
   .goods .cell { position: relative; }
@@ -1678,8 +1723,8 @@
      status bar. Anchored to the bottom now, and the rise is shorter than the
      cell is tall, so the whole flight happens inside the counter it belongs
      to. */
-  .bump { position: absolute; right: 6px; bottom: 1px; font-size: 12px;
-    font-weight: 800; color: #1f7a3f; pointer-events: none;
+  .bump { position: absolute; right: 6px; bottom: 1px; font-size: var(--t6);
+    font-weight: 800; color: var(--moss); pointer-events: none;
     animation: bump 1s ease-out forwards; }
   /* ⚠️ AND THE RISE IS 6px, NOT 13. Anchoring to the bottom was not enough:
      a 14px float in a 23px cell has 8px of headroom, and 13px of travel spent
@@ -1689,24 +1734,24 @@
   @keyframes bump { from { opacity: 0.95; transform: translateY(0); }
     to { opacity: 0; transform: translateY(-6px); } }
   @media (prefers-reduced-motion: reduce) { .bump { animation-duration: 0.01s; } }
-  .swinging { color: #b3452f; font-weight: 700; text-align: center; margin: 2px 0; }
+  .swinging { color: var(--rust); font-weight: 700; text-align: center; margin: 2px 0; }
   /* ★ The wind-up is the one beat where Guard is right, so it shouts. */
-  .swinging.windup { background: #fbe9e4; border-radius: 6px; padding: 2px 0;
+  .swinging.windup { background: var(--rustWash); border-radius: var(--r1); padding: 2px 0;
     animation: windup 0.5s ease-in-out infinite alternate; }
   @keyframes windup { from { opacity: 0.75; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .swinging.windup { animation: none; } }
 
-  .keep { font-size: 14px; color: #6b5d3f; font-weight: 600; }
-  .keep.build { color: #b0a892; font-weight: 400; font-size: 12px; }
-  .reset { font: inherit; font-size: 13px; border: 1px solid #d8d0bf;
-    border-radius: 10px; padding: 6px 10px; background: #efe9dc; color: #6b6353; }
+  .keep { font-size: var(--t5); color: var(--soft); font-weight: 600; }
+  .keep.build { color: var(--off); font-weight: 400; font-size: var(--t6); }
+  .reset { font: inherit; font-size: var(--t5); border: 1px solid var(--edge);
+    border-radius: var(--r2); padding: 6px 10px; background: var(--page); color: var(--soft); }
   /* ⚠️ ABSOLUTE NOW: the header is a COLUMN since the HUD went in, so
      `margin-left:auto` no longer pushes it anywhere — it would sit as its own
      full-width row under the standings. Pinned to the top corner instead,
      clear of the four columns. */
   .reset.gear { padding: 2px 10px; line-height: 1.3; align-self: center;
     margin: 0 6px 0 2px; }
-  .reset.armed { background: #b3452f; color: #fff; }
+  .reset.armed { background: var(--rust); color: var(--card); }
   /* ★★★ THE MAP IS THE FIXED ONE, AND THE PANEL ABSORBS — 2026-08-15.
      ⚠️ THE FIRST CUT OF THIS FIX FROZE THE PANEL INSTEAD, and the screenshot
      killed it: a 40dvh panel under a three-line place inspector is 80px of
@@ -1727,17 +1772,31 @@
      `height` instead of `min-height`, so the map is the same size no matter
      which sheet is up and the board never hears about it. The content
      scrolls inside, which is what `overflow-y` was always for. */
-  .panel { padding: 8px 14px 16px; border-top: 1px solid #d8d0bf; background: #f7f2e7;
+  .panel { padding: 8px 14px 16px; border-top: 1px solid var(--edge); background: var(--panel);
     flex: 1 1 auto; min-height: 0; overflow-y: auto; }
   .menurow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-    padding: 8px 14px; border-top: 1px solid #e6dfcf; }
-  .panel h2 { margin: 4px 0 6px; font-size: 18px; }
-  .note { color: #8a8172; font-size: 14px; margin: 4px 0; }
-  .deed { display: block; width: 100%; text-align: left; font: inherit; font-size: 16px;
-    border: 1px solid #d8d0bf; border-radius: 12px; background: #fdfaf2;
+    padding: 8px 14px; border-top: 1px solid var(--sunk); }
+  .panel h2 { margin: 4px 0 6px; font-size: var(--t3); }
+  .note { color: var(--faint); font-size: var(--t5); margin: 4px 0; }
+  /* ★★★ THE MARKS SIT ON THE PAPER — 2026-08-15, the look pass. The board is
+     a hiking map in a measured, muted palette and the furniture was studded
+     with full-saturation OS emoji: a grey lump for stone, a cardboard
+     shipping box for a storehouse. They stay (a monochrome set was tried the
+     same day and was unreadable at 11px — see `marks.ts`), but they stop
+     shouting.
+     ⚠️ `saturate` AND NOTHING ELSE, and it is chosen precisely because it
+     cannot touch the words: every ink these rules carry is a near-neutral
+     brown or grey with almost no saturation to lose, while an emoji is
+     nothing but saturation. One filter, and only the pictures move.
+     ⚠️ NOT ON `.away`, `.sq.us` OR ANY MOSS/RUST TEXT — those ARE saturated,
+     on purpose, because they mean yes and no. */
+  .note, .deed em, .deed .what, .hud .cell em, .keep, .crew span, .logline,
+  .standings .cell { filter: saturate(0.6); }
+  .deed { display: block; width: 100%; text-align: left; font: inherit; font-size: var(--t4);
+    border: 1px solid var(--edge); border-radius: var(--r2); background: var(--card);
     padding: 10px 12px; margin: 6px 0; }
-  .deed:disabled { background: #e3ddd0; color: #8a8172; }
-  .deed em { display: block; font-style: normal; font-size: 12.5px; color: #8a8172; }
+  .deed:disabled { background: var(--sunk); color: var(--faint); }
+  .deed em { display: block; font-style: normal; font-size: var(--t6); color: var(--faint); }
 
   /* ★★ TWO COLUMNS, 2026-08-09 — the owner, on the phone: *"the horizontal
      buttons at the bottom, they take too much space."* Full-width rows were
@@ -1756,41 +1815,41 @@
   .deed.row { display: flex; flex-direction: column; justify-content: center;
     align-items: flex-start; gap: 1px; min-height: 44px; margin: 0;
     box-sizing: border-box; width: auto; min-width: 0;
-    padding: 7px 10px; font-size: 14.5px; border-radius: 10px; line-height: 1.2; }
+    padding: 7px 10px; font-size: var(--t4); border-radius: var(--r2); line-height: 1.2; }
   /* ⚠️ THE NAME MAY ELLIPSISE, THE PRICE MAY NOT. A deed you cannot afford
      has to say what it wants — that is the entire job of the second line —
      so it wraps rather than truncating, and the cell grows to fit it. */
   .deed.row .what { max-width: 100%; overflow: hidden;
     text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
-  .deed.row em { display: block; font-size: 11.5px; line-height: 1.25;
+  .deed.row em { display: block; font-size: var(--t7); line-height: 1.25;
     max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .crew { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
-  .crew span { font-size: 14px; color: #6b5d3f; }
-  .crew button { font: inherit; font-size: 18px; line-height: 1; width: 34px; height: 34px;
-    border: 1px solid #d8d0bf; border-radius: 10px; background: #fdfaf2; }
-  .crew button:disabled { color: #c9c1ae; }
-  .crew .autoback { width: auto; font-size: 13px; padding: 0 10px; color: #6b6353; }
-  .away { margin: 4px 0 8px; font-size: 14px; font-weight: 600; color: #1f6b3a;
-    border: 1px solid #cfe2cd; background: #eef5ec; border-radius: 10px; padding: 8px 10px; }
+  .crew span { font-size: var(--t5); color: var(--soft); }
+  .crew button { font: inherit; font-size: var(--t3); line-height: 1; width: 34px; height: 34px;
+    border: 1px solid var(--edge); border-radius: var(--r2); background: var(--card); }
+  .crew button:disabled { color: var(--off); }
+  .crew .autoback { width: auto; font-size: var(--t5); padding: 0 10px; color: var(--soft); }
+  .away { margin: 4px 0 8px; font-size: var(--t5); font-weight: 600; color: var(--mossInk);
+    border: 1px solid var(--moss); background: var(--mossWash); border-radius: var(--r2); padding: 8px 10px; }
   /* ★ THE BATTLE STRIP — one square left, three right. */
   .strip { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; }
   .sq { width: 68px; aspect-ratio: 1; display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 1px; font: inherit;
-    border-radius: 12px; border: 1px solid #d8d0bf; background: #fdfaf2; }
-  .sq b { font-size: 20px; line-height: 1.1; }
-  .sq span { font-size: 11.5px; color: #6b5d3f; font-weight: 600; }
-  .sq em { font-style: normal; font-size: 10.5px; color: #8a8172; }
-  .sq.us { border-color: #1f6b3a; background: #eef5ec; }
-  .sq.us b { color: #1f6b3a; }
-  .sq.us.low { border-color: #b3452f; background: #f7e9e5; }
-  .sq.us.low b { color: #b3452f; }
-  .sq.them b { color: #7a4a2f; }
-  .sq.them.aimed { border: 2px solid #7a4a2f; background: #f4ead9; }
+    border-radius: var(--r2); border: 1px solid var(--edge); background: var(--card); }
+  .sq b { font-size: var(--t2); line-height: 1.1; }
+  .sq span { font-size: var(--t7); color: var(--soft); font-weight: 600; }
+  .sq em { font-style: normal; font-size: var(--t8); color: var(--faint); }
+  .sq.us { border-color: var(--mossInk); background: var(--mossWash); }
+  .sq.us b { color: var(--mossInk); }
+  .sq.us.low { border-color: var(--rust); background: var(--rustWash); }
+  .sq.us.low b { color: var(--rust); }
+  .sq.them b { color: var(--clay); }
+  .sq.them.aimed { border: 2px solid var(--clay); background: var(--clayWash); }
   .sq.them.down { opacity: 0.35; }
-  .vs { font-size: 13px; color: #8a8172; flex: 1; text-align: center; }
-  .vs.hurt { color: #b3452f; font-size: 18px; }
-  .windnote { color: #b3452f; font-weight: 600; }
+  .vs { font-size: var(--t5); color: var(--faint); flex: 1; text-align: center; }
+  .vs.hurt { color: var(--rust); font-size: var(--t3); }
+  .windnote { color: var(--rust); font-weight: 600; }
   .verbs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
   .verbs .deed { margin: 0; padding: 8px 10px; }
-  .verbs .deed em { font-size: 11px; }
+  .verbs .deed em { font-size: var(--t7); }
 </style>
