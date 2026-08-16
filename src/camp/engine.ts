@@ -846,11 +846,22 @@ export const WORKS_MAX = 1;
  *  ⚠️ THE COST CURVE IS WHAT KEEPS THIS HONEST. The n-th copy still costs
  *  1.15^n, so a second quarry is a real price and never a free doubling.
  *  ⚠️ THE CAMP IS STILL EXEMPT — huts are housing, not a trade. */
-export const WORKS_PER_LEVEL = 4;
+export const WORKS_PER_LEVEL = 6;
+/** ★★★ AND IT STOPS AT THREE — 2026-08-16, measured, not guessed.
+ *
+ *  ⚠️ WITHOUT A CEILING THIS QUIETLY DELETES THE RULE ABOVE IT. An hour-long
+ *  simulation of a fully-roaded valley put quarrying at level 29 and the
+ *  per-site cap at EIGHT — which is the four-quarries-on-one-rock the owner
+ *  asked us to stop (*"there is no point in having new locations"*), arrived
+ *  at by a slower road. The trade is meant to open a door, not to dissolve
+ *  the wall: three deep is a felt reward and still leaves the map the only
+ *  way to grow properly. Levels 7 and 13 are the two doors. */
+export const WORKS_CAP = 3;
 export const worksMax = (g: City, k: Kind): number => {
   const t = TRAINS[k];
   return t === null ? WORKS_MAX
-    : WORKS_MAX + Math.floor((skillOf(g, t) - 1) / WORKS_PER_LEVEL);
+    : Math.min(WORKS_CAP,
+      WORKS_MAX + Math.floor((skillOf(g, t) - 1) / WORKS_PER_LEVEL));
 };
 
 /** Output per WORKER per second. */
@@ -1995,11 +2006,14 @@ export function unraisable(g: City, id: number): string | null {
   // better-practised trade; never just more money.
   if (id !== 0 && (g.stacks[id] ?? 0) >= worksMax(g, s.allows)) {
     const t = TRAINS[s.allows];
-    const need = t === null ? 0
-      : (worksMax(g, s.allows) - WORKS_MAX + 1) * WORKS_PER_LEVEL + 1;
-    return t === null
-      ? 'One building per place. Add people to it instead.'
-      : `${t} ${need} builds another here. You are ${skillOf(g, t)}.`;
+    if (t === null) return 'One building per place. Add people to it instead.';
+    // ★ AT THE CEILING THERE IS NO DOOR LEFT, and saying "quarrying 19" when
+    // no level will ever open it would be a lie with a number on it.
+    if (worksMax(g, s.allows) >= WORKS_CAP) {
+      return `Three is as deep as ${t} goes. Take more ground.`;
+    }
+    const need = (worksMax(g, s.allows) - WORKS_MAX + 1) * WORKS_PER_LEVEL + 1;
+    return `${t} ${need} builds another here. You are ${skillOf(g, t)}.`;
   }
   return shortOf(g, costOf(s.allows, g.stacks[id] ?? 0));
 }

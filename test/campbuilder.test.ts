@@ -108,7 +108,7 @@ describe('★★ RULE 1 — buildings come in counts, on the compounding curve',
     // cap is earned now (`worksMax`), so the refusal states the trade and the
     // level that opens it: a door you cannot open and can see from here, which
     // is `docs/BRIEF.md` item 4. See `test/skills.test.ts` for the ladder.
-    expect(unraisable(g, 1)).toBe('quarrying 5 builds another here. You are 1.');
+    expect(unraisable(g, 1)).toBe('quarrying 7 builds another here. You are 1.');
     expect(apply(g, { type: 'raise', id: 1 })).toBe(g);
     // ⚠️ THE CAMP IS EXEMPT: its works are HUTS, and huts are housing.
     expect(unraisable({ ...initial(), planks: 9e5 }, 0)).toBeNull();
