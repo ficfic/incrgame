@@ -160,6 +160,12 @@ export function honour(b: Blob | null | undefined): { game: City; savedAt: numbe
   else for (const [k, v] of Object.entries(g.xp)) {
     if (!SKILLS.includes(k as never) || !num(v, 0, 9e12)) return null;
   }
+  // ★★★ WHAT THE VALLEY REMEMBERS — 2026-08-16. Unknown marks are dropped
+  // rather than rejected: a save from a build with content this one does not
+  // have should lose the story, never the town.
+  if (g.marks === undefined || g.marks === null) g.marks = [];
+  else if (!Array.isArray(g.marks)) return null;
+  else g.marks = g.marks.filter((m: unknown) => typeof m === 'string');
   if (g.levy === undefined) g.levy = 0;
   else if (!whole(g.levy, 0, 999)) return null;
   if (g.hurt === undefined) g.hurt = 0;

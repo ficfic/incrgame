@@ -429,6 +429,12 @@ export interface City {
   /** ★★★ WOOD CAMPS SWITCHED TO SAWING — 2026-08-11, the Kiln blueprint.
    *  Site ids that make planks instead of logs. */
   kilned: number[];
+  /** ★★★ WHAT THE VALLEY REMEMBERS — 2026-08-16, brief item 6. Marks left by
+   *  answers given: `kin` if you took the family in, `truce` if the hero
+   *  helped bury goblins. Meetings read them, which is what makes a choice
+   *  made twenty minutes ago still be a choice. ⚠️ PER RUN, not per save:
+   *  founding the next valley starts the story over. */
+  marks: string[];
   /** ★★★ THE BLUEPRINTS TAKEN — 2026-08-11. The owner: *"we also need a
    *  research tree or something to unlock shit."* Three are offered every
    *  time you take a holding; you keep one. */
@@ -566,6 +572,7 @@ export const initial = (): City => ({
   log: [],
   since: 0,
   meet: null,
+  marks: [],
   boons: [],
   kilned: [],
   levy: 0,
@@ -1025,18 +1032,44 @@ export const FORAYS: readonly Foray[] = [
  *  ★ Player-facing prose: machine-drafted, owner-edited (`CLAUDE.md`). These
  *  are drafts and are meant to be rewritten. */
 export interface Way { take: string; loot?: Partial<Record<Good, number>>;
-  hp?: number; pop?: number; said: string }
-export interface Meet { name: string; text: string; ways: readonly [Way, Way] }
+  hp?: number; pop?: number; said: string;
+  /** ★★★ A SECOND BEAT — 2026-08-16. The index of the meeting this answer
+   *  leads STRAIGHT into, with no foray in between. This is the whole of what
+   *  "branching" meant in the brief: an answer that opens a situation instead
+   *  of closing one. */
+  then?: number;
+  /** ★★★ WHAT THE VALLEY REMEMBERS — a mark left on the run. Meetings can
+   *  ask for it (`needs`) or refuse to appear once it exists (`unless`), so
+   *  a choice made twenty minutes ago is why you are being offered this. */
+  mark?: string }
+export interface Meet { name: string; text: string;
+  /** Two or three. Three is for the meetings that have a middle way. */
+  ways: readonly Way[];
+  /** Only dealt when the valley carries this mark. */
+  needs?: string;
+  /** Never dealt once the valley carries this mark. */
+  unless?: string;
+  /** ⚠️ A FOLLOW-UP, reachable only through another meeting's `then`. It must
+   *  never be dealt on its own — landing in the middle of a scene you were
+   *  not in is the oldest bug in branching content. */
+  beat?: boolean }
 export const MEETS: readonly Meet[] = [
+  // ★ Player-facing prose is MACHINE-DRAFTED AND OWNER-EDITED (`CLAUDE.md`,
+  //   reversed 2026-07-27). These are drafts and are meant to be rewritten.
+  //   The bar is a line the owner would defend, not a line that is present.
+  // ⚠️ INDICES ARE LOAD-BEARING — `then` points at them. Append, do not
+  //   reorder; `test/meets.test.ts` checks every link resolves.
+  /* 0 */
   { name: 'A cold camp',
     text: 'Someone slept here a week ago and left in a hurry. There is a '
       + 'good axe under the bracken, and a track heading up the scree.',
     ways: [
       { take: 'Take the axe', loot: { logs: 8 },
-        said: 'The hero came home with a stranger\u2019s axe and a full load of wood.' },
-      { take: 'Follow the track', loot: { stone: 5 }, hp: -1,
-        said: 'The track ran out at a rockfall. The hero came back scraped, and carrying.' },
+        said: 'The hero came home with a stranger’s axe and a full load of wood.' },
+      { take: 'Follow the track', then: 6,
+        said: 'The track went up the scree, and did not come back down.' },
     ] },
+  /* 1 */
   { name: 'Two goblins arguing',
     text: 'They have not seen the hero. One of them is sitting on a sack of '
       + 'grain, and losing the argument.',
@@ -1046,28 +1079,103 @@ export const MEETS: readonly Meet[] = [
       { take: 'Rush them', loot: { food: 6, stone: 4 }, hp: -3,
         said: 'Two on one. The hero took the worst of it, but not the grain.' },
     ] },
+  /* 2 */
   { name: 'A family on the road',
     text: 'Three of them, walking out of the valley with what they can carry. '
       + 'They ask whether the camp is real.',
     ways: [
-      { take: 'Say yes', pop: 2,
+      { take: 'Say yes', pop: 2, mark: 'kin',
         said: 'Two of them turned back with the hero. The third kept walking.' },
-      { take: 'Give them food', loot: { food: -6 }, pop: 3,
+      { take: 'Give them food', loot: { food: -6 }, pop: 3, mark: 'kin',
         said: 'They ate, and then all three followed the hero home.' },
+      { take: 'Warn them off', loot: { food: 4 },
+        said: 'They took the warning and the road west. They left what they '
+          + 'could not carry.' },
     ] },
+  /* 3 */
   { name: 'The old mill race',
     text: 'A stone channel, silted up, older than anything the goblins built. '
-      + 'It would take a day to clear \u2014 or an hour to strip for stone.',
+      + 'It would take a day to clear — or an hour to strip for stone.',
     ways: [
-      { take: 'Clear it', loot: { food: 4, logs: 4 },
+      { take: 'Clear it', loot: { food: 4, logs: 4 }, mark: 'water',
         said: 'Water runs in the old channel again. The hero came back wet and pleased.' },
       { take: 'Strip it', loot: { stone: 12 },
         said: 'The old channel is a heap of good cut stone now. It will not run again.' },
     ] },
+  /* 4 */
+  { name: 'A goblin with its hands up',
+    text: 'It is small, and alone, and it has put down whatever it was '
+      + 'carrying. It says a word that might be a place, and points north.',
+    ways: [
+      { take: 'Follow it north', then: 7,
+        said: 'The hero went north behind a goblin, which is not a sentence '
+          + 'anyone expected to hear.' },
+      { take: 'Send it away', loot: { stone: 3 },
+        said: 'It left what it was carrying and went. The hero brought the '
+          + 'bundle home unopened.' },
+    ] },
+  /* 5 */
+  { name: 'The one who came back',
+    needs: 'kin',
+    text: 'The one who kept walking is at the edge of the works, thinner, '
+      + 'and will not come closer until someone says their name.',
+    ways: [
+      { take: 'Say it', pop: 1,
+        said: 'Someone said it. They came in and sat down by the fire.' },
+      { take: 'Feed them first', loot: { food: -4 }, pop: 1, hp: 2,
+        said: 'They ate before they spoke, and then they stayed.' },
+    ] },
+  // ---- the beats. Reached only through `then`, never dealt on their own.
+  /* 6 */
+  { name: 'Above the scree', beat: true,
+    text: 'The track ends at a rockfall with a gap behind it, and cold air '
+      + 'coming out of the gap. Something has been using this way.',
+    ways: [
+      { take: 'Go in', loot: { stone: 14 }, hp: -2,
+        said: 'A cut passage, and a face of good stone at the end of it. The '
+          + 'hero came back scraped and loaded.' },
+      { take: 'Block it up', loot: { stone: 4 }, mark: 'sealed',
+        said: 'The hero brought the rockfall down properly. Whatever was '
+          + 'using that road is using another one now.' },
+    ] },
+  /* 7 */
+  { name: 'What the goblin wanted', beat: true,
+    text: 'A camp, burnt out, and not by us. The goblin turns over a body '
+      + 'that is a goblin, and then looks at the hero, and waits.',
+    ways: [
+      { take: 'Help it bury them', pop: 1, mark: 'truce', hp: -1,
+        said: 'They buried nine. The goblin walked back with the hero and has '
+          + 'not left since.' },
+      { take: 'Take what is left and go', loot: { stone: 8, logs: 6 },
+        said: 'The camp had good iron-cut stone in it. The goblin was not '
+          + 'there when the hero turned round.' },
+    ] },
 ];
-/** Which meeting a foray turns up, or null — every other one. */
-export const meetFor = (forays: number): number | null =>
-  forays % 2 === 1 ? Math.floor(forays / 2) % MEETS.length : null;
+
+/** ★ Is this meeting one the valley can be offered right now? */
+export const meetOpen = (g: City, i: number): boolean => {
+  const m = MEETS[i];
+  if (!m || m.beat) return false;
+  if (m.needs !== undefined && !g.marks.includes(m.needs)) return false;
+  if (m.unless !== undefined && g.marks.includes(m.unless)) return false;
+  return true;
+};
+/** ★★★ WHICH MEETING A FORAY TURNS UP, or null — every other one.
+ *
+ *  ⚠️ IT TAKES THE WHOLE TOWN NOW (2026-08-16), because a meeting can be
+ *  gated on what the valley remembers. It also walks forward past anything
+ *  closed rather than returning null: a run where you never took the family
+ *  in would otherwise go quiet every time that slot came round, which reads
+ *  as the game breaking rather than as a story not being told. */
+export const meetFor = (g: City, forays: number): number | null => {
+  if (forays % 2 !== 1) return null;
+  const from = Math.floor(forays / 2) % MEETS.length;
+  for (let n = 0; n < MEETS.length; n++) {
+    const i = (from + n) % MEETS.length;
+    if (meetOpen(g, i)) return i;
+  }
+  return null;
+};
 
 /** Which encounter the next foray meets. */
 export const nextForay = (g: City): Foray => FORAYS[g.forays % FORAYS.length]!;
@@ -2092,7 +2200,9 @@ export type Action =
   /** Send the hero out for whatever the country will give up. */
   | { type: 'forage' }
   /** ★ Answer what the hero met on a foray — N5, 2026-08-11. */
-  | { type: 'answer'; way: 0 | 1 }
+  /** ⚠️ A NUMBER, not `0 | 1`, since 2026-08-16: some meetings have a third
+   *  way. `apply` clamps it to what the meeting on the table actually holds. */
+  | { type: 'answer'; way: number }
   /** ★ Spend food on the hero's health, outside a fight (2026-08-11). */
   | { type: 'eat' }
   /** ★ Switch a wood camp between hauling logs out and sawing its own
@@ -2543,7 +2653,7 @@ export function apply(g: City, a: Action): City {
           forage = null;
           said.push(`The hero came back from ${nextForay(g).name.toLowerCase()}.`);
           // ★ N5: every other foray turns something up. It waits.
-          const m = meetFor(forays);
+          const m = meetFor(g, forays);
           if (m !== null && g.meet === null) meet = m;
         }
       }
@@ -2878,9 +2988,19 @@ export function apply(g: City, a: Action): City {
 
     case 'answer': {
       const m = g.meet === null ? null : MEETS[g.meet];
-      const way = m?.ways[a.way === 1 ? 1 : 0];
+      // ⚠️ CLAMPED TO WHAT THIS MEETING ACTUALLY OFFERS. Ways used to be a
+      // fixed pair and the action took `0 | 1`; some have three now, and a
+      // third button sending `2` into a two-way meeting would have silently
+      // answered with the first.
+      const way = m?.ways[Math.max(0, Math.min(m.ways.length - 1, a.way))];
       if (!m || !way) return g;
-      let out: City = { ...g, meet: null,
+      let out: City = { ...g,
+        // ★★★ THE SECOND BEAT, brief item 6: an answer can OPEN a situation
+        // rather than close one. `then` walks straight into the next scene
+        // with no foray in between.
+        meet: way.then ?? null,
+        marks: way.mark === undefined || g.marks.includes(way.mark)
+          ? g.marks : [...g.marks, way.mark],
         log: logged(g.log, way.said),
         pop: g.pop + (way.pop ?? 0),
         hero: { ...g.hero,

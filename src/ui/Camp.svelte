@@ -745,7 +745,8 @@
 
   const fireSpoke = (id: string): void => {
     const [what, n] = id.split(':');
-    const d = (what === 'fight' ? fightVerbs : deeds)[Number(n)];
+    const d = (what === 'fight' ? fightVerbs
+      : what === 'meet' ? meetWays : deeds)[Number(n)];
     if (d && d.why === null) d.go();
   };
 
@@ -759,6 +760,27 @@
    *  ⚠️ AND ONLY WHEN NO SHEET IS OPEN. The sheets rise OVER the board; deeds
    *  blooming under a sheet you are reading would be furniture arguing with
    *  furniture. */
+  /** ★★★ A MEETING'S ANSWERS, ON THE GRAPH — 2026-08-16. Same split as the
+   *  fight: the TALE stays in the panel, where a paragraph has room, and the
+   *  ANSWERS hang off the ground the hero is standing on. A choose-your-own-
+   *  adventure whose choices are a footer is a form; on the graph it is a
+   *  fork in a place. */
+  const meetWays = $derived<Deed[]>((() => {
+    const m = game.meet === null ? null : MEETS[game.meet];
+    if (!m || game.fight) return [];
+    return m.ways.map((w, i) => ({
+      label: w.take,
+      note: [
+        ...Object.entries(w.loot ?? {}).map(([k, v]) =>
+          `${(v as number) > 0 ? '+' : ''}${v as number} ${k}`),
+        ...(w.pop ? [`${w.pop > 0 ? '+' : ''}${w.pop} people`] : []),
+        ...(w.hp ? [`${w.hp} hero`] : []),
+      ].join(' · '),
+      why: null,
+      go: () => act({ type: 'answer', way: i }),
+    }));
+  })());
+
   const spokes = $derived<Spoke[]>(
     game.fight
       // ★ A FIGHT OWNS THE GRAPH while it lasts, and it hangs off the ground
@@ -766,6 +788,13 @@
       ? fightVerbs.map((d, i) => ({
           id: `fight:${i}`, parent: siteId(game.fight!.site),
           label: d.label, note: d.note, off: d.why !== null }))
+      : meetWays.length > 0
+        // ★ A MEETING OWNS THE GRAPH while it waits — it is the one thing on
+        //   screen asking you something. It still never nags: it waits as
+        //   long as you like (`CLAUDE.md` — HITL is never mandatory).
+        ? meetWays.map((d, i) => ({
+            id: `meet:${i}`, parent: siteId(game.hero.at),
+            label: d.label, note: d.note, off: false }))
       : (sheet === null && picked !== null && SITE.has(picked))
         ? deeds.map((d, i) => ({
             id: `${picked}:${i}`, parent: siteId(picked!),
@@ -1399,19 +1428,11 @@
           <div class="meet">
             <h2>{m.name}</h2>
             <p class="tale">{m.text}</p>
-            <div class="dock">
-              {#each m.ways as w, i (i)}
-                <button class="deed" onclick={() => act({ type: 'answer', way: i === 1 ? 1 : 0 })}>
-                  {w.take}
-                  <em>{[
-                    ...Object.entries(w.loot ?? {}).map(([k, v]) =>
-                      `${(v as number) > 0 ? '+' : ''}${v as number} ${k}`),
-                    ...(w.pop ? [`${w.pop > 0 ? '+' : ''}${w.pop} people`] : []),
-                    ...(w.hp ? [`${w.hp} hero`] : []),
-                  ].join(' · ')}</em>
-                </button>
-              {/each}
-            </div>
+            <!-- ★★★ THE ANSWER BUTTONS LEFT THIS CARD, 2026-08-16. They
+                 hang off the ground the hero is standing on, like every
+                 other decision in the game since the deeds moved (brief
+                 item 5). The TALE stays: a paragraph needs a paragraph's
+                 room, and reading is not deciding. -->
           </div>
         {/if}
       {/if}

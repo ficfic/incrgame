@@ -3026,13 +3026,19 @@ describe('★★★ A CHOICE ON THE ROAD', () => {
     g = out(g);                       // foray 1 → a meeting
     expect(g.meet).not.toBeNull();
     const m = MEETS[g.meet!]!;
-    expect(m.ways).toHaveLength(2);
-    // ⚠️ BOTH WAYS ARE WORTH HAVING. A choice where one arm is strictly worse
+    expect(m.ways.length).toBeGreaterThanOrEqual(2);
+    // ⚠️ EVERY WAY IS WORTH HAVING. A choice where one arm is strictly worse
     // is not a choice, it is a trap with two buttons.
+    // ⚠️ AND A BRANCHING WAY IS PAID IN ITS BEAT (2026-08-16). "Follow the
+    // track" hands over nothing and opens a scene; judging it on its own loot
+    // would have forced every branch to bribe you for taking it, which is
+    // exactly the shape this check exists to prevent.
+    const worth = (w: typeof m.ways[number]): number =>
+      Object.values(w.loot ?? {}).reduce((n, v) => n + v, 0) + (w.pop ?? 0) * 4;
     for (const w of m.ways) {
-      const gain = Object.values(w.loot ?? {}).reduce((n, v) => n + v, 0)
-        + (w.pop ?? 0) * 4;
-      expect(gain).toBeGreaterThan(0);
+      const best = w.then === undefined ? worth(w)
+        : Math.max(...MEETS[w.then]!.ways.map(worth));
+      expect(best).toBeGreaterThan(0);
     }
   });
 
@@ -3051,16 +3057,19 @@ describe('★★★ A CHOICE ON THE ROAD', () => {
     const g = out({ ...initial(), food: 99 });
     const m = MEETS[g.meet!]!;
     const took = apply(g, { type: 'answer', way: 0 });
-    expect(took.meet).toBeNull();
-    expect(took.log.at(-1)).toBe(m.ways[0].said);
-    const want = m.ways[0].loot ?? {};
+    // ⚠️ `toBeNull` UNTIL 2026-08-16 — an answer can now lead STRAIGHT into a
+    // second beat (`then`), so the meeting slot is only empty when the scene
+    // is actually over. `test/meets.test.ts` covers the branching itself.
+    expect(took.meet).toBe(m.ways[0]!.then ?? null);
+    expect(took.log.at(-1)).toBe(m.ways[0]!.said);
+    const want = m.ways[0]!.loot ?? {};
     for (const [k, v] of Object.entries(want)) {
       if (v > 0) {
         const good = k as 'stone' | 'logs' | 'planks' | 'food';
         expect(took[good]).toBeGreaterThan(g[good]);
       }
     }
-    expect(took.pop).toBe(g.pop + (m.ways[0].pop ?? 0));
+    expect(took.pop).toBe(g.pop + (m.ways[0]!.pop ?? 0));
   });
 
   it('★ answering nothing is refused, and the save door keeps the meeting', () => {
