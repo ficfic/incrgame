@@ -23,7 +23,8 @@
     "lanes": "node scripts/lane-analysis.mjs",
     "guard": "npm run check && npm run check:core && npm run check:words && npm run check:prose && npx vitest run",
     "check:prose": "node scripts/check-prose.mjs",
-    "check:words": "node scripts/check-words.mjs"
+    "check:words": "node scripts/check-words.mjs",
+    "delve": "node scripts/play-delve.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.2.0",

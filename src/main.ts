@@ -2,7 +2,7 @@ import { mount } from 'svelte';
 import { registerSW } from 'virtual:pwa-register';
 // ★ THE PIVOT, 2026-08-07 (night): the camp builder mounts; the old game's
 // code and tests stay on disk, unreached. `./ui/Game.svelte` to flip back.
-import App from './ui/Camp.svelte';
+import App from './ui/Delve.svelte';
 import './style.css';
 
 // ---- MAKING A DEPLOY ACTUALLY REACH THE PHONE ---------------------------
