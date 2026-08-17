@@ -1,66 +1,58 @@
 // THE DELVE ENGINE — pure, and the only pattern that survived every pivot.
 //
-// `apply(state, action) => state`. No DOM, no clock, no RNG, and no module
-// state: the clock is a `tick` action and there is no randomness anywhere,
-// because a deterministic fight can be SOLVED and a solved fight is the only
-// reason this project has ever been able to say a difficulty curve holds.
+// `apply(state, action) => state`. No DOM, no clock, no RNG, no module state.
 //
-// ★★★ THE GRIMROCK TURN, 2026-08-16 — one slice after the first. The owner:
-// *"so like legend of grimrock type of shit i wanna do"*.
+// ★★★ TURN-BASED, 2026-08-16 — and the seconds are GONE. The owner: *"why is
+// it real time fights / let's do turn based"*, and they were right twice over.
+// The clock was the TOWN's idle spine imported into a dungeon crawler out of
+// habit, and it made every exchange a thing you had to feel rather than
+// count. A crawler wants arithmetic you can do in your head before you
+// commit: *it acts every other turn, I have four hits before it reaches me.*
 //
-// Grimrock's actual trick is not the first-person view, it is that COMBAT IS
-// MOVEMENT. You never stand and swap hits; you step, it swings where you
-// were, you step back and hit it. Everything interesting in that game is
-// footwork — and on a graph that translates exactly, which is the strongest
-// argument yet that the dungeon pivot was right:
+// THE WHOLE LOOP: you take ONE action — step through a door, swing, or wait —
+// and then the dungeon takes its turn. Nothing happens on a clock; nothing
+// happens while you are not looking. `tick` is gone.
 //
-//   · monsters LIVE ON NODES and walk EDGES, using the same graph you do;
-//   · you can only hit, and only be hit by, something in YOUR room;
-//   · so a step through a door is a real defence, bought at a real price —
-//     the door costs you `WALK_SECS`, and costs the thing chasing you its
-//     own pace to follow.
-//
-// ⚠️ THE STRIP IS GONE, one slice after it shipped. It was stand-and-trade
-// and this is not that game. Kept from it: refusals that say WHY, and no dice.
-import { ROOM, ROOMS, WALK_SECS, GUARDS, SPOIL } from './dungeon';
+// ⚠️ AND SPEED IS THE STAT THAT MATTERS. A foe with `every: 2` acts on every
+// second turn, so standing and trading gives you two swings per bite AND you
+// can outrun it — a step is free ground. A foe with `every: 1` trades evenly
+// and cannot be escaped in the open: you fight it, or you use the shape of
+// the graph against it. That is the Grimrock dance, made countable.
+import { ROOM, ROOMS, GUARDS, SPOIL } from './dungeon';
 
-export const DELVE_VERSION = 2;
+export const DELVE_VERSION = 3;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
   id: number;
   /** The room it stands in RIGHT NOW. It moves. */
   at: number;
-  /** ★ The room it was roused from. A room is judged empty by its own dead,
-   *  so a guard that chased you two rooms and died there still empties the
-   *  room it came from — which is what the player watched happen.
+  /** ★ The room it was roused from. A room is judged empty by its OWN dead,
+   *  so a guard that chased you and died elsewhere still empties its lair —
+   *  which is what the player watched happen.
    *  ⚠️ ON THE FOE, not in a module-level map. This engine has no mutable
-   *  state outside the value it is handed; that is the rule that lets a save
-   *  be trusted and a fight be solved. */
+   *  state outside the value it is handed. */
   from: number;
   hp: number;
   bite: number;
   name: string;
-  /** Seconds until it may act again — its whole tempo. */
-  cool: number;
-  /** Seconds between its acts. Bigger is slower, and slower is dodgeable. */
-  pace: number;
+  /** ★★★ IT ACTS ON EVERY `every`-th TURN. 1 is as fast as you; 2 is slow
+   *  enough to walk away from. The one number a player has to read. */
+  every: number;
 }
 
 export interface Delve {
   version: number;
   at: number;
+  /** ★ Turns taken. Drives whose turn it is and nothing else. */
+  turn: number;
   seen: number[];
-  /** Rooms whose guard is dead. A cleared room stays cleared. */
   cleared: number[];
-  walk: { to: number; left: number; secs: number } | null;
   hp: number;
-  /** ★ Seconds until the delver may swing again. Position is bought with it. */
-  swing: number;
   purse: number;
   hoard: number;
   foes: Foe[];
-  /** Next foe id — carried in the state, because purity. */
+  /** Next foe id — in the state, because purity. */
   bred: number;
   fallen: boolean;
   log: string[];
@@ -68,25 +60,20 @@ export interface Delve {
 
 export const START_HP = 12;
 export const LOG_KEEP = 40;
-/** What a swing takes off. */
+/** What one swing takes off. */
 export const BITE = 3;
-/** ★★★ HOW LONG BETWEEN THE DELVER'S SWINGS, and the number the whole dance
- *  is measured against: a foe whose `pace` is slower than this can be
- *  out-stepped, and one faster cannot be fought without using a door. */
-export const SWING_SECS = 1.6;
 export const LOG_LINES = (log: string[], line: string): string[] =>
   [...log, line].slice(-LOG_KEEP);
 
 export const initial = (): Delve => ({
   version: DELVE_VERSION,
   at: 0,
+  turn: 0,
   // ⚠️ THE MOUTH AND WHAT IT OPENS ON. A graph you cannot see one step of is
   // not a choice, it is a corridor.
   seen: [0, ...(ROOM.get(0)?.doors ?? [])],
   cleared: [0],
-  walk: null,
   hp: START_HP,
-  swing: 0,
   purse: 0,
   hoard: 0,
   foes: [],
@@ -101,7 +88,6 @@ export const doorsOf = (id: number): number[] => ROOM.get(id)?.doors ?? [];
 export const held = (g: Delve, id: number): boolean =>
   !g.cleared.includes(id) && GUARDS[ROOM.get(id)?.kind ?? 'hall'] !== null;
 
-/** Everything alive and standing in a given room. */
 export const foesIn = (g: Delve, id: number): Foe[] =>
   g.foes.filter((f) => f.at === id && f.hp > 0);
 
@@ -109,10 +95,12 @@ export const foesIn = (g: Delve, id: number): Foe[] =>
  *  the room you are standing in. Everything else is footwork. */
 export const facing = (g: Delve): Foe[] => foesIn(g, g.at);
 
-/** ★★★ THE FIRST DOOR ON THE SHORTEST WAY from one room to another, or null.
- *  A breadth-first walk — the monsters use the same graph the player does,
- *  which is what makes the dance legible: you can SEE what it has to do to
- *  reach you, and count the doors. */
+/** Does this foe act on the turn about to be taken? */
+export const actsOn = (f: Foe, turn: number): boolean => turn % f.every === 0;
+
+/** ★★★ THE FIRST DOOR ON THE SHORTEST WAY, or null. Breadth-first over the
+ *  same graph the player walks — so you can SEE what it has to do to reach
+ *  you, and count the doors. */
 export function stepToward(from: number, to: number): number | null {
   if (from === to || !ROOM.has(from) || !ROOM.has(to)) return null;
   const back = new Map<number, number>([[from, from]]);
@@ -133,138 +121,130 @@ export function stepToward(from: number, to: number): number | null {
   return null;
 }
 
-/** Why the delver cannot walk there, in plain words, or null. */
 export function unwalkable(g: Delve, to: number): string | null {
   if (g.fallen) return 'You are done.';
-  if (g.walk) return 'Already on the move.';
   if (to === g.at) return 'You are here.';
   if (!ROOM.has(to)) return 'There is no such room.';
   if (!doorsOf(g.at).includes(to)) return 'No door leads there from here.';
   return null;
 }
 
-/** Why the delver cannot swing, in plain words, or null. */
 export function unswingable(g: Delve): string | null {
   if (g.fallen) return 'You are done.';
-  if (g.walk) return 'You are between rooms.';
   if (facing(g).length === 0) return 'Nothing here to hit.';
-  if (g.swing > 0) return `${g.swing.toFixed(1)}s`;
   return null;
 }
 
 export const canLeave = (g: Delve): boolean =>
-  !g.fallen && !g.walk && g.at === 0 && g.purse > 0;
+  !g.fallen && g.at === 0 && g.purse > 0;
 
 export type Action =
-  | { type: 'tick'; secs: number }
+  /** Step through a door. One turn. */
   | { type: 'walk'; to: number }
-  /** Swing at the weakest thing standing in this room. */
+  /** Swing at the weakest thing standing here. One turn. */
   | { type: 'strike' }
+  /** Stand still and let the dungeon move. One turn. */
+  | { type: 'wait' }
+  /** Climb out with what you carry. Not a turn — you are leaving. */
   | { type: 'leave' };
+
+/** ★★★ THE DUNGEON'S TURN, taken after every one of yours.
+ *
+ *  ONE RULE, and the player can be told it in a sentence: **a foe due to act
+ *  hits you if it shares a room with you at EITHER END of your step —
+ *  otherwise it takes one door toward you.**
+ *
+ *  ⚠️ `from` IS WHY THIS IS A GAME. The first draft judged only where you had
+ *  ARRIVED, and that made walking back and forth between two rooms a perfect
+ *  defence: nothing could ever be in your new room at the moment it swung, so
+ *  a delver could stroll to the Hoard and back untouched and retreat from
+ *  every losing fight for free. Counting the room you LEFT means a parting
+ *  blow, so disengaging from something fast costs exactly what standing there
+ *  costs — and disengaging from something SLOW is free if you time your step
+ *  to its off-turn. That timing is the whole dance, and it is countable.
+ */
+function theirTurn(g: Delve, said: string[], from: number): Delve {
+  const turn = g.turn + 1;
+  let hp = g.hp;
+  const at = g.at;
+  const foes = g.foes.map((f) => {
+    if (f.hp <= 0 || !actsOn(f, turn)) return f;
+    if (f.at === at || f.at === from) {
+      hp -= f.bite;
+      said.push(f.at === at
+        ? `${f.name} bites you for ${f.bite}.`
+        : `${f.name} strikes you for ${f.bite} as you go.`);
+      return f;
+    }
+    const step = stepToward(f.at, at);
+    if (step === null) return f;
+    // ⚠️ IT IS ANNOUNCED. A thing arriving in your room is the single most
+    // important event in this game and it must never be silent.
+    if (step === at) said.push(`${f.name} comes through the door.`);
+    return { ...f, at: step };
+  });
+
+  // A room emptied of its own dead pays out, once.
+  let cleared = g.cleared;
+  let purse = g.purse;
+  for (const r of ROOMS) {
+    if (cleared.includes(r.id) || GUARDS[r.kind] === null) continue;
+    const mine = foes.filter((f) => f.from === r.id);
+    if (mine.length > 0 && mine.every((f) => f.hp <= 0)) {
+      cleared = [...cleared, r.id];
+      purse += SPOIL[r.kind];
+      said.push(`${r.name} is quiet. You take ${SPOIL[r.kind]}.`);
+    }
+  }
+
+  if (hp <= 0) {
+    return { ...g, turn, foes, cleared, hp: 0, purse: 0, fallen: true, at,
+      log: LOG_LINES(said.reduce(LOG_LINES, g.log),
+        'You go down in the dark. What you carried stays there.') };
+  }
+  return { ...g, turn, foes, cleared, purse, hp, at,
+    log: said.reduce(LOG_LINES, g.log) };
+}
 
 export function apply(g: Delve, a: Action): Delve {
   if (g.fallen && a.type !== 'leave') return g;
   switch (a.type) {
-    case 'tick': {
-      if (!(a.secs > 0)) return g;
-      const s = a.secs;
-      let at = g.at;
-      let walk = g.walk;
-      let seen = g.seen;
-      let cleared = g.cleared;
-      let foes = g.foes;
-      let bred = g.bred;
-      let hp = g.hp;
-      let purse = g.purse;
-      const said: string[] = [];
-
-      // ---- the delver's own step -------------------------------------------
-      if (walk) {
-        const left = walk.left - s;
-        if (left > 0) walk = { ...walk, left };
-        else {
-          at = walk.to;
-          walk = null;
-          seen = [...new Set([...seen, at, ...doorsOf(at)])];
-          const r = ROOM.get(at)!;
-          // ★ A ROOM'S GUARD WAKES WHEN YOU FIRST WALK IN, once. After that
-          // it is loose in the dungeon and its room is just a room.
-          const woken = !cleared.includes(at)
-            && GUARDS[r.kind] !== null
-            && !foes.some((f) => f.from === at);
-          if (woken) {
-            const born = (GUARDS[r.kind]?.(r.deep) ?? []).map((q, i) => ({
-              id: bred + i, at, from: at, hp: q.hp, bite: q.bite, name: q.name,
-              // ⚠️ STAGGERED, so a pair does not act in lockstep and read as
-              // one thing with a double-sized bite.
-              cool: 0.4 + i * 0.5,
-              // ★ A heavier thing is slower, and that is the player's whole
-              // handle on it: `pace` above `SWING_SECS` can be danced.
-              pace: 1.4 + q.bite * 0.5,
-            }));
-            bred += born.length;
-            foes = [...foes, ...born];
-            said.push(`${r.name}. Something is already here.`);
-          } else said.push(`${r.name}.`);
-        }
-      }
-
-      // ---- and everything else's -------------------------------------------
-      // ★★★ THIS IS THE GAME. Each foe acts on its own clock: if the delver
-      // is in its room it bites, otherwise it takes ONE DOOR toward them. So
-      // a step through a door buys exactly the time it costs the thing to
-      // follow, and two doors buys two. Standing still is what kills you.
-      //
-      // ⚠️ NOTHING ACTS WHILE THE DELVER IS MID-DOOR. Being bitten in a
-      // corridor is a hit you could not have avoided and could not see
-      // coming, which is the one thing a deterministic fight must never do.
-      if (!walk) {
-        foes = foes.map((f) => {
-          if (f.hp <= 0) return f;
-          let cool = f.cool - s;
-          let fat = f.at;
-          let acts = 0;
-          while (cool <= 0 && acts < 8) {
-            if (fat === at) {
-              hp -= f.bite;
-              said.push(`${f.name} bites you for ${f.bite}.`);
-            } else {
-              const step = stepToward(fat, at);
-              if (step === null) break;
-              fat = step;
-            }
-            cool += f.pace;
-            acts += 1;
-          }
-          return { ...f, cool, at: fat };
-        });
-      }
-
-      // ---- a room emptied of its own dead -----------------------------------
-      for (const r of ROOMS) {
-        if (cleared.includes(r.id) || GUARDS[r.kind] === null) continue;
-        const mine = foes.filter((f) => f.from === r.id);
-        if (mine.length > 0 && mine.every((f) => f.hp <= 0)) {
-          cleared = [...cleared, r.id];
-          purse += SPOIL[r.kind];
-          said.push(`${r.name} is quiet. You take ${SPOIL[r.kind]}.`);
-        }
-      }
-
-      if (hp <= 0) {
-        return { ...g, at, walk: null, seen, cleared, foes, bred, hp: 0,
-          purse: 0, fallen: true, swing: 0,
-          log: LOG_LINES(said.reduce(LOG_LINES, g.log),
-            'You go down in the dark. What you carried stays there.') };
-      }
-      return { ...g, at, walk, seen, cleared, foes, bred, hp, purse,
-        swing: Math.max(0, g.swing - s),
-        log: said.reduce(LOG_LINES, g.log) };
-    }
-
     case 'walk': {
       if (unwalkable(g, a.to) !== null) return g;
-      return { ...g, walk: { to: a.to, left: WALK_SECS, secs: WALK_SECS } };
+      const said: string[] = [];
+      const at = a.to;
+      const seen = [...new Set([...g.seen, at, ...doorsOf(at)])];
+      const r = ROOM.get(at)!;
+      let foes = g.foes;
+      let bred = g.bred;
+      // ★ A ROOM'S GUARD WAKES WHEN YOU FIRST WALK IN, once. After that it is
+      // loose in the dungeon and its room is just a room.
+      const asleep = !g.cleared.includes(at) && GUARDS[r.kind] !== null
+        && !g.foes.some((f) => f.from === at);
+      if (asleep) {
+        const born = (GUARDS[r.kind]?.(r.deep) ?? []).map((q, i) => ({
+          id: bred + i, at, from: at, hp: q.hp, bite: q.bite, name: q.name,
+          // ★ Heavier things are slower, and slow is what you can walk away
+          // from. `every: 2` for anything that hits hard.
+          every: q.bite >= 2 ? 2 : 1,
+        }));
+        bred += born.length;
+        foes = [...foes, ...born];
+        said.push(`${r.name}. Something is already here.`);
+      } else said.push(`${r.name}.`);
+
+      // ★ A ROOM WITH NOTHING TO KILL BUT SOMETHING TO TAKE pays on arrival.
+      // ⚠️ Without this the Drowned Well is worth 12 and can never hand it
+      // over: spoil only ever came from a dead guard, and the well has none.
+      // A dead end that pays is the reason to walk a dead end.
+      let cleared = g.cleared;
+      let purse = g.purse;
+      if (!cleared.includes(at) && GUARDS[r.kind] === null && SPOIL[r.kind] > 0) {
+        cleared = [...cleared, at];
+        purse += SPOIL[r.kind];
+        said.push(`Nothing down here but what was left. You take ${SPOIL[r.kind]}.`);
+      }
+      return theirTurn({ ...g, at, seen, foes, bred, cleared, purse }, said, g.at);
     }
 
     case 'strike': {
@@ -272,12 +252,21 @@ export function apply(g: Delve, a: Action): Delve {
       // ★ THE WEAKEST THING STANDING. Finishing what is nearly dead is almost
       // always right, and making the player say so every swing is the button
       // pressing this pivot exists to remove.
-      const mark = facing(g).reduce((a2, b) => (b.hp < a2.hp ? b : a2));
+      const mark = facing(g).reduce((x, y) => (y.hp < x.hp ? y : x));
       const foes = g.foes.map((f) =>
         f.id === mark.id ? { ...f, hp: Math.max(0, f.hp - BITE) } : f);
-      const down = foes.find((f) => f.id === mark.id)!.hp <= 0;
-      return { ...g, foes, swing: SWING_SECS,
-        log: down ? LOG_LINES(g.log, `${mark.name} goes down.`) : g.log };
+      const said: string[] = [];
+      if (foes.find((f) => f.id === mark.id)!.hp <= 0) {
+        said.push(`${mark.name} goes down.`);
+      }
+      return theirTurn({ ...g, foes }, said, g.at);
+    }
+
+    case 'wait': {
+      if (g.fallen) return g;
+      // ★ A REAL MOVE. Letting a slow thing close the gap so you can meet it
+      // in a doorway of your choosing is a decision, not a pass.
+      return theirTurn(g, [], g.at);
     }
 
     case 'leave': {

@@ -1,31 +1,36 @@
-// ★★★ THE DELVE — the dungeon pivot, and the Grimrock turn, 2026-08-16.
+// ★★★ THE DELVE — the dungeon pivot, and then the TURN, 2026-08-16.
 //
 // The owner: *"world is too open for graphs... maybe DUNGEON CRAWLING"*, then
-// *"so like legend of grimrock type of shit"*. Grimrock's real trick is that
-// COMBAT IS MOVEMENT — you step, it swings where you were, you step back and
-// hit. So most of these tests are about footwork on a graph: who is in which
-// room, what it costs to leave, and what it costs the thing to follow.
+// *"so like legend of grimrock type of shit"*, then — after the first slice
+// shipped with a clock in it — ***"why is it real time fights / let's do turn
+// based"***. They were right twice over: the clock was the TOWN's idle spine
+// imported out of habit, and it made every exchange a thing you had to FEEL
+// rather than COUNT. A crawler wants arithmetic you can do before you commit.
+//
+// So there are no seconds anywhere below. One action, one turn, then the
+// dungeon takes its turn — and most of these tests are still about footwork,
+// because on a graph COMBAT IS MOVEMENT and that has not changed.
 import { describe, it, expect } from 'vitest';
-import { apply, initial, doorsOf, held, facing, foesIn, stepToward,
-  unwalkable, unswingable, canLeave, START_HP, BITE, SWING_SECS,
-  type Delve } from '../src/delve/engine';
-import { ROOMS, ROOM, WALK_SECS, SPOIL } from '../src/delve/dungeon';
+import { apply, initial, doorsOf, held, facing, foesIn, stepToward, actsOn,
+  unwalkable, unswingable, canLeave, START_HP, BITE,
+  type Delve, type Foe } from '../src/delve/engine';
+import { ROOMS, ROOM, SPOIL } from '../src/delve/dungeon';
 
-const tick = (g: Delve, secs: number): Delve => apply(g, { type: 'tick', secs });
-/** Let time run in small steps, the way the screen does. */
-const run = (g: Delve, secs: number, step = 0.2): Delve => {
-  let out = g;
-  for (let t = 0; t < secs; t += step) out = tick(out, step);
-  return out;
-};
-/** Walk a door and arrive. */
-const go = (g: Delve, to: number): Delve =>
-  run(apply(g, { type: 'walk', to }), WALK_SECS + 0.4);
+const go = (g: Delve, to: number): Delve => apply(g, { type: 'walk', to });
+const wait = (g: Delve): Delve => apply(g, { type: 'wait' });
+const hit = (g: Delve): Delve => apply(g, { type: 'strike' });
+/** In the Rat Warren (3) with its guard roused, having walked 0 → 1 → 3. */
+const warren = (): Delve => go(go(initial(), 1), 3);
+/** One hand-made thing in room 3, so a rule can be read off a single number. */
+const alone = (over: Partial<Foe>): Delve => ({
+  ...initial(), at: 3, seen: [0, 1, 2, 3, 5], cleared: [0], bred: 2,
+  foes: [{ id: 1, at: 3, from: 3, hp: 30, bite: 2, name: 'it', every: 2, ...over }],
+});
 
 describe('★★★ THE DUNGEON IS A GRAPH', () => {
   it('★★★ every door goes both ways', () => {
-    // ⚠️ THE ONE STRUCTURAL FACT A HAND-DRAWN MAP GETS WRONG, and now the
-    // monsters path along these edges too — a one-way door would strand one.
+    // ⚠️ THE ONE STRUCTURAL FACT A HAND-DRAWN MAP GETS WRONG, and the monsters
+    // path along these edges too — a one-way door would strand one.
     for (const r of ROOMS) {
       for (const d of r.doors) {
         expect(ROOM.get(d), `room ${d} exists`).toBeDefined();
@@ -64,12 +69,31 @@ describe('★★★ THE MONSTERS USE THE SAME GRAPH YOU DO', () => {
   });
 });
 
+describe('★★★ ONE ACTION IS ONE TURN', () => {
+  it('★★★ walking, swinging and waiting each cost exactly one', () => {
+    const g = initial();
+    expect(g.turn).toBe(0);
+    expect(go(g, 1).turn).toBe(1);
+    expect(wait(g).turn).toBe(1);
+    expect(hit(alone({})).turn).toBe(1);
+    // ⚠️ AND A REFUSED ACTION IS NOT A TURN. A move the game will not let you
+    // make must not hand the dungeon a free swing.
+    expect(go(g, 9)).toBe(g);
+    expect(hit(g)).toBe(g);
+  });
+
+  it('★★★ a foe acts on every `every`-th turn — the one number to read', () => {
+    const fast: Foe = { id: 1, at: 0, from: 0, hp: 1, bite: 1, name: 'x', every: 1 };
+    const slow: Foe = { ...fast, every: 2 };
+    expect([1, 2, 3, 4].map((t) => actsOn(fast, t))).toEqual([true, true, true, true]);
+    expect([1, 2, 3, 4].map((t) => actsOn(slow, t))).toEqual([false, true, false, true]);
+  });
+});
+
 describe('★★★ WALKING AND THE DARK', () => {
-  it('★★★ a walk takes time, and arriving reveals only the next doors', () => {
+  it('★★★ arriving reveals only the next doors, and nothing beyond', () => {
     const g = initial();
     expect(g.seen).not.toContain(2);
-    const half = run(apply(g, { type: 'walk', to: 1 }), WALK_SECS / 2);
-    expect(half.at).toBe(0);
     const there = go(g, 1);
     expect(there.at).toBe(1);
     expect(there.seen).toContain(2);
@@ -85,9 +109,6 @@ describe('★★★ WALKING AND THE DARK', () => {
 });
 
 describe('★★★ COMBAT IS MOVEMENT', () => {
-  /** In the Rat Warren with its guard roused. */
-  const warren = (): Delve => go(go(initial(), 1), 3);
-
   it('★★★ a room\'s guard wakes ONCE, into the dungeon, and stands there', () => {
     const g = warren();
     expect(g.foes.length).toBeGreaterThan(1);
@@ -98,74 +119,79 @@ describe('★★★ COMBAT IS MOVEMENT', () => {
     expect(back.foes.length).toBe(g.foes.length);
   });
 
+  it('★★★ the thing that hits hardest is the thing you can walk away from', () => {
+    // ⚠️ A PACK THAT MOVES AS ONE IS ONE MONSTER WITH A BIGGER NUMBER. The
+    // whole reason to give a foe a speed is that the heavy one is slow enough
+    // to leave behind and the light one is not — so a lair poses a QUESTION
+    // (take the cheap hits and kill the big one, or shed it and deal with the
+    // runt) rather than a total.
+    const g = warren();
+    const heavy = g.foes.reduce((x, y) => (y.bite > x.bite ? y : x));
+    const light = g.foes.reduce((x, y) => (y.bite < x.bite ? y : x));
+    expect(heavy.bite).toBeGreaterThan(light.bite);
+    expect(heavy.every).toBeGreaterThan(light.every);
+  });
+
   it('★★★ it bites you while you stand in its room', () => {
     const g = warren();
-    const after = run(g, 4);
-    expect(after.hp).toBeLessThan(g.hp);
+    expect(wait(g).hp).toBeLessThan(g.hp);
   });
 
-  it('★★★ AND STEPPING THROUGH A DOOR STOPS IT — this is the whole game', () => {
-    // Grimrock's footwork, on a graph. Stand and bleed; step and do not.
-    const g = warren();
-    const stood = run(g, 5);
-    const stepped = run(apply(g, { type: 'walk', to: 1 }), 5);
-    expect(stepped.hp).toBeGreaterThan(stood.hp);
+  it('★★★ A SLOW THING CAN BE STEPPED AWAY FROM — but only on its off-turn', () => {
+    // ★★★ THIS IS THE WHOLE DANCE, and it is arithmetic, not reflex. The thing
+    // acts on even turns; step on an odd one and the door is free.
+    const off = alone({ every: 2, hp: 30 });                 // turn 0 → 1: idle
+    const stepped = go(off, 1);
+    expect(stepped.at).toBe(1);
+    expect(stepped.hp).toBe(off.hp);                          // clean away
+
+    const on = { ...off, turn: 1 };                           // turn 1 → 2: acts
+    expect(go(on, 1).hp).toBe(on.hp - 2);
   });
 
-  it('★★★ nothing can touch you mid-door', () => {
-    // ⚠️ A HIT YOU COULD NOT AVOID AND COULD NOT SEE COMING is the one thing
-    // a deterministic fight must never do. The corridor is safe.
-    const g = warren();
-    const mid = run(apply(g, { type: 'walk', to: 1 }), WALK_SECS - 1);
-    expect(mid.walk).not.toBeNull();
-    expect(mid.hp).toBe(g.hp);
+  it('★★★ A FAST THING CANNOT — leaving its room costs the same as staying', () => {
+    // ⚠️ THE BUG THIS EXISTS TO KILL. When a foe was judged only by the room
+    // you ARRIVED in, walking back and forth was a perfect defence: nothing was
+    // ever in your new room when it swung, so a delver could stroll to the
+    // Hoard untouched and retreat from every losing fight for free. A foe
+    // reaches you at EITHER end of your step.
+    const g = alone({ every: 1, bite: 2, hp: 30 });
+    expect(wait(g).hp).toBe(g.hp - 2);
+    expect(go(g, 1).hp).toBe(g.hp - 2);
+    // And walking back is not free either — no perpetual motion.
+    expect(go(go(g, 1), 3).hp).toBe(g.hp - 4);
   });
 
-  it('★★★ but it FOLLOWS — a door buys time, it does not end the fight', () => {
-    const g = warren();
-    const away = run(apply(g, { type: 'walk', to: 1 }), WALK_SECS + 6);
+  it('★★★ but it FOLLOWS — a door buys distance, it does not end the fight', () => {
+    const away = wait(go(warren(), 1));
     expect(away.at).toBe(1);
-    // The pack is coming through the door after you.
     expect(away.foes.some((f) => f.at === 1)).toBe(true);
-  });
-
-  it('★★★ a swing has a cooldown, and that is what position is bought with', () => {
-    const g = warren();
-    const hit = apply(g, { type: 'strike' });
-    expect(hit.swing).toBe(SWING_SECS);
-    expect(unswingable(hit)).toBe(`${SWING_SECS.toFixed(1)}s`);
-    expect(apply(hit, { type: 'strike' })).toBe(hit);      // refused, not free
-    const ready = run(hit, SWING_SECS + 0.3);
-    expect(unswingable(ready)).toBeNull();
   });
 
   it('★★★ a swing takes the WEAKEST thing standing — no aiming tax', () => {
     const g = warren();
     const weakest = Math.min(...g.foes.map((f) => f.hp));
-    const hit = apply(g, { type: 'strike' });
-    expect(Math.min(...hit.foes.map((f) => f.hp))).toBe(Math.max(0, weakest - BITE));
+    expect(Math.min(...hit(g).foes.map((f) => f.hp))).toBe(Math.max(0, weakest - BITE));
   });
 
-  it('★ you cannot swing at an empty room, or from a corridor', () => {
+  it('★ you cannot swing at an empty room', () => {
     expect(unswingable(initial())).toBe('Nothing here to hit.');
-    const moving = apply(warren(), { type: 'walk', to: 1 });
-    expect(unswingable(moving)).toBe('You are between rooms.');
+    expect(unswingable(warren())).toBeNull();
   });
 });
 
 describe('★★★ WHAT A ROOM IS WORTH', () => {
-  const warren = (): Delve => go(go(initial(), 1), 3);
-  /** Swing whenever the cooldown allows until the room is quiet. */
-  const fightOut = (g: Delve): Delve => {
+  /** Swing at what is here; if nothing is, stand and let it come. */
+  const hunt = (g: Delve): Delve => {
     let out = g;
-    for (let i = 0; i < 300 && !out.fallen && facing(out).length > 0; i++) {
-      out = unswingable(out) === null ? apply(out, { type: 'strike' }) : tick(out, 0.2);
+    for (let i = 0; i < 200 && !out.fallen && out.foes.some((f) => f.hp > 0); i++) {
+      out = facing(out).length > 0 ? hit(out) : wait(out);
     }
     return out;
   };
 
   it('★★★ killing its guard empties the room and pays the purse', () => {
-    const won = tick(fightOut({ ...warren(), hp: 200 }), 0.2);
+    const won = hunt({ ...warren(), hp: 200 });
     expect(facing(won).length).toBe(0);
     expect(won.cleared).toContain(3);
     expect(won.purse).toBe(SPOIL.lair);
@@ -177,18 +203,28 @@ describe('★★★ WHAT A ROOM IS WORTH', () => {
     // the room it was roused from. Without that, luring a pack into the hall
     // and killing it there would leave its lair permanently "held" — a room
     // you cleared that the map insists you did not.
-    let g: Delve = { ...warren(), hp: 200 };
-    g = run(apply(g, { type: 'walk', to: 1 }), WALK_SECS + 8);   // lure them out
-    expect(g.at).toBe(1);
-    expect(g.foes.some((f) => f.at === 1)).toBe(true);
-    g = tick(fightOut(g), 0.2);
-    expect(g.cleared).toContain(3);
-    expect(g.purse).toBe(SPOIL.lair);
+    const lured = hunt(go({ ...warren(), hp: 200 }, 1));
+    expect(lured.at).toBe(1);
+    expect(lured.foes.every((f) => f.hp <= 0)).toBe(true);
+    expect(lured.cleared).toContain(3);
+    expect(lured.purse).toBe(SPOIL.lair);
+  });
+
+  it('★★★ a dead end with nothing to kill still pays on arrival', () => {
+    // ⚠️ The Drowned Well is worth 12 and has no guard. Until spoil could come
+    // from somewhere other than a corpse, it could never hand that over — a
+    // dead end with no reason to walk it.
+    const well = go(go(go(go(initial(), 1), 3), 5), 7);
+    expect(well.at).toBe(7);
+    expect(well.purse).toBeGreaterThanOrEqual(SPOIL.well);
+    expect(well.cleared).toContain(7);
+    // And it does not pay twice for the same walk back in.
+    const again = go(go(well, 5), 7);
+    expect(again.purse).toBe(well.purse);
   });
 
   it('★★★ falling costs the purse and keeps the hoard', () => {
-    const g: Delve = { ...warren(), hp: 1, purse: 30, hoard: 55 };
-    const down = run(g, 6);
+    const down = wait({ ...warren(), hp: 1, purse: 30, hoard: 55 });
     expect(down.fallen).toBe(true);
     expect(down.purse).toBe(0);
     expect(down.hoard).toBe(55);
