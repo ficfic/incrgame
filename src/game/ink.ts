@@ -339,3 +339,77 @@ export const LOOK: Record<string, Look> = {
   /** A fight, met: the red every map gives danger. */
   foe: { fill: 'foe', ring: 'casing', label: 'known', r: 6 },
 };
+
+/** ★★★ THE LAMP — the delve's palette, 2026-08-17.
+ *
+ *  The owner, on the look of the dungeon: *"go full on the dungeon crawler,
+ *  can we make something interesting in terms of looks?"* — and then picked
+ *  LAMPLIGHT AND CHAMBERS off the brainstorm.
+ *
+ *  ⚠️ `PAPER` WAS A HIKING MAP AND IT SHOWED. Cream ground, moss-green dots,
+ *  a little walking figure: the delve inherited the valley's palette wholesale
+ *  at the pivot and read like a trail app that had wandered underground. Wrong
+ *  mood at the level of the first pixel, and no amount of copy fixes that.
+ *
+ *  ★ THE SAME KEYS AS `PAPER`, so every panel rule written against `--page`,
+ *  `--ink`, `--faint` and the rest keeps working with no CSS churn — this is a
+ *  palette swap, not a rewrite. What is new below the fold is the STONE: the
+ *  colours the dungeon canvas carves rock and floor and lamplight out of.
+ *
+ *  ⚠️ AND THE LIGHT FALLS OFF IN DOORS, NOT PIXELS. `lit`/`near`/`far` are
+ *  chosen for a room you STAND in, a room one door away, and a room you only
+ *  remember — because everything else in this game measures distance in doors
+ *  and a lamp that disagreed with the fog would be lying about the rules. */
+export const LAMP = {
+  page: '#0b0a09',
+  panel: '#14120f',
+  card: '#1d1a15',
+  sunk: '#131110',
+  shadow: 'rgb(0 0 0 / 0.55)',
+  offpage: '#070606',
+  dock: '#12100e',
+  edge: '#2e2a22',
+  rule: '#241f1a',
+
+  ink: '#ece3cf',
+  text: '#cdc3ad',
+  soft: '#9d9078',
+  faint: '#7d7565',
+  dim: '#635c4f',
+  off: '#3d382f',
+
+  moss: '#6d8f5a',
+  mossInk: '#8fae74',
+  mossWash: '#171c13',
+
+  rust: '#c2543c',
+  rustWash: '#241310',
+
+  /** ★ THEM. The strongest thing on a dark screen, and nothing else gets it. */
+  clay: '#c2543c',
+  clayWash: '#231310',
+} as const;
+
+/** ★★★ THE STONE. What the dungeon canvas is drawn out of — floor and wall at
+ *  each of the three distances the lamp knows, plus the rock between. */
+export const STONE = {
+  /** Living rock. Everything that is not a room or a passage. */
+  rock: '#0b0a09',
+  /** The hatch scratched into it, so the dark is a MATERIAL and not an
+   *  absence — a black rectangle reads as "not drawn yet". */
+  scratch: '#17140f',
+
+  /** The room you are standing in. Warm, because the lamp is here. */
+  litFloor: '#3a2e20',
+  litWall: '#caa468',
+  /** One door away: you can see into it, barely. */
+  nearFloor: '#221d16',
+  nearWall: '#6d6353',
+  /** Remembered. Chalk on slate — you know the shape, not what is in it. */
+  farFloor: '#141210',
+  farWall: '#443e34',
+
+  /** The lamp itself, and what it throws. */
+  flame: '#f0cf87',
+  glow: 'rgb(214 160 74 / 0.20)',
+} as const;

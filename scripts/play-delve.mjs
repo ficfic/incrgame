@@ -82,6 +82,68 @@ if (!/swings next/.test(met)) misses.push(`nothing says it is about to swing: "$
 if (!/idle next/.test(met)) misses.push('nothing says it is idle — then speed is invisible');
 if (!/costs (you )?\d/.test(met)) misses.push(`the screen never says what a turn costs: "${met.slice(0, 80)}"`);
 
+console.log('\n★★★ THE LAMP, AND THE CHAMBERS');
+// ⚠️ MEASURED OFF THE CANVAS, NOT ASSERTED FROM THE CODE. The whole looks pass
+// is pixels; a check that read the palette constants back would pass with the
+// renderer deleted. These read the pixels the phone actually got.
+const look = await page.evaluate(() => {
+  const cv = document.querySelector('.crypt canvas');
+  if (!cv) return null;
+  const ctx = cv.getContext('2d');
+  const { data, width, height } = ctx.getImageData(0, 0, cv.width, cv.height);
+  const luma = (i) => 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+  const mean = (x0, y0, x1, y1) => {
+    let sum = 0, n = 0;
+    for (let y = Math.max(0, y0 | 0); y < Math.min(height, y1 | 0); y += 2) {
+      for (let x = Math.max(0, x0 | 0); x < Math.min(width, x1 | 0); x += 2) {
+        sum += luma((y * width + x) * 4); n++;
+      }
+    }
+    return n ? sum / n : -1;
+  };
+  const host = document.querySelector('.crypt').getBoundingClientRect();
+  const s = cv.width / host.width;
+  const here = document.querySelector('.node.here').getBoundingClientRect();
+  const pad = 24 * s;
+  const boxes = [...document.querySelectorAll('.node')]
+    .map((n) => { const r = n.getBoundingClientRect(); return Math.round(r.width * r.height); });
+  // ⚠️ THE PANEL TOO, NOT JUST THE CANVAS. The canvas draws from `STONE` and
+  // the panel from the `--page` palette — a dungeon canvas bolted under a
+  // cream hiking-map chrome is exactly the half-done pass this catches.
+  const shell = getComputedStyle(document.querySelector('main')).backgroundColor;
+  return {
+    shell: (shell.match(/[\d.]+/g) ?? [255, 255, 255])
+      .slice(0, 3).reduce((n, v, i) => n + [0.2126, 0.7152, 0.0722][i] * Number(v), 0),
+    whole: mean(0, 0, width, height),
+    lit: mean((here.left - host.left) * s - pad, (here.top - host.top) * s - pad,
+              (here.right - host.left) * s + pad, (here.bottom - host.top) * s + pad),
+    far: mean(0, 0, width * 0.28, height * 0.22),
+    boxes,
+  };
+});
+if (!look) misses.push('there is no dungeon canvas at all');
+else {
+  console.log('  ground  :', `canvas ${look.whole.toFixed(1)} · chrome ${look.shell.toFixed(1)}`);
+  console.log('  lamp    :', `${look.far.toFixed(1)} in the far corner → ${look.lit.toFixed(1)} where you stand`);
+  console.log('  chambers:', look.boxes.sort((a, b) => a - b).join(', '), 'px²');
+  // ★ IT IS UNDERGROUND. The delve inherited the town's cream hiking-map
+  // palette at the pivot and read like a trail app that had wandered down a
+  // hole; a bright ground is that regression coming back.
+  if (!(look.whole < 60)) misses.push(`the dungeon is not dark: mean luma ${look.whole.toFixed(1)}`);
+  if (!(look.shell < 60)) misses.push(`the chrome around it is still parchment: luma ${look.shell.toFixed(1)}`);
+  // ★★★ AND YOU ARE CARRYING THE LIGHT. If the room you stand in is not the
+  // brightest thing on the map, there is no lamp — just a dark stylesheet.
+  if (!(look.lit > look.far * 1.8)) {
+    misses.push(`no lamp: where you stand (${look.lit.toFixed(1)}) is not brighter than the dark (${look.far.toFixed(1)})`);
+  }
+  // ★★★ A ROOM IS A ROOM, NOT A DOT. Identical circles were the hiking map's
+  // idea of a place; a crawler reads size off the map before it reads a word.
+  const small = Math.min(...look.boxes), big = Math.max(...look.boxes);
+  if (!(big > small * 1.8)) {
+    misses.push(`every chamber is the same size (${small}–${big} px²) — these are dots with names`);
+  }
+}
+
 console.log('\n★★★ NOTHING HAPPENS WHILE YOU THINK');
 // ⚠️ THE CLAIM THE PIVOT IS ABOUT, MEASURED. Stand in a lair for three real
 // seconds and take nothing. This check went RED against the real-time build.

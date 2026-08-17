@@ -31,9 +31,16 @@
 export interface Room {
   id: number;
   name: string;
-  /** World coordinates, and they are deliberately gridded. */
+  /** World coordinates of its CENTRE, and they are deliberately gridded. */
   x: number;
   y: number;
+  /** ★★★ HOW BIG THE CHAMBER IS, in world units. A room is a room, not a dot:
+   *  the Warren is cramped, the Gallery is long, the Hoard is a hall. This is
+   *  the cheapest information a dungeon map can carry and the first thing a
+   *  crawler player reads off one, and the delve shipped without it because
+   *  it inherited a hiking map's identical circles. */
+  w: number;
+  h: number;
   /** Rooms this one has a door to. Symmetry is asserted by the tests. */
   doors: number[];
   /** How far under the hill. Drives what lives here and what it drops. */
@@ -53,18 +60,24 @@ export type RoomKind = 'mouth' | 'hall' | 'lair' | 'hoard' | 'well';
  *
  *  The shape on purpose: the mouth opens on a hall, the hall forks, one fork
  *  loops back (so retreating is a choice, not a rewind) and one runs down to
- *  the hoard past two lairs. The well is a dead end with something in it. */
+ *  the hoard past two lairs. The well is a dead end with something in it.
+ *
+ *  ★ AND EVERY CHAMBER IS ITS OWN SIZE AND SHAPE. The Mouth is a gap in the
+ *  hillside, the Weeping Stair is a tall shaft, the Gallery runs long and thin,
+ *  the Hoard is the only hall down here. Nothing in the rules reads `w`/`h` —
+ *  it is pure information for the eye, and it is why the map is worth looking
+ *  at rather than merely worth tapping. */
 export const ROOMS: readonly Room[] = [
-  { id: 0, name: 'The Mouth', x: 200, y: 40, doors: [1], deep: 0, kind: 'mouth' },
-  { id: 1, name: 'Broken Hall', x: 200, y: 130, doors: [0, 2, 3], deep: 1, kind: 'hall' },
-  { id: 2, name: 'Weeping Stair', x: 90, y: 210, doors: [1, 4], deep: 2, kind: 'hall' },
-  { id: 3, name: 'Rat Warren', x: 310, y: 210, doors: [1, 5], deep: 2, kind: 'lair' },
-  { id: 4, name: 'Old Cistern', x: 90, y: 310, doors: [2, 6], deep: 3, kind: 'lair' },
-  { id: 5, name: 'Gallery', x: 310, y: 310, doors: [3, 6, 7], deep: 3, kind: 'hall' },
-  { id: 6, name: 'The Crossing', x: 200, y: 390, doors: [4, 5, 8], deep: 4, kind: 'hall' },
-  { id: 7, name: 'Drowned Well', x: 410, y: 390, doors: [5], deep: 4, kind: 'well' },
-  { id: 8, name: 'Bone Kiln', x: 200, y: 480, doors: [6, 9], deep: 5, kind: 'lair' },
-  { id: 9, name: 'The Hoard', x: 200, y: 570, doors: [8], deep: 6, kind: 'hoard' },
+  { id: 0, name: 'The Mouth', x: 200, y: 40, w: 74, h: 46, doors: [1], deep: 0, kind: 'mouth' },
+  { id: 1, name: 'Broken Hall', x: 200, y: 130, w: 122, h: 58, doors: [0, 2, 3], deep: 1, kind: 'hall' },
+  { id: 2, name: 'Weeping Stair', x: 90, y: 210, w: 54, h: 82, doors: [1, 4], deep: 2, kind: 'hall' },
+  { id: 3, name: 'Rat Warren', x: 310, y: 210, w: 82, h: 54, doors: [1, 5], deep: 2, kind: 'lair' },
+  { id: 4, name: 'Old Cistern', x: 90, y: 310, w: 88, h: 88, doors: [2, 6], deep: 3, kind: 'lair' },
+  { id: 5, name: 'Gallery', x: 310, y: 310, w: 128, h: 48, doors: [3, 6, 7], deep: 3, kind: 'hall' },
+  { id: 6, name: 'The Crossing', x: 200, y: 390, w: 70, h: 70, doors: [4, 5, 8], deep: 4, kind: 'hall' },
+  { id: 7, name: 'Drowned Well', x: 412, y: 392, w: 58, h: 58, doors: [5], deep: 4, kind: 'well' },
+  { id: 8, name: 'Bone Kiln', x: 200, y: 480, w: 86, h: 64, doors: [6, 9], deep: 5, kind: 'lair' },
+  { id: 9, name: 'The Hoard', x: 200, y: 572, w: 140, h: 78, doors: [8], deep: 6, kind: 'hoard' },
 ];
 
 export const ROOM = new Map(ROOMS.map((r) => [r.id, r]));

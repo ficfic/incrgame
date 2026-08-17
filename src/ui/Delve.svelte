@@ -16,20 +16,19 @@
   // puts DOM over them for anything with a word or a tap target; it went from
   // a valley to a dungeon with no changes at all.
   import { onMount } from 'svelte';
-  import Board, { type Dot, type Line } from './Board.svelte';
-  import { PAPER } from '../game/ink';
+  import Crypt, { type Cell, type Pass } from './Crypt.svelte';
+  import { LAMP } from '../game/ink';
   import { ROOM, ROOMS } from '../delve/dungeon';
   import { apply, initial, doorsOf, unwalkable, unswingable, canLeave,
     facing, foesIn, actsOn, START_HP, BITE, type Delve } from '../delve/engine';
 
   let game = $state<Delve>(initial());
-  let picked = $state<number | null>(null);
 
   const act = (a: Parameters<typeof apply>[1]): void => { game = apply(game, a); };
 
   onMount(() => {
     const root = document.documentElement.style;
-    for (const [k, v] of Object.entries(PAPER)) root.setProperty(`--${k}`, v);
+    for (const [k, v] of Object.entries(LAMP)) root.setProperty(`--${k}`, v);
     const STEPS = [26, 21, 18, 15, 13, 12, 11, 10];
     STEPS.forEach((px, i) => root.setProperty(`--t${i + 1}`, `${px}px`));
     root.setProperty('--r1', '8px');
@@ -41,53 +40,43 @@
    *  learning, and drawing it all would be handing over the map. */
   const lit = $derived(ROOMS.filter((r) => game.seen.includes(r.id)));
 
-  const dots = $derived<Dot[]>(lit.map((r) => ({
-    id: `room:${r.id}`,
-    name: r.name,
-    // ★★★ A ROOM WITH SOMETHING STANDING IN IT READS AS DANGEROUS, wherever
-    // that thing started. The monsters walk the graph, so this is about where
-    // they ARE and not about what the room was built as.
-    kind: game.at === r.id ? 'you' : foesIn(game, r.id).length > 0 ? 'foe'
-      : game.cleared.includes(r.id) ? 'fact' : 'stop',
-    wx: r.x, wy: r.y,
-    place: true,
-    you: game.at === r.id,
-    open: doorsOf(game.at).includes(r.id) && unwalkable(game, r.id) === null,
-    shut: false,
-    known: true,
-    on: picked === r.id,
-    barred: foesIn(game, r.id).length > 0,
-  })));
-
-  /** ⚠️ ONLY DOORS BETWEEN TWO LIT ROOMS. A corridor into the dark is a
-   *  promise the fog has not made yet. */
-  const lines = $derived<Line[]>(lit.flatMap((r) =>
-    r.doors
-      .filter((d) => d > r.id && game.seen.includes(d))
-      .map((d) => ({
-        a: `room:${r.id}`, b: `room:${d}`,
-        rel: 'route', fill: 1, load: 0, gauge: 1,
-      }))));
-
-  /** ⚠️ THE BOX GROWS WITH THE DARK. It frames only the LIT rooms, so the
-   *  first descent is close-up and the view pulls back as the dungeon is
-   *  learned — the map earning its own scale instead of announcing how much
-   *  you have not seen. */
-  const box = $derived((() => {
-    const pad = 70;
-    const xs = lit.map((r) => r.x);
-    const ys = lit.map((r) => r.y);
-    const x = Math.min(...xs) - pad;
-    const y = Math.min(...ys) - pad;
-    return { x, y,
-      w: Math.max(...xs) + pad - x,
-      h: Math.max(...ys) + pad - y };
+  /** ★★★ HOW MANY DOORS AWAY EACH LIT ROOM IS. The lamp reads this and
+   *  nothing else — see `Crypt.svelte`: the light falls off in DOORS, not
+   *  pixels, because every other rule in this game measures distance that way
+   *  and a lamp that disagreed would be lying about the rules. */
+  const steps = $derived((() => {
+    const out = new Map<number, number>([[game.at, 0]]);
+    const queue = [game.at];
+    for (let i = 0; i < queue.length; i++) {
+      const here = queue[i]!;
+      for (const d of doorsOf(here)) {
+        if (out.has(d) || !game.seen.includes(d)) continue;
+        out.set(d, out.get(here)! + 1);
+        queue.push(d);
+      }
+    }
+    return out;
   })());
 
-  const onTap = (id: string): void => {
-    const n = Number(id.split(':')[1]);
+  const cells = $derived<Cell[]>(lit.map((r) => ({
+    id: r.id, name: r.name, x: r.x, y: r.y, w: r.w, h: r.h,
+    step: steps.get(r.id) ?? 9,
+    here: game.at === r.id,
+    // ★ WHERE THEY ARE, not what the room was built as. The monsters walk the
+    // graph, so a lair they have left is just a room and the hall they are
+    // standing in is the dangerous one.
+    foes: foesIn(game, r.id).length,
+    cleared: game.cleared.includes(r.id),
+    open: doorsOf(game.at).includes(r.id) && unwalkable(game, r.id) === null,
+  })));
+
+  /** ⚠️ ONLY PASSAGES BETWEEN TWO LIT ROOMS. A corridor into the dark is a
+   *  promise the fog has not made yet. */
+  const passes = $derived<Pass[]>(lit.flatMap((r) =>
+    r.doors.filter((d) => d > r.id && game.seen.includes(d)).map((d) => ({ a: r.id, b: d }))));
+
+  const onTap = (n: number): void => {
     if (!ROOM.has(n)) return;
-    picked = n;
     // ★ TAPPING A DOOR IS WALKING THROUGH IT. One tap, not a tap and a
     // confirm — the owner's whole complaint was the button pressing.
     if (unwalkable(game, n) === null) act({ type: 'walk', to: n });
@@ -115,7 +104,7 @@
   </header>
 
   <div class="map">
-    <Board {dots} {lines} {box} label="dungeon" {onTap} drag={false} />
+    <Crypt {cells} {passes} {onTap} label="dungeon" />
   </div>
 
   <section class="panel">
