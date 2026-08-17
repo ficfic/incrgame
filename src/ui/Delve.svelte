@@ -15,8 +15,8 @@
   import Board, { type Dot, type Line } from './Board.svelte';
   import { PAPER } from '../game/ink';
   import { ROOM, ROOMS, WALK_SECS } from '../delve/dungeon';
-  import { apply, initial, doorsOf, held, unwalkable, unfleeable, canLeave,
-    START_HP, BITE, type Delve } from '../delve/engine';
+  import { apply, initial, doorsOf, held, unwalkable, unswingable, canLeave,
+    facing, foesIn, START_HP, BITE, SWING_SECS, type Delve } from '../delve/engine';
 
   let game = $state<Delve>(initial());
   let picked = $state<number | null>(null);
@@ -35,7 +35,7 @@
       const now = performance.now();
       const secs = (now - last) / 1000;
       last = now;
-      if (game.walk) act({ type: 'tick', secs });
+      act({ type: 'tick', secs });
     }, 120);
     return () => clearInterval(id);
   });
@@ -48,7 +48,10 @@
   const dots = $derived<Dot[]>(lit.map((r) => ({
     id: `room:${r.id}`,
     name: r.name,
-    kind: game.at === r.id ? 'you' : held(game, r.id) ? 'foe'
+    // ★★★ A ROOM WITH SOMETHING STANDING IN IT READS AS DANGEROUS, wherever
+    // that thing started. The monsters walk the graph now, so `foe` is about
+    // where they ARE and not about what a room was built as.
+    kind: game.at === r.id ? 'you' : foesIn(game, r.id).length > 0 ? 'foe'
       : game.cleared.includes(r.id) ? 'fact' : 'stop',
     wx: r.x, wy: r.y,
     place: true,
@@ -58,7 +61,7 @@
     shut: false,
     known: true,
     on: picked === r.id,
-    barred: held(game, r.id),
+    barred: foesIn(game, r.id).length > 0,
   })));
 
   /** ⚠️ ONLY DOORS BETWEEN TWO LIT ROOMS. A corridor into the dark is a
@@ -119,45 +122,45 @@
       <button class="deed" onclick={() => act({ type: 'leave' })}>
         Take up the lamp again
       </button>
-    {:else if game.fight}
-      <h2>{ROOM.get(game.fight.room)?.name}</h2>
-      <!-- ★ THE LINE. Tap a square to swing at it — aiming and striking are
-           the same gesture, because a separate "aim" tap is the button
-           pressing the owner asked us to get rid of. -->
-      <div class="line">
-        {#each game.fight.line as q, i (i)}
-          <button class="sq" class:down={q.hp <= 0} class:on={game.fight.at === i}
-            disabled={q.hp <= 0}
-            onclick={() => { act({ type: 'aim', at: i }); act({ type: 'strike' }); }}>
-            <b>{q.hp}</b>
-            <span>{q.name}</span>
-            <em>bites {q.bite}</em>
-          </button>
-        {/each}
-      </div>
-      <p class="note">your swing takes {BITE} · they answer
-        {game.fight.line.reduce((n, q) => n + (q.hp > 0 ? q.bite : 0), 0)}</p>
-      <button class="deed" disabled={unfleeable(game) !== null}
-        onclick={() => act({ type: 'flee' })}>
-        Back out
-        <em>{unfleeable(game) ?? 'through a door with nothing in it'}</em>
-      </button>
-    {:else if walking}
-      <h2>Walking</h2>
-      <p class="note">{ROOM.get(walking.to)?.name} — {walking.left.toFixed(1)}s</p>
     {:else}
-      <h2>{here.name}</h2>
-      <p class="note">
-        {#if doorsOf(game.at).length === 1}one door{:else}{doorsOf(game.at).length} doors{/if}
-        · {WALK_SECS}s each
-      </p>
-      {#if canLeave(game)}
-        <button class="deed" onclick={() => act({ type: 'leave' })}>
-          Climb out
-          <em>bank {game.purse}</em>
+      <!-- ★★★ NO FIGHT SCREEN. The fight is on the board — what is in this
+           room is standing in this room, and the only two verbs are SWING and
+           WALK. This panel says what is here and what it costs; it never
+           becomes a place you go. -->
+      <h2>{here.name}{#if walking} → {ROOM.get(walking.to)?.name}{/if}</h2>
+      {#if walking}
+        <p class="note">on the move — {walking.left.toFixed(1)}s</p>
+      {:else if facing(game).length > 0}
+        <div class="line">
+          {#each facing(game) as q (q.id)}
+            <span class="sq">
+              <b>{q.hp}</b>
+              <span class="nm">{q.name}</span>
+              <em>bites {q.bite} every {q.pace.toFixed(1)}s</em>
+            </span>
+          {/each}
+        </div>
+        <button class="deed hit" disabled={unswingable(game) !== null}
+          onclick={() => act({ type: 'strike' })}>
+          Swing
+          <em>{unswingable(game) === null
+            ? `takes ${BITE} · then ${SWING_SECS}s to recover`
+            : unswingable(game)}</em>
         </button>
+        <p class="note dim">or step through a door — it has to follow you</p>
+      {:else}
+        <p class="note">
+          {#if doorsOf(game.at).length === 1}one door{:else}{doorsOf(game.at).length} doors{/if}
+          · {WALK_SECS}s each
+        </p>
+        {#if canLeave(game)}
+          <button class="deed" onclick={() => act({ type: 'leave' })}>
+            Climb out
+            <em>bank {game.purse}</em>
+          </button>
+        {/if}
+        <p class="note dim">tap a room to walk there</p>
       {/if}
-      <p class="note dim">tap a room to walk there</p>
     {/if}
     {#each [...game.log].reverse().slice(0, 4) as line, i (i)}
       <p class="note log">{line}</p>
@@ -192,12 +195,17 @@
   .deed em { display: block; font-style: normal; font-size: var(--t6);
     color: var(--faint); }
   .line { display: flex; gap: 8px; margin: 8px 0 4px; }
+  /* ★ A READOUT, NOT BUTTONS. There is nothing to press on a monster any
+     more — you swing at the room, or you leave it. */
   .sq { flex: 1; display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 1px; font: inherit; min-height: 72px;
-    border: 1px solid var(--edge); border-radius: var(--r2); background: var(--card); }
-  .sq b { font-size: var(--t2); color: var(--clay); }
-  .sq span { font-size: var(--t7); color: var(--soft); font-weight: 600; }
-  .sq em { font-style: normal; font-size: var(--t8); color: var(--faint); }
-  .sq.on { border: 2px solid var(--clay); background: var(--clayWash); }
-  .sq.down { opacity: 0.35; }
+    justify-content: center; gap: 1px; min-height: 66px; padding: 6px 4px;
+    border: 1px solid var(--edge); border-radius: var(--r2);
+    background: var(--clayWash); }
+  .sq b { font-size: var(--t2); color: var(--clay); font-weight: 700; }
+  .sq .nm { font-size: var(--t7); color: var(--soft); font-weight: 600; }
+  .sq em { font-style: normal; font-size: var(--t8); color: var(--faint);
+    text-align: center; }
+  /* ★ The one verb that is not a door. */
+  .deed.hit { border-color: var(--clay); }
+  .deed.hit:disabled { border-color: var(--edge); }
 </style>

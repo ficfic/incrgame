@@ -61,41 +61,64 @@ if (!/Broken Hall/.test(inHall)) misses.push(`the panel does not name the room: 
 
 console.log('\nSOMETHING IS ALREADY HERE');
 await walk('Rat Warren');
-const squares = await page.locator('.sq').count();
-console.log('  line    :', `${squares} squares`);
-if (squares < 2) misses.push(`the lair did not field a line: ${squares} squares`);
-const fight = await panel();
-console.log('  says    :', `"${fight.slice(0, 70)}"`);
-// ⚠️ THE ANSWER MUST BE ON SCREEN BEFORE THE SWING. A turn-based fight whose
-// cost you learn afterwards is a coin toss with extra steps.
-if (!/they answer \d/.test(fight)) {
-  misses.push(`the line does not say what it costs to swing: "${fight.slice(0, 60)}"`);
+const line = await page.locator('.sq').count();
+console.log('  in here :', `${line} standing`);
+if (line < 2) misses.push(`the lair fielded nothing: ${line}`);
+const met = await panel();
+console.log('  says    :', `"${met.slice(0, 70)}"`);
+// ⚠️ THE PACE MUST BE ON SCREEN. The whole dance is comparing what a thing
+// does per second against what you do per second; hiding either half turns
+// footwork into a coin toss.
+if (!/every [\d.]+s/.test(met)) {
+  misses.push(`the line does not say its pace: "${met.slice(0, 60)}"`);
 }
+
+console.log('\nSTANDING STILL COSTS YOU');
+const hp0 = Number((await head()).match(/(\d+)\s*\/12/)?.[1] ?? -1);
+await page.waitForTimeout(2500);
+const hp1 = Number((await head()).match(/(\d+)\s*\/12/)?.[1] ?? -1);
+console.log('  life    :', `${hp0} → ${hp1} after 2.5s of standing there`);
+if (!(hp1 < hp0)) misses.push(`standing in a lair cost nothing: ${hp0} → ${hp1}`);
 await page.screenshot({ path: SHOT });
 
 console.log('\nSWINGING');
-const hpBefore = Number((await head()).match(/(\d+)\s*\/12/)?.[1] ?? -1);
-await page.locator('.sq').first().click({ timeout: 3000 })
-  .catch(() => misses.push('the line cannot be swung at'));
-await page.waitForTimeout(400);
-const hpAfter = Number((await head()).match(/(\d+)\s*\/12/)?.[1] ?? -1);
-console.log('  life    :', `${hpBefore} → ${hpAfter}`);
-if (!(hpAfter < hpBefore)) misses.push(`swinging cost nothing: ${hpBefore} → ${hpAfter}`);
-
-console.log('\nCLEARING IT');
-for (let i = 0; i < 12; i++) {
-  const live = page.locator('.sq:not([disabled])');
-  if (await live.count() === 0) break;
-  await live.first().click({ timeout: 2000 }).catch(() => {});
-  await page.waitForTimeout(250);
+// ⚠️ SWING BEFORE STEPPING OUT, because standing in a lair is lethal in
+// about eight seconds and a probe that dawdles is measuring its own death
+// rather than the mechanic. That lethality is the point: see the note below.
+// ⚠️ THE SUM OF THE LINE, NOT THE FIRST SQUARE. A swing takes the WEAKEST
+// thing standing (no aiming tax), so reading `.sq b` first measured the big
+// one and reported "the swing did nothing" while the runt was losing three.
+const lineHp = async () => (await page.locator('.sq b').allTextContents())
+  .reduce((n, t) => n + Number(t || 0), 0);
+const before = await lineHp();
+await page.locator('.deed', { hasText: 'Swing' }).first().click({ timeout: 3000 })
+  .catch(() => misses.push('cannot swing'));
+await page.waitForTimeout(250);
+const after = await lineHp();
+console.log('  hurt it :', `${before} → ${after}`);
+if (!(after < before)) misses.push(`the swing did nothing: ${before} → ${after}`);
+// ★ AND IT HAS A COOLDOWN, which is what position is bought with.
+if (!(await page.locator('.deed', { hasText: 'Swing' }).first().isDisabled())) {
+  misses.push('the swing has no cooldown — position costs nothing');
 }
-const done = await panel();
-console.log('  says    :', `"${done.slice(0, 70)}"`);
-const carried = Number((await head()).match(/(\d+)\s*CARRIED/i)?.[1] ?? 0);
-console.log('  carried :', carried);
-// The room paid, and the purse is not the hoard: banking is a separate move.
-if (!(carried > 0)) misses.push(`a cleared lair paid nothing: header "${await head()}"`);
-if (!/BANKED/i.test(await head())) misses.push('the header does not separate carried from banked');
+
+console.log('\nA DOOR IS A DEFENCE');
+// ★★★ THE GRIMROCK CLAIM, MEASURED: nothing can touch you between rooms.
+await page.locator('.node', { hasText: 'Broken Hall' }).first().click({ timeout: 3000 })
+  .catch(() => misses.push('cannot step back through the door'));
+await page.waitForTimeout(2000);
+const hp2 = Number((await head()).match(/(\d+)\s*\/12/)?.[1] ?? -1);
+await page.waitForTimeout(1800);
+const hp3 = Number((await head()).match(/(\d+)\s*\/12/)?.[1] ?? -1);
+console.log('  mid-door:', `${hp2} → ${hp3}`);
+if (hp3 < hp2) misses.push(`bitten while between rooms: ${hp2} → ${hp3}`);
+
+console.log('\nAND IT FOLLOWS YOU THROUGH IT');
+await page.waitForTimeout(7000);
+const chased = await page.locator('.sq').count();
+const alive = !/went down/.test(await panel());
+console.log('  through :', `${chased} came after you`, alive ? '' : '(delver fell)');
+if (alive && chased < 1) misses.push('nothing followed you through the door — no chase');
 
 await b.close();
 if (misses.length) {
@@ -103,4 +126,4 @@ if (misses.length) {
   for (const m of misses) console.log('  ', m);
   process.exit(1);
 }
-console.log('\nall good — the dark lifts a step at a time, and the lair fights back');
+console.log('\nall good — it comes for you, a door buys time, and the swing has a price');
