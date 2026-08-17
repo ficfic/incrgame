@@ -40,25 +40,6 @@
      *  the map (owner's visual pass). A key into ICONS; absent = bare dot. */
     icon?: string;
   }
-  /** ★★★ A DEED, HANGING OFF THE PLACE IT ACTS ON — 2026-08-16.
-   *
-   *  `docs/BRIEF.md` item 5, the one the brief itself calls the single
-   *  non-negotiable: *"everything is a graph… including the UI itself where
-   *  that is possible."* What you can DO at a place now hangs off that place
-   *  on an edge, because the edge is a TRUE STATEMENT — this deed belongs to
-   *  this node — where a list at the bottom of the screen was a fact about
-   *  panels and not about the game.
-   *
-   *  ⚠️ `off` DEEDS STAY ON THE GRAPH. A deed you cannot take yet is drawn
-   *  dimmed and unpressable rather than hidden: a door you can see and cannot
-   *  open is item 4 of the same brief, and a menu that hides what you cannot
-   *  afford teaches a player nothing about what to aim at. */
-  export interface Spoke {
-    /** ⚠️ THE PARENT IS THE DOT'S OWN ID STRING (`site:3`), not a site number.
-     *  `posOf` is keyed by `Dot.id`, and handing it a bare number silently
-     *  found nothing — the deeds simply did not draw, with no error. */
-    id: string; parent: string; label: string; note: string; off: boolean;
-  }
   export interface Line { a: string; b: string; rel: string; fill: number;
     /** How much of its limit this road is carrying, 0 to 1. See `flow.ts`. */
     load: number;
@@ -114,12 +95,9 @@
   };
 
   let { dots, lines, box, label, onTap, onGround, decor = [], mark = null, drag = true, inset = 0,
-    feed = null, pulse = 0, pulseMark = '', fog = null, spokes = [], onSpoke }: {
+    feed = null, pulse = 0, pulseMark = '', fog = null }: {
     dots: Dot[]; lines: Line[]; box: Box; label: string;
     onTap: (id: string) => void;
-    /** What can be done at the picked node, drawn hanging off it. */
-    spokes?: Spoke[];
-    onSpoke?: (id: string) => void;
     onGround?: () => void;
     /** ★ THE FOG OF WAR, or null for no fog. Uncharted parchment drawn OVER
      *  the terrain with soft holes cut around `spots` (stops stood at) and
@@ -262,69 +240,6 @@
   $effect(() => { void k; void tx; void ty; plusses = []; });
 
   const shape = $derived(dots.map((d) => d.id).join(','));
-  /** ★★★ WHERE A DEED SITS — 2026-08-16. Screen space, not world: a spoke is
-   *  a piece of UI hanging off a node, so it must keep the same size and the
-   *  same gap from its parent at every zoom. World-space spokes flew apart
-   *  when you pinched in and stacked on top of each other when you pinched
-   *  out, which is the one thing a menu may never do.
-   *
-   *  ⚠️ THEY FAN DOWNWARD, and that is not a taste call. The parent is always
-   *  the node you just tapped, the tap came from a thumb, and the thumb is at
-   *  the BOTTOM of the phone — so a fan that opens upward puts every deed
-   *  under the hand that is reaching for it. Down and slightly out, in the
-   *  order given, with the run capped so a long list stays on the board.
-   *  ⚠️ AND IT FLIPS when the parent is low: below `cssH - 150` there is no
-   *  room underneath, so the fan opens upward instead of running off the
-   *  bottom edge. Measured against the real element, never assumed. */
-  /** ★★★ WHERE A DEED SITS — 2026-08-16, and this is the third layout.
-   *
-   *  ⚠️ A FAN AROUND THE PARENT DOES NOT FIT A PHONE, and both earlier cuts
-   *  proved it the same way: seven deeds hang off the camp, each chip is a
-   *  word plus a price, and a fan of them from a node in the middle of a
-   *  390px board lays parchment over the entire graph — including OTHER
-   *  NODES, which then cannot be tapped at all. The browser probe caught it
-   *  as a node click that simply failed.
-   *
-   *  So the deeds take a BAND along the bottom of the board and the graph is
-   *  framed into what is left (`inset`, which exists for exactly this and
-   *  already handles the panel). The stalk still runs from the node to each
-   *  deed, because that edge is the true statement and it is the whole point:
-   *  you can see, at a glance, that these actions belong to THAT place.
-   *  Two columns, because a chip is ~132px and a phone is 390. */
-  const SPOKE_COLS = 2;
-  const SPOKE_W = 168;
-  /** ⚠️ 48px OF PITCH FOR A 44px BUTTON. 44 is the thumb floor and it is the
-   *  BUTTON that has to meet it — the first cut set the pitch to 44 and the
-   *  chip to 40, which is not the same thing and was measured at 40. */
-  const SPOKE_H = 48;
-  /** ★★★ THE BAND IS ALWAYS THE SAME HEIGHT, AND THAT IS THE WHOLE POINT —
-   *  2026-08-16, fixed the day after it broke.
-   *
-   *  ⚠️ IT WAS SIZED TO THE DEEDS ON OFFER, and it feeds `fit()`, so the
-   *  camera re-framed the whole graph every time you tapped a place with a
-   *  different number of things to do. Measured: SEVEN OF SEVEN NODES MOVED
-   *  from a single tap, the worst by 23px. That is *"switching… repositions
-   *  the height of the bottom panel a little bit, and it makes the map jam
-   *  every time"* — the owner's most-repeated UI complaint, reintroduced one
-   *  day after it was fixed for the panel, by the same mistake in a new
-   *  place.
-   *
-   *  So the board reserves the same strip forever: four rows, whether there
-   *  are seven deeds or none. The graph is framed once and never moves.
-   *  Empty band is cheap; a map that jumps under your thumb is not. */
-  const SPOKE_ROWS = 4;
-  const spokeBand = SPOKE_ROWS * SPOKE_H + 10;
-  const spokeAt = $derived((i: number) => {
-    // ⚠️ ROW-MAJOR — left to right, then down. It was column-major, which
-    // reads down-then-across: the one order a list of words is never in.
-    const col = i % SPOKE_COLS;
-    const row = Math.floor(i / SPOKE_COLS);
-    return {
-      x: 8 + col * (SPOKE_W + 6),
-      y: cssH - spokeBand + 6 + row * SPOKE_H,
-    };
-  });
-
   const posOf = $derived(new Map(dots.map((d) =>
     [d.id, moved.get(d.id) ?? { x: d.wx, y: d.wy }])));
 
@@ -366,7 +281,7 @@
     if (!cssW || !cssH || !box.w || !box.h) return;
     // Never frame into nothing: a panel taller than the board would otherwise
     // divide by a negative and put the map somewhere off-screen.
-    const usable = Math.max(120, cssH - inset - spokeBand);
+    const usable = Math.max(120, cssH - inset);
     // Capped, or a two-dot tab fills the page with two enormous dots and a
     // label in 40px type — which is exactly what the previous renderer did
     // before it grew a minimum box to work around it.
@@ -396,7 +311,7 @@
    *  different graph) reclaims the camera. */
   let touched = false;
   $effect(() => {
-    const s = shape, w = cssW, h = cssH, ins = inset + spokeBand;
+    const s = shape, w = cssW, h = cssH, ins = inset;
     if (!w || !h) return;
     if (s === fitted && touched) { fitW = w; fitH = h; fitIn = ins; return; }
     if (s === fitted && w === fitW && h === fitH && ins === fitIn) return;
@@ -1003,47 +918,19 @@
       {/if}
     </button>
   {/each}
-  <!-- ★★★ THE DEEDS, HANGING OFF THE NODE THEY ACT ON — 2026-08-16, brief
-       item 5. The STALK is an SVG line (a graph edge is a line, and this one
-       has to sit above the canvas so it is never buried by terrain); the chip
-       is DOM, because it is a word and a tap target. -->
-  {#if spokes.length > 0}
-    {@const par = posOf.get(spokes[0]?.parent ?? '')}
-    {#if par}
-      {@const px = sx(par.x)}
-      {@const py = sy(par.y)}
-      <svg class="stalks" aria-hidden="true">
-        {#each spokes as sp, i (sp.id)}
-          {@const at = spokeAt(i)}
-          <line x1={px} y1={py} x2={at.x + 10} y2={at.y + SPOKE_H / 2}
-            class:off={sp.off} />
-        {/each}
-      </svg>
-      {#each spokes as sp, i (sp.id)}
-        {@const at = spokeAt(i)}
-        <button class="spoke" class:off={sp.off} disabled={sp.off}
-          style="left:{at.x}px; top:{at.y}px; width:{SPOKE_W}px"
-          data-spoke={sp.id}
-          onpointerdown={(e) => e.stopPropagation()}
-          onpointerup={(e) => e.stopPropagation()}
-          onclick={(e) => { e.stopPropagation(); onSpoke?.(sp.id); }}>
-          <span class="what">{sp.label}</span>
-          <!-- ⚠️ ONLY A DEED YOU CAN TAKE CARRIES ITS PRICE. The refusals are
-               sentences — "No road reaches here. Lay one from a place you
-               hold." — and seven of those hanging off the camp laid a wall of
-               parchment across the whole board, hiding the graph they are
-               supposed to be part of and burying other nodes under it. A
-               blocked deed shows its NAME (so you know the door is there) and
-               the panel says why. -->
-          <!-- ⚠️ THE FIRST CLAUSE ONLY. A note is "🪨3 ⏱6s → 1.0/s · ⏱shorter
-               marches" — the price, then what it buys you. A 168px chip shows
-               the price and clips the rest mid-word, which reads as a bug; the
-               panel has room for the whole sentence. -->
-          {#if sp.note && !sp.off}<em>{sp.note.split(' · ')[0]}</em>{/if}
-        </button>
-      {/each}
-    {/if}
-  {/if}
+  <!-- ⚠️ THE DEED CHIPS AND THEIR STALKS WERE HERE, 2026-08-16, and came
+       out the same evening. `docs/BRIEF.md` item 5 wants the UI itself to be
+       a graph, and hanging what you can DO at a place off that place, on a
+       drawn edge, is a true statement about the game. On a 390px phone it was
+       not a readable one: seven deeds off the camp had to be docked in a band
+       along the bottom, and the stalks reaching back to the node crossed the
+       whole valley — five near-parallel green lines that read as a rendering
+       fault, over a board with a third of its height taken away.
+       The pillar is served instead by the board OWNING THE SCREEN and never
+       moving under your thumb. If it is tried again: the chips must sit ON
+       the node, which means far fewer of them, which means the deed list has
+       to get shorter first. `Spoke` and this component's props are kept —
+       they cost nothing and they are the shape a second attempt would use. -->
   {#each plusses as p (p.id)}
     <span class="plus" style="left:{p.x}px; top:{p.y}px"
       onanimationend={() => (plusses = plusses.filter((q) => q.id !== p.id))}
@@ -1052,61 +939,6 @@
 </div>
 
 <style>
-  /* ★★★ THE DEED SPOKES — 2026-08-16. A chip on the board, joined to its
-     node by a drawn edge. It has to read as PART OF THE GRAPH rather than as
-     a popover sitting on top of one, so: the same card face and the same
-     hairline the rest of the chrome uses, and the stalk in the same ink as a
-     road you can take. */
-  .stalks { position: absolute; inset: 0; width: 100%; height: 100%;
-    pointer-events: none; overflow: visible; }
-  .stalks line { stroke: var(--moss); stroke-width: 1.5; opacity: 0.65; }
-  .stalks line.off { stroke: var(--faint); opacity: 0.4; stroke-dasharray: 3 3; }
-  /* ⚠️ CAPPED AND WRAPPING. The first cut let a chip size to its own text and
-     a deed whose note is a sentence — "No road reaches here. Lay one from a
-     place you hold." — came out 250px wide and laid a wall of parchment over
-     the board. The graph has to stay visible; that is the entire reason the
-     deeds moved onto it. */
-  /* ⚠️ EVERY CHIP IS THE SAME HEIGHT, AND THAT IS A TAP-TARGET RULE, not a
-     tidiness one. The first cut let each chip wrap to its own text, so a
-     two-line chip overlapped the one below it — and an overlapped chip is a
-     chip whose top half belongs to its neighbour. The browser probe found it
-     as "the spade went in silently": the click landed, on the wrong element.
-     Both lines clip to one line each; the graph is where you read the shape
-     of things, and the panel is where a sentence goes. */
-  /* ⚠️ THE CHIP MUST CLAIM ITS OWN POINTER. `.board` takes `pointerdown` for
-     panning and resolves a NODE tap itself on `pointerup` — which is why
-     `.node` carries no `onclick` at all. A button dropped into that container
-     therefore never sees a click: the board captures the pointer first and
-     the press is read as a drag on the map. The chips stop the pointer at the
-     source, and only then does `onclick` reach them. Cost a debugging session
-     that went looking in the handler while the event never arrived. */
-  .spoke { position: absolute;
-    display: flex; flex-direction: column; align-items: flex-start; gap: 0;
-    font: inherit; text-align: left;
-    box-sizing: border-box; height: 44px;
-    background: var(--card); border: 1px solid var(--moss);
-    border-radius: var(--r1); padding: 5px 9px; min-height: 30px;
-    justify-content: center; cursor: pointer; z-index: 3;
-    box-shadow: 0 1px 3px var(--shadow); }
-  .spoke .what, .spoke em { max-width: 100%; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; display: block; }
-  .spoke .what { font-size: var(--t6); font-weight: 700; color: var(--ink);
-    line-height: 1.15; }
-  .spoke em { font-style: normal; font-size: var(--t8); color: var(--faint);
-    line-height: 1.2; }
-  /* ⚠️ SHOWN, NOT HIDDEN. A deed you cannot take yet is a door you can see —
-     brief item 4 — so it dims and stops being pressable rather than
-     vanishing and teaching nothing. */
-  /* ⚠️ AND IT DOES NOT STEAL TAPS. A dimmed chip is INFORMATION — a door you
-     can see and cannot open — so it must not sit between your thumb and the
-     node behind it. `disabled` alone still occludes; `pointer-events: none`
-     is what lets the tap through to the map. The probe found this as "no path
-     deed at the pines": the pines node was under a chip belonging to the
-     place picked before it. */
-  .spoke.off { border-color: var(--rule); background: var(--sunk);
-    box-shadow: none; pointer-events: none; }
-  .spoke.off .what { color: var(--faint); font-weight: 600; }
-
   /* Sized from its own width, never from the viewport: `100dvh` against a
      `window.innerHeight` measurement is the iOS URL-bar bug that broke the
      first two renderers. */

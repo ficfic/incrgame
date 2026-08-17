@@ -2,7 +2,7 @@
   // THE CITY BUILDER'S ONE SCREEN — docs/CITY.md made flesh. Header of
   // numbers, the board, a dock of deeds. NO PROSE: nouns and numbers.
   import { onMount } from 'svelte';
-  import Board, { type Dot, type Line, type Spoke } from './Board.svelte';
+  import Board, { type Dot, type Line } from './Board.svelte';
   import { INK, PAPER, TOL, type InkName } from '../game/ink';
   import type { Box } from '../game/layout';
   import { apply, catchUp, initial, flow, shown, popCap, pathKey, costOf, pathCostOf,
@@ -36,14 +36,27 @@
    *  open it, which is the invitation working. */
   let stayed = $state(false);
   let heldBefore = new Set<string>();
+  let takenBefore = 0;
   $effect(() => {
     const now = new Set(Object.keys(game.goblins));
-    for (const id of heldBefore) {
-      if (!now.has(id)) {
-        won = `${SITE.get(Number(id))?.name ?? 'The ground'} is TAKEN — +2 settlers`;
+    // ★★★ ONLY WHEN GROUND WAS ACTUALLY WON — 2026-08-16, from the owner's
+    // photograph: the board announced *"Winterwood is TAKEN"* for site 11, a
+    // SECOND-VALLEY wood hidden behind Dark Pines, which they had never seen
+    // and could not have fought for.
+    // ⚠️ THIS WATCHED FOR A KEY LEAVING `goblins`, and keys leave for more
+    // than one reason. Founding a new valley REPLACES the whole set
+    // (`valleyGoblins`), so every holding of the old run vanished at once and
+    // the last one out got a victory banner with its name on it. A liberation
+    // is the thing that increments `taken`; nothing else does.
+    if (game.taken > takenBefore) {
+      for (const id of heldBefore) {
+        if (!now.has(id)) {
+          won = `${SITE.get(Number(id))?.name ?? 'The ground'} is TAKEN — +2 settlers`;
+        }
       }
     }
     heldBefore = now;
+    takenBefore = game.taken;
   });
   let picked = $state<number | null>(0);
   let menu = $state(false);
@@ -754,12 +767,6 @@
     return out;
   })());
 
-  const fireSpoke = (id: string): void => {
-    const [what, n] = id.split(':');
-    const d = (what === 'fight' ? fightVerbs
-      : what === 'meet' ? meetWays : deeds)[Number(n)];
-    if (d && d.why === null) d.go();
-  };
 
   /** ★★★ THE PICKED PLACE'S DEEDS, ON THE GRAPH — 2026-08-16, brief item 5.
    *
@@ -792,31 +799,7 @@
     }));
   })());
 
-  const spokes = $derived<Spoke[]>(
-    game.fight
-      // ★ A FIGHT OWNS THE GRAPH while it lasts, and it hangs off the ground
-      // being fought over — never off whatever you last tapped.
-      ? fightVerbs.map((d, i) => ({
-          id: `fight:${i}`, parent: siteId(game.fight!.site),
-          label: d.label, note: d.note, off: d.why !== null }))
-      // ★★★ A MEETING WAITS ON THE HERO'S OWN GROUND — 2026-08-16, fixed the
-      // day it shipped. It used to outrank the picked place outright, so a
-      // pending meeting meant you could not lay a road or raise a works until
-      // you answered it — and `meet` only clears by answering. That is a
-      // modal wearing a graph, and `CLAUDE.md` is explicit: HITL IS NEVER
-      // MANDATORY, an idle game that demands babysitting is not one.
-      // It hangs off the ground the hero is standing on, and tapping anywhere
-      // else gets on with the town. The tale stays in the panel meanwhile, so
-      // it is never lost — it waits as long as you like.
-      : (meetWays.length > 0 && (picked === null || picked === game.hero.at))
-        ? meetWays.map((d, i) => ({
-            id: `meet:${i}`, parent: siteId(game.hero.at),
-            label: d.label, note: d.note, off: false }))
-      : (sheet === null && picked !== null && SITE.has(picked))
-        ? deeds.map((d, i) => ({
-            id: `${picked}:${i}`, parent: siteId(picked!),
-            label: d.label, note: d.note, off: d.why !== null }))
-        : []);
+
 
   /** ★★★ THE TOWN'S OWN DEEDS — 2026-08-11. Everything you build for the
    *  whole camp rather than for one place on the map: the storehouse, the
@@ -1357,7 +1340,7 @@
            owner's own suggestion. Leaving both would be the clutter F10 is
            about. -->
       <Board {dots} {lines} {box} label="city" onTap={doTap} drag={false}
-        decor={scene} mark={heroMark} {spokes} onSpoke={fireSpoke} />
+        decor={scene} mark={heroMark} />
     </div>
     <section class="panel">
       {#if awayLine}
@@ -1435,10 +1418,16 @@
             {#if windup(fi.round)} · {MARK.waste}they wind up{/if}
           </p>
         {/if}
-        <!-- ★★★ THE VERB GRID LEFT THIS PANEL, 2026-08-16 — it is on the
-             board, hanging off the ground being fought over (brief item 7).
-             What stays here is the STRIP above: who is standing, how hurt
-             they are, and what answer is coming. A readout, not a screen. -->
+        <!-- ★ AND THE VERBS ARE BACK UNDER THE STRIP. They spent a day as
+             chips on the board; see the note by the place deeds for why that
+             came off. Two columns, the same grid the deeds use. -->
+        <div class="deeds">
+          {#each fightVerbs as d (d.label)}
+            <button class="deed row" disabled={d.why !== null} onclick={d.go}>
+              <span class="what">{d.label}</span><em>{d.note}</em>
+            </button>
+          {/each}
+        </div>
       {/if}
 
       {#if !game.fight && game.meet !== null}
@@ -1454,11 +1443,15 @@
           <div class="meet">
             <h2>{m.name}</h2>
             <p class="tale">{m.text}</p>
-            <!-- ★★★ THE ANSWER BUTTONS LEFT THIS CARD, 2026-08-16. They
-                 hang off the ground the hero is standing on, like every
-                 other decision in the game since the deeds moved (brief
-                 item 5). The TALE stays: a paragraph needs a paragraph's
-                 room, and reading is not deciding. -->
+            <!-- ★ THE ANSWERS ARE BACK UNDER THE TALE, for the same reason
+                 the deeds are. A paragraph and its choices belong together. -->
+            <div class="deeds">
+              {#each meetWays as d (d.label)}
+                <button class="deed row" onclick={d.go}>
+                  <span class="what">{d.label}</span><em>{d.note}</em>
+                </button>
+              {/each}
+            </div>
           </div>
         {/if}
       {/if}
@@ -1627,19 +1620,22 @@
              how the hero's Feed deed once sat on two tabs at once. The panel
              keeps what a place IS — its name, its works, its hands — and the
              graph keeps what you can DO there. -->
-        <!-- ★★★ AND THE PANEL SAYS WHY — 2026-08-16. A blocked deed on the
-             graph shows its NAME only: the refusals are sentences, and seven
-             sentences hanging off the camp buried the board. But a door you
-             cannot open still has to say what is holding it, or the dimming
-             is just a shrug. The reasons land here, where there is room for a
-             sentence — which is also what this panel is FOR now that the
-             deeds themselves have gone onto the graph. -->
-        {#if spokes.length > 0}
-          {#each deeds.filter((d) => d.why !== null) as d (d.label)}
-            <p class="note"><b>{d.label}</b> — {d.why}</p>
-          {/each}
-        {/if}
-        {#if spokes.length === 0}
+        <!-- ★★★ THE DEEDS CAME BACK OFF THE BOARD — 2026-08-16 evening.
+             They spent a day as chips in a band along the bottom of the map,
+             joined to their node by drawn stalks (`29f3122`, brief item 5:
+             *everything is a graph, including the UI*). The owner sent a
+             photograph of it and said everything is fucked, and they were
+             right — five near-parallel green lines crossing the whole valley
+             do not read as "these belong to that place", they read as a
+             rendering fault; the band ate a third of the board; and the panel
+             underneath was clipped mid-sentence.
+             ⚠️ `the-owner` REVIEW AGENT CALLED THIS BEFORE IT SHIPPED — *"it
+             says something is drawing wrong… I wanted deeds ON THE NODE I
+             tapped, not docked to the bottom edge with string attached"* —
+             and I shipped it anyway. The idea may still be right; this
+             EXECUTION of it was not, and a phone is 390px wide.
+             What the pillar actually gets is the board taking most of the
+             screen and the graph never moving. -->
         <div class="deeds">
         {#each deeds as d (d.label)}
           <!-- ★ ONE LINE PER DEED, 2026-08-09. The owner, on the phone: *"the
@@ -1656,7 +1652,6 @@
           </button>
         {/each}
         </div>
-        {/if}
       {:else if !game.fight}
         <!-- ⚠️ AND NOT DURING A FIGHT, 2026-08-15. Every branch above this one
              is guarded by `!game.fight`, so a battle fell through the whole
@@ -1910,7 +1905,14 @@
      ⚠️ STILL A FIXED HEIGHT, WHICH IS THE WHOLE POINT OF THIS RULE — the
      number changed, the law did not. The map must not resize when a sheet
      opens (*"it makes the map jam every time"*), so the panel still absorbs. */
-  .map { flex: 0 0 auto; height: 58dvh; min-height: 0; position: relative;
+  /* ⚠️ 58dvh → 42dvh, 2026-08-16 evening — back to the value that was
+     screenshot-verified for THIS layout. It went to 58 when the deeds moved
+     onto the board and the panel was left holding a name and two status
+     lines. The deeds are back in the panel, so the panel needs the room again
+     — at 58 its last line was clipped behind the dock, which is what the
+     owner's photograph shows. Still a FIXED height, which is the rule that
+     matters: the map must not resize when a sheet opens. */
+  .map { flex: 0 0 auto; height: 42dvh; min-height: 0; position: relative;
     margin: 10px; }
   /* ★★★ A FIXED HEIGHT, AND THAT IS THE WHOLE FIX — 2026-08-15. The owner:
      *"switching between town, hero and along repositions the height of the
@@ -1928,7 +1930,6 @@
     padding: 8px 14px; border-top: 1px solid var(--sunk); }
   .panel h2 { margin: 4px 0 6px; font-size: var(--t3); }
   .note { color: var(--faint); font-size: var(--t5); margin: 4px 0; }
-  .note b { color: var(--soft); font-weight: 700; }
   /* ★★★ THE MARKS SIT ON THE PAPER — 2026-08-15, the look pass. The board is
      a hiking map in a measured, muted palette and the furniture was studded
      with full-saturation OS emoji: a grey lump for stone, a cardboard
@@ -1955,8 +1956,7 @@
      This is the same answer the battle strip already reached for the same
      reason — the fight's own verbs, when they still lived in this panel,
      for which "four stacked full-width deeds pushed the strip off small
-     screens". Those are spokes on the board since 2026-08-16; this grid is
-     the surviving use of the precedent. */
+     screens". This grid is that answer, and the fight's verbs use it again. */
   .deeds { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0; }
   /* ⚠️ `box-sizing` AND `width:auto` ARE LOAD-BEARING HERE. The base `.deed`
      rule sets `width:100%`, and there is no border-box reset anywhere in this
