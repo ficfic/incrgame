@@ -52,12 +52,20 @@ jobs:
         # from outside is indistinguishable from a deploy. Now a script that
         # strips comments and strings first, with its red path tested.
         run: node scripts/check-core-purity.mjs
-      - name: Player-facing vocabulary is single-sourced
-        # The dock said "graph: 25 nodes" while the HUD said "3 recovered" — two
-        # different quantities wearing one word, because each surface reached
-        # into raw state and picked its own. src/core/readouts.ts is the single
-        # place a player-facing number is named; this keeps surfaces on it.
-        run: node scripts/check-vocabulary.mjs
+      # ⚠️ THE VOCABULARY GATE IS REMOVED, 2026-08-16, AND THIS BROKE A DEPLOY.
+      #
+      # The rule it policed is still right — the dock said "graph: 25 nodes"
+      # while the HUD said "3 recovered", two quantities wearing one word. The
+      # CHECK is not: it reads src/core/readouts.ts, the pre-pivot game, and
+      # `the-process` proved it vacuous by printing two nouns for one quantity
+      # into the live HUD for exit 0. So it was made to exit 1 and say so —
+      # and it is wired HERE, as a deploy gate, which nobody checked. Every
+      # deploy after that failed.
+      #
+      # A check with no subject must not gate a deploy. The script still fails
+      # loudly when anyone runs it, so it cannot be mistaken for working, and
+      # repointing it at src/camp + src/ui is queued in docs/NEXT.md. Until
+      # then the rule is enforced by hand.
       - name: Story graph is walkable
         # The story IS the game's affordance now — the starmap's lanes are its
         # choices. A dead-end beat, an unobtainable gate key or a body that
