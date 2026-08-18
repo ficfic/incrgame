@@ -199,10 +199,136 @@ const alive = !/went down/.test(await panel());
 console.log('  through :', `${chased} came after you`, alive ? '' : '(delver fell)');
 if (alive && chased < 1) misses.push('nothing followed you through the door — no chase');
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚠️ ON A FRESH PAGE, AND LAST. The crawler genuinely makes the dungeon busier
+// — it wakes lairs you have not reached and walks them toward you — so running
+// it first quietly broke three checks above: nine rooms drawn instead of four,
+// a step that appeared to cost five turns, and a swing that "did nothing"
+// because a new foe had arrived between the two readings. None of those were
+// bugs in the game and all three were the probe measuring a state it had
+// stirred up itself. So: everything above happens on a pristine delve, and the
+// crawler gets its own from here.
+// ═══════════════════════════════════════════════════════════════════════════
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(700);
+
+console.log('\n★★★ YOU SEND SOMETHING DOWN');
+// ⚠️ THE TWO-GRAPH CHECK, DRIVEN WITH A THUMB. The engine has 19 unit tests
+// for the crawler and not one of them can see whether a CLAIM is drawn
+// differently from a floor — and if the two look alike on the phone, the whole
+// mechanic is deleted no matter what the engine says.
+await press('Send a crawler');
+if (!(await page.locator('.wire').count())) misses.push('no report from the crawler at all');
+const wire = () => flat('.wire');
+console.log('  wire    :', `"${await wire()}"`);
+for (let i = 0; i < 3; i++) await press('Hold');
+const filed = await wire();
+console.log('  after 4 :', `"${filed}"`);
+// ★★★ IT MUST CLAIM MORE THAN IT WALKED. That gap IS the game: rooms on your
+// map that nobody has stood in.
+const walked = Number(filed.match(/(\d+) walked/)?.[1] ?? 0);
+const said = Number(filed.match(/(\d+) claimed/)?.[1] ?? -1);
+if (!(walked >= 2)) misses.push(`the crawler is not walking: ${walked} rooms`);
+if (!(said > 0)) misses.push('the crawler claims nothing it has not walked — no gap, no game');
+
+console.log('\n★★★ A CLAIM IS NOT A FLOOR');
+const ghosts = await page.locator('.node.ghost').count();
+const solid = await page.locator('.node:not(.ghost)').count();
+console.log('  drawn   :', `${solid} verified · ${ghosts} reported`);
+if (ghosts < 1) misses.push('nothing on the map is marked as merely reported');
+// ⚠️ AND THEY MUST NOT LOOK ALIKE — MEASURED ON THE FLOOR, NOT THE LABEL.
+// The first version of this compared the two NAME COLOURS and stayed green
+// with the ghost styling deleted: without it a claim falls back to `--dim` and
+// a verified room is `--faint`, which happen to sit 42 apart, just over the
+// threshold. It was passing on a coincidence between two greys.
+//
+// ★★★ THE REAL DIFFERENCE IS THAT A CLAIM HAS NO FLOOR. Nothing has been cut
+// there — it is an outline over living rock — and that is unmistakable in
+// pixels, which is the whole point: a reported room must never be able to pass
+// as ground you have stood on.
+const inside = await page.evaluate(() => {
+  const cv = document.querySelector('.crypt canvas');
+  const ctx = cv.getContext('2d');
+  const { data, width, height } = ctx.getImageData(0, 0, cv.width, cv.height);
+  const host = document.querySelector('.crypt').getBoundingClientRect();
+  const s = cv.width / host.width;
+  const core = (el) => {
+    if (!el) return -1;
+    const r = el.getBoundingClientRect();
+    const x0 = (r.left - host.left + r.width * 0.3) * s;
+    const x1 = (r.left - host.left + r.width * 0.7) * s;
+    const y0 = (r.top - host.top + r.height * 0.3) * s;
+    const y1 = (r.top - host.top + r.height * 0.7) * s;
+    let sum = 0, n = 0;
+    for (let y = y0 | 0; y < Math.min(height, y1 | 0); y++) {
+      for (let x = x0 | 0; x < Math.min(width, x1 | 0); x++) {
+        const i = (y * width + x) * 4;
+        sum += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]; n++;
+      }
+    }
+    return n ? sum / n : -1;
+  };
+  // Bare living rock: a strip down the far edge, where no chamber reaches.
+  let rs = 0, rn = 0;
+  for (let y = (height * 0.05) | 0; y < height * 0.95; y += 3) {
+    for (let x = 0; x < width * 0.06; x++) {
+      const i = (y * width + x) * 4;
+      rs += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]; rn++;
+    }
+  }
+  return {
+    ghost: core(document.querySelector('.node.ghost')),
+    cut: core(document.querySelector('.node:not(.ghost):not(.here)')),
+    rock: rn ? rs / rn : -1,
+  };
+});
+console.log('  floor   :', `rock ${inside.rock.toFixed(1)} · inside a claim ${inside.ghost.toFixed(1)}`
+  + ` · inside a cut room ${inside.cut.toFixed(1)}`);
+if (!(inside.cut > inside.ghost * 1.6)) {
+  misses.push(`a claim is floored like a room you have stood in (${inside.ghost.toFixed(1)} vs ${inside.cut.toFixed(1)})`);
+}
+// ★★★ AND THE CLAIM'S INSIDE IS STILL ROCK. ⚠️ THE CHECK ABOVE IS NOT ENOUGH
+// ON ITS OWN and two sabotages proved it: a reported room is always FAR from
+// the lamp, so "darker than the room you are standing next to" stays true even
+// when it is given a full floor. It was measuring the lamp, not the fill.
+// Nothing has been cut in a claim, so its middle must read as the rock around
+// it — that is the one comparison the lamp cannot fake.
+if (!(inside.ghost < inside.rock * 1.45)) {
+  misses.push(`a claim has been given a floor (${inside.ghost.toFixed(1)} against bare rock ${inside.rock.toFixed(1)})`);
+}
+
+console.log('\n★★★ AND SOME OF ITS DOORS DO NOT EXIST');
+// ★★★ THE PAYOFF, TAPPED. Find a room the crawler joined to this one that has
+// no door, tap it, and the screen must say so — the moment you learn what its
+// map is worth.
+const lie = await page.evaluate(() => {
+  const names = [...document.querySelectorAll('.node')].map((n) => n.textContent.trim());
+  return names;
+});
+console.log('  on map  :', lie.join(' · '));
+// ⚠️ THE RAT WARREN, and it must be the Warren. From the Mouth the crawler
+// joins the two up — they are 202 units apart on its map and it has never been
+// in one of them — and there is NO SUCH DOOR. Tapping the Weeping Stair
+// instead proved nothing: the crawler had actually walked that one, so its
+// invented door to it was already deleted.
+const wasTurn = await turn();
+await walk('Rat Warren');
+const bunked = await panel();
+console.log('  says    :', `"${bunked.match(/No door goes to[^.]*\. [^.]*\./)?.[0] ?? bunked.slice(0, 60)}"`);
+if (!/No door goes to/.test(bunked)) {
+  misses.push('tapping an invented door said nothing — the map never gets caught lying');
+}
+// ★ AND IT IS NOT A TURN. Being lied to must not cost you the exchange; a
+// refused action stays refused, which the engine has its own test for.
+if ((await turn()) !== wasTurn) misses.push("walking into a door that does not exist cost a turn");
+
+
+await page.screenshot({ path: 'play-crawler.png' });
+
 await b.close();
 if (misses.length) {
   console.log('\n⚠️ PROBLEMS');
   for (const m of misses) console.log('  ', m);
   process.exit(1);
 }
-console.log('\nall good — turns only move when you do, and the price is on screen first');
+console.log('\nall good — turns move when you do, the price is on screen first,\n            and the map tells you things that are not true');

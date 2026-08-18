@@ -248,7 +248,14 @@ describe('★★★ CLIMBING OUT IS THE DECISION', () => {
     expect(banked.hp).toBe(START_HP);
   });
 
-  it('★ leaving with nothing is not a move', () => {
-    expect(canLeave(initial())).toBe(false);
+  it('★★★ but the Mouth is a way out even empty-handed', () => {
+    // ⚠️ REVERSED WITH THE CRAWLER, 2026-08-18. This used to assert the
+    // opposite, on the tidiness argument that leaving with nothing is not a
+    // move. Then the crawler started WAKING THINGS on its own and walking them
+    // up the shaft after you, and a delver standing at the Mouth with an empty
+    // purse and a pack arriving had no move at all. A tidy button is worth
+    // less than a way out. See `test/crawler.test.ts`.
+    expect(canLeave(initial())).toBe(true);
+    expect(canLeave(go(initial(), 1))).toBe(false);
   });
 });

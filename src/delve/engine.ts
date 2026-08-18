@@ -20,7 +20,7 @@
 // the graph against it. That is the Grimrock dance, made countable.
 import { ROOM, ROOMS, GUARDS, SPOIL } from './dungeon';
 
-export const DELVE_VERSION = 3;
+export const DELVE_VERSION = 4;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -54,6 +54,9 @@ export interface Delve {
   foes: Foe[];
   /** Next foe id — in the state, because purity. */
   bred: number;
+  /** ★★★ THE THING YOU SENT DOWN, and its model of the dungeon. `null` until
+   *  you send one. See THE CRAWLER at the foot of this file. */
+  crawl: Crawl | null;
   fallen: boolean;
   log: string[];
 }
@@ -78,6 +81,7 @@ export const initial = (): Delve => ({
   hoard: 0,
   foes: [],
   bred: 1,
+  crawl: null,
   fallen: false,
   log: [],
 });
@@ -135,8 +139,13 @@ export function unswingable(g: Delve): string | null {
   return null;
 }
 
-export const canLeave = (g: Delve): boolean =>
-  !g.fallen && g.at === 0 && g.purse > 0;
+/** ★ THE MOUTH IS ALWAYS A WAY OUT, empty-handed or not.
+ *  ⚠️ CHANGED WITH THE CRAWLER, 2026-08-18. It used to need a purse, on the
+ *  tidiness argument that leaving with nothing is not a move. Then the crawler
+ *  started WAKING THINGS on its own and walking them back up the shaft toward
+ *  you — and a delver stood at the Mouth with an empty purse and a pack coming
+ *  had no move at all. A tidy button is worth less than a way out. */
+export const canLeave = (g: Delve): boolean => !g.fallen && g.at === 0;
 
 export type Action =
   /** Step through a door. One turn. */
@@ -145,6 +154,9 @@ export type Action =
   | { type: 'strike' }
   /** Stand still and let the dungeon move. One turn. */
   | { type: 'wait' }
+  /** ★ Send a crawler down from the Mouth. One turn, and then it is walking
+   *  on its own every turn you take. */
+  | { type: 'send' }
   /** Climb out with what you carry. Not a turn — you are leaving. */
   | { type: 'leave' };
 
@@ -165,15 +177,61 @@ export type Action =
  */
 function theirTurn(g: Delve, said: string[], from: number): Delve {
   const turn = g.turn + 1;
-  let hp = g.hp;
   const at = g.at;
-  const foes = g.foes.map((f) => {
+
+  // ── 1. THE CRAWLER WALKS. It goes first because it is a thing in the
+  // dungeon taking its turn, not a readout that updates afterwards — and
+  // because what it wakes up must be awake when the dungeon moves.
+  let crawl = g.crawl;
+  let woken = g.foes;
+  let bred = g.bred;
+  if (crawl && !crawl.done) {
+    const target = frontier({ ...g, crawl });
+    const step = target === null ? null : stepToward(crawl.at, target);
+    if (step === null) {
+      crawl = { ...crawl, done: true };
+      said.push('The crawler has nowhere left to go. It stops.');
+    } else {
+      const walked = crawl.walked.includes(step) ? crawl.walked : [...crawl.walked, step];
+      crawl = { ...crawl, at: step, walked, turns: crawl.turns + 1 };
+      // ★★★ AND IT WAKES THINGS. This is the price of sending one down, and
+      // it is the good kind of price: not a fee, but a dungeon that is more
+      // awake than it was, in rooms you have not reached yet.
+      const r = ROOM.get(step)!;
+      const asleep = !g.cleared.includes(step) && GUARDS[r.kind] !== null
+        && !woken.some((f) => f.from === step);
+      if (asleep) {
+        const born = (GUARDS[r.kind]?.(r.deep) ?? []).map((q, i) => ({
+          id: bred + i, at: step, from: step, hp: q.hp, bite: q.bite, name: q.name,
+          every: q.bite >= 2 ? 2 : 1,
+        }));
+        bred += born.length;
+        woken = [...woken, ...born];
+        said.push(`The crawler wakes something in ${r.name}.`);
+      }
+    }
+  }
+  const crawlAt = crawl && !crawl.done ? crawl.at : -1;
+  let chp = crawl ? crawl.hp : 0;
+
+  // ── 2. THE DUNGEON MOVES.
+  let hp = g.hp;
+  const foes = woken.map((f) => {
     if (f.hp <= 0 || !actsOn(f, turn)) return f;
     if (f.at === at || f.at === from) {
       hp -= f.bite;
       said.push(f.at === at
         ? `${f.name} bites you for ${f.bite}.`
         : `${f.name} strikes you for ${f.bite} as you go.`);
+      return f;
+    }
+    // ★★★ THE CRAWLER IS BAIT, and nobody had to design that: a foe deals with
+    // what is in its room before it goes looking for you. Parking a crawler on
+    // a pack to buy yourself two clean turns is a real play, and it fell out
+    // of the rule rather than being bolted on as one.
+    if (f.at === crawlAt) {
+      chp -= f.bite;
+      said.push(`${f.name} tears at the crawler.`);
       return f;
     }
     const step = stepToward(f.at, at);
@@ -183,6 +241,14 @@ function theirTurn(g: Delve, said: string[], from: number): Delve {
     if (step === at) said.push(`${f.name} comes through the door.`);
     return { ...f, at: step };
   });
+
+  if (crawl && !crawl.done && chp <= 0) {
+    // ⚠️ ITS REPORT STANDS. What it walked stays on your map after it dies —
+    // that is the whole point of having sent it, and the next one you send
+    // picks up where this one stopped.
+    said.push(`The crawler stops transmitting in ${ROOM.get(crawl.at)?.name}.`);
+    crawl = { ...crawl, hp: 0, done: true };
+  } else if (crawl) crawl = { ...crawl, hp: Math.max(0, chp) };
 
   // A room emptied of its own dead pays out, once.
   let cleared = g.cleared;
@@ -198,11 +264,11 @@ function theirTurn(g: Delve, said: string[], from: number): Delve {
   }
 
   if (hp <= 0) {
-    return { ...g, turn, foes, cleared, hp: 0, purse: 0, fallen: true, at,
+    return { ...g, turn, foes, cleared, crawl, bred, hp: 0, purse: 0, fallen: true, at,
       log: LOG_LINES(said.reduce(LOG_LINES, g.log),
         'You go down in the dark. What you carried stays there.') };
   }
-  return { ...g, turn, foes, cleared, purse, hp, at,
+  return { ...g, turn, foes, cleared, purse, crawl, bred, hp, at,
     log: said.reduce(LOG_LINES, g.log) };
 }
 
@@ -233,6 +299,13 @@ export function apply(g: Delve, a: Action): Delve {
         said.push(`${r.name}. Something is already here.`);
       } else said.push(`${r.name}.`);
 
+      // ★★★ THE MOMENT THE REPORT MEETS THE ROOM. The crawler calls every room
+      // it did not enter empty and safe; this is where you find out, and it is
+      // the single line this whole mechanic exists to print.
+      if (asleep && guessedSafe(g, at)) {
+        said.push(`The crawler filed ${r.name} as empty. It is not.`);
+      }
+
       // ★ A ROOM WITH NOTHING TO KILL BUT SOMETHING TO TAKE pays on arrival.
       // ⚠️ Without this the Drowned Well is worth 12 and can never hand it
       // over: spoil only ever came from a dead guard, and the well has none.
@@ -262,6 +335,18 @@ export function apply(g: Delve, a: Action): Delve {
       return theirTurn({ ...g, foes }, said, g.at);
     }
 
+    case 'send': {
+      if (!canSend(g)) return g;
+      // ★ THE NEXT ONE PICKS UP THE MAP. You are not buying a machine, you are
+      // buying another attempt at the frontier — everything the last crawler
+      // walked is still walked.
+      const crawl: Crawl = {
+        at: 0, hp: CRAWL_HP, walked: g.crawl?.walked ?? [0],
+        turns: 0, done: false,
+      };
+      return theirTurn({ ...g, crawl }, ['You send a crawler down.'], g.at);
+    }
+
     case 'wait': {
       if (g.fallen) return g;
       // ★ A REAL MOVE. Letting a slow thing close the gap so you can meet it
@@ -280,3 +365,101 @@ export function apply(g: Delve, a: Action): Delve {
     }
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ★★★ THE CRAWLER — 2026-08-18, and the answer to *"how are we going full on
+// graph? maybe let's come back to ai exploring stuff idea"*.
+//
+// THE ANSWER IS TWO GRAPHS. There is the dungeon, and there is the crawler's
+// MODEL of the dungeon, and the gap between them is the game. You send a thing
+// down; it walks on its own and files a map; you plan against that map; and the
+// map is confidently, systematically wrong in ways you only discover by
+// standing in the room yourself.
+//
+// ⚠️ AND THE LIE IS A RULE, NOT A DIE ROLL. There is no RNG in this engine and
+// there is none here. The crawler is wrong because of HOW IT THINKS:
+//
+//   · it reports rooms it STOOD IN truthfully — that part is real work;
+//   · it reports rooms it merely saw a door to as EMPTY AND SAFE, every time,
+//     because it is completing a pattern rather than looking;
+//   · and it asserts a DOOR between any two rooms in its report that are close
+//     enough on the map, whether or not one exists — a hallucinated edge, on a
+//     game whose whole subject is a graph.
+//
+// Every one of those is a pure function of the state. Same dungeon, same
+// report, forever — which is also the only reason any of it is testable.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** How much a crawler can take before it stops transmitting. Low on purpose:
+ *  it is an instrument, not a second delver, and losing it is the ordinary
+ *  outcome rather than the failure case. */
+export const CRAWL_HP = 4;
+
+/** ★ HOW NEAR IS NEAR ENOUGH TO INVENT A DOOR, in world units. Tuned so the
+ *  Mouth "connects" straight to the Warren and the Crossing "connects" to the
+ *  Hoard: plausible shortcuts, exactly the ones you would want to be true. */
+export const GUESS = 205;
+
+export interface Crawl {
+  /** Where it stands. */
+  at: number;
+  hp: number;
+  /** ★ ROOMS IT HAS ACTUALLY STOOD IN. Its only real knowledge, and the only
+   *  part of its report that can be trusted. Carried over from the last
+   *  crawler you lost — the map is the organisation's, not the machine's. */
+  walked: number[];
+  /** Steps taken. */
+  turns: number;
+  /** It stopped: killed, or nothing left it can reach. */
+  done: boolean;
+}
+
+/** Every room the crawler will talk about: the ones it walked, plus every room
+ *  it saw a door to from one of them. */
+export const claimed = (g: Delve): number[] =>
+  g.crawl ? [...new Set(g.crawl.walked.flatMap((r) => [r, ...doorsOf(r)]))] : [];
+
+/** ★★★ THE ROOMS IT IS GUESSING ABOUT. It never entered these, and it will
+ *  tell you they are empty. */
+export const inferred = (g: Delve): number[] =>
+  g.crawl ? claimed(g).filter((r) => !g.crawl!.walked.includes(r)) : [];
+
+/** Did the crawler call this room safe without going in? */
+export const guessedSafe = (g: Delve, id: number): boolean =>
+  inferred(g).includes(id);
+
+/** ★★★ DOORS THAT DO NOT EXIST. Two rooms in the report, near each other, at
+ *  least one of them never entered — so the crawler joins them up. Walking the
+ *  frontier deletes them one at a time, which is what makes verifying feel
+ *  like progress rather than paperwork. */
+export function hallucinated(g: Delve): [number, number][] {
+  if (!g.crawl) return [];
+  const said = claimed(g);
+  const out: [number, number][] = [];
+  for (const a of said) {
+    for (const b of said) {
+      if (b <= a) continue;
+      if (doorsOf(a).includes(b)) continue;
+      if (g.crawl.walked.includes(a) && g.crawl.walked.includes(b)) continue;
+      const ra = ROOM.get(a)!, rb = ROOM.get(b)!;
+      if (Math.hypot(ra.x - rb.x, ra.y - rb.y) <= GUESS) out.push([a, b]);
+    }
+  }
+  return out;
+}
+
+/** The nearest room it has not walked, breadth-first from where it stands. */
+export function frontier(g: Delve): number | null {
+  if (!g.crawl) return null;
+  const seen = new Set([g.crawl.at]);
+  const queue = [g.crawl.at];
+  for (let i = 0; i < queue.length; i++) {
+    const here = queue[i]!;
+    if (!g.crawl.walked.includes(here)) return here;
+    for (const d of doorsOf(here)) if (!seen.has(d)) { seen.add(d); queue.push(d); }
+  }
+  return null;
+}
+
+export const canSend = (g: Delve): boolean =>
+  !g.fallen && g.at === 0 && (g.crawl === null || g.crawl.done);

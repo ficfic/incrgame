@@ -409,6 +409,14 @@ export const STONE = {
   farFloor: '#141210',
   farWall: '#443e34',
 
+  /** ★★★ A CLAIM, NOT A PLACE. The one cold colour down here, and it is
+   *  reserved for what a crawler REPORTED and nobody verified — dashed
+   *  outlines and invented doors. Cold against warm is the whole legend: if
+   *  the lamp is what you know, this is what you were told.
+   *  Deliberately far from every stone tone so it can never be misread as a
+   *  dim floor. */
+  claim: '#4d6b78',
+
   /** The lamp itself, and what it throws. */
   flame: '#f0cf87',
   glow: 'rgb(214 160 74 / 0.20)',

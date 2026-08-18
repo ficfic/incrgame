@@ -27,8 +27,14 @@
     id: number; name: string;
     x: number; y: number; w: number; h: number;
     step: number; here: boolean; foes: number; cleared: boolean; open: boolean;
+    /** ★★★ NOBODY HAS STOOD HERE. This chamber is on the map because a crawler
+     *  REPORTED it, and the crawler files everything it did not enter as empty
+     *  and safe. Drawn as a dashed outline over nothing: a claim, not a floor. */
+    ghost?: boolean;
   }
-  export interface Pass { a: number; b: number }
+  /** ★ `ghost` on a passage means the same and worse — no door was ever seen
+   *  through. Some of these do not exist at all. */
+  export interface Pass { a: number; b: number; ghost?: boolean }
 
   let { cells, passes, onTap, label = 'dungeon' }:
     { cells: Cell[]; passes: Pass[]; onTap: (id: number) => void; label?: string }
@@ -153,12 +159,31 @@
     }
 
     const road = passes
-      .map((p) => ({ a: at(p.a), b: at(p.b) }))
-      .filter((p): p is { a: Cell; b: Cell } => !!p.a && !!p.b);
+      .map((p) => ({ a: at(p.a), b: at(p.b), ghost: !!p.ghost }))
+      .filter((p): p is { a: Cell; b: Cell; ghost: boolean } => !!p.a && !!p.b);
 
-    // 2 ── PASSAGE CASING, then floor. The casing is what makes a corridor a
+    // 2a ── ★★★ WHAT THE CRAWLER SAYS CONNECTS. Dashed, thin, unlit: a line on
+    // a chart and deliberately NOT a cut through rock, because some of these
+    // doors do not exist. The difference between this stroke and the one below
+    // is the difference between a claim and a place you have been.
+    ctx.setLineDash([5, 5]);
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = STONE.claim;
+    for (const { a, b } of road.filter((p) => p.ghost)) {
+      // ⚠️ WALL TO WALL, NOT CENTRE TO CENTRE. Drawn between centres these
+      // ploughed straight across the chambers they connect, which looked wrong
+      // and also filled every reported room's middle with dashes — enough to
+      // lift its interior halfway to a real floor and leave the probe's
+      // "a claim has no floor" check almost no margin to work in.
+      const [ax, ay] = doorway(a, b.x, b.y);
+      const [bx, by] = doorway(b, a.x, a.y);
+      ctx.beginPath(); ctx.moveTo(sx(ax), sy(ay)); ctx.lineTo(sx(bx), sy(by)); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // 2b ── PASSAGE CASING, then floor. The casing is what makes a corridor a
     // cut through rock rather than a line on a chart.
-    for (const { a, b } of road) {
+    for (const { a, b } of road.filter((p) => !p.ghost)) {
       const step = Math.max(a.step, b.step);
       const lit = a.here || b.here;
       // ⚠️ WIDE ENOUGH TO SEE THE CUT. At 15 against a floor of 11 the casing
@@ -178,6 +203,19 @@
       ctx.beginPath();
       poly.forEach(([x, y], i) => (i ? ctx.lineTo(sx(x), sy(y)) : ctx.moveTo(sx(x), sy(y))));
       ctx.closePath();
+      // ★★★ A REPORTED ROOM HAS NO FLOOR. Nothing has been cut here — the
+      // outline is a claim drawn over living rock, and it must never be
+      // mistakable for ground you can trust. Filling it, even faintly, would
+      // make the crawler's guesses look exactly like verified rooms, which is
+      // the one thing this whole mechanic must not do.
+      if (c.ghost) {
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = STONE.claim;
+        ctx.lineWidth = Math.max(1, 1.5 * k * 1.1);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        continue;
+      }
       ctx.fillStyle = floorOf(c.step, c.here, c.cleared);
       ctx.fill();
       ctx.strokeStyle = wallInk(c.step, c.here);
@@ -188,12 +226,12 @@
     // 5 ── AND THE DOORWAYS PUNCHED BACK THROUGH. A wall drawn all the way
     // round would seal every room it just connected; this reopens the gap
     // exactly where the passage crosses, which is what a door IS on a map.
-    for (const { a, b } of road) {
+    for (const { a, b } of road.filter((p) => !p.ghost)) {
       const step = Math.max(a.step, b.step);
       const lit = a.here || b.here;
       ctx.strokeStyle = floorOf(step, lit);
       ctx.lineWidth = Math.max(1, 11 * k);
-      for (const [c, o] of [[a, b], [b, a]] as [Cell, Cell][]) {
+      for (const [c, o] of ([[a, b], [b, a]] as [Cell, Cell][]).filter(([c]) => !c.ghost)) {
         const [gx, gy] = doorway(c, o.x, o.y);
         const dx = o.x - c.x, dy = o.y - c.y;
         const d = Math.hypot(dx, dy) || 1;
@@ -259,7 +297,7 @@
        render at any zoom, and the button is the whole chamber — a 54px-tall
        room is a far better thumb target than a 7px dot ever was. -->
   {#each cells as c (c.id)}
-    <button class="node" class:here={c.here} class:near={c.step <= 1}
+    <button class="node" class:here={c.here} class:near={c.step <= 1} class:ghost={c.ghost}
       class:open={c.open} class:danger={c.foes > 0}
       style="left:{sx(c.x - c.w / 2)}px; top:{sy(c.y - c.h / 2)}px;
              width:{c.w * k}px; height:{c.h * k}px"
@@ -286,6 +324,10 @@
      in the lamp's own colour. */
   .node.here .nm { color: #f0cf87; font-weight: 700; font-size: var(--t6); }
   .node.danger .nm { color: #d9755e; }
+  /* ★★★ A REPORTED NAME READS AS A CLAIM. Cool, thin, spaced — the register of
+     a machine-filed label rather than a place with a floor in it. */
+  .node.ghost .nm { color: #5f7f8c; font-weight: 400; letter-spacing: .07em;
+    font-style: italic; }
   .node.open .nm { text-decoration: underline; text-underline-offset: 3px;
     text-decoration-thickness: 1px; text-decoration-color: rgb(202 164 104 / .55); }
 </style>

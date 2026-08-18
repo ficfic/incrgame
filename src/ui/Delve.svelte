@@ -20,7 +20,8 @@
   import { LAMP } from '../game/ink';
   import { ROOM, ROOMS } from '../delve/dungeon';
   import { apply, initial, doorsOf, unwalkable, unswingable, canLeave,
-    facing, foesIn, actsOn, START_HP, BITE, type Delve } from '../delve/engine';
+    facing, foesIn, actsOn, claimed, hallucinated, canSend,
+    START_HP, BITE, CRAWL_HP, type Delve } from '../delve/engine';
 
   let game = $state<Delve>(initial());
 
@@ -58,28 +59,54 @@
     return out;
   })());
 
-  const cells = $derived<Cell[]>(lit.map((r) => ({
+  /** ★★★ WHAT THE CRAWLER SAYS IS THERE, minus what you have seen for
+   *  yourself. These are drawn as claims — dashed, floorless, cold. */
+  const told = $derived(claimed(game).filter((r) => !game.seen.includes(r)));
+  const drawn = $derived(ROOMS.filter((r) => lit.includes(r) || told.includes(r.id)));
+
+  const cells = $derived<Cell[]>(drawn.map((r) => ({
     id: r.id, name: r.name, x: r.x, y: r.y, w: r.w, h: r.h,
     step: steps.get(r.id) ?? 9,
     here: game.at === r.id,
+    ghost: told.includes(r.id),
     // ★ WHERE THEY ARE, not what the room was built as. The monsters walk the
     // graph, so a lair they have left is just a room and the hall they are
     // standing in is the dangerous one.
-    foes: foesIn(game, r.id).length,
+    // ⚠️ AND A REPORTED ROOM SHOWS NO DANGER — not because there is none, but
+    // because the crawler files everything it did not enter as empty. Drawing
+    // the truth here would quietly make its map reliable and delete the game.
+    foes: told.includes(r.id) ? 0 : foesIn(game, r.id).length,
     cleared: game.cleared.includes(r.id),
     open: doorsOf(game.at).includes(r.id) && unwalkable(game, r.id) === null,
   })));
 
   /** ⚠️ ONLY PASSAGES BETWEEN TWO LIT ROOMS. A corridor into the dark is a
    *  promise the fog has not made yet. */
-  const passes = $derived<Pass[]>(lit.flatMap((r) =>
-    r.doors.filter((d) => d > r.id && game.seen.includes(d)).map((d) => ({ a: r.id, b: d }))));
+  const passes = $derived<Pass[]>([
+    ...drawn.flatMap((r) => r.doors
+      .filter((d) => d > r.id && drawn.some((x) => x.id === d))
+      .map((d) => ({ a: r.id, b: d, ghost: told.includes(r.id) || told.includes(d) }))),
+    // ★★★ AND THE DOORS THAT DO NOT EXIST. The crawler joins up rooms that are
+    // merely near each other on its map. Tapping one is how you find out.
+    ...hallucinated(game).map(([a, b]) => ({ a, b, ghost: true })),
+  ]);
+
+  const invented = $derived(hallucinated(game));
+  /** ★★★ THE MOMENT YOU LEARN TO DISTRUST IT. Kept OUT of the engine on
+   *  purpose: a refused action must stay refused — not a turn, not a state
+   *  change — and there is a test holding `apply` to exactly that. So the
+   *  screen says this, and the dungeon does not move. */
+  let bunk = $state<string | null>(null);
 
   const onTap = (n: number): void => {
     if (!ROOM.has(n)) return;
     // ★ TAPPING A DOOR IS WALKING THROUGH IT. One tap, not a tap and a
     // confirm — the owner's whole complaint was the button pressing.
-    if (unwalkable(game, n) === null) act({ type: 'walk', to: n });
+    bunk = null;
+    if (unwalkable(game, n) === null) { act({ type: 'walk', to: n }); return; }
+    if (invented.some(([a, b]) => (a === game.at && b === n) || (b === game.at && a === n))) {
+      bunk = `No door goes to ${ROOM.get(n)!.name}. The crawler drew one.`;
+    }
   };
 
   const here = $derived(ROOM.get(game.at)!);
@@ -102,6 +129,23 @@
       <span class="cell"><b>{game.turn}</b> <em>turn</em></span>
     </div>
   </header>
+
+  <!-- ★★★ THE REPORT. What you sent down, where it got to, and how much of
+       the map is its word rather than yours — because "6 rooms mapped, 4 of
+       them nobody has stood in" is the whole tension in one line. -->
+  {#if game.crawl}
+    <div class="wire" class:gone={game.crawl.done}>
+      <span class="tag">crawler</span>
+      {#if game.crawl.done}
+        <span>lost in {ROOM.get(game.crawl.at)?.name}</span>
+      {:else}
+        <span>{ROOM.get(game.crawl.at)?.name} · {game.crawl.hp}/{CRAWL_HP}</span>
+      {/if}
+      <span class="split">
+        {game.crawl.walked.length} walked · <b>{told.length}</b> claimed
+      </span>
+    </div>
+  {/if}
 
   <div class="map">
     <Crypt {cells} {passes} {onTap} label="dungeon" />
@@ -153,6 +197,14 @@
           {#if doorsOf(game.at).length === 1}one door{:else}{doorsOf(game.at).length} doors{/if}
           · tap a room to walk there
         </p>
+        {#if canSend(game)}
+          <button class="deed send" onclick={() => act({ type: 'send' })}>
+            Send a crawler down
+            <em>{game.crawl
+              ? 'it keeps the map the last one filed'
+              : 'it walks on its own · it files what it did not look at'}</em>
+          </button>
+        {/if}
         <button class="deed" onclick={() => act({ type: 'wait' })}>
           Hold
           <em>let the dungeon move</em>
@@ -165,6 +217,8 @@
         {/if}
       {/if}
     {/if}
+    <!-- ★★★ AND THE LINE THIS WHOLE MECHANIC EXISTS FOR. -->
+    {#if bunk}<p class="note bunk">{bunk}</p>{/if}
     {#each [...game.log].reverse().slice(0, 4) as l, i (i)}
       <p class="note log">{l}</p>
     {/each}
@@ -182,6 +236,19 @@
   .cell b { font-size: var(--t2); color: var(--ink); font-weight: 700; }
   .cell em { font-style: normal; font-size: var(--t7); color: var(--dim);
     letter-spacing: .06em; text-transform: uppercase; }
+  /* ★★★ THE WIRE. Cold, thin, and it is the only cold thing on the screen —
+     the same blue the map draws a claim in, so the legend teaches itself. */
+  .wire { display: flex; align-items: baseline; gap: 8px; padding: 5px 12px;
+    font-size: var(--t7); color: #7f9aa6; border-bottom: 1px solid var(--rule);
+    background: #0e1315; }
+  .wire.gone { color: var(--dim); font-style: italic; }
+  .wire .tag { text-transform: uppercase; letter-spacing: .1em;
+    font-size: var(--t8); color: #4d6b78; }
+  .wire .split { margin-left: auto; }
+  .wire b { color: #a8c4d0; }
+  .note.bunk { color: #7f9aa6; border-left: 3px solid #4d6b78; padding-left: 8px; }
+  .deed.send { border-color: #35525d; }
+  .deed.send em { color: #7f9aa6; }
   /* ★ The dungeon takes the screen. It is the game, not an illustration. */
   .map { flex: 0 0 auto; height: 48dvh; margin: 10px; position: relative; }
   .panel { flex: 1 1 auto; min-height: 0; overflow-y: auto;
