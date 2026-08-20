@@ -20,7 +20,7 @@
 // the graph against it. That is the Grimrock dance, made countable.
 import { ROOM, ROOMS, GUARDS, SPOIL } from './dungeon';
 
-export const DELVE_VERSION = 4;
+export const DELVE_VERSION = 5;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -57,6 +57,12 @@ export interface Delve {
   /** ★★★ THE THING YOU SENT DOWN, and its model of the dungeon. `null` until
    *  you send one. See THE CRAWLER at the foot of this file. */
   crawl: Crawl | null;
+  /** ★★★ DOORS YOU HAVE WEDGED SHUT, and the turn each gives out on. An edge
+   *  the graph does not have any more — for you AND for everything chasing
+   *  you. See THE KIT at the foot of this file. */
+  bars: Bar[];
+  /** What the hoard has bought. Survives dying; that is the whole ratchet. */
+  kit: Kit;
   fallen: boolean;
   log: string[];
 }
@@ -82,11 +88,25 @@ export const initial = (): Delve => ({
   foes: [],
   bred: 1,
   crawl: null,
+  bars: [],
+  kit: { wedges: 0, lamp: 1, brace: 0, edge: 0 },
   fallen: false,
   log: [],
 });
 
 export const doorsOf = (id: number): number[] => ROOM.get(id)?.doors ?? [];
+
+/** ★★★ IS THIS DOOR WEDGED? The single place that knows an edge is missing,
+ *  so the player, the monsters and the crawler cannot possibly disagree about
+ *  the shape of the graph — which they would within a week if this were three
+ *  `bars.some(...)` calls in three files. */
+export const shut = (g: Delve, a: number, b: number): boolean =>
+  g.bars.some((x) => x.until > g.turn
+    && ((x.a === a && x.b === b) || (x.a === b && x.b === a)));
+
+/** The doors out of a room that are actually open right now. */
+export const waysOut = (g: Delve, id: number): number[] =>
+  doorsOf(id).filter((d) => !shut(g, id, d));
 
 /** Is this room's guard still to be met? */
 export const held = (g: Delve, id: number): boolean =>
@@ -105,13 +125,17 @@ export const actsOn = (f: Foe, turn: number): boolean => turn % f.every === 0;
 /** ★★★ THE FIRST DOOR ON THE SHORTEST WAY, or null. Breadth-first over the
  *  same graph the player walks — so you can SEE what it has to do to reach
  *  you, and count the doors. */
-export function stepToward(from: number, to: number): number | null {
+export function stepToward(from: number, to: number,
+    blocked: (a: number, b: number) => boolean = () => false): number | null {
   if (from === to || !ROOM.has(from) || !ROOM.has(to)) return null;
   const back = new Map<number, number>([[from, from]]);
   const queue = [from];
   for (let i = 0; i < queue.length; i++) {
     const here = queue[i]!;
     for (const d of doorsOf(here)) {
+      // ★★★ AND A WEDGED DOOR IS NOT A DOOR. The chase re-routes around it or
+      // gives up — which is what makes a wedge a move rather than a delay.
+      if (blocked(here, d)) continue;
       if (back.has(d)) continue;
       back.set(d, here);
       if (d === to) {
@@ -130,6 +154,9 @@ export function unwalkable(g: Delve, to: number): string | null {
   if (to === g.at) return 'You are here.';
   if (!ROOM.has(to)) return 'There is no such room.';
   if (!doorsOf(g.at).includes(to)) return 'No door leads there from here.';
+  // ⚠️ AND IT SHUTS FOR YOU TOO. A wedge you could step through yourself is a
+  // free win, not a decision — the cost of cutting an edge is that it is cut.
+  if (shut(g, g.at, to)) return 'You wedged that door shut.';
   return null;
 }
 
@@ -157,6 +184,10 @@ export type Action =
   /** ★ Send a crawler down from the Mouth. One turn, and then it is walking
    *  on its own every turn you take. */
   | { type: 'send' }
+  /** ★★★ Cut the edge between here and there. One turn. */
+  | { type: 'wedge'; to: number }
+  /** Spend the hoard at the Mouth. Not a turn. */
+  | { type: 'buy'; what: Good }
   /** Climb out with what you carry. Not a turn — you are leaving. */
   | { type: 'leave' };
 
@@ -187,7 +218,8 @@ function theirTurn(g: Delve, said: string[], from: number): Delve {
   let bred = g.bred;
   if (crawl && !crawl.done) {
     const target = frontier({ ...g, crawl });
-    const step = target === null ? null : stepToward(crawl.at, target);
+    const step = target === null ? null
+        : stepToward(crawl.at, target, (x, y) => shut(g, x, y));
     if (step === null) {
       crawl = { ...crawl, done: true };
       said.push('The crawler has nowhere left to go. It stops.');
@@ -234,7 +266,7 @@ function theirTurn(g: Delve, said: string[], from: number): Delve {
       said.push(`${f.name} tears at the crawler.`);
       return f;
     }
-    const step = stepToward(f.at, at);
+    const step = stepToward(f.at, at, (x, y) => shut(g, x, y));
     if (step === null) return f;
     // ⚠️ IT IS ANNOUNCED. A thing arriving in your room is the single most
     // important event in this game and it must never be silent.
@@ -250,6 +282,10 @@ function theirTurn(g: Delve, said: string[], from: number): Delve {
     crawl = { ...crawl, hp: 0, done: true };
   } else if (crawl) crawl = { ...crawl, hp: Math.max(0, chp) };
 
+  // ★ A WEDGE GIVES OUT. Dropping spent bars here rather than filtering at
+  // every read keeps `bars` honest for the save and for the screen.
+  const bars = g.bars.filter((x) => x.until > turn);
+
   // A room emptied of its own dead pays out, once.
   let cleared = g.cleared;
   let purse = g.purse;
@@ -264,11 +300,11 @@ function theirTurn(g: Delve, said: string[], from: number): Delve {
   }
 
   if (hp <= 0) {
-    return { ...g, turn, foes, cleared, crawl, bred, hp: 0, purse: 0, fallen: true, at,
+    return { ...g, turn, foes, cleared, crawl, bred, bars, hp: 0, purse: 0, fallen: true, at,
       log: LOG_LINES(said.reduce(LOG_LINES, g.log),
         'You go down in the dark. What you carried stays there.') };
   }
-  return { ...g, turn, foes, cleared, purse, crawl, bred, hp, at,
+  return { ...g, turn, foes, cleared, purse, crawl, bred, bars, hp, at,
     log: said.reduce(LOG_LINES, g.log) };
 }
 
@@ -279,7 +315,10 @@ export function apply(g: Delve, a: Action): Delve {
       if (unwalkable(g, a.to) !== null) return g;
       const said: string[] = [];
       const at = a.to;
-      const seen = [...new Set([...g.seen, at, ...doorsOf(at)])];
+      // ★ HOW FAR THE LAMP REACHES, in doors. One by default; a wider lamp is
+      // bought with the hoard and it is a change to the FOG, not to a number
+      // — you see the fork past the fork, so you can plan two moves deep.
+      const seen = [...new Set([...g.seen, ...within(at, g.kit.lamp)])];
       const r = ROOM.get(at)!;
       let foes = g.foes;
       let bred = g.bred;
@@ -327,7 +366,7 @@ export function apply(g: Delve, a: Action): Delve {
       // pressing this pivot exists to remove.
       const mark = facing(g).reduce((x, y) => (y.hp < x.hp ? y : x));
       const foes = g.foes.map((f) =>
-        f.id === mark.id ? { ...f, hp: Math.max(0, f.hp - BITE) } : f);
+        f.id === mark.id ? { ...f, hp: Math.max(0, f.hp - swing(g)) } : f);
       const said: string[] = [];
       if (foes.find((f) => f.id === mark.id)!.hp <= 0) {
         said.push(`${mark.name} goes down.`);
@@ -341,10 +380,34 @@ export function apply(g: Delve, a: Action): Delve {
       // buying another attempt at the frontier — everything the last crawler
       // walked is still walked.
       const crawl: Crawl = {
-        at: 0, hp: CRAWL_HP, walked: g.crawl?.walked ?? [0],
+        at: 0, hp: CRAWL_HP + g.kit.brace * BRACE_HP, walked: g.crawl?.walked ?? [0],
         turns: 0, done: false,
       };
       return theirTurn({ ...g, crawl }, ['You send a crawler down.'], g.at);
+    }
+
+    case 'wedge': {
+      if (unwedgeable(g, a.to) !== null) return g;
+      const lo = Math.min(g.at, a.to), hi = Math.max(g.at, a.to);
+      const bars = [...g.bars, { a: lo, b: hi, until: g.turn + 1 + BAR_TURNS }];
+      const kit = { ...g.kit, wedges: g.kit.wedges - 1 };
+      return theirTurn({ ...g, bars, kit }, [
+        `You wedge the door to ${ROOM.get(a.to)?.name}. ${BAR_TURNS} turns.`,
+      ], g.at);
+    }
+
+    case 'buy': {
+      const price = COST[a.what];
+      if (g.at !== 0 || g.fallen || g.hoard < price) return g;
+      if (has(g.kit, a.what)) return g;                          // bought once
+      // ⚠️ BUYING IS NOT A TURN. You are at the Mouth with the lamp out; the
+      // dungeon does not get a swing at you for looking in your own pack.
+      const kit = a.what === 'wedges'
+        ? { ...g.kit, wedges: g.kit.wedges + WEDGES_PER }
+        : a.what === 'lamp' ? { ...g.kit, lamp: 2 }
+        : { ...g.kit, [a.what]: 1 };
+      return { ...g, hoard: g.hoard - price, kit,
+        log: LOG_LINES(g.log, `${GOODS[a.what]}. ${price} spent.`) };
     }
 
     case 'wait': {
@@ -355,13 +418,20 @@ export function apply(g: Delve, a: Action): Delve {
     }
 
     case 'leave': {
-      if (g.fallen) {
-        return { ...initial(), hoard: g.hoard,
+      if (g.fallen) {   // ⚠️ THE PURSE IS ALREADY GONE — `theirTurn` took it.
+        // ★★★ THE KIT AND THE MAP COME BACK UP. ⚠️ THEY DID NOT, AND THAT WAS
+        // THE RATCHET GONE: a fresh `initial()` here threw away everything the
+        // hoard had bought and everything the crawler had filed, so a delve
+        // you lost undid the delves you won. What you carried stays down
+        // there; what you LEARNED and what you OWN do not.
+        return { ...descend(g), hoard: g.hoard,
           log: LOG_LINES(g.log, 'Someone else takes up the lamp.') };
       }
       if (!canLeave(g)) return g;
-      return { ...g, hoard: g.hoard + g.purse, purse: 0, hp: START_HP,
-        log: LOG_LINES(g.log, `You climb out with ${g.purse}.`) };
+      return { ...descend(g), hoard: g.hoard + g.purse,
+        log: LOG_LINES(g.log, g.purse > 0
+          ? `You climb out with ${g.purse}. The dark closes behind you.`
+          : 'You climb out with nothing.') };
     }
   }
 }
@@ -456,10 +526,144 @@ export function frontier(g: Delve): number | null {
   for (let i = 0; i < queue.length; i++) {
     const here = queue[i]!;
     if (!g.crawl.walked.includes(here)) return here;
-    for (const d of doorsOf(here)) if (!seen.has(d)) { seen.add(d); queue.push(d); }
+    for (const d of waysOut(g, here)) if (!seen.has(d)) { seen.add(d); queue.push(d); }
   }
   return null;
 }
 
 export const canSend = (g: Delve): boolean =>
   !g.fallen && g.at === 0 && (g.crawl === null || g.crawl.done);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ★★★ THE KIT — what the hoard is FOR, 2026-08-19.
+//
+// The owner: *"we need shit to do"*. The hoard was a number that only went up,
+// which is the hole a genre veteran spots in ninety seconds.
+//
+// ⚠️ AND EVERY ONE OF THESE IS A GRAPH VERB, not a bigger number. That is the
+// rule this shop is built on, because a shop full of +1s is how an incremental
+// game stops being about the thing it is about:
+//
+//   WEDGES cut an edge — for four turns the graph genuinely does not have that
+//     door, and the pack chasing you has to route round it or give up.
+//   THE LAMP changes the FOG — two doors of reveal instead of one, so you can
+//     plan two moves deep instead of stepping into the dark every time.
+//   BRACING extends the crawler's REACH — more hp is more of the graph mapped
+//     before it dies, which is more claims to verify.
+//   THE WHETSTONE is the one honest +1, and it is here because a shop of four
+//     exotic verbs and nothing familiar reads as a puzzle rather than a game.
+//
+// ★ AND THE KIT SURVIVES DYING. That is the whole ratchet: a delve you lose
+// still moved you forward, so the loop has a direction.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** A door held shut, and the turn it gives out on. */
+export interface Bar { a: number; b: number; until: number }
+
+export interface Kit {
+  /** Consumable. The only thing you can hold more than one of. */
+  wedges: number;
+  /** How many doors of fog a step lifts. 1, or 2 once bought. */
+  lamp: number;
+  /** 1 once the crawler is braced. */
+  brace: number;
+  /** 1 once the edge is keen. */
+  edge: number;
+}
+
+export type Good = 'wedges' | 'lamp' | 'brace' | 'edge';
+
+/** ★ How long a wedge holds. Four turns is two exchanges with a fast thing and
+ *  four doors of running — long enough to be worth spending, short enough that
+ *  it never becomes a wall you live behind. */
+export const BAR_TURNS = 4;
+export const WEDGES_PER = 3;
+export const BRACE_HP = 5;
+export const KEEN = 1;
+
+/** ⚠️ PRICED AGAINST WHAT A RUN ACTUALLY PAYS, and the first draft was not.
+ *  A whole dungeon is 70 if you clear every room; ONE LAIR — which is what a
+ *  first delve realistically gets you — is 6. The cheapest thing on sale cost
+ *  12, so a player who went down, won a fight, and climbed out came back to a
+ *  shop that could sell them nothing. The browser probe said it plainly:
+ *  "one full raid affords nothing — the shop is out of reach".
+ *
+ *  ★ SO THE FIRST BUY IS EXACTLY ONE LAIR. Clear a room, climb out, spend it:
+ *  that is the loop taught in one delve instead of three. The lot comes to
+ *  135, a bit under two total clears, which is a ratchet you can feel. */
+export const COST: Record<Good, number> = {
+  wedges: SPOIL.lair, edge: 24, lamp: 45, brace: 60,
+};
+
+export const GOODS: Record<Good, string> = {
+  wedges: `${WEDGES_PER} iron wedges`,
+  edge: 'A keen edge',
+  lamp: 'A wider lamp',
+  brace: 'A braced crawler',
+};
+
+export const SAYS: Record<Good, string> = {
+  wedges: `bar a door for ${BAR_TURNS} turns — it has to go round`,
+  edge: `every swing takes ${BITE + KEEN} instead of ${BITE}`,
+  lamp: 'see two doors out, not one — plan past the fork',
+  brace: `the crawler takes ${CRAWL_HP + BRACE_HP} — it maps far more`,
+};
+
+/** What one swing takes off, with what you are carrying. */
+export const swing = (g: Delve): number => BITE + g.kit.edge * KEEN;
+
+/** Every room within `n` doors, wedges respected. The fog, and nothing else. */
+export function within(from: number, n: number): number[] {
+  const out = new Set([from]);
+  let edge = [from];
+  for (let i = 0; i < n; i++) {
+    const next: number[] = [];
+    for (const r of edge) for (const d of doorsOf(r)) if (!out.has(d)) { out.add(d); next.push(d); }
+    edge = next;
+  }
+  return [...out];
+}
+
+export function unwedgeable(g: Delve, to: number): string | null {
+  if (g.fallen) return 'You are done.';
+  if (g.kit.wedges <= 0) return 'No wedges.';
+  if (!doorsOf(g.at).includes(to)) return 'No door leads there from here.';
+  if (shut(g, g.at, to)) return 'Already wedged.';
+  return null;
+}
+
+/** ★ DO YOU ALREADY HAVE IT?
+ *  ⚠️ NOT `kit[w] >= 1`. The lamp's UNBOUGHT value is 1 — one door of fog —
+ *  and a bought one is 2, so the obvious test read "already owned" for a lamp
+ *  nobody had bought and silently made it unpurchasable. Three tests failed on
+ *  that one line. A field whose zero is not 0 needs asking about by name. */
+export const has = (k: Kit, w: Good): boolean =>
+  w === 'wedges' ? false : w === 'lamp' ? k.lamp > 1 : k[w] >= 1;
+
+export const affordable = (g: Delve, w: Good): boolean =>
+  g.at === 0 && !g.fallen && g.hoard >= COST[w] && !has(g.kit, w);
+
+/** ★★★ A FRESH RUN AT THE SAME DUNGEON — the shape of the whole game.
+ *
+ *  ⚠️ WITHOUT THIS THE SHOP IS A LIE. A cleared room pays once and stays
+ *  cleared, so the dungeon's TOTAL income was 70 gold, ever, against a shop
+ *  that costs 172: the ratchet could not physically be turned to the end. That
+ *  is not a balance problem, it is an arithmetic one, and it only showed up
+ *  when the prices were written down next to the spoils.
+ *
+ *  So the dark closes behind you. Guards are back in their lairs, the spoil is
+ *  back in the rooms, and the wedges you drove have been pushed out — a run is
+ *  a run. What crosses the threshold with you is what you OWN and what you
+ *  KNOW: the hoard, the kit, the map you have walked, and everything the
+ *  crawler ever filed. Dying costs you the purse and the run; it has never
+ *  cost you a delve you already won, and now it cannot.
+ */
+export const descend = (g: Delve): Delve => ({
+  ...initial(),
+  hoard: g.hoard,
+  kit: g.kit,
+  crawl: g.crawl,
+  // ★ THE MAP IS KNOWLEDGE, and knowledge does not fall down a hole with you.
+  seen: g.seen,
+  log: g.log,
+});

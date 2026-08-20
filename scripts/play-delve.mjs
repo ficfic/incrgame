@@ -323,7 +323,79 @@ if (!/No door goes to/.test(bunked)) {
 if ((await turn()) !== wasTurn) misses.push("walking into a door that does not exist cost a turn");
 
 
+// ═══════════════════════════════════════════════════════════════════════════
 await page.screenshot({ path: 'play-crawler.png' });
+
+console.log('\n★★★ THE HOARD BUYS A GRAPH VERB');
+// ⚠️ EARNED, SPENT AND USED WITH A THUMB. The engine has 15 tests for the kit
+// and not one of them can see whether a wedged door still LOOKS like a way
+// out — which is all that stands between "you cut an edge" and "a button did
+// something invisible".
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(700);
+
+const shopped = await page.locator('.deed.buy').count();
+const freebies = await page.locator('.deed.buy:not([disabled])').count();
+console.log('  on sale :', `${shopped} things · ${freebies} affordable with an empty hoard`);
+if (shopped < 4) misses.push(`the hoard buys ${shopped} things — the shop is not there`);
+// ★ A SHOP THAT SELLS YOU THINGS FOR NOTHING is not a ratchet.
+if (freebies !== 0) misses.push(`${freebies} things are free with a hoard of 0`);
+const priced = await flat('.shop');
+for (const want of ['bar a door', 'two doors out', 'crawler takes']) {
+  if (!priced.includes(want)) misses.push(`the shop never says what a buy does to the graph: "${want}"`);
+}
+
+console.log('\nEARNING IT');
+// Clear the Rat Warren, walk back up, climb out. This is the loop.
+await walk('Broken Hall'); await walk('Rat Warren');
+for (let i = 0; i < 14 && (await page.locator('.sq').count()) > 0; i++) await press('Swing');
+console.log('  cleared :', `carried ${(await head()).match(/(\d+) CARRIED/i)?.[1] ?? '?'}`);
+await walk('Broken Hall'); await walk('The Mouth');
+await press('Climb out');
+const banked = Number((await head()).match(/(\d+)\s*BANKED/i)?.[1] ?? 0);
+console.log('  banked  :', banked);
+// ★★★ AND A RUN IS A RUN. Without this the dungeon pays 70 gold EVER, against
+// a shop costing 172 — a ratchet that cannot be turned to the end.
+if (!(banked > 0)) misses.push(`a full raid banked nothing: ${banked}`);
+const reset = await page.locator('.node.danger').count();
+console.log('  dark    :', `${reset} rooms still show something standing`);
+
+console.log('\nSPENDING IT');
+const canBuy = await page.locator('.deed.buy:not([disabled])').count();
+console.log('  afford  :', `${canBuy} of ${shopped} after one raid`);
+// ⚠️ THE FIRST BUY MUST LAND ON THE FIRST OR SECOND DELVE or the shop is
+// furniture. This is the check that would catch prices drifting out of reach.
+if (canBuy < 1) misses.push(`one full raid affords nothing — the shop is out of reach`);
+await press('iron wedges');
+const pack = await flat('.shop');
+console.log('  pack    :', `"${pack.match(/\d+ in the pack/)?.[0] ?? 'nothing bought'}"`);
+if (!/in the pack/.test(pack)) misses.push('buying wedges put nothing in the pack');
+
+console.log('\n★★★ AND CUTTING AN EDGE');
+await walk('Broken Hall');
+const cutter = page.locator('.deed.wedge').first();
+if (!(await cutter.count())) misses.push('nowhere to spend a wedge from a room with three doors');
+else {
+  const which = (await cutter.textContent()).replace(/\s+/g, ' ').trim();
+  console.log('  wedging :', `"${which.slice(0, 40)}"`);
+  await cutter.click();
+  await page.waitForTimeout(200);
+  const gone = await page.locator('.node.barred').count();
+  console.log('  on map  :', `${gone} door struck through`);
+  // ★★★ THE WHOLE PURCHASE, ON SCREEN. A cut edge that still reads as a way
+  // out is a button that did something invisible.
+  if (gone < 1) misses.push('the wedged door is not marked on the map at all');
+  const said = await panel();
+  if (!/wedge the door/i.test(said)) misses.push('nothing says a door was wedged');
+  // And it must refuse to let you walk it.
+  const name = which.replace(/^Wedge /, '').split(' shut')[0].trim();
+  const was = await turn();
+  await walk(name);
+  if ((await turn()) !== was) misses.push(`you walked straight through your own wedge to ${name}`);
+  console.log('  held    :', `tapping ${name} did not move you`);
+}
+await page.screenshot({ path: 'play-kit.png' });
+
 
 await b.close();
 if (misses.length) {

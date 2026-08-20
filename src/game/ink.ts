@@ -417,6 +417,10 @@ export const STONE = {
    *  dim floor. */
   claim: '#4d6b78',
 
+  /** ★ IRON. A door you wedged shut, and the only manufactured thing on a
+   *  map otherwise made of rock and lamplight. */
+  iron: '#8a7a5c',
+
   /** The lamp itself, and what it throws. */
   flame: '#f0cf87',
   glow: 'rgb(214 160 74 / 0.20)',

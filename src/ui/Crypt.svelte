@@ -27,6 +27,9 @@
     id: number; name: string;
     x: number; y: number; w: number; h: number;
     step: number; here: boolean; foes: number; cleared: boolean; open: boolean;
+    /** ★ You wedged the door between here and this room. It is still drawn —
+     *  you cut it and you need to see what you cut — but never as a way out. */
+    barred?: boolean;
     /** ★★★ NOBODY HAS STOOD HERE. This chamber is on the map because a crawler
      *  REPORTED it, and the crawler files everything it did not enter as empty
      *  and safe. Drawn as a dashed outline over nothing: a claim, not a floor. */
@@ -34,7 +37,11 @@
   }
   /** ★ `ghost` on a passage means the same and worse — no door was ever seen
    *  through. Some of these do not exist at all. */
-  export interface Pass { a: number; b: number; ghost?: boolean }
+  export interface Pass { a: number; b: number; ghost?: boolean;
+    /** ★★★ AN EDGE THAT IS NOT IN THE GRAPH RIGHT NOW. Drawn as the passage it
+     *  is, with the door struck through — the whole value of a wedge is that
+     *  you can SEE the shape you just cut and count the way round. */
+    cut?: boolean }
 
   let { cells, passes, onTap, label = 'dungeon' }:
     { cells: Cell[]; passes: Pass[]; onTap: (id: number) => void; label?: string }
@@ -159,8 +166,8 @@
     }
 
     const road = passes
-      .map((p) => ({ a: at(p.a), b: at(p.b), ghost: !!p.ghost }))
-      .filter((p): p is { a: Cell; b: Cell; ghost: boolean } => !!p.a && !!p.b);
+      .map((p) => ({ a: at(p.a), b: at(p.b), ghost: !!p.ghost, cut: !!p.cut }))
+      .filter((p): p is { a: Cell; b: Cell; ghost: boolean; cut: boolean } => !!p.a && !!p.b);
 
     // 2a ── ★★★ WHAT THE CRAWLER SAYS CONNECTS. Dashed, thin, unlit: a line on
     // a chart and deliberately NOT a cut through rock, because some of these
@@ -242,6 +249,25 @@
       }
     }
 
+    // 5b ── ★★★ AND A WEDGE PUTS THE WALL BACK. Drawn last of the stonework so
+    // it covers the doorway that step 5 just punched open: a bar across the
+    // gap, in the iron it is made of. The passage stays visible on purpose —
+    // seeing the cut, and counting the way round it, is the whole purchase.
+    for (const { a, b } of road.filter((p) => p.cut)) {
+      const [gx, gy] = doorway(a, b.x, b.y);
+      const [hx, hy] = doorway(b, a.x, a.y);
+      const mx = (gx + hx) / 2, my = (gy + hy) / 2;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const nx = -dy / d, ny = dx / d;
+      ctx.strokeStyle = STONE.iron;
+      ctx.lineWidth = Math.max(2, 4 * k);
+      ctx.beginPath();
+      ctx.moveTo(sx(mx + nx * 11), sy(my + ny * 11));
+      ctx.lineTo(sx(mx - nx * 11), sy(my - ny * 11));
+      ctx.stroke();
+    }
+
     // 6 ── THE LAMP. ⚠️ NO `shadowBlur` — the one genuinely expensive canvas
     // call, and this is a phone. A radial gradient in `lighter` costs nothing.
     const you = cells.find((c) => c.here);
@@ -298,6 +324,7 @@
        room is a far better thumb target than a 7px dot ever was. -->
   {#each cells as c (c.id)}
     <button class="node" class:here={c.here} class:near={c.step <= 1} class:ghost={c.ghost}
+      class:barred={c.barred}
       class:open={c.open} class:danger={c.foes > 0}
       style="left:{sx(c.x - c.w / 2)}px; top:{sy(c.y - c.h / 2)}px;
              width:{c.w * k}px; height:{c.h * k}px"
@@ -328,6 +355,9 @@
      a machine-filed label rather than a place with a floor in it. */
   .node.ghost .nm { color: #5f7f8c; font-weight: 400; letter-spacing: .07em;
     font-style: italic; }
+  /* ★ A door you wedged is not a door you can take. */
+  .node.barred .nm { color: #8a7a5c; text-decoration: line-through;
+    text-decoration-color: #6d5a3a; }
   .node.open .nm { text-decoration: underline; text-underline-offset: 3px;
     text-decoration-thickness: 1px; text-decoration-color: rgb(202 164 104 / .55); }
 </style>

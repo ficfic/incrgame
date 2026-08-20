@@ -20,8 +20,9 @@
   import { LAMP } from '../game/ink';
   import { ROOM, ROOMS } from '../delve/dungeon';
   import { apply, initial, doorsOf, unwalkable, unswingable, canLeave,
-    facing, foesIn, actsOn, claimed, hallucinated, canSend,
-    START_HP, BITE, CRAWL_HP, type Delve } from '../delve/engine';
+    facing, foesIn, actsOn, claimed, hallucinated, canSend, shut, waysOut,
+    unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS,
+    START_HP, CRAWL_HP, type Delve, type Good } from '../delve/engine';
 
   let game = $state<Delve>(initial());
 
@@ -78,6 +79,10 @@
     foes: told.includes(r.id) ? 0 : foesIn(game, r.id).length,
     cleared: game.cleared.includes(r.id),
     open: doorsOf(game.at).includes(r.id) && unwalkable(game, r.id) === null,
+    // ★★★ A WEDGED DOOR READS AS WEDGED. The passage is still drawn — you put
+    // it there and you need to see what you cut — but it must never look like
+    // a way you can take.
+    barred: shut(game, game.at, r.id),
   })));
 
   /** ⚠️ ONLY PASSAGES BETWEEN TWO LIT ROOMS. A corridor into the dark is a
@@ -85,13 +90,19 @@
   const passes = $derived<Pass[]>([
     ...drawn.flatMap((r) => r.doors
       .filter((d) => d > r.id && drawn.some((x) => x.id === d))
-      .map((d) => ({ a: r.id, b: d, ghost: told.includes(r.id) || told.includes(d) }))),
+      .map((d) => ({ a: r.id, b: d, cut: shut(game, r.id, d),
+        ghost: told.includes(r.id) || told.includes(d) }))),
     // ★★★ AND THE DOORS THAT DO NOT EXIST. The crawler joins up rooms that are
     // merely near each other on its map. Tapping one is how you find out.
     ...hallucinated(game).map(([a, b]) => ({ a, b, ghost: true })),
   ]);
 
   const invented = $derived(hallucinated(game));
+  /** ★ THE FOUR THINGS THE HOARD BUYS. Order is price order, so the next thing
+   *  you can afford is always the next thing down the list. */
+  const stock: Good[] = ['wedges', 'edge', 'lamp', 'brace'];
+  /** Doors out of here you could still spend a wedge on. */
+  const wedgeable = $derived(doorsOf(game.at).filter((d) => unwedgeable(game, d) === null));
   /** ★★★ THE MOMENT YOU LEARN TO DISTRUST IT. Kept OUT of the engine on
    *  purpose: a refused action must stay refused — not a turn, not a state
    *  change — and there is a test holding `apply` to exactly that. So the
@@ -179,12 +190,24 @@
         <button class="deed hit" disabled={unswingable(game) !== null}
           onclick={() => act({ type: 'strike' })}>
           Swing
-          <em>takes {BITE}{#if toll > 0} · costs you {toll}{:else} · costs you nothing{/if}</em>
+          <em>takes {swing(game)}{#if toll > 0} · costs you {toll}{:else} · costs you nothing{/if}</em>
         </button>
         <button class="deed" onclick={() => act({ type: 'wait' })}>
           Hold
           <em>let the turn pass{#if toll > 0} · costs you {toll}{/if}</em>
         </button>
+        {#if game.kit.wedges > 0 && wedgeable.length > 0}
+          <!-- ★★★ THE GRAPH VERB, offered where it is used: in a room with
+               something in it and a door at your back. -->
+          <div class="cut">
+            {#each wedgeable as d (d)}
+              <button class="deed wedge" onclick={() => act({ type: 'wedge', to: d })}>
+                Wedge {ROOM.get(d)?.name}
+                <em>shut {BAR_TURNS} turns · {game.kit.wedges} left</em>
+              </button>
+            {/each}
+          </div>
+        {/if}
         <p class="note dim">
           {#if toll > 0}
             stepping out costs {toll} too — it reaches you at either end of the step
@@ -197,6 +220,14 @@
           {#if doorsOf(game.at).length === 1}one door{:else}{doorsOf(game.at).length} doors{/if}
           · tap a room to walk there
         </p>
+        {#if game.kit.wedges > 0 && wedgeable.length > 0}
+          {#each wedgeable as d (d)}
+            <button class="deed wedge" onclick={() => act({ type: 'wedge', to: d })}>
+              Wedge {ROOM.get(d)?.name}
+              <em>shut {BAR_TURNS} turns · {game.kit.wedges} left</em>
+            </button>
+          {/each}
+        {/if}
         {#if canSend(game)}
           <button class="deed send" onclick={() => act({ type: 'send' })}>
             Send a crawler down
@@ -218,6 +249,24 @@
       {/if}
     {/if}
     <!-- ★★★ AND THE LINE THIS WHOLE MECHANIC EXISTS FOR. -->
+    <!-- ★★★ THE HOARD BUYS SOMETHING. Only at the Mouth, because that is the
+         only place you are not being chased, and every line says what it does
+         to the GRAPH rather than which number it raises. -->
+    {#if game.at === 0 && !game.fallen}
+      <div class="shop">
+        <p class="note dim shead">the hoard · <b>{game.hoard}</b></p>
+        {#each stock as w (w)}
+          <button class="deed buy" disabled={!affordable(game, w)}
+            onclick={() => act({ type: 'buy', what: w })}>
+            <span class="price">{COST[w]}</span>
+            {GOODS[w]}
+            <em>{w === 'wedges' && game.kit.wedges > 0
+              ? `${SAYS[w]} · ${game.kit.wedges} in the pack`
+              : SAYS[w]}</em>
+          </button>
+        {/each}
+      </div>
+    {/if}
     {#if bunk}<p class="note bunk">{bunk}</p>{/if}
     {#each [...game.log].reverse().slice(0, 4) as l, i (i)}
       <p class="note log">{l}</p>
@@ -246,6 +295,17 @@
     font-size: var(--t8); color: #4d6b78; }
   .wire .split { margin-left: auto; }
   .wire b { color: #a8c4d0; }
+  .shop { margin: 10px 0 4px; border-top: 1px solid var(--rule); padding-top: 6px; }
+  .shead { text-transform: uppercase; letter-spacing: .1em; font-size: var(--t8); }
+  .shead b { color: var(--ink); font-size: var(--t6); }
+  .deed.buy { padding-left: 52px; position: relative; }
+  .deed.buy .price { position: absolute; left: 12px; top: 10px; font-weight: 700;
+    color: var(--clay); font-size: var(--t5); }
+  .deed.buy:disabled .price { color: var(--off); }
+  /* ★ Iron, the same as the bar the map draws across a door you wedged. */
+  .deed.wedge { border-color: #6d5a3a; }
+  .deed.wedge em { color: #8a7a5c; }
+  .cut { margin: 2px 0; }
   .note.bunk { color: #7f9aa6; border-left: 3px solid #4d6b78; padding-left: 8px; }
   .deed.send { border-color: #35525d; }
   .deed.send em { color: #7f9aa6; }
