@@ -1,139 +1,110 @@
-// THE SAVE: one version field, no migrations, and a reset that says so.
+// ★★★ THE SAVE — 2026-08-19, and four slices later than it should have been.
 //
-// Migrations were deleted with the economy (the owner reversed "never break a
-// save" on 2026-07-27). What replaces them is not "crash on an old save" — it
-// is a deliberate, announced rebuild that keeps the one thing worth keeping.
-// These tests hold that line, because "we reset it" is the easiest behaviour in
-// the file to turn into "we lost it silently".
-import { describe, expect, it } from 'vitest';
-import { deserialize, serialize } from '../src/core/save';
-import { CURRENT_SAVE_VERSION, apply, initialState, words } from '../src/core/engine';
-import { SEED_NODES } from '../src/content/seed';
-import { CONCEPT_BUDGET } from '../src/content/ontologyMeta';
-import type { GameState } from '../src/core/types';
+// ⚠️ THE DELVE SHIPPED FOUR TIMES WITH NO PERSISTENCE. The state lived in a
+// rune and nowhere else, so closing the tab threw away the hoard, the kit and
+// the crawler's whole map. On a phone — where the browser reclaims a
+// background tab whenever it feels like it — that is not "saves are
+// breakable", it is a game that cannot survive a bus ride.
+//
+// The parsing is pure on purpose, so the half that actually matters — a
+// truncated blob, a save from a format that no longer exists, somebody else's
+// JSON — is tested rather than hoped about.
+import { describe, it, expect } from 'vitest';
+import { pack, unpack, toText, fromText } from '../src/delve/save';
+import { apply, initial, DELVE_VERSION, type Delve } from '../src/delve/engine';
 
-const b64 = (s: string): string => Buffer.from(s, 'utf8').toString('base64');
-const unb64 = (s: string): string => Buffer.from(s, 'base64').toString('utf8');
-
-const played = (): GameState => ({
-  ...initialState(),
-  lastTick: 1_700_000_000_000,
-  held: [...SEED_NODES, 300, 301, 302, 1024],
-  solid: '1234.5',
-  raw: '99',
-  rot: '7',
-  minted: '5e12',
-  stepsThisRun: 4,
-  machines: { extractor: 9, reasoner: 1, checker: 2 },
-  watched: { extractor: false },
-  generation: 2,
-  syntheticShare: 0.75,
-});
-
-/** A pre-rewrite save, in the shape v15 actually wrote. */
-const legacyBlob = (version: number, anchors: number[]): string => {
-  const state = {
-    saveVersion: version,
-    lastTick: 1_700_000_000_000,
-    resources: { data: '15', triples: '900', entities: '0' },
-    provenance: { unverified: '400', drifted: '20' },
-    generators: { harvester: 0, extractor: 6, reasoner: 1 },
-    forged: { nextId: 500, anchors, links: [], edges: [], frontier: [], foldedNodes: '30' },
-    attention: 12, supervised: 3, bookings: [], review: [], contextWindow: 24,
-  };
-  return b64(JSON.stringify({ version, state }));
+/** A save worth losing: money banked, kit bought, a crawler's map filed. */
+const played = (): Delve => {
+  let g: Delve = { ...initial(), hoard: 400 };
+  g = apply(g, { type: 'buy', what: 'lamp' });
+  g = apply(g, { type: 'buy', what: 'wedges' });
+  g = apply(g, { type: 'send' });
+  for (let i = 0; i < 5; i++) g = { ...apply(g, { type: 'wait' }), hp: 12 };
+  return g;
 };
 
-describe('export and import round-trip on the new shape', () => {
-  it('returns exactly what went in', () => {
-    const s = played();
-    const { state, reset, notice } = deserialize(serialize(s));
-    expect(reset).toBe(false);
-    expect(notice).toBe('');
-    expect(state).toEqual(s);
+describe('★★★ IT COMES BACK EXACTLY', () => {
+  it('★★★ a played save round-trips with everything on it', () => {
+    const g = played();
+    const back = unpack(pack(g))!;
+    expect(back).not.toBeNull();
+    expect(back).toEqual(g);
+    // Named individually, because "toEqual" passing while the hoard is gone is
+    // the kind of thing that happens when a field is renamed.
+    expect(back.hoard).toBe(g.hoard);
+    expect(back.kit).toEqual(g.kit);
+    expect(back.crawl).toEqual(g.crawl);
+    expect(back.seen).toEqual(g.seen);
+    expect(back.log).toEqual(g.log);
   });
 
-  it('survives magnitudes a JS number cannot hold', () => {
-    const s = { ...played(), solid: '1e400', minted: '1e900' };
-    expect(deserialize(serialize(s)).state.solid).toBe('1e400');
-  });
-
-  it('keeps the version field on the blob and on the state', () => {
-    const s = played();
-    expect(s.version).toBe(CURRENT_SAVE_VERSION);
-    const envelope = JSON.parse(unb64(serialize(s)));
-    expect(envelope.version).toBe(CURRENT_SAVE_VERSION);
-    expect(envelope.state.version).toBe(CURRENT_SAVE_VERSION);
-  });
-
-  it('backfills a key missing INSIDE a record, not just at the top level', () => {
-    // The old backfill spread one level deep, so a newly-added MachineId
-    // arrived `undefined`, `buy` computed `undefined + 1 === NaN`, and
-    // `JSON.stringify(NaN)` is `null` — a bricked save with no error anywhere.
-    const s = played();
-    const raw = JSON.parse(unb64(serialize(s)));
-    delete raw.state.machines.checker;
-    delete raw.state.watched.extractor;
-    const blob = b64(JSON.stringify(raw));
-    const { state } = deserialize(blob);
-    expect(state.machines.checker).toBe(0);
-    expect(state.watched.extractor).toBe(true);
-    expect(apply(state, { type: 'buy', id: 'checker' }).machines.checker).toBe(1);
+  it('★★★ and the loaded save keeps PLAYING the same', () => {
+    // ⚠️ THE CHECK THAT MATTERS. Equal fields are not the same thing as a
+    // working game: a save that deserialises into a state the engine then
+    // treats differently is a save that quietly cheats you.
+    const g = played();
+    const back = unpack(pack(g))!;
+    const a = apply(apply(g, { type: 'walk', to: 1 }), { type: 'wait' });
+    const b = apply(apply(back, { type: 'walk', to: 1 }), { type: 'wait' });
+    expect(b).toEqual(a);
   });
 });
 
-describe('a save from the old economy resets, loudly, keeping the concepts', () => {
-  it('rebuilds rather than crashing, and says so', () => {
-    const { state, reset, notice } = deserialize(legacyBlob(15, [...SEED_NODES, 12, 44, 900]));
-    expect(reset).toBe(true);
-    expect(notice).toMatch(/v15/);
-    expect(notice).toMatch(/rebuilt/i);
-    expect(state.version).toBe(CURRENT_SAVE_VERSION);
-    expect(state.solid).toBe(initialState().solid);
-    expect(state.raw).toBe('0');
-    expect(state.generation).toBe(0);
+describe('★★★ AND A BAD SAVE NEVER BREAKS THE GAME', () => {
+  it('★★★ it returns null instead of throwing — on anything at all', () => {
+    // ⚠️ A SAVE THAT BLOWS UP ON LOAD IS WORSE THAN NO SAVE: it is a game that
+    // will not open, on a device with no console to tell you why.
+    for (const bad of [null, '', 'not json', '{', '[]', 'null', '17', '"x"',
+      '{"version":' + DELVE_VERSION + '}', JSON.stringify({ hello: 'world' })]) {
+      expect(() => unpack(bad)).not.toThrow();
+      expect(unpack(bad)).toBeNull();
+    }
   });
 
-  it('carries the concepts across — the one kindness', () => {
-    const { state, notice } = deserialize(legacyBlob(15, [...SEED_NODES, 12, 44, 900]));
-    expect(state.held).toEqual(expect.arrayContaining([12, 44, 900, ...SEED_NODES]));
-    expect(words(state)).toBe(3);
-    expect(notice).toMatch(/3 concepts/);
+  it('★★★ a save from a format that no longer exists is refused, not guessed', () => {
+    // `CLAUDE.md`, the owner on 2026-07-27: *"i'm completely ok with breaking
+    // saves at any time"*. Migrations are optional; a SILENT reset is not.
+    // `version` is on every save precisely so the code can TELL.
+    const old = JSON.parse(pack(played()));
+    old.version = DELVE_VERSION - 1;
+    expect(unpack(JSON.stringify(old))).toBeNull();
   });
 
-  it('reads the concepts out of `forged.anchors`, which is where they were', () => {
-    // Getting this from the wrong field would silently break the one promise
-    // the reset makes, and every test above would still pass.
-    const { state } = deserialize(legacyBlob(11, [7]));
-    expect(state.held).toContain(7);
+  it('★★★ and a save missing a field the game grew later still loads', () => {
+    const half = JSON.parse(pack(played()));
+    delete half.bred;
+    delete half.turn;
+    const back = unpack(JSON.stringify(half));
+    expect(back).not.toBeNull();
+    expect(typeof back!.bred).toBe('number');   // filled from `initial()`
+    expect(typeof back!.turn).toBe('number');
   });
 
-  it('drops ids the shipped dataset no longer has', () => {
-    const { state } = deserialize(legacyBlob(15, [5, CONCEPT_BUDGET, 99999, -3, 1.5]));
-    expect(state.held).toContain(5);
-    expect(state.held).not.toContain(CONCEPT_BUDGET);
-    expect(state.held).not.toContain(99999);
-    expect(state.held.every((id) => Number.isInteger(id) && id >= 0)).toBe(true);
-  });
-
-  it('never loses the seed, so the opening board is never empty', () => {
-    const { state } = deserialize(legacyBlob(15, []));
-    expect(state.held).toEqual(expect.arrayContaining([...SEED_NODES]));
-    expect(words(state)).toBe(0);
-  });
-
-  it('treats a save from the FUTURE the same way — rebuild, do not crash', () => {
-    const s = { ...played(), version: CURRENT_SAVE_VERSION + 1 };
-    const { reset } = deserialize(serialize(s));
-    expect(reset).toBe(true);
+  it('★ but a save missing something LOAD-BEARING is refused', () => {
+    for (const gone of ['at', 'hp', 'seen', 'foes', 'cleared', 'bars', 'kit']) {
+      const holed = JSON.parse(pack(played()));
+      delete holed[gone];
+      expect(unpack(JSON.stringify(holed)), `without ${gone}`).toBeNull();
+    }
   });
 });
 
-describe('garbage still throws, so a bad paste cannot destroy a good save', () => {
-  it('rejects non-base64, non-JSON, and an envelope with no state', () => {
-    expect(() => deserialize('!!!!')).toThrow();
-    expect(() => deserialize(b64('not json at all'))).toThrow();
-    expect(() => deserialize(b64(JSON.stringify({ version: 16 })))).toThrow();
-    expect(() => deserialize(b64(JSON.stringify({ state: 4 })))).toThrow();
+describe('★★★ AND THE OWNER CAN CARRY IT BETWEEN DEVICES', () => {
+  it('★★★ export then import is the same game', () => {
+    // `CLAUDE.md`: export/import keeps working, because that is how the owner
+    // moves a save from one phone to another.
+    const g = played();
+    const text = toText(g);
+    expect(text.startsWith('DELVE1:')).toBe(true);
+    expect(text).not.toContain('\n');            // survives a paste box
+    expect(fromText(text)).toEqual(g);
+    expect(fromText(`  ${text}  `)).toEqual(g);  // and stray whitespace
+  });
+
+  it('★ a wrong paste is recognisably wrong, not merely broken', () => {
+    expect(fromText('hello')).toBeNull();
+    expect(fromText(pack(played()))).toBeNull();   // raw JSON is not an export
+    expect(fromText('DELVE1:@@@@')).toBeNull();
+    expect(() => fromText('DELVE1:')).not.toThrow();
   });
 });

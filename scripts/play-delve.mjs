@@ -44,6 +44,21 @@ const press = async (label) => {
   await page.waitForTimeout(160);
 };
 
+/** ★★★ A PRISTINE DELVE. ⚠️ RELOADING IS NO LONGER ENOUGH — the game SAVES
+ *  now, so a plain reload brings back the run you just finished. That is the
+ *  save working, and it broke the two sections of this probe that had been
+ *  using `reload()` as a way to start over. Wiping the store first is what
+ *  "start over" means from outside the page. */
+const freshStart = async () => {
+  await page.evaluate(() => new Promise((res) => {
+    const req = indexedDB.deleteDatabase('semantic-drift');
+    req.onsuccess = req.onerror = req.onblocked = () => res(null);
+  }));
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.waitForTimeout(900);
+};
+
+await freshStart();
 console.log('THE MOUTH');
 const first = await rooms();
 console.log('  drawn   :', `${first} rooms`);
@@ -209,8 +224,7 @@ if (alive && chased < 1) misses.push('nothing followed you through the door — 
 // stirred up itself. So: everything above happens on a pristine delve, and the
 // crawler gets its own from here.
 // ═══════════════════════════════════════════════════════════════════════════
-await page.reload({ waitUntil: 'networkidle' });
-await page.waitForTimeout(700);
+await freshStart();
 
 console.log('\n★★★ YOU SEND SOMETHING DOWN');
 // ⚠️ THE TWO-GRAPH CHECK, DRIVEN WITH A THUMB. The engine has 19 unit tests
@@ -331,8 +345,7 @@ console.log('\n★★★ THE HOARD BUYS A GRAPH VERB');
 // and not one of them can see whether a wedged door still LOOKS like a way
 // out — which is all that stands between "you cut an edge" and "a button did
 // something invisible".
-await page.reload({ waitUntil: 'networkidle' });
-await page.waitForTimeout(700);
+await freshStart();
 
 const shopped = await page.locator('.deed.buy').count();
 const freebies = await page.locator('.deed.buy:not([disabled])').count();
@@ -396,6 +409,56 @@ else {
 }
 await page.screenshot({ path: 'play-kit.png' });
 
+console.log('\n★★★ AND IT IS STILL THERE TOMORROW');
+// ⚠️ THE DELVE SHIPPED FOUR TIMES WITH NO PERSISTENCE AT ALL — the state lived
+// in a rune and nowhere else, so closing the tab threw away the hoard, the kit
+// and the crawler's whole map. No unit test can catch that; it is only visible
+// from outside the page.
+//
+// ⚠️ WAIT OUT YOUR OWN WEDGE FIRST. The section above barred the door to the
+// Mouth — a legal and quite funny thing to do to yourself — and this one then
+// could not get home, so the shop it wanted to read never rendered.
+for (let i = 0; i < 6; i++) await press('Hold');
+await walk('The Mouth');
+
+const packOf = async () => Number((await flat('.shop')).match(/(\d+) in the pack/)?.[1] ?? 0);
+const kept = await packOf();
+const mapBefore = await page.locator('.node').count();
+console.log('  to keep :', `${kept} wedges · ${mapBefore} rooms known`);
+// ★ A CHECK THAT COMPARES 0 TO 0 IS NOT A CHECK. Everything below rests on
+// there being something worth losing, so that is asserted first.
+if (!(kept > 0 && mapBefore > 2)) misses.push('nothing worth saving was set up — the checks below would be vacuous');
+
+await page.waitForTimeout(400);
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(1000);
+console.log('  reload  :', `${await packOf()} wedges · ${await page.locator('.node').count()} rooms`);
+if ((await packOf()) !== kept) misses.push(`the kit did not survive a reload: ${kept} → ${await packOf()}`);
+if ((await page.locator('.node').count()) !== mapBefore) misses.push('the map did not survive a reload');
+
+console.log('\nAND THE OWNER CAN CARRY IT OFF THE DEVICE');
+await page.locator('.keep summary').click();
+await page.locator('.deed', { hasText: 'Export' }).click();
+await page.waitForTimeout(250);
+const text = await page.locator('.keep textarea').inputValue();
+console.log('  export  :', `"${text.slice(0, 30)}…" ${text.length} chars`);
+if (!text.startsWith('DELVE1:')) misses.push('export produced nothing a phone could paste');
+
+// ★★★ AND NOW PROVE THE PROBE CAN TELL THE DIFFERENCE. Wipe the device. If the
+// wedges are still there after that, every check above was measuring nothing.
+await freshStart();
+const wiped = await packOf();
+console.log('  wiped   :', `${wiped} wedges on a clean device`);
+if (wiped !== 0) misses.push(`wiping the device changed nothing — the save checks above are vacuous`);
+
+await page.locator('.keep summary').click();
+await page.locator('.keep textarea').fill(text);
+await page.locator('.deed', { hasText: 'Import' }).click();
+await page.waitForTimeout(300);
+const restored = await packOf();
+console.log('  import  :', `${wiped} → ${restored} wedges from a pasted save`);
+if (restored !== kept) misses.push(`importing a save did not bring it back: ${restored}, wanted ${kept}`);
+await page.screenshot({ path: 'play-save.png' });
 
 await b.close();
 if (misses.length) {

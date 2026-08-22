@@ -16,6 +16,8 @@
   // puts DOM over them for anything with a word or a tap target; it went from
   // a valley to a dungeon with no changes at all.
   import { onMount } from 'svelte';
+  import { loadBlob, saveBlob, requestPersistence } from '../shell/storage';
+  import { pack, unpack, toText, fromText, SAVE_KEY } from '../delve/save';
   import Crypt, { type Cell, type Pass } from './Crypt.svelte';
   import { LAMP } from '../game/ink';
   import { ROOM, ROOMS } from '../delve/dungeon';
@@ -25,6 +27,11 @@
     START_HP, CRAWL_HP, type Delve, type Good } from '../delve/engine';
 
   let game = $state<Delve>(initial());
+  /** ⚠️ NOTHING IS WRITTEN UNTIL THE LOAD HAS FINISHED. The first draft saved
+   *  on every state change including the initial one, so an app that opened
+   *  and was closed again before IndexedDB answered overwrote a real save with
+   *  a fresh game. The one bug a save system must not have. */
+  let ready = $state(false);
 
   const act = (a: Parameters<typeof apply>[1]): void => { game = apply(game, a); };
 
@@ -35,7 +42,38 @@
     STEPS.forEach((px, i) => root.setProperty(`--t${i + 1}`, `${px}px`));
     root.setProperty('--r1', '8px');
     root.setProperty('--r2', '12px');
+    void (async () => {
+      // ★ IndexedDB, not localStorage — iOS evicts localStorage after about a
+      // week idle, and the owner plays this on iOS Edge over weeks.
+      const found = unpack(await loadBlob(SAVE_KEY).catch(() => null));
+      if (found) game = found;
+      ready = true;
+      void requestPersistence();
+    })();
   });
+
+  /** ★ SAVED AFTER EVERY TURN. There is no other moment to choose: the game is
+   *  turn-based, so a turn IS the unit of progress, and a phone browser can
+   *  reclaim the tab between any two of them without warning. */
+  $effect(() => {
+    const blob = pack(game);
+    if (!ready) return;
+    void saveBlob(blob, SAVE_KEY).catch(() => {});
+  });
+
+  let carry = $state('');
+  let carried = $state<string | null>(null);
+  const doExport = async (): Promise<void> => {
+    carry = toText(game);
+    carried = await navigator.clipboard?.writeText(carry).then(() => 'copied')
+      .catch(() => 'select it and copy') ?? 'select it and copy';
+  };
+  const doImport = (): void => {
+    const found = fromText(carry);
+    // ⚠️ AND IT SAYS WHICH. A paste box that silently does nothing on a bad
+    // save is indistinguishable from one that silently ate a good one.
+    if (found) { game = found; carried = 'loaded'; } else carried = 'that is not a save';
+  };
 
   /** ⚠️ ONLY WHAT THE DARK HAS GIVEN UP. A room you have never stood next to
    *  is not drawn at all — the shape of the dungeon is the thing you are
@@ -267,6 +305,21 @@
         {/each}
       </div>
     {/if}
+    {#if game.at === 0 && !game.fallen}
+      <!-- ★ HOW THE OWNER MOVES A SAVE BETWEEN DEVICES. `CLAUDE.md` keeps this
+           working on purpose; it is the one thing a phone cannot do for you. -->
+      <details class="keep">
+        <summary>the save</summary>
+        <p class="note dim">kept on this device after every turn.</p>
+        <textarea bind:value={carry} rows="3" spellcheck="false"
+          placeholder="paste a save here, or export one"></textarea>
+        <div class="two">
+          <button class="deed" onclick={doExport}>Export</button>
+          <button class="deed" onclick={doImport} disabled={carry.trim() === ''}>Import</button>
+        </div>
+        {#if carried}<p class="note dim">{carried}</p>{/if}
+      </details>
+    {/if}
     {#if bunk}<p class="note bunk">{bunk}</p>{/if}
     {#each [...game.log].reverse().slice(0, 4) as l, i (i)}
       <p class="note log">{l}</p>
@@ -306,6 +359,13 @@
   .deed.wedge { border-color: #6d5a3a; }
   .deed.wedge em { color: #8a7a5c; }
   .cut { margin: 2px 0; }
+  .keep { margin: 10px 0 4px; border-top: 1px solid var(--rule); padding-top: 6px; }
+  .keep summary { font-size: var(--t8); text-transform: uppercase;
+    letter-spacing: .1em; color: var(--dim); padding: 4px 0; cursor: pointer; }
+  .keep textarea { width: 100%; font: inherit; font-size: var(--t7);
+    background: var(--sunk); color: var(--faint); border: 1px solid var(--edge);
+    border-radius: var(--r1); padding: 6px; resize: none; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .note.bunk { color: #7f9aa6; border-left: 3px solid #4d6b78; padding-left: 8px; }
   .deed.send { border-color: #35525d; }
   .deed.send em { color: #7f9aa6; }
