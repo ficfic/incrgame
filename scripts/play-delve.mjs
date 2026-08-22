@@ -517,6 +517,37 @@ console.log('  import  :', `${wiped} → ${restored} wedges from a pasted save`)
 if (restored !== kept) misses.push(`importing a save did not bring it back: ${restored}, wanted ${kept}`);
 await page.screenshot({ path: 'play-save.png' });
 
+console.log('\n★★★ AND THE GAME CAN BE FINISHED');
+// ⚠️ THE ENDING IS THE ONE SCREEN THAT CANNOT BE REACHED BY PLAYING IN A PROBE
+// — it takes several delves and a bought kit. So it is reached the way a
+// player who had done that would reach it: through the export format, with
+// every room marked as stood in. If that panel never renders, the game has no
+// end no matter what `done()` returns.
+const reach = await page.evaluate((mark) => {
+  const el = document.querySelector('.keep textarea');
+  const raw = JSON.parse(decodeURIComponent(escape(atob(el.value.slice(mark.length)))));
+  raw.trod = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  return mark + btoa(unescape(encodeURIComponent(JSON.stringify(raw))));
+}, 'DELVE1:');
+await page.locator('.keep textarea').fill(reach);
+await page.locator('.deed', { hasText: 'Import' }).click();
+await page.waitForTimeout(300);
+const end = await page.locator('.won').count();
+const endText = end ? await flat('.won') : '';
+console.log('  ending  :', end ? `"${endText.slice(0, 60)}"` : 'never rendered');
+if (!end) misses.push('finishing the game shows nothing — there is no ending');
+if (!/map is true/i.test(endText)) misses.push('the ending does not say what was finished');
+// ★ AND THE COUNTER THAT LEADS YOU THERE. A goal with no progress readout is
+// a goal the player cannot aim at.
+const tally = await flat('.shead');
+console.log('  tally   :', `"${tally}"`);
+if (!/\d+\/10 rooms stood in/.test(tally)) misses.push('nothing tells you how close the ending is');
+// Scroll the panel to the top — the ending is above the shop, and a
+// screenshot of the shop is not a screenshot of the ending.
+await page.evaluate(() => { document.querySelector('.panel').scrollTop = 0; });
+await page.waitForTimeout(150);
+await page.screenshot({ path: 'play-end.png' });
+
 await b.close();
 if (misses.length) {
   console.log('\n⚠️ PROBLEMS');

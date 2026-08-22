@@ -23,8 +23,8 @@
   import { ROOM, ROOMS } from '../delve/dungeon';
   import { apply, initial, doorsOf, unwalkable, unswingable, canLeave,
     facing, foesIn, actsOn, claimed, hallucinated, canSend, shut, waysOut,
-    unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS,
-    START_HP, CRAWL_HP, type Delve, type Good } from '../delve/engine';
+    unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS, done, maxHp,
+    CRAWL_HP, type Delve, type Good } from '../delve/engine';
 
   let game = $state<Delve>(initial());
   /** ⚠️ NOTHING IS WRITTEN UNTIL THE LOAD HAS FINISHED. The first draft saved
@@ -138,7 +138,7 @@
   const invented = $derived(hallucinated(game));
   /** ★ THE FOUR THINGS THE HOARD BUYS. Order is price order, so the next thing
    *  you can afford is always the next thing down the list. */
-  const stock: Good[] = ['wedges', 'edge', 'lamp', 'brace'];
+  const stock: Good[] = ['wedges', 'edge', 'lamp', 'brace', 'vim'];
   /** Doors out of here you could still spend a wedge on. */
   const wedgeable = $derived(doorsOf(game.at).filter((d) => unwedgeable(game, d) === null));
   /** ★★★ THE MOMENT YOU LEARN TO DISTRUST IT. Kept OUT of the engine on
@@ -155,7 +155,7 @@
    *  is not getting one; drop every frame and the game plays identically. */
   let shock = $state(0);
   let float = $state<{ room: number; text: string; key: number } | null>(null);
-  let wasHp = START_HP;
+  let wasHp = 99;
   let wasPurse = 0;
   let key = 0;
   $effect(() => {
@@ -191,7 +191,7 @@
   <header>
     <div class="bar">
       <span class="cell">
-        {#key shock}<b class="kick">{game.hp}</b>{/key}/{START_HP} <em>life</em>
+        {#key shock}<b class="kick">{game.hp}</b>{/key}/{maxHp(game)} <em>life</em>
       </span>
       <span class="cell"><b>{game.purse}</b> <em>carried</em></span>
       <span class="cell"><b>{game.hoard}</b> <em>banked</em></span>
@@ -311,9 +311,29 @@
     <!-- ★★★ THE HOARD BUYS SOMETHING. Only at the Mouth, because that is the
          only place you are not being chased, and every line says what it does
          to the GRAPH rather than which number it raises. -->
+    <!-- ★★★ THE END. The whole game is a machine's map against a walked one,
+         so finishing it is the moment the walked one is complete: nothing left
+         on your map that you took somebody else's word for. -->
+    {#if done(game)}
+      <div class="won">
+        <h2>The map is true</h2>
+        <p class="note">
+          Ten rooms, stood in, by you. Nothing on it is anyone else's word any
+          more — and the crawler's inventions are gone with the rest.
+        </p>
+        <p class="note dim">
+          {game.turn} turns · {game.hoard} banked
+          {#if game.crawl} · {game.crawl.walked.length} rooms it walked{/if}
+        </p>
+        <p class="note dim">the dungeon is still down there. So is the Hoard.</p>
+      </div>
+    {/if}
     {#if game.at === 0 && !game.fallen}
       <div class="shop">
-        <p class="note dim shead">the hoard · <b>{game.hoard}</b></p>
+        <p class="note dim shead">
+          the hoard · <b>{game.hoard}</b>
+          <span class="split">{game.trod.length}/{ROOMS.length} rooms stood in</span>
+        </p>
         {#each stock as w (w)}
           <button class="deed buy" disabled={!affordable(game, w)}
             onclick={() => act({ type: 'buy', what: w })}>
@@ -375,6 +395,10 @@
     font-size: var(--t8); color: #4d6b78; }
   .wire .split { margin-left: auto; }
   .wire b { color: #a8c4d0; }
+  .won { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--clay);
+    border-radius: var(--r2); background: #1a1109; }
+  .won h2 { margin: 0 0 4px; font-size: var(--t3); color: #f0cf87; }
+  .shead .split { float: right; color: var(--faint); }
   .shop { margin: 10px 0 4px; border-top: 1px solid var(--rule); padding-top: 6px; }
   .shead { text-transform: uppercase; letter-spacing: .1em; font-size: var(--t8); }
   .shead b { color: var(--ink); font-size: var(--t6); }

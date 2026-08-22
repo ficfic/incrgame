@@ -20,7 +20,7 @@
 // the graph against it. That is the Grimrock dance, made countable.
 import { ROOM, ROOMS, GUARDS, SPOIL } from './dungeon';
 
-export const DELVE_VERSION = 5;
+export const DELVE_VERSION = 6;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -63,11 +63,20 @@ export interface Delve {
   bars: Bar[];
   /** What the hoard has bought. Survives dying; that is the whole ratchet. */
   kit: Kit;
+  /** ★★★ EVERY ROOM YOU HAVE PERSONALLY STOOD IN. Not `seen` — seen is what
+   *  the lamp showed you from the doorway, and not `crawl.walked`, which is a
+   *  machine's word. This is the one list in the game that is entirely, boringly
+   *  true, and finishing the game means completing it. Survives dying. */
+  trod: number[];
   fallen: boolean;
   log: string[];
 }
 
 export const START_HP = 12;
+/** ★ HOW MUCH LIFE THE BOILED LEATHER IS WORTH. Tuned by playing the deep end
+ *  out in `test/ladder.test.ts`, not by feel: on 12 the bottom of the dungeon
+ *  is not reachable by ANY route, which made the game unfinishable. */
+export const VIM = 8;
 export const LOG_KEEP = 40;
 /** What one swing takes off. */
 export const BITE = 3;
@@ -89,7 +98,8 @@ export const initial = (): Delve => ({
   bred: 1,
   crawl: null,
   bars: [],
-  kit: { wedges: 0, lamp: 1, brace: 0, edge: 0 },
+  kit: { wedges: 0, lamp: 1, brace: 0, edge: 0, vim: 0 },
+  trod: [0],
   fallen: false,
   log: [],
 });
@@ -304,7 +314,14 @@ function theirTurn(g: Delve, said: string[], from: number): Delve {
       log: LOG_LINES(said.reduce(LOG_LINES, g.log),
         'You go down in the dark. What you carried stays there.') };
   }
-  return { ...g, turn, foes, cleared, purse, crawl, bred, bars, hp, at,
+  // ★★★ AND YOU HAVE STOOD HERE — recorded only on a turn you SURVIVED.
+  //
+  // ⚠️ NOT WHEN YOU ARRIVE. Dying on the doorstep used to count, and that quietly
+  // deleted the difficulty ladder: a bare delver could walk to the bottom of the
+  // dungeon, be killed by the thing in it, and still have finished the game.
+  // A map is only true if the surveyor came back to draw it.
+  const trod = g.trod.includes(at) ? g.trod : [...g.trod, at];
+  return { ...g, turn, foes, cleared, purse, crawl, bred, bars, hp, at, trod,
     log: said.reduce(LOG_LINES, g.log) };
 }
 
@@ -569,9 +586,12 @@ export interface Kit {
   brace: number;
   /** 1 once the edge is keen. */
   edge: number;
+  /** ★ 1 once you are carrying more life. The second honest +1, and the one
+   *  that gates the deep end — see THE LADDER in `test/ladder.test.ts`. */
+  vim: number;
 }
 
-export type Good = 'wedges' | 'lamp' | 'brace' | 'edge';
+export type Good = 'wedges' | 'lamp' | 'brace' | 'edge' | 'vim';
 
 /** ★ How long a wedge holds. Four turns is two exchanges with a fast thing and
  *  four doors of running — long enough to be worth spending, short enough that
@@ -592,7 +612,7 @@ export const KEEN = 1;
  *  that is the loop taught in one delve instead of three. The lot comes to
  *  135, a bit under two total clears, which is a ratchet you can feel. */
 export const COST: Record<Good, number> = {
-  wedges: SPOIL.lair, edge: 24, lamp: 45, brace: 60,
+  wedges: SPOIL.lair, edge: 24, lamp: 45, brace: 60, vim: 90,
 };
 
 export const GOODS: Record<Good, string> = {
@@ -600,6 +620,7 @@ export const GOODS: Record<Good, string> = {
   edge: 'A keen edge',
   lamp: 'A wider lamp',
   brace: 'A braced crawler',
+  vim: 'Boiled leather',
 };
 
 export const SAYS: Record<Good, string> = {
@@ -607,7 +628,22 @@ export const SAYS: Record<Good, string> = {
   edge: `every swing takes ${BITE + KEEN} instead of ${BITE}`,
   lamp: 'see two doors out, not one — plan past the fork',
   brace: `the crawler takes ${CRAWL_HP + BRACE_HP} — it maps far more`,
+  vim: `start each delve on ${START_HP + VIM} life, not ${START_HP}`,
 };
+
+/** Life at the top of a delve, with what you are wearing. */
+export const maxHp = (g: Delve): number => START_HP + g.kit.vim * VIM;
+
+/** ★★★ HAVE YOU FINISHED? Every room in the dungeon, stood in, by YOU.
+ *
+ *  ⚠️ NOT "every room cleared". You do not have to beat the Hoard — you have
+ *  to have BEEN there. The whole game is a machine's map against a walked one,
+ *  so the ending is the moment the walked one is complete: nothing left on your
+ *  map that you took somebody else's word for. It also means the deep end is a
+ *  dash rather than a wall — get in, take the hit, get out — which is a fight
+ *  the kit can actually gate rather than a fight nothing can win. */
+export const done = (g: Delve): boolean =>
+  ROOMS.every((r) => g.trod.includes(r.id));
 
 /** What one swing takes off, with what you are carrying. */
 export const swing = (g: Delve): number => BITE + g.kit.edge * KEEN;
@@ -663,6 +699,8 @@ export const descend = (g: Delve): Delve => ({
   hoard: g.hoard,
   kit: g.kit,
   crawl: g.crawl,
+  hp: START_HP + g.kit.vim * VIM,
+  trod: g.trod,
   // ★ THE MAP IS KNOWLEDGE, and knowledge does not fall down a hole with you.
   seen: g.seen,
   log: g.log,
