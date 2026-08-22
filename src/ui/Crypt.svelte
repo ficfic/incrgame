@@ -43,9 +43,95 @@
      *  you can SEE the shape you just cut and count the way round. */
     cut?: boolean }
 
-  let { cells, passes, onTap, label = 'dungeon' }:
-    { cells: Cell[]; passes: Pass[]; onTap: (id: number) => void; label?: string }
+  let { cells, passes, onTap, label = 'dungeon',
+        crawlAt = null, shock = 0, float = null }:
+    { cells: Cell[]; passes: Pass[]; onTap: (id: number) => void; label?: string;
+      /** Where the crawler stands, so its step can be drawn moving. */
+      crawlAt?: number | null;
+      /** Bumped every time the delver is hurt. The chamber flinches. */
+      shock?: number;
+      /** Something gained, floating off the room it came from. */
+      float?: { room: number; text: string; key: number } | null }
     = $props();
+
+  // ★★★ THE MOTION LIVES HERE AND ONLY HERE, 2026-08-19. The owner: *"we need
+  // shit to do and some animations"*.
+  //
+  // ⚠️ AND THE ENGINE STAYS CLOCKLESS. `apply(state, action) => state` has no
+  // time in it and must not grow any — the whole reason the fight became
+  // turn-based was to get the clock OUT of the rules. So nothing below feeds
+  // back into the game: these are tweens between two states the engine already
+  // decided, and if every frame were dropped the game would play identically.
+  //
+  // ★ THE LOOP RUNS ONLY WHILE SOMETHING IS MOVING. A permanent
+  // `requestAnimationFrame` on a turn-based game is a phone battery burnt to
+  // redraw a picture that has not changed.
+  const STEP = 240;    // a walk, a crawler's door
+  const FLINCH = 320;  // a bite landing
+  const RISE = 1100;   // spoil floating off a room
+
+  let frame = $state(0);
+  let raf = 0;
+  const clip = (t: number): number => (t < 0 ? 0 : t > 1 ? 1 : t);
+  /** Ease out. A linear glide reads as a sprite being dragged. */
+  const ease = (t: number): number => 1 - (1 - clip(t)) * (1 - clip(t));
+
+  let lampTo = { x: 0, y: 0 }, lampFrom = { x: 0, y: 0 }, lampWhen = -1e9;
+  let crabTo = { x: 0, y: 0 }, crabFrom = { x: 0, y: 0 }, crabWhen = -1e9;
+  let hurtWhen = -1e9, riseWhen = -1e9, riseAt = { x: 0, y: 0 }, riseText = '';
+
+  const running = (t: number): boolean =>
+    t - lampWhen < STEP || t - crabWhen < STEP
+    || t - hurtWhen < FLINCH || t - riseWhen < RISE;
+
+  const spin = (): void => {
+    frame = performance.now();
+    raf = running(frame) ? requestAnimationFrame(spin) : 0;
+  };
+  const kick = (): void => { if (!raf) raf = requestAnimationFrame(spin); };
+
+  const lerp = (a: { x: number; y: number }, b: { x: number; y: number }, u: number) =>
+    ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
+
+  /** Where a thing is being DRAWN right now, part-way between two rooms. */
+  const gliding = (from: { x: number; y: number }, to: { x: number; y: number },
+    when: number) => lerp(from, to, ease((frame - when) / STEP));
+
+  $effect(() => {
+    const you = cells.find((c) => c.here);
+    if (!you) return;
+    const to = { x: you.x, y: you.y };
+    if (to.x === lampTo.x && to.y === lampTo.y) return;
+    // ⚠️ FROM WHERE IT WAS BEING DRAWN, not from where it logically was. Two
+    // steps taken faster than the tween would otherwise snap back a room.
+    lampFrom = lampWhen < -1e8 ? to : gliding(lampFrom, lampTo, lampWhen);
+    lampTo = to; lampWhen = performance.now(); kick();
+  });
+
+  $effect(() => {
+    const c = crawlAt === null ? null : cells.find((x) => x.id === crawlAt);
+    if (!c) return;
+    const to = { x: c.x, y: c.y };
+    if (to.x === crabTo.x && to.y === crabTo.y) return;
+    crabFrom = crabWhen < -1e8 ? to : gliding(crabFrom, crabTo, crabWhen);
+    crabTo = to; crabWhen = performance.now(); kick();
+  });
+
+  $effect(() => {
+    void shock;
+    if (shock > 0) { hurtWhen = performance.now(); kick(); }
+  });
+
+  $effect(() => {
+    if (!float) return;
+    void float.key;
+    const c = cells.find((x) => x.id === float!.room);
+    if (!c) return;
+    riseAt = { x: c.x, y: c.y }; riseText = float.text;
+    riseWhen = performance.now(); kick();
+  });
+
+  $effect(() => () => { if (raf) cancelAnimationFrame(raf); });
 
   let host = $state<HTMLDivElement | null>(null);
   let cv = $state<HTMLCanvasElement | null>(null);
@@ -139,6 +225,9 @@
     if (!cv) return;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
+    // ★ READ SO THE PAINT RE-RUNS EVERY ANIMATION FRAME. Without touching it,
+    // the tweens below would advance and nothing would ever be redrawn.
+    void frame;
     // ★ DEVICE PIXELS FOR THE BUFFER, CSS PIXELS FOR THE DRAWING — the same
     // rule the board learned the hard way, and for the same reason.
     const dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -272,10 +361,18 @@
     // call, and this is a phone. A radial gradient in `lighter` costs nothing.
     const you = cells.find((c) => c.here);
     if (you) {
-      const cx = sx(you.x), cy = sy(you.y);
-      const rad = Math.max(60, 150 * k);
+      // ★★★ THE LAMP IS CARRIED, so it MOVES between rooms rather than cutting.
+      // On a turn-based game this is the only thing that tells you a turn
+      // happened at all; a hard cut reads as the screen glitching.
+      const g0 = gliding(lampFrom, lampTo, lampWhen);
+      const cx = sx(g0.x), cy = sy(g0.y);
+      // ⚠️ AND IT GUTTERS WHEN YOU ARE HIT. The flinch is on the LIGHT, not on
+      // the delver — there is no delver sprite to shake, and a lamp that jumps
+      // is what being hit in the dark would actually look like.
+      const hurt = 1 - clip((frame - hurtWhen) / FLINCH);
+      const rad = Math.max(60, 150 * k) * (1 - 0.34 * hurt);
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
-      g.addColorStop(0, STONE.glow);
+      g.addColorStop(0, hurt > 0.02 ? 'rgb(194 84 60 / 0.30)' : STONE.glow);
       g.addColorStop(1, 'rgb(214 160 74 / 0)');
       ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = g;
@@ -283,9 +380,27 @@
       ctx.globalCompositeOperation = 'source-over';
 
       // The flame itself, so the delver is a point of light and not an icon.
-      ctx.fillStyle = STONE.flame;
+      ctx.fillStyle = hurt > 0.02 ? '#f0866b' : STONE.flame;
       ctx.beginPath();
-      ctx.arc(cx, cy, Math.max(2.5, 4 * k), 0, Math.PI * 2);
+      ctx.arc(cx, cy, Math.max(2.5, 4 * k) * (1 + 0.5 * hurt), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // ★★★ AND THE CRAWLER IS A THING WALKING, not a number in a status bar.
+    // Watching it cross a corridor is the only moment the two-graph mechanic
+    // is legible as something HAPPENING rather than something reported.
+    if (crawlAt !== null && cells.some((c) => c.id === crawlAt)) {
+      const w = gliding(crabFrom, crabTo, crabWhen);
+      const wx = sx(w.x), wy = sy(w.y);
+      const r = Math.max(2, 3.2 * k);
+      ctx.strokeStyle = STONE.claim;
+      ctx.lineWidth = Math.max(1, 1.6 * k);
+      ctx.beginPath();
+      ctx.arc(wx, wy, r * 2.1, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#a8c4d0';
+      ctx.beginPath();
+      ctx.arc(wx, wy, r, 0, Math.PI * 2);
       ctx.fill();
     }
 
@@ -303,6 +418,19 @@
         ctx.arc(px, py, Math.max(2, 3 * k), 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+
+    // 7b ── ★ WHAT YOU JUST TOOK, rising off the room it came out of. A number
+    // that changes in a header is a fact; a number that leaves the ROOM is an
+    // event, and the player is looking at the map, not the header.
+    const up = (frame - riseWhen) / RISE;
+    if (up >= 0 && up < 1) {
+      ctx.globalAlpha = 1 - up * up;
+      ctx.fillStyle = STONE.flame;
+      ctx.font = `700 ${Math.max(12, 15 * k)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText(riseText, sx(riseAt.x), sy(riseAt.y) - 10 - 34 * ease(up));
+      ctx.globalAlpha = 1;
     }
 
     // 8 ── THE DARK CLOSES IN AT THE EDGES. The vignette is what sells a lamp

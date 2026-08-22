@@ -23,6 +23,16 @@ const misses = [];
 const b = await chromium.launch({ executablePath: EXE });
 const page = await b.newPage({ viewport: { width: 390, height: 844 } });
 page.on('pageerror', (e) => misses.push(`page error: ${e.message.slice(0, 90)}`));
+// ★★★ COUNT THE ANIMATION FRAMES THE PAGE ASKS FOR. ⚠️ PIXELS CANNOT SEE THIS:
+// a `requestAnimationFrame` loop left running forever redraws the SAME picture,
+// so a two-frame pixel comparison of an idle dungeon is identical whether the
+// loop is off or burning the battery flat. Counting the calls is the only
+// honest measurement, and it caught a sabotage that pixels waved through.
+await page.addInitScript(() => {
+  window.__raf = 0;
+  const real = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (cb) => { window.__raf++; return real(cb); };
+});
 await page.goto(URL, { waitUntil: 'networkidle' });
 await page.waitForTimeout(700);
 
@@ -81,6 +91,53 @@ if (second > 4) misses.push(`walking revealed too much at once: ${second} rooms`
 // nothing else on this screen can be counted on.
 if ((await turn()) !== 1) misses.push(`a step cost ${await turn()} turns, not 1`);
 if (!/Broken Hall/.test(await panel())) misses.push('the panel does not name the room');
+
+console.log('\n★★★ AND IT MOVES');
+// ⚠️ MEASURED TWO WAYS, BECAUSE THE FIRST DRAFT MEASURED NEITHER THING IT
+// CLAIMED TO. A turn-based game that cuts instantly between states gives the
+// player nothing to read — motion is what says a turn HAPPENED. It is all
+// decoration by design, which is exactly the excuse under which it silently
+// stops working.
+const shot = async () => page.evaluate(() => {
+  const cv = document.querySelector('.crypt canvas');
+  const { data } = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height);
+  let sum = 0;
+  for (let i = 0; i < data.length; i += 64) sum += data[i];
+  return sum;
+});
+const frames = () => page.evaluate(() => window.__raf);
+
+// ⚠️ LET THE LAST STEP FINISH. The walk above glides for another 240ms, and
+// measuring during it reported a settled dungeon as "twitching" — the check
+// was catching its own previous turn.
+await page.waitForTimeout(700);
+const idle0 = await frames();
+await page.waitForTimeout(500);
+const idle1 = await frames();
+console.log('  idle    :', `${idle1 - idle0} frames asked for in half a second`);
+// ★★★ THE LOOP RUNS ONLY WHILE SOMETHING MOVES. A permanent rAF on a
+// turn-based game is a phone battery spent redrawing a picture that has not
+// changed. ⚠️ AND PIXELS CANNOT SEE THIS — a sabotage that never stopped the
+// loop passed a two-frame pixel comparison, because the picture is the same.
+if (idle1 - idle0 > 2) misses.push(`the animation loop never stops: ${idle1 - idle0} frames while idle`);
+
+// ★★★ AND A STEP GLIDES. ⚠️ INTO AN EMPTY ROOM ON PURPOSE: the first draft
+// stepped into the Rat Warren, where the runt bites on arrival, so what it
+// actually measured was the HIT FLINCH — and a sabotage that made the lamp cut
+// hard between rooms sailed through, because the flinch was still animating.
+// The Weeping Stair has nothing in it, so the only thing that can move is the
+// lamp being carried.
+await page.locator('.node', { hasText: 'Weeping Stair' }).first().click();
+await page.waitForTimeout(60);
+const mid = await shot();
+await page.waitForTimeout(600);
+const rest = await shot();
+console.log('  gliding :', `mid-step ${mid} → settled ${rest}`);
+if (mid === rest) misses.push('the step was a hard cut — the lamp did not move between rooms');
+const moved = (await frames()) - idle1;
+console.log('  frames  :', `${moved} asked for while stepping`);
+if (moved < 3) misses.push(`a step asked for ${moved} animation frames — nothing was tweened`);
+await walk('Broken Hall');
 
 console.log('\nSOMETHING IS ALREADY HERE');
 await walk('Rat Warren');

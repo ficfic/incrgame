@@ -147,6 +147,24 @@
    *  screen says this, and the dungeon does not move. */
   let bunk = $state<string | null>(null);
 
+  /** ★★★ WHAT THE SCREEN NEEDS THAT THE STATE DOES NOT SAY: not what the
+   *  numbers ARE, but that they just CHANGED. A turn-based game gives you one
+   *  discrete jump per tap, and without something marking the jump the player
+   *  cannot tell a turn happened — they have to diff two numbers by eye.
+   *  ⚠️ DERIVED IN THE UI, never in the engine. `apply` has no clock in it and
+   *  is not getting one; drop every frame and the game plays identically. */
+  let shock = $state(0);
+  let float = $state<{ room: number; text: string; key: number } | null>(null);
+  let wasHp = START_HP;
+  let wasPurse = 0;
+  let key = 0;
+  $effect(() => {
+    const hp = game.hp, purse = game.purse, at = game.at;
+    if (hp < wasHp) shock += 1;
+    if (purse > wasPurse) { key += 1; float = { room: at, text: `+${purse - wasPurse}`, key }; }
+    wasHp = hp; wasPurse = purse;
+  });
+
   const onTap = (n: number): void => {
     if (!ROOM.has(n)) return;
     // ★ TAPPING A DOOR IS WALKING THROUGH IT. One tap, not a tap and a
@@ -172,7 +190,9 @@
 <main>
   <header>
     <div class="bar">
-      <span class="cell"><b>{game.hp}</b>/{START_HP} <em>life</em></span>
+      <span class="cell">
+        {#key shock}<b class="kick">{game.hp}</b>{/key}/{START_HP} <em>life</em>
+      </span>
       <span class="cell"><b>{game.purse}</b> <em>carried</em></span>
       <span class="cell"><b>{game.hoard}</b> <em>banked</em></span>
       <span class="cell"><b>{game.turn}</b> <em>turn</em></span>
@@ -197,7 +217,8 @@
   {/if}
 
   <div class="map">
-    <Crypt {cells} {passes} {onTap} label="dungeon" />
+    <Crypt {cells} {passes} {onTap} label="dungeon" {shock} {float}
+      crawlAt={game.crawl && !game.crawl.done ? game.crawl.at : null} />
   </div>
 
   <section class="panel">
@@ -322,7 +343,13 @@
     {/if}
     {#if bunk}<p class="note bunk">{bunk}</p>{/if}
     {#each [...game.log].reverse().slice(0, 4) as l, i (i)}
-      <p class="note log">{l}</p>
+      <!-- ★ ONLY THE NEWEST LINE MOVES. Animating the whole list would make
+           every turn look like the log had been rewritten. -->
+      {#if i === 0}
+        {#key game.log.length}<p class="note log fresh">{l}</p>{/key}
+      {:else}
+        <p class="note log">{l}</p>
+      {/if}
     {/each}
   </section>
 </main>
@@ -366,6 +393,17 @@
     background: var(--sunk); color: var(--faint); border: 1px solid var(--edge);
     border-radius: var(--r1); padding: 6px; resize: none; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* ★ THE HIT REGISTERS ON THE NUMBER TOO. Re-keying the node restarts these,
+     which is the cheapest correct way to replay a CSS animation on demand. */
+  @keyframes kick { 0% { transform: scale(1.5); color: var(--clay); } 100% { transform: none; } }
+  .cell b.kick { display: inline-block; animation: kick 320ms ease-out; }
+  @keyframes arrive { from { opacity: 0; transform: translateY(-5px); } }
+  .note.log.fresh { animation: arrive 220ms ease-out; }
+  /* ⚠️ AND ALL OF IT STOPS IF THE PHONE ASKS. Motion is decoration here — the
+     game is turn-based and nothing below is load-bearing. */
+  @media (prefers-reduced-motion: reduce) {
+    .cell b.kick, .note.log.fresh { animation: none; }
+  }
   .note.bunk { color: #7f9aa6; border-left: 3px solid #4d6b78; padding-left: 8px; }
   .deed.send { border-color: #35525d; }
   .deed.send em { color: #7f9aa6; }
