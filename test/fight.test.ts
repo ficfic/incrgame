@@ -168,7 +168,7 @@ describe('★★★ AND THE PACK IS A PUZZLE, NOT A TOTAL', () => {
     // fight of the game with nothing bought.
     const g = { ...go(go(initial(), 1), 3) };
     expect(facing(g).length).toBeGreaterThan(1);
-    expect(doorsOf(g.at).filter((d) => unshovable(g, big(g).id, d) === null).length)
+    expect(doorsOf(g, g.at).filter((d) => unshovable(g, big(g).id, d) === null).length)
       .toBeGreaterThan(1);
     expect(g.kit.wedges).toBeGreaterThan(0);      // and a wedge, from turn one
     expect(swing(g)).toBe(BITE);

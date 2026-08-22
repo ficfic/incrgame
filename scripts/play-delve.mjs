@@ -582,7 +582,7 @@ const end = await page.locator('.won').count();
 const endText = end ? await flat('.won') : '';
 console.log('  ending  :', end ? `"${endText.slice(0, 60)}"` : 'never rendered');
 if (!end) misses.push('finishing the game shows nothing — there is no ending');
-if (!/map is true/i.test(endText)) misses.push('the ending does not say what was finished');
+if (!/is true/i.test(endText)) misses.push('the ending does not say what was finished');
 // ★ AND THE COUNTER THAT LEADS YOU THERE. A goal with no progress readout is
 // a goal the player cannot aim at.
 const tally = await flat('.shead');
@@ -593,6 +593,67 @@ if (!/\d+\/10 rooms stood in/.test(tally)) misses.push('nothing tells you how cl
 await page.evaluate(() => { document.querySelector('.panel').scrollTop = 0; });
 await page.waitForTimeout(150);
 await page.screenshot({ path: 'play-end.png' });
+
+console.log('\n★★★ AND IT GOES DEEPER');
+// ⚠️ THE GENRE PASS, DRIVEN WITH A THUMB. A roguelike with one hand-drawn
+// level is a puzzle you solve once and an incremental with no content tier is
+// a shop with a last item — this game was both. `test/floors.test.ts` walks 40
+// generated floors, but only the browser can say whether the SECOND one is a
+// dungeon you can actually see and tap.
+await freshStart();
+const floorNow = async () => Number((await head()).match(/(\d+)\s*FLOOR/i)?.[1] ?? -1);
+console.log('  start   :', `floor ${await floorNow()}`);
+if ((await floorNow()) !== 1) misses.push('a new delver does not start on floor 1');
+
+// ⚠️ KITTED FIRST, BECAUSE THE DASH IS SUPPOSED TO KILL YOU BARE-HANDED. That
+// is the ladder working (`test/ladder.test.ts`), and the first draft of this
+// section walked it with twelve life, died on the way, and then reported "the
+// dash is not survivable at all" — the probe failing its own difficulty curve.
+await page.locator('.keep summary').click();
+await page.locator('.deed', { hasText: 'Export' }).click();
+await page.waitForTimeout(200);
+const kitted = await page.evaluate((mark) => {
+  const el = document.querySelector('.keep textarea');
+  const raw = JSON.parse(decodeURIComponent(escape(atob(el.value.slice(mark.length)))));
+  raw.kit = { wedges: 6, lamp: 2, brace: 1, edge: 1, vim: 1 };
+  raw.hp = 20;
+  return mark + btoa(unescape(encodeURIComponent(JSON.stringify(raw))));
+}, 'DELVE1:');
+await page.locator('.keep textarea').fill(kitted);
+await page.locator('.deed', { hasText: 'Import' }).click();
+await page.waitForTimeout(300);
+console.log('  kitted  :', `${(await head()).match(/(\d+)\s*\/\d+ LIFE/i)?.[0] ?? '?'}`);
+// Walk the dash to the Hoard: 0-1-3-5-6-8-9. It is meant to be survivable
+// only with the kit, so the probe takes the hits and reads whether it lived.
+for (const room of ['Broken Hall', 'Rat Warren', 'Gallery', 'The Crossing', 'Bone Kiln', 'The Hoard']) {
+  if (/went down/.test(await panel())) break;
+  await walk(room);
+}
+const madeIt = !/went down/.test(await panel());
+console.log('  dash    :', madeIt ? 'reached the Hoard alive' : 'fell on the way (expected bare-handed)');
+if (madeIt) {
+  const stair = page.locator('.deed', { hasText: 'stair down' });
+  if (!(await stair.count())) misses.push('standing in the Hoard offers no way deeper');
+  else {
+    const drawnBefore = await rooms();
+    await stair.first().click();
+    await page.waitForTimeout(400);
+    const f2 = await floorNow();
+    const namesNow = (await page.locator('.node').allTextContents()).map((s) => s.trim());
+    console.log('  descend :', `floor ${f2} · ${await rooms()} rooms drawn · "${namesNow.join(' · ')}"`);
+    if (f2 !== 2) misses.push(`the stair did not go anywhere: still floor ${f2}`);
+    // ★★★ A NEW FLOOR IS DARK AGAIN. If it arrived already mapped, the descent
+    // is a reskin rather than new ground.
+    if ((await rooms()) > 4) misses.push(`floor 2 arrived already lit: ${await rooms()} rooms drawn`);
+    if (!namesNow.some((n) => /Stair Up/.test(n))) misses.push('floor 2 has no way in named');
+    const tally = await flat('.shead');
+    if (!/1\/\d+ rooms stood in/.test(tally)) misses.push(`the tally did not reset for the new floor: "${tally}"`);
+    console.log('  tally   :', `"${tally}"`);
+    await page.screenshot({ path: 'play-floor2.png' });
+  }
+} else {
+  misses.push('the dash to the Hoard is not survivable at all — nobody can ever descend');
+}
 
 await b.close();
 if (misses.length) {

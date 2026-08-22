@@ -62,7 +62,7 @@ describe('★★★ YOU SEND SOMETHING DOWN', () => {
     for (let i = 0; i < 14; i++) {
       g = { ...wait(g), hp: 400 };
       const now = g.crawl!.at;
-      if (now !== prev) expect(doorsOf(prev), `${prev} → ${now}`).toContain(now);
+      if (now !== prev) expect(doorsOf(g, prev), `${prev} → ${now}`).toContain(now);
       prev = now;
     }
   });
@@ -76,7 +76,7 @@ describe('★★★ YOU SEND SOMETHING DOWN', () => {
     const g: Delve = { ...initial(), hp: 400,
       crawl: { at: 3, hp: 40, walked: [0, 1, 2, 3, 4, 5, 6], turns: 9, done: false } };
     expect(frontier(g)).toBe(7);              // the Drowned Well, two doors off
-    expect(doorsOf(3)).not.toContain(7);      // and no door goes straight there
+    expect(doorsOf(g, 3)).not.toContain(7);      // and no door goes straight there
     expect(wait(g).crawl!.at).toBe(5);        // so: through the Gallery, not rock
   });
 
@@ -132,7 +132,7 @@ describe('★★★ DOORS THAT DO NOT EXIST', () => {
       // ⚠️ EVERY ONE OF THEM IS A LIE. If a real door ever showed up in this
       // list the map would be telling the truth by accident, and the player
       // could never learn to distrust it.
-      expect(doorsOf(a), `${a}-${b} is invented`).not.toContain(b);
+      expect(doorsOf(g, a), `${a}-${b} is invented`).not.toContain(b);
       expect(Math.hypot(ROOM.get(a)!.x - ROOM.get(b)!.x,
                         ROOM.get(a)!.y - ROOM.get(b)!.y)).toBeLessThanOrEqual(GUESS);
     }

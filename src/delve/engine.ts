@@ -18,9 +18,10 @@
 // can outrun it — a step is free ground. A foe with `every: 1` trades evenly
 // and cannot be escaped in the open: you fight it, or you use the shape of
 // the graph against it. That is the Grimrock dance, made countable.
-import { ROOM, ROOMS, GUARDS, SPOIL } from './dungeon';
+import { GUARDS, SPOIL, type Room } from './dungeon';
+import { floorPlan } from './floors';
 
-export const DELVE_VERSION = 7;
+export const DELVE_VERSION = 8;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -49,6 +50,14 @@ export interface Delve {
   at: number;
   /** ★ Turns taken. Drives whose turn it is and nothing else. */
   turn: number;
+  /** ★★★ HOW DEEP. 1 is the hand-drawn first descent; everything below it is
+   *  generated from this number and nothing else. */
+  floor: number;
+  /** ★★★ THE FLOOR YOU ARE ON, as data. ⚠️ NOT A MODULE CONSTANT ANY MORE —
+   *  `ROOMS` was imported by nine functions, which meant there could only ever
+   *  be one dungeon. It lives in the state so a save records the actual map and
+   *  so nothing can disagree about which floor it is talking about. */
+  rooms: Room[];
   seen: number[];
   cleared: number[];
   hp: number;
@@ -97,7 +106,9 @@ export const initial = (): Delve => ({
   turn: 0,
   // ⚠️ THE MOUTH AND WHAT IT OPENS ON. A graph you cannot see one step of is
   // not a choice, it is a corridor.
-  seen: [0, ...(ROOM.get(0)?.doors ?? [])],
+  floor: 1,
+  rooms: floorPlan(1),
+  seen: [0, ...(floorPlan(1)[0]?.doors ?? [])],
   cleared: [0],
   hp: START_HP,
   purse: 0,
@@ -116,7 +127,10 @@ export const initial = (): Delve => ({
   log: [],
 });
 
-export const doorsOf = (id: number): number[] => ROOM.get(id)?.doors ?? [];
+/** The room, on the floor you are standing on. */
+export const roomAt = (g: Delve, id: number): Room | undefined =>
+  g.rooms.find((r) => r.id === id);
+export const doorsOf = (g: Delve, id: number): number[] => roomAt(g, id)?.doors ?? [];
 
 /** ★★★ IS THIS DOOR WEDGED? The single place that knows an edge is missing,
  *  so the player, the monsters and the crawler cannot possibly disagree about
@@ -128,11 +142,11 @@ export const shut = (g: Delve, a: number, b: number): boolean =>
 
 /** The doors out of a room that are actually open right now. */
 export const waysOut = (g: Delve, id: number): number[] =>
-  doorsOf(id).filter((d) => !shut(g, id, d));
+  doorsOf(g, id).filter((d) => !shut(g, id, d));
 
 /** Is this room's guard still to be met? */
 export const held = (g: Delve, id: number): boolean =>
-  !g.cleared.includes(id) && GUARDS[ROOM.get(id)?.kind ?? 'hall'] !== null;
+  !g.cleared.includes(id) && GUARDS[roomAt(g, id)?.kind ?? 'hall'] !== null;
 
 export const foesIn = (g: Delve, id: number): Foe[] =>
   g.foes.filter((f) => f.at === id && f.hp > 0);
@@ -150,14 +164,14 @@ export const actsOn = (f: Foe, turn: number): boolean =>
 /** ★★★ THE FIRST DOOR ON THE SHORTEST WAY, or null. Breadth-first over the
  *  same graph the player walks — so you can SEE what it has to do to reach
  *  you, and count the doors. */
-export function stepToward(from: number, to: number,
+export function stepToward(g: Delve, from: number, to: number,
     blocked: (a: number, b: number) => boolean = () => false): number | null {
-  if (from === to || !ROOM.has(from) || !ROOM.has(to)) return null;
+  if (from === to || !roomAt(g, from) || !roomAt(g, to)) return null;
   const back = new Map<number, number>([[from, from]]);
   const queue = [from];
   for (let i = 0; i < queue.length; i++) {
     const here = queue[i]!;
-    for (const d of doorsOf(here)) {
+    for (const d of doorsOf(g, here)) {
       // ★★★ AND A WEDGED DOOR IS NOT A DOOR. The chase re-routes around it or
       // gives up — which is what makes a wedge a move rather than a delay.
       if (blocked(here, d)) continue;
@@ -177,8 +191,8 @@ export function stepToward(from: number, to: number,
 export function unwalkable(g: Delve, to: number): string | null {
   if (g.fallen) return 'You are done.';
   if (to === g.at) return 'You are here.';
-  if (!ROOM.has(to)) return 'There is no such room.';
-  if (!doorsOf(g.at).includes(to)) return 'No door leads there from here.';
+  if (!roomAt(g, to)) return 'There is no such room.';
+  if (!doorsOf(g, g.at).includes(to)) return 'No door leads there from here.';
   // ⚠️ AND IT SHUTS FOR YOU TOO. A wedge you could step through yourself is a
   // free win, not a decision — the cost of cutting an edge is that it is cut.
   if (shut(g, g.at, to)) return 'You wedged that door shut.';
@@ -218,6 +232,8 @@ export type Action =
   | { type: 'send' }
   /** ★★★ Cut the edge between here and there. One turn. */
   | { type: 'wedge'; to: number }
+  /** ★★★ Take the stair down from the Hoard. A whole new floor. */
+  | { type: 'descend' }
   /** Spend the hoard at the Mouth. Not a turn. */
   | { type: 'buy'; what: Good }
   /** Climb out with what you carry. Not a turn — you are leaving. */
@@ -251,7 +267,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   if (crawl && !crawl.done) {
     const target = frontier({ ...g, crawl });
     const step = target === null ? null
-        : stepToward(crawl.at, target, (x, y) => shut(g, x, y));
+        : stepToward(g, crawl.at, target, (x, y) => shut(g, x, y));
     if (step === null) {
       crawl = { ...crawl, done: true };
       said.push('The crawler has nowhere left to go. It stops.');
@@ -261,11 +277,11 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
       // ★★★ AND IT WAKES THINGS. This is the price of sending one down, and
       // it is the good kind of price: not a fee, but a dungeon that is more
       // awake than it was, in rooms you have not reached yet.
-      const r = ROOM.get(step)!;
+      const r = roomAt(g, step)!;
       const asleep = !g.cleared.includes(step) && GUARDS[r.kind] !== null
         && !woken.some((f) => f.from === step);
       if (asleep) {
-        const born = (GUARDS[r.kind]?.(r.deep) ?? []).map((q, i) => ({
+        const born = (GUARDS[r.kind]?.(deepness(g, r)) ?? []).map((q, i) => ({
           id: bred + i, at: step, from: step, hp: q.hp, bite: q.bite, name: q.name,
           every: q.bite >= 2 ? 2 : 1, reeling: 0,
         }));
@@ -302,7 +318,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
       said.push(`${f.name} tears at the crawler.`);
       return f;
     }
-    const step = stepToward(f.at, at, (x, y) => shut(g, x, y));
+    const step = stepToward(g, f.at, at, (x, y) => shut(g, x, y));
     if (step === null) return f;
     // ⚠️ IT IS ANNOUNCED. A thing arriving in your room is the single most
     // important event in this game and it must never be silent.
@@ -314,7 +330,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
     // ⚠️ ITS REPORT STANDS. What it walked stays on your map after it dies —
     // that is the whole point of having sent it, and the next one you send
     // picks up where this one stopped.
-    said.push(`The crawler stops transmitting in ${ROOM.get(crawl.at)?.name}.`);
+    said.push(`The crawler stops transmitting in ${roomAt(g, crawl.at)?.name}.`);
     crawl = { ...crawl, hp: 0, done: true };
   } else if (crawl) crawl = { ...crawl, hp: Math.max(0, chp) };
 
@@ -325,13 +341,13 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   // A room emptied of its own dead pays out, once.
   let cleared = g.cleared;
   let purse = g.purse;
-  for (const r of ROOMS) {
+  for (const r of g.rooms) {
     if (cleared.includes(r.id) || GUARDS[r.kind] === null) continue;
     const mine = foes.filter((f) => f.from === r.id);
     if (mine.length > 0 && mine.every((f) => f.hp <= 0)) {
       cleared = [...cleared, r.id];
-      purse += SPOIL[r.kind];
-      said.push(`${r.name} is quiet. You take ${SPOIL[r.kind]}.`);
+      purse += worth(g, r);
+      said.push(`${r.name} is quiet. You take ${worth(g, r)}.`);
     }
   }
 
@@ -361,8 +377,8 @@ export function apply(g: Delve, a: Action): Delve {
       // ★ HOW FAR THE LAMP REACHES, in doors. One by default; a wider lamp is
       // bought with the hoard and it is a change to the FOG, not to a number
       // — you see the fork past the fork, so you can plan two moves deep.
-      const seen = [...new Set([...g.seen, ...within(at, g.kit.lamp)])];
-      const r = ROOM.get(at)!;
+      const seen = [...new Set([...g.seen, ...within(g, at, g.kit.lamp)])];
+      const r = roomAt(g, at)!;
       let foes = g.foes;
       let bred = g.bred;
       // ★ A ROOM'S GUARD WAKES WHEN YOU FIRST WALK IN, once. After that it is
@@ -370,7 +386,7 @@ export function apply(g: Delve, a: Action): Delve {
       const asleep = !g.cleared.includes(at) && GUARDS[r.kind] !== null
         && !g.foes.some((f) => f.from === at);
       if (asleep) {
-        const born = (GUARDS[r.kind]?.(r.deep) ?? []).map((q, i) => ({
+        const born = (GUARDS[r.kind]?.(deepness(g, r)) ?? []).map((q, i) => ({
           id: bred + i, at, from: at, hp: q.hp, bite: q.bite, name: q.name,
           // ★ Heavier things are slower, and slow is what you can walk away
           // from. `every: 2` for anything that hits hard.
@@ -396,8 +412,8 @@ export function apply(g: Delve, a: Action): Delve {
       let purse = g.purse;
       if (!cleared.includes(at) && GUARDS[r.kind] === null && SPOIL[r.kind] > 0) {
         cleared = [...cleared, at];
-        purse += SPOIL[r.kind];
-        said.push(`Nothing down here but what was left. You take ${SPOIL[r.kind]}.`);
+        purse += worth(g, r);
+        said.push(`Nothing down here but what was left. You take ${worth(g, r)}.`);
       }
       return theirTurn({ ...g, at, seen, foes, bred, cleared, purse }, said, g.at);
     }
@@ -434,7 +450,25 @@ export function apply(g: Delve, a: Action): Delve {
       const foes = g.foes.map((f) =>
         f.id === a.foe ? { ...f, at: a.to, reeling: g.turn + REEL } : f);
       return theirTurn({ ...g, foes },
-        [`You put ${mark.name} through the door to ${ROOM.get(a.to)?.name}.`], g.at);
+        [`You put ${mark.name} through the door to ${roomAt(g, a.to)?.name}.`], g.at);
+    }
+
+    case 'descend': {
+      if (!canDescend(g)) return g;
+      // ★★★ THE CONTENT TIER, and the prestige layer, in one move. What you
+      // carry is banked on the way past; what you KNEW about the floor above
+      // is gone, because it is not that floor any more.
+      const floor = g.floor + 1;
+      return { ...descend({ ...g, hoard: g.hoard + g.purse }), floor,
+        rooms: floorPlan(floor),
+        seen: [0, ...(floorPlan(floor)[0]?.doors ?? [])],
+        trod: [0],
+        // ⚠️ THE CRAWLER'S MAP DOES NOT COME DOWN THE STAIR. It is a map of a
+        // floor you are no longer on, and carrying it would draw a dead
+        // dungeon's claims over a live one.
+        crawl: null,
+        log: LOG_LINES(g.log,
+          `You take the stair down. Floor ${floor}: ${floorPlan(floor).length} rooms, and none of them yours.`) };
     }
 
     case 'brace': {
@@ -460,7 +494,7 @@ export function apply(g: Delve, a: Action): Delve {
       const bars = [...g.bars, { a: lo, b: hi, until: g.turn + 1 + BAR_TURNS }];
       const kit = { ...g.kit, wedges: g.kit.wedges - 1 };
       return theirTurn({ ...g, bars, kit }, [
-        `You wedge the door to ${ROOM.get(a.to)?.name}. ${BAR_TURNS} turns.`,
+        `You wedge the door to ${roomAt(g, a.to)?.name}. ${BAR_TURNS} turns.`,
       ], g.at);
     }
 
@@ -555,7 +589,7 @@ export interface Crawl {
 /** Every room the crawler will talk about: the ones it walked, plus every room
  *  it saw a door to from one of them. */
 export const claimed = (g: Delve): number[] =>
-  g.crawl ? [...new Set(g.crawl.walked.flatMap((r) => [r, ...doorsOf(r)]))] : [];
+  g.crawl ? [...new Set(g.crawl.walked.flatMap((r) => [r, ...doorsOf(g, r)]))] : [];
 
 /** ★★★ THE ROOMS IT IS GUESSING ABOUT. It never entered these, and it will
  *  tell you they are empty. */
@@ -577,9 +611,9 @@ export function hallucinated(g: Delve): [number, number][] {
   for (const a of said) {
     for (const b of said) {
       if (b <= a) continue;
-      if (doorsOf(a).includes(b)) continue;
+      if (doorsOf(g, a).includes(b)) continue;
       if (g.crawl.walked.includes(a) && g.crawl.walked.includes(b)) continue;
-      const ra = ROOM.get(a)!, rb = ROOM.get(b)!;
+      const ra = roomAt(g, a)!, rb = roomAt(g, b)!;
       if (Math.hypot(ra.x - rb.x, ra.y - rb.y) <= GUESS) out.push([a, b]);
     }
   }
@@ -694,18 +728,18 @@ export const maxHp = (g: Delve): number => START_HP + g.kit.vim * VIM;
  *  dash rather than a wall — get in, take the hit, get out — which is a fight
  *  the kit can actually gate rather than a fight nothing can win. */
 export const done = (g: Delve): boolean =>
-  ROOMS.every((r) => g.trod.includes(r.id));
+  g.rooms.every((r) => g.trod.includes(r.id));
 
 /** What one swing takes off, with what you are carrying. */
 export const swing = (g: Delve): number => BITE + g.kit.edge * KEEN;
 
 /** Every room within `n` doors, wedges respected. The fog, and nothing else. */
-export function within(from: number, n: number): number[] {
+export function within(g: Delve, from: number, n: number): number[] {
   const out = new Set([from]);
   let edge = [from];
   for (let i = 0; i < n; i++) {
     const next: number[] = [];
-    for (const r of edge) for (const d of doorsOf(r)) if (!out.has(d)) { out.add(d); next.push(d); }
+    for (const r of edge) for (const d of doorsOf(g, r)) if (!out.has(d)) { out.add(d); next.push(d); }
     edge = next;
   }
   return [...out];
@@ -714,7 +748,7 @@ export function within(from: number, n: number): number[] {
 export function unwedgeable(g: Delve, to: number): string | null {
   if (g.fallen) return 'You are done.';
   if (g.kit.wedges <= 0) return 'No wedges.';
-  if (!doorsOf(g.at).includes(to)) return 'No door leads there from here.';
+  if (!doorsOf(g, g.at).includes(to)) return 'No door leads there from here.';
   if (shut(g, g.at, to)) return 'Already wedged.';
   return null;
 }
@@ -750,6 +784,8 @@ export const descend = (g: Delve): Delve => ({
   hoard: g.hoard,
   kit: g.kit,
   crawl: g.crawl,
+  floor: g.floor,
+  rooms: g.rooms,
   hp: START_HP + g.kit.vim * VIM,
   trod: g.trod,
   // ★ THE MAP IS KNOWLEDGE, and knowledge does not fall down a hole with you.
@@ -766,7 +802,7 @@ export function unshovable(g: Delve, foe: number, to: number): string | null {
   if (g.fallen) return 'You are done.';
   const mark = g.foes.find((f) => f.id === foe);
   if (!mark || mark.hp <= 0 || mark.at !== g.at) return 'Not here to shove.';
-  if (!doorsOf(g.at).includes(to)) return 'No door leads there from here.';
+  if (!doorsOf(g, g.at).includes(to)) return 'No door leads there from here.';
   // ⚠️ AND NOT THROUGH A DOOR YOU WEDGED. The whole point of a wedge is that
   // the edge is gone; putting something through it would be using a cut door.
   if (shut(g, g.at, to)) return 'That door is wedged shut.';
@@ -780,3 +816,39 @@ export const toll = (g: Delve): number =>
 export const braced = (g: Delve): number =>
   facing(g).filter((f) => actsOn(f, g.turn + 1))
     .reduce((n, f) => n + Math.ceil(f.bite / 2), 0);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ★★★ DEPTH — the content tier and the prestige layer, 2026-08-20.
+//
+// The owner: *"go analyze what other games in the genre have and go implement
+// all of that"*. The two things this game was missing from BOTH its genres
+// turned out to be the same thing.
+//
+// A roguelike with one hand-drawn level is a puzzle you solve once. An
+// incremental with no content tier is a shop with a last item — and this one
+// had a last item, and an ending that arrived at it. DEPTH is new ground to
+// map AND the next rung, so it is the first thing built.
+//
+// ⚠️ AND THE STAIR IS IN THE HOARD, which is the room the whole map points at
+// and the one fight you are not expected to win. So going deeper is a DASH you
+// have to earn, not a button on the shop screen.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** ★ Have you earned the stair? You have to be standing in the Hoard, alive.
+ *  ⚠️ NOT "cleared the Hoard" — that fight is unwinnable by design and gating
+ *  the whole rest of the game behind it would end the game at floor one. */
+export const canDescend = (g: Delve): boolean =>
+  !g.fallen && roomAt(g, g.at)?.kind === 'hoard';
+
+/** ★★★ HOW MUCH HARDER IT GETS. Guards read `deep`, which is the rank inside a
+ *  floor, so a floor's own depth is added on top: floor 3's first lair is as
+ *  bad as floor 1's third. Linear on purpose — the kit is linear too, and an
+ *  exponential wall on floor 4 is how an incremental stops being playable
+ *  before its own numbers get interesting. */
+export const HARDER = 2;
+export const deepness = (g: Delve, r: Room): number => r.deep + (g.floor - 1) * HARDER;
+
+/** ★ And what a floor pays. Deeper rooms are worth more, or there is no reason
+ *  to be down there rather than farming the floor you have already learned. */
+export const worth = (g: Delve, r: Room): number =>
+  Math.round(SPOIL[r.kind] * (1 + (g.floor - 1) * 0.6));

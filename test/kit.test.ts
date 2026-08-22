@@ -132,7 +132,7 @@ describe('★★★ A WEDGE CUTS THE EDGE', () => {
     expect(shut(g, 1, 3)).toBe(true);
     expect(shut(g, 3, 1)).toBe(true);                    // both ways, always
     expect(waysOut(g, 1)).not.toContain(3);
-    expect(doorsOf(1)).toContain(3);                     // the room still has it
+    expect(doorsOf(g, 1)).toContain(3);                     // the room still has it
     // ⚠️ AND IT SHUTS FOR YOU TOO. A wedge you can step through yourself is a
     // free win rather than a decision.
     expect(unwalkable(g, 3)).toBe('You wedged that door shut.');
@@ -142,8 +142,8 @@ describe('★★★ A WEDGE CUTS THE EDGE', () => {
     // The Warren (3) reaches the Broken Hall (1) through one door. Wedge it and
     // the only way is 3-5-6-4-2-1: five doors instead of one.
     const g = wedge(armed(), 3);
-    expect(stepToward(3, 1)).toBe(1);                                  // normally
-    expect(stepToward(3, 1, (a, b) => shut(g, a, b))).toBe(5);         // wedged
+    expect(stepToward(g, 3, 1)).toBe(1);                                  // normally
+    expect(stepToward(g, 3, 1, (a, b) => shut(g, a, b))).toBe(5);         // wedged
   });
 
   it('★★★ and a pack on the wrong side of it does not reach you', () => {
@@ -172,8 +172,9 @@ describe('★★★ A WEDGE CUTS THE EDGE', () => {
 
 describe('★★★ A WIDER LAMP IS A CHANGE TO THE FOG', () => {
   it('★★★ two doors of reveal instead of one', () => {
-    expect(within(1, 1).sort()).toEqual([0, 1, 2, 3]);
-    expect(within(1, 2).sort()).toEqual([0, 1, 2, 3, 4, 5]);
+    const g = initial();
+    expect(within(g, 1, 1).sort()).toEqual([0, 1, 2, 3]);
+    expect(within(g, 1, 2).sort()).toEqual([0, 1, 2, 3, 4, 5]);
     const dim = go(initial(), 1);
     expect(dim.seen).not.toContain(4);
     const wide = go(buy(flush(), 'lamp'), 1);

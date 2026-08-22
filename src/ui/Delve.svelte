@@ -20,11 +20,10 @@
   import { pack, unpack, toText, fromText, SAVE_KEY } from '../delve/save';
   import Crypt, { type Cell, type Pass } from './Crypt.svelte';
   import { LAMP } from '../game/ink';
-  import { ROOM, ROOMS } from '../delve/dungeon';
   import { apply, initial, doorsOf, unwalkable, unswingable, canLeave,
     facing, foesIn, actsOn, claimed, hallucinated, canSend, shut, waysOut,
     unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS, done, maxHp,
-    unshovable, toll, braced, REEL, CRAWL_HP,
+    unshovable, toll, braced, REEL, CRAWL_HP, roomAt, canDescend,
     type Delve, type Good } from '../delve/engine';
 
   let game = $state<Delve>(initial());
@@ -79,7 +78,7 @@
   /** ⚠️ ONLY WHAT THE DARK HAS GIVEN UP. A room you have never stood next to
    *  is not drawn at all — the shape of the dungeon is the thing you are
    *  learning, and drawing it all would be handing over the map. */
-  const lit = $derived(ROOMS.filter((r) => game.seen.includes(r.id)));
+  const lit = $derived(game.rooms.filter((r) => game.seen.includes(r.id)));
 
   /** ★★★ HOW MANY DOORS AWAY EACH LIT ROOM IS. The lamp reads this and
    *  nothing else — see `Crypt.svelte`: the light falls off in DOORS, not
@@ -90,7 +89,7 @@
     const queue = [game.at];
     for (let i = 0; i < queue.length; i++) {
       const here = queue[i]!;
-      for (const d of doorsOf(here)) {
+      for (const d of doorsOf(game, here)) {
         if (out.has(d) || !game.seen.includes(d)) continue;
         out.set(d, out.get(here)! + 1);
         queue.push(d);
@@ -102,7 +101,7 @@
   /** ★★★ WHAT THE CRAWLER SAYS IS THERE, minus what you have seen for
    *  yourself. These are drawn as claims — dashed, floorless, cold. */
   const told = $derived(claimed(game).filter((r) => !game.seen.includes(r)));
-  const drawn = $derived(ROOMS.filter((r) => lit.includes(r) || told.includes(r.id)));
+  const drawn = $derived(game.rooms.filter((r) => lit.includes(r) || told.includes(r.id)));
 
   const cells = $derived<Cell[]>(drawn.map((r) => ({
     id: r.id, name: r.name, x: r.x, y: r.y, w: r.w, h: r.h,
@@ -117,7 +116,7 @@
     // the truth here would quietly make its map reliable and delete the game.
     foes: told.includes(r.id) ? 0 : foesIn(game, r.id).length,
     cleared: game.cleared.includes(r.id),
-    open: doorsOf(game.at).includes(r.id) && unwalkable(game, r.id) === null,
+    open: doorsOf(game, game.at).includes(r.id) && unwalkable(game, r.id) === null,
     // ★★★ A WEDGED DOOR READS AS WEDGED. The passage is still drawn — you put
     // it there and you need to see what you cut — but it must never look like
     // a way you can take.
@@ -141,7 +140,7 @@
    *  you can afford is always the next thing down the list. */
   const stock: Good[] = ['wedges', 'edge', 'lamp', 'brace', 'vim'];
   /** Doors out of here you could still spend a wedge on. */
-  const wedgeable = $derived(doorsOf(game.at).filter((d) => unwedgeable(game, d) === null));
+  const wedgeable = $derived(doorsOf(game, game.at).filter((d) => unwedgeable(game, d) === null));
   /** ★★★ THE MOMENT YOU LEARN TO DISTRUST IT. Kept OUT of the engine on
    *  purpose: a refused action must stay refused — not a turn, not a state
    *  change — and there is a test holding `apply` to exactly that. So the
@@ -167,17 +166,17 @@
   });
 
   const onTap = (n: number): void => {
-    if (!ROOM.has(n)) return;
+    if (!roomAt(game, n)) return;
     // ★ TAPPING A DOOR IS WALKING THROUGH IT. One tap, not a tap and a
     // confirm — the owner's whole complaint was the button pressing.
     bunk = null;
     if (unwalkable(game, n) === null) { aim = null; act({ type: 'walk', to: n }); return; }
     if (invented.some(([a, b]) => (a === game.at && b === n) || (b === game.at && a === n))) {
-      bunk = `No door goes to ${ROOM.get(n)!.name}. The crawler drew one.`;
+      bunk = `No door goes to ${roomAt(game, n)!.name}. The crawler drew one.`;
     }
   };
 
-  const here = $derived(ROOM.get(game.at)!);
+  const here = $derived(roomAt(game, game.at)!);
   const line = $derived(facing(game));
   /** ★★★ WHO SWINGS ON THE TURN YOU ARE ABOUT TO TAKE. Everything the player
    *  needs to plan is this list, and it is knowable, so it is shown. */
@@ -197,7 +196,7 @@
   const mark = $derived(line.find((f) => f.id === aim) ?? null);
   /** Doors you could put the thing you are facing through. */
   const outs = $derived(mark
-    ? doorsOf(game.at).filter((d) => unshovable(game, mark.id, d) === null) : []);
+    ? doorsOf(game, game.at).filter((d) => unshovable(game, mark.id, d) === null) : []);
 </script>
 
 <main>
@@ -208,6 +207,7 @@
       </span>
       <span class="cell"><b>{game.purse}</b> <em>carried</em></span>
       <span class="cell"><b>{game.hoard}</b> <em>banked</em></span>
+      <span class="cell"><b>{game.floor}</b> <em>floor</em></span>
       <span class="cell"><b>{game.turn}</b> <em>turn</em></span>
     </div>
   </header>
@@ -219,9 +219,9 @@
     <div class="wire" class:gone={game.crawl.done}>
       <span class="tag">crawler</span>
       {#if game.crawl.done}
-        <span>lost in {ROOM.get(game.crawl.at)?.name}</span>
+        <span>lost in {roomAt(game, game.crawl.at)?.name}</span>
       {:else}
-        <span>{ROOM.get(game.crawl.at)?.name} · {game.crawl.hp}/{CRAWL_HP}</span>
+        <span>{roomAt(game, game.crawl.at)?.name} · {game.crawl.hp}/{CRAWL_HP}</span>
       {/if}
       <span class="split">
         {game.crawl.walked.length} walked · <b>{told.length}</b> claimed
@@ -277,7 +277,7 @@
         {#if mark && outs.length > 0}
           {#each outs as d (d)}
             <button class="deed push" onclick={() => { act({ type: 'shove', foe: mark.id, to: d }); aim = null; }}>
-              Shove {mark.name} into {ROOM.get(d)?.name}
+              Shove {mark.name} into {roomAt(game, d)?.name}
               <em>no damage · off its feet {REEL} turns · it has to walk back</em>
             </button>
           {/each}
@@ -300,11 +300,20 @@
           Hold
           <em>let the turn pass{#if cost > 0} · costs you {cost}{/if}</em>
         </button>
+        {#if canDescend(game)}
+          <!-- ★★★ THE STAIR IS IN THE HOARD, the one fight you are not meant
+               to win, so going deeper is a dash you earn rather than a button
+               on the shop screen. -->
+          <button class="deed down" onclick={() => act({ type: 'descend' })}>
+            Take the stair down
+            <em>floor {game.floor + 1} · banks {game.purse} on the way · a map you have never seen</em>
+          </button>
+        {/if}
         {#if game.kit.wedges > 0 && wedgeable.length > 0}
           <div class="cut">
             {#each wedgeable as d (d)}
               <button class="deed wedge" onclick={() => act({ type: 'wedge', to: d })}>
-                Wedge {ROOM.get(d)?.name}
+                Wedge {roomAt(game, d)?.name}
                 <em>shut {BAR_TURNS} turns · {game.kit.wedges} left</em>
               </button>
             {/each}
@@ -319,13 +328,13 @@
         </p>
       {:else}
         <p class="note">
-          {#if doorsOf(game.at).length === 1}one door{:else}{doorsOf(game.at).length} doors{/if}
+          {#if doorsOf(game, game.at).length === 1}one door{:else}{doorsOf(game, game.at).length} doors{/if}
           · tap a room to walk there
         </p>
         {#if game.kit.wedges > 0 && wedgeable.length > 0}
           {#each wedgeable as d (d)}
             <button class="deed wedge" onclick={() => act({ type: 'wedge', to: d })}>
-              Wedge {ROOM.get(d)?.name}
+              Wedge {roomAt(game, d)?.name}
               <em>shut {BAR_TURNS} turns · {game.kit.wedges} left</em>
             </button>
           {/each}
@@ -342,6 +351,12 @@
           Hold
           <em>let the dungeon move</em>
         </button>
+        {#if canDescend(game)}
+          <button class="deed down" onclick={() => act({ type: 'descend' })}>
+            Take the stair down
+            <em>floor {game.floor + 1} · banks {game.purse} on the way · a map you have never seen</em>
+          </button>
+        {/if}
         {#if canLeave(game)}
           <button class="deed" onclick={() => act({ type: 'leave' })}>
             Climb out
@@ -359,23 +374,24 @@
          on your map that you took somebody else's word for. -->
     {#if done(game)}
       <div class="won">
-        <h2>The map is true</h2>
+        <h2>Floor {game.floor} is true</h2>
         <p class="note">
-          Ten rooms, stood in, by you. Nothing on it is anyone else's word any
-          more — and the crawler's inventions are gone with the rest.
+          {game.rooms.length} rooms, stood in, by you. Nothing on this floor is
+          anyone else's word any more — and the crawler's inventions went with
+          the rest. There is a stair in the Hoard.
         </p>
         <p class="note dim">
           {game.turn} turns · {game.hoard} banked
           {#if game.crawl} · {game.crawl.walked.length} rooms it walked{/if}
         </p>
-        <p class="note dim">the dungeon is still down there. So is the Hoard.</p>
+        <p class="note dim">and it goes deeper than this.</p>
       </div>
     {/if}
     {#if game.at === 0 && !game.fallen}
       <div class="shop">
         <p class="note dim shead">
           the hoard · <b>{game.hoard}</b>
-          <span class="split">{game.trod.length}/{ROOMS.length} rooms stood in</span>
+          <span class="split">{game.trod.length}/{game.rooms.length} rooms stood in</span>
         </p>
         {#each stock as w (w)}
           <button class="deed buy" disabled={!affordable(game, w)}
@@ -421,7 +437,7 @@
   main { display: flex; flex-direction: column; height: 100dvh;
     background: var(--page); max-width: 520px; margin: 0 auto; }
   header { border-bottom: 1px solid var(--edge); }
-  .bar { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .bar { display: grid; grid-template-columns: repeat(5, 1fr); }
   .cell { display: flex; align-items: baseline; gap: 5px; justify-content: center;
     padding: 8px 4px; border-right: 1px solid var(--rule); }
   .cell:last-child { border-right: 0; }
@@ -450,6 +466,8 @@
     color: var(--clay); font-size: var(--t5); }
   .deed.buy:disabled .price { color: var(--off); }
   /* ★ Iron, the same as the bar the map draws across a door you wedged. */
+  .deed.down { border-color: #c2543c; background: #1a1109; }
+  .deed.down em { color: #d9755e; }
   .deed.wedge { border-color: #6d5a3a; }
   .deed.wedge em { color: #8a7a5c; }
   .cut { margin: 2px 0; }

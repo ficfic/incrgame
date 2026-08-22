@@ -40,10 +40,11 @@ describe('★★★ THE DUNGEON IS A GRAPH', () => {
   });
 
   it('★★★ and every room is reachable from the mouth', () => {
+    const g = initial();
     const seen = new Set([0]);
     const queue = [0];
     for (let i = 0; i < queue.length; i++) {
-      for (const d of doorsOf(queue[i]!)) if (!seen.has(d)) { seen.add(d); queue.push(d); }
+      for (const d of doorsOf(g, queue[i]!)) if (!seen.has(d)) { seen.add(d); queue.push(d); }
     }
     expect(seen.size).toBe(ROOMS.length);
   });
@@ -51,19 +52,21 @@ describe('★★★ THE DUNGEON IS A GRAPH', () => {
 
 describe('★★★ THE MONSTERS USE THE SAME GRAPH YOU DO', () => {
   it('★★★ a step toward you is one door along the shortest way', () => {
+    const g = initial();
     // The Hoard (9) back to the Mouth (0) runs 9-8-6-4-2-1-0.
-    expect(stepToward(9, 0)).toBe(8);
-    expect(stepToward(0, 9)).toBe(1);
-    expect(stepToward(3, 3)).toBeNull();
+    expect(stepToward(g, 9, 0)).toBe(8);
+    expect(stepToward(g, 0, 9)).toBe(1);
+    expect(stepToward(g, 3, 3)).toBeNull();
   });
 
   it('★★★ and it is a real path, not a guess — walking it arrives', () => {
     // ⚠️ THE PROPERTY THAT MAKES THE DANCE LEGIBLE. The player can count the
     // doors between them and the thing chasing them; if the chase used any
     // other route that count would be a lie.
+    const g = initial();
     let from = 9;
     let steps = 0;
-    while (from !== 0 && steps < 20) { from = stepToward(from, 0)!; steps++; }
+    while (from !== 0 && steps < 20) { from = stepToward(g, from, 0)!; steps++; }
     expect(from).toBe(0);
     expect(steps).toBeLessThanOrEqual(6);
   });
