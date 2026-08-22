@@ -87,25 +87,20 @@ export const ROOM = new Map(ROOMS.map((r) => [r.id, r]));
  *  back the way you came is a real cost. */
 export const WALK_SECS = 6;
 
-/** ★ What lives in a room, or null for somewhere already quiet. Strength
- *  climbs with depth; the shape of the line is the fight's whole texture. */
-export interface Guard { hp: number; bite: number; name: string }
+/** ★ What lives in a room, or null for somewhere already quiet.
+ *  ⚠️ THE LINE-UPS MOVED TO `bestiary.ts`, 2026-08-20. There were two monsters
+ *  and they were the same monster — three numbers apart — so a lair was an
+ *  arithmetic problem with two terms. What lives down here now has TRAITS, and
+ *  every one of them is a fact about the graph. */
+export type { Guard } from './bestiary';
+import { lairOf, hoardOf, wellOf, type Guard } from './bestiary';
 
-export const GUARDS: Record<RoomKind, ((deep: number) => Guard[]) | null> = {
+export const GUARDS: Record<RoomKind, ((deep: number) => Guard[] | null) | null> = {
   mouth: null,
   hall: null,
-  well: null,
-  // ⚠️ ONE LINE PER LAIR, and the numbers are deliberately small. A first
-  // slice wants fights you can lose in four taps, not in forty.
-  lair: (deep) => [
-    { hp: 4 + deep * 2, bite: 1 + Math.floor(deep / 2), name: 'a big one' },
-    { hp: 2 + deep, bite: 1, name: 'a runt' },
-  ],
-  hoard: (deep) => [
-    { hp: 10 + deep * 3, bite: 2 + Math.floor(deep / 2), name: 'the hoarder' },
-    { hp: 4 + deep, bite: 1, name: 'a runt' },
-    { hp: 4 + deep, bite: 1, name: 'a runt' },
-  ],
+  well: wellOf,
+  lair: lairOf,
+  hoard: hoardOf,
 };
 
 /** What a cleared room gives up. */

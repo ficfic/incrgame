@@ -24,7 +24,7 @@ const warren = (): Delve => go(go(initial(), 1), 3);
 /** One hand-made thing in room 3, so a rule can be read off a single number. */
 const alone = (over: Partial<Foe>): Delve => ({
   ...initial(), at: 3, seen: [0, 1, 2, 3, 5], cleared: [0], bred: 2,
-  foes: [{ id: 1, at: 3, from: 3, hp: 30, bite: 2, name: 'it', every: 2, reeling: 0, ...over }],
+  foes: [{ id: 1, at: 3, from: 3, hp: 30, bite: 2, name: 'it', breed: 'brute', every: 2, reeling: 0, ...over }],
 });
 
 describe('★★★ THE DUNGEON IS A GRAPH', () => {
@@ -86,7 +86,7 @@ describe('★★★ ONE ACTION IS ONE TURN', () => {
   });
 
   it('★★★ a foe acts on every `every`-th turn — the one number to read', () => {
-    const fast: Foe = { id: 1, at: 0, from: 0, hp: 1, bite: 1, name: 'x', every: 1, reeling: 0 };
+    const fast: Foe = { id: 1, at: 0, from: 0, hp: 1, bite: 1, name: 'x', breed: 'runt', every: 1, reeling: 0 };
     const slow: Foe = { ...fast, every: 2 };
     expect([1, 2, 3, 4].map((t) => actsOn(fast, t))).toEqual([true, true, true, true]);
     expect([1, 2, 3, 4].map((t) => actsOn(slow, t))).toEqual([false, true, false, true]);

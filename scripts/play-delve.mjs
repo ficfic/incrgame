@@ -193,6 +193,14 @@ console.log('  hit     :', `big ${bigBefore}→${bigAfter} · runt ${runtBefore}
 if (!(bigAfter < bigBefore)) misses.push('aiming did nothing — the swing still picks its own target');
 if (runtAfter !== runtBefore) misses.push('the swing hit something you did not aim at');
 
+// ★★★ AND IT SAYS WHAT IT DOES. ⚠️ THERE WERE TWO MONSTERS AND THEY WERE THE
+// SAME MONSTER — three numbers apart. A trait a player cannot READ is a trait
+// they find out about by dying, which on a bestiary is the whole failure mode.
+const traits = (await page.locator('.sq .trait').allTextContents()).map((s) => s.trim());
+console.log('  traits  :', traits.join(' | '));
+if (traits.length < 2) misses.push('the monsters do not say what they do');
+if (new Set(traits).size < 2) misses.push(`both monsters say the same thing: "${traits[0]}"`);
+
 console.log('\n★★★ AND YOU CAN PUT IT THROUGH A DOOR');
 // ⚠️ NO SECOND TAP. The aim STAYS on the thing you hit — you usually want to
 // keep hitting it — so tapping it again toggles the aim OFF and takes the

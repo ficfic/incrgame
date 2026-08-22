@@ -18,10 +18,11 @@
 // can outrun it — a step is free ground. A foe with `every: 1` trades evenly
 // and cannot be escaped in the open: you fight it, or you use the shape of
 // the graph against it. That is the Grimrock dance, made countable.
-import { GUARDS, SPOIL, type Room } from './dungeon';
+import { GUARDS, SPOIL, type Room, type Guard } from './dungeon';
+import { TRAITS, type Breed } from './bestiary';
 import { floorPlan } from './floors';
 
-export const DELVE_VERSION = 8;
+export const DELVE_VERSION = 9;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -40,6 +41,9 @@ export interface Foe {
   /** ★★★ IT ACTS ON EVERY `every`-th TURN. 1 is as fast as you; 2 is slow
    *  enough to walk away from. The one number a player has to read. */
   every: number;
+  /** ★★★ WHAT IT IS. Drives whether it chases, whether it can be shoved, and
+   *  whether it wakes the room next door — see `bestiary.ts`. */
+  breed: Breed;
   /** ★★★ SHOVED, AND STILL PICKING ITSELF UP. It takes no action on any turn
    *  up to and including this one. 0 means it is on its feet. */
   reeling: number;
@@ -144,9 +148,18 @@ export const shut = (g: Delve, a: number, b: number): boolean =>
 export const waysOut = (g: Delve, id: number): number[] =>
   doorsOf(g, id).filter((d) => !shut(g, id, d));
 
+/** ★★★ WHAT A ROOM FIELDS, if anything, at this depth.
+ *  ⚠️ ONE PLACE, AND NOT `GUARDS[kind] !== null`. That test asked whether a
+ *  KIND could ever hold something, which stopped being the same question the
+ *  moment a well started holding a lurker only past floor five: a shallow well
+ *  announced "something is already here" over an empty room AND stopped paying
+ *  out, because the pays-on-arrival rule keys off the same test. */
+export const guardsOf = (g: Delve, r: Room | undefined): Guard[] =>
+  (r ? GUARDS[r.kind]?.(deepness(g, r)) : null) ?? [];
+
 /** Is this room's guard still to be met? */
 export const held = (g: Delve, id: number): boolean =>
-  !g.cleared.includes(id) && GUARDS[roomAt(g, id)?.kind ?? 'hall'] !== null;
+  !g.cleared.includes(id) && guardsOf(g, roomAt(g, id)).length > 0;
 
 export const foesIn = (g: Delve, id: number): Foe[] =>
   g.foes.filter((f) => f.at === id && f.hp > 0);
@@ -278,12 +291,13 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
       // it is the good kind of price: not a fee, but a dungeon that is more
       // awake than it was, in rooms you have not reached yet.
       const r = roomAt(g, step)!;
-      const asleep = !g.cleared.includes(step) && GUARDS[r.kind] !== null
+      const asleep = !g.cleared.includes(step) && guardsOf(g, r).length > 0
         && !woken.some((f) => f.from === step);
       if (asleep) {
-        const born = (GUARDS[r.kind]?.(deepness(g, r)) ?? []).map((q, i) => ({
+        const born = guardsOf(g, r).map((q, i) => ({
           id: bred + i, at: step, from: step, hp: q.hp, bite: q.bite, name: q.name,
-          every: q.bite >= 2 ? 2 : 1, reeling: 0,
+          breed: q.breed,
+          every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1, reeling: 0,
         }));
         bred += born.length;
         woken = [...woken, ...born];
@@ -318,6 +332,10 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
       said.push(`${f.name} tears at the crawler.`);
       return f;
     }
+    // ★★★ A LURKER NEVER LEAVES ITS ROOM. Its room can simply be walked
+    // around, which turns "what is in there" into a routing question instead
+    // of a fight you have to take.
+    if (!TRAITS[f.breed].chases) return f;
     const step = stepToward(g, f.at, at, (x, y) => shut(g, x, y));
     if (step === null) return f;
     // ⚠️ IT IS ANNOUNCED. A thing arriving in your room is the single most
@@ -326,6 +344,32 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
     return { ...f, at: step };
   });
 
+  // ★★★ AND A HOWLER WAKES THE ROOM NEXT DOOR. Noise is the one thing that
+  // travels along an edge by itself: leave one alive and the floor lights up
+  // around you, one door a turn, until you are fighting three rooms at once.
+  // ⚠️ DETERMINISTIC — the lowest-numbered sleeping neighbour, every time. A
+  // random room would make the same fight unlearnable twice.
+  let woke = foes;
+  let grew = bred;
+  for (const f of foes) {
+    if (f.hp <= 0 || !TRAITS[f.breed].howls || !actsOn(f, turn)) continue;
+    if (f.at !== at && f.at !== from) continue;
+    const next = doorsOf(g, f.at)
+      .filter((d) => !g.cleared.includes(d) && guardsOf(g, roomAt(g, d)).length > 0
+        && !woke.some((x) => x.from === d))
+      .sort((a, b) => a - b)[0];
+    if (next === undefined) continue;
+    const room = roomAt(g, next)!;
+    const born = guardsOf(g, room).map((q, i) => ({
+      id: grew + i, at: next, from: next, hp: q.hp, bite: q.bite, name: q.name,
+      breed: q.breed, every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1, reeling: 0,
+    }));
+    grew += born.length;
+    woke = [...woke, ...born];
+    said.push(`${f.name} howls. Something answers in ${room.name}.`);
+  }
+
+  const all = woke;
   if (crawl && !crawl.done && chp <= 0) {
     // ⚠️ ITS REPORT STANDS. What it walked stays on your map after it dies —
     // that is the whole point of having sent it, and the next one you send
@@ -342,8 +386,8 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   let cleared = g.cleared;
   let purse = g.purse;
   for (const r of g.rooms) {
-    if (cleared.includes(r.id) || GUARDS[r.kind] === null) continue;
-    const mine = foes.filter((f) => f.from === r.id);
+    if (cleared.includes(r.id) || guardsOf(g, r).length === 0) continue;
+    const mine = all.filter((f) => f.from === r.id);
     if (mine.length > 0 && mine.every((f) => f.hp <= 0)) {
       cleared = [...cleared, r.id];
       purse += worth(g, r);
@@ -352,7 +396,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   }
 
   if (hp <= 0) {
-    return { ...g, turn, foes, cleared, crawl, bred, bars, hp: 0, purse: 0, fallen: true, at,
+    return { ...g, turn, foes: all, cleared, crawl, bred: grew, bars, hp: 0, purse: 0, fallen: true, at,
       log: LOG_LINES(said.reduce(LOG_LINES, g.log),
         'You go down in the dark. What you carried stays there.') };
   }
@@ -363,7 +407,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   // dungeon, be killed by the thing in it, and still have finished the game.
   // A map is only true if the surveyor came back to draw it.
   const trod = g.trod.includes(at) ? g.trod : [...g.trod, at];
-  return { ...g, turn, foes, cleared, purse, crawl, bred, bars, hp, at, trod,
+  return { ...g, turn, foes: all, cleared, purse, crawl, bred: grew, bars, hp, at, trod,
     log: said.reduce(LOG_LINES, g.log) };
 }
 
@@ -383,14 +427,15 @@ export function apply(g: Delve, a: Action): Delve {
       let bred = g.bred;
       // ★ A ROOM'S GUARD WAKES WHEN YOU FIRST WALK IN, once. After that it is
       // loose in the dungeon and its room is just a room.
-      const asleep = !g.cleared.includes(at) && GUARDS[r.kind] !== null
+      const asleep = !g.cleared.includes(at) && guardsOf(g, r).length > 0
         && !g.foes.some((f) => f.from === at);
       if (asleep) {
-        const born = (GUARDS[r.kind]?.(deepness(g, r)) ?? []).map((q, i) => ({
+        const born = guardsOf(g, r).map((q, i) => ({
           id: bred + i, at, from: at, hp: q.hp, bite: q.bite, name: q.name,
+          breed: q.breed,
           // ★ Heavier things are slower, and slow is what you can walk away
-          // from. `every: 2` for anything that hits hard.
-          every: q.bite >= 2 ? 2 : 1, reeling: 0,
+          // from — except a stalker, which is the whole point of a stalker.
+          every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1, reeling: 0,
         }));
         bred += born.length;
         foes = [...foes, ...born];
@@ -410,7 +455,7 @@ export function apply(g: Delve, a: Action): Delve {
       // A dead end that pays is the reason to walk a dead end.
       let cleared = g.cleared;
       let purse = g.purse;
-      if (!cleared.includes(at) && GUARDS[r.kind] === null && SPOIL[r.kind] > 0) {
+      if (!cleared.includes(at) && guardsOf(g, r).length === 0 && SPOIL[r.kind] > 0) {
         cleared = [...cleared, at];
         purse += worth(g, r);
         said.push(`Nothing down here but what was left. You take ${worth(g, r)}.`);
@@ -802,6 +847,9 @@ export function unshovable(g: Delve, foe: number, to: number): string | null {
   if (g.fallen) return 'You are done.';
   const mark = g.foes.find((f) => f.id === foe);
   if (!mark || mark.hp <= 0 || mark.at !== g.at) return 'Not here to shove.';
+  // ★★★ TOO HEAVY. The answer that works on everything else does not work on
+  // this, which is what stops shove being a universal solvent.
+  if (TRAITS[mark.breed].heavy) return `${mark.name} is too heavy to shove.`;
   if (!doorsOf(g, g.at).includes(to)) return 'No door leads there from here.';
   // ⚠️ AND NOT THROUGH A DOOR YOU WEDGED. The whole point of a wedge is that
   // the edge is gone; putting something through it would be using a cut door.

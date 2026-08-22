@@ -25,6 +25,7 @@
     unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS, done, maxHp,
     unshovable, toll, braced, REEL, CRAWL_HP, roomAt, canDescend,
     type Delve, type Good } from '../delve/engine';
+  import { TRAITS } from '../delve/bestiary';
 
   let game = $state<Delve>(initial());
   /** ⚠️ NOTHING IS WRITTEN UNTIL THE LOAD HAS FINISHED. The first draft saved
@@ -256,6 +257,12 @@
               <b>{q.hp}</b>
               <span class="nm">{q.name}</span>
               <em>bites {q.bite}{#if q.every > 1} · every {q.every}{/if}</em>
+              <!-- ★★★ WHAT IT DOES, not just what it hits for. A player has to
+                   be able to READ a thing they have not met before, rather
+                   than finding out by dying to it — and every trait down here
+                   is a fact about the graph, so it changes what you do next. -->
+              <em class="trait" class:warn={TRAITS[q.breed].heavy || TRAITS[q.breed].howls}>
+                {TRAITS[q.breed].says}</em>
               <span class="tick">
                 {q.reeling >= game.turn + 1 ? 'reeling'
                   : actsOn(q, game.turn + 1) ? 'swings next' : 'idle next'}
@@ -281,6 +288,9 @@
               <em>no damage · off its feet {REEL} turns · it has to walk back</em>
             </button>
           {/each}
+        {:else if mark}
+          <p class="note dim">{unshovable(game, mark.id, doorsOf(game, game.at)[0] ?? -1)
+            ?? 'nowhere to shove it'}</p>
         {:else if line.length > 1}
           <p class="note dim">tap one of them to aim, or to shove it through a door</p>
         {/if}
@@ -529,6 +539,9 @@
   .sq .nm { font-size: var(--t7); color: var(--soft); font-weight: 600; }
   .sq em { font-style: normal; font-size: var(--t8); color: var(--faint);
     text-align: center; }
+  .sq .trait { color: var(--dim); }
+  /* ★ The two traits that change what you can DO get the warning ink. */
+  .sq .trait.warn { color: #c2543c; font-weight: 700; }
   .tick { font-size: var(--t8); letter-spacing: .05em; text-transform: uppercase;
     color: var(--faint); }
   .sq.ready .tick { color: var(--clay); font-weight: 700; }
