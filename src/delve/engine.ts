@@ -21,9 +21,10 @@
 import { GUARDS, SPOIL, type Room, type Guard } from './dungeon';
 import { TRAITS, type Breed } from './bestiary';
 import { RELICS, wellHolds, type RelicId } from './relics';
+import { MARKS, NOTHING, earned, take, type Tally } from './records';
 import { floorPlan } from './floors';
 
-export const DELVE_VERSION = 10;
+export const DELVE_VERSION = 11;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -84,6 +85,13 @@ export interface Delve {
    *  somewhere you did not have to. Each one changes a RULE. Survives
    *  everything, including the stair down. */
   relics: RelicId[];
+  /** ★★★ WHAT THE GAME HAS COUNTED ABOUT YOU. An incremental is a game about a
+   *  curve and a player cannot feel a curve they cannot see. */
+  tally: Tally;
+  /** ★★★ MILESTONES CLAIMED. Not badges — each one is a permanent cut of
+   *  everything the dungeon pays, which is this game's only compounding
+   *  number. See `records.ts`. */
+  won: string[];
   /** ★★★ EVERY ROOM YOU HAVE PERSONALLY STOOD IN. Not `seen` — seen is what
    *  the lamp showed you from the doorway, and not `crawl.walked`, which is a
    *  machine's word. This is the one list in the game that is entirely, boringly
@@ -132,6 +140,8 @@ export const initial = (): Delve => ({
   // does; the shop sells the rest.
   kit: { wedges: START_WEDGES, lamp: 1, brace: 0, edge: 0, vim: 0 },
   relics: [],
+  tally: { ...NOTHING },
+  won: [],
   trod: [0],
   fallen: false,
   log: [],
@@ -405,7 +415,9 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   }
 
   if (hp <= 0) {
-    return { ...g, turn, foes: all, cleared, crawl, bred: grew, bars, hp: 0, purse: 0, fallen: true, at,
+    return { ...g, turn, foes: all, cleared, crawl, bred: grew, bars,
+      hp: 0, purse: 0, fallen: true, at,
+      tally: { ...g.tally, falls: g.tally.falls + 1 },
       log: LOG_LINES(said.reduce(LOG_LINES, g.log),
         'You go down in the dark. What you carried stays there.') };
   }
@@ -420,7 +432,53 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
     log: said.reduce(LOG_LINES, g.log) };
 }
 
+/** ★★★ WHAT THE GAME COUNTED THIS ACTION, and what that just earned you.
+ *
+ *  ⚠️ AT THE `apply` BOUNDARY, NOT INSIDE `theirTurn`. The first version counted
+ *  from inside the dungeon's turn, comparing against the state theirTurn had
+ *  been HANDED — which for a swing already had the corpse in it, so `kills`
+ *  read zero forever. The only state that can be compared against is the one
+ *  the player's action started from.
+ *
+ *  ⚠️ AND ONE PLACE, RE-CHECKED EVERY ACTION, over a state that is already
+ *  final. The alternative is an "on kill" hook and an "on bank" hook and an
+ *  "on reach floor" hook, and one of them not firing — the milestones are pure
+ *  predicates precisely so they cannot drift out of step with what they
+ *  describe. Cheap: ten predicates over a small object. */
+function counted(now: Delve, was: Delve): Delve {
+  const tally: Tally = {
+    ...now.tally,
+    // ★ Only if a turn actually passed. Buying and looking are not turns.
+    turns: now.tally.turns + (now.turn > was.turn ? 1 : 0),
+    // ⚠️ BY IDENTITY, NOT BY COUNTING CORPSES. Subtracting "dead before" from
+    // "dead after" goes NEGATIVE the moment a run resets and the foe list
+    // empties — a lifetime kill count that counts DOWN when you climb out.
+    // Which of them was alive and is now not is the only question that holds
+    // across a list being thrown away.
+    kills: now.tally.kills + was.foes.filter((f) =>
+      f.hp > 0 && (now.foes.find((x) => x.id === f.id)?.hp ?? f.hp) <= 0).length,
+    walked: now.tally.walked + (now.trod.length - was.trod.length),
+    deepest: Math.max(now.tally.deepest, now.floor),
+    lost: now.tally.lost
+      + (now.crawl?.done && !was.crawl?.done ? 1 : 0),
+  };
+  const got = earned({ ...now, tally });
+  if (got.length === 0) return { ...now, tally };
+  const named = got.map((id) => MARKS.find((m) => m.id === id)!.name);
+  return { ...now, tally, won: [...now.won, ...got],
+    // ★ SAID OUT LOUD, because a permanent raise nobody notices is a number
+    // that may as well not exist.
+    log: LOG_LINES(now.log, `${named.join(' · ')}. Everything pays more now.`) };
+}
+
 export function apply(g: Delve, a: Action): Delve {
+  const out = act(g, a);
+  // ⚠️ A REFUSED ACTION IS STILL REFUSED. `act` returns the same object when it
+  // will not do a thing, and counting must not turn that into a state change.
+  return out === g ? g : counted(out, g);
+}
+
+function act(g: Delve, a: Action): Delve {
   if (g.fallen && a.type !== 'leave') return g;
   switch (a.type) {
     case 'walk': {
@@ -529,6 +587,8 @@ export function apply(g: Delve, a: Action): Delve {
       // is gone, because it is not that floor any more.
       const floor = g.floor + 1;
       return { ...descend({ ...g, hoard: g.hoard + g.purse }), floor,
+        tally: { ...g.tally, banked: g.tally.banked + g.purse,
+          delves: g.tally.delves + 1, deepest: Math.max(g.tally.deepest, floor) },
         rooms: floorPlan(floor),
         seen: [0, ...(floorPlan(floor)[0]?.doors ?? [])],
         trod: [0],
@@ -566,7 +626,8 @@ export function apply(g: Delve, a: Action): Delve {
         at: 0, hp: CRAWL_HP + g.kit.brace * BRACE_HP, walked: g.crawl?.walked ?? [0],
         turns: 0, done: false,
       };
-      return theirTurn({ ...g, crawl }, ['You send a crawler down.'], g.at);
+      return theirTurn({ ...g, crawl, tally: { ...g.tally, sent: g.tally.sent + 1 } },
+        ['You send a crawler down.'], g.at);
     }
 
     case 'wedge': {
@@ -612,6 +673,7 @@ export function apply(g: Delve, a: Action): Delve {
       }
       if (!canLeave(g)) return g;
       return { ...descend(g), hoard: g.hoard + g.purse,
+        tally: { ...g.tally, banked: g.tally.banked + g.purse, delves: g.tally.delves + 1 },
         log: LOG_LINES(g.log, g.purse > 0
           ? `You climb out with ${g.purse}. The dark closes behind you.`
           : 'You climb out with nothing.') };
@@ -865,6 +927,8 @@ export const descend = (g: Delve): Delve => ({
   hoard: g.hoard,
   kit: g.kit,
   relics: g.relics,
+  tally: g.tally,
+  won: g.won,
   crawl: g.crawl,
   floor: g.floor,
   rooms: g.rooms,
@@ -936,7 +1000,7 @@ export const deepness = (g: Delve, r: Room): number => r.deep + (g.floor - 1) * 
 /** ★ And what a floor pays. Deeper rooms are worth more, or there is no reason
  *  to be down there rather than farming the floor you have already learned. */
 export const worth = (g: Delve, r: Room): number =>
-  Math.round(SPOIL[r.kind] * (1 + (g.floor - 1) * 0.6));
+  Math.round(SPOIL[r.kind] * (1 + (g.floor - 1) * 0.6) * take(g));
 
 /** ★ How long a wedge holds, with what you are carrying. */
 export const barTurns = (g: Delve): number =>

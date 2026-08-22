@@ -74,13 +74,19 @@ describe('★★★ A RUN IS A RUN — the dark closes behind you', () => {
     // costing 172. The ratchet could not physically be turned to the end. It
     // only showed up when the prices were written down beside the spoils.
     const first = raid(initial());
-    expect(first.hoard).toBe(SPOIL.lair);
+    // ⚠️ AT LEAST. The first kill claims "First blood", so the room's payout is
+    // already multiplied by the time the second one goes down.
+    expect(first.hoard).toBeGreaterThanOrEqual(SPOIL.lair);
     expect(first.cleared).toEqual([0]);          // the dark closed behind you
     expect(first.foes).toEqual([]);
     expect(first.at).toBe(0);
     expect(first.hp).toBe(START_HP);
+    // ★★★ AND IT PAYS MORE THE SECOND TIME. Clearing that first room claimed
+    // "First blood", and a milestone is a permanent cut of everything the
+    // dungeon pays from then on — the only compounding number in the game.
     const second = raid(first);
-    expect(second.hoard).toBe(SPOIL.lair * 2);   // and it pays again
+    expect(second.hoard).toBeGreaterThan(first.hoard);
+    expect(second.won).toContain('first');
   });
 
   it('★★★ what you OWN and KNOW crosses the threshold; the purse does not', () => {

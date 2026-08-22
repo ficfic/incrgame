@@ -133,11 +133,13 @@ describe('★★★ AND WHAT LIVES WHERE CHANGES AS YOU GO DOWN', () => {
     const well = go(go(go(go(initial(), 1), 3), 5), 7);
     expect(well.purse).toBeGreaterThan(0);
     expect(facing(well).length).toBe(0);
-    // ⚠️ THE LAST TWO LINES, NOT THE WHOLE LOG. Scanning all of it caught the
-    // Rat Warren announcing its guard four rooms earlier and failed a test
-    // about the well — a check that reads the wrong thing is worse than none.
-    expect(well.log.slice(-2).join(' ')).toMatch(/Nothing down here but what was left/);
-    expect(well.log.slice(-2).join(' ')).not.toMatch(/Something is already here/);
+    // ⚠️ THE WELL'S OWN LINES, NOT THE WHOLE LOG — scanning all of it caught
+    // the Rat Warren announcing its guard four rooms earlier. And not the LAST
+    // two either: arriving now also finds a relic and claims two milestones,
+    // which pushed the payout line out of the tail.
+    expect(well.log.join(' ')).toMatch(/Nothing down here but what was left/);
+    const arrival = well.log.slice(well.log.lastIndexOf('Drowned Well.'));
+    expect(arrival.join(' ')).not.toMatch(/Something is already here/);
   });
 
   it('★ and the hoard is always the worst room on the floor', () => {

@@ -602,6 +602,27 @@ await page.evaluate(() => { document.querySelector('.panel').scrollTop = 0; });
 await page.waitForTimeout(150);
 await page.screenshot({ path: 'play-end.png' });
 
+console.log('\n★★★ AND THE GAME KEEPS A RECORD');
+// ⚠️ AN INCREMENTAL IS A GAME ABOUT A CURVE, and a player cannot feel a curve
+// they cannot see. Milestones here are not badges either — each is a permanent
+// cut of everything the dungeon pays, which is the only compounding number in
+// the game.
+await page.locator('.rec summary').click();
+await page.waitForTimeout(150);
+const rec = await flat('.rec');
+console.log('  record  :', `"${rec.slice(0, 100)}"`);
+for (const want of ['delves', 'deepest floor', 'ever banked', 'crawlers lost']) {
+  if (!rec.includes(want)) misses.push(`the record does not show "${want}"`);
+}
+const mult = rec.match(/×([\d.]+)/)?.[1];
+console.log('  pays    :', `×${mult}`);
+// ★★★ AND THE MULTIPLIER HAS MOVED. This probe has already cleared a room and
+// banked, so a game still paying ×1.00 means milestones are decoration.
+if (!(Number(mult) > 1)) misses.push(`nothing has been earned: still paying ×${mult}`);
+const got = await page.locator('.note.mark.got').count();
+console.log('  earned  :', `${got} of ${await page.locator('.note.mark').count()}`);
+if (got < 1) misses.push('no milestone was claimed by a full raid');
+
 console.log('\n★★★ AND THERE IS SOMETHING TO FIND');
 // ⚠️ A CRAWLER WITH NO LOOT IS A CORRIDOR WITH A SHOP AT THE END. Everything
 // this game gave you, you BOUGHT — and a price list is a plan, not a

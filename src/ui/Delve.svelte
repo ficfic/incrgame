@@ -27,6 +27,7 @@
     type Delve, type Good } from '../delve/engine';
   import { TRAITS } from '../delve/bestiary';
   import { RELICS } from '../delve/relics';
+  import { MARKS, take, CUT } from '../delve/records';
 
   let game = $state<Delve>(initial());
   /** ⚠️ NOTHING IS WRITTEN UNTIL THE LOAD HAS FINISHED. The first draft saved
@@ -422,6 +423,33 @@
       </div>
     {/if}
     {#if game.at === 0 && !game.fallen}
+      <!-- ★★★ THE RECORDS. An incremental is a game about a curve and a player
+           cannot feel a curve they cannot see; and genre milestones are not
+           badges, they are the second progression track — each one is a
+           permanent cut of everything the dungeon pays. -->
+      <details class="rec">
+        <summary>
+          the record · <b>{game.won.length}/{MARKS.length}</b> ·
+          everything pays <b>×{take(game).toFixed(2)}</b>
+        </summary>
+        <div class="grid">
+          <span><b>{game.tally.delves}</b> delves</span>
+          <span><b>{game.tally.falls}</b> falls</span>
+          <span><b>{game.tally.kills}</b> put down</span>
+          <span><b>{game.tally.deepest}</b> deepest floor</span>
+          <span><b>{game.tally.walked}</b> rooms stood in</span>
+          <span><b>{game.tally.turns}</b> turns</span>
+          <span><b>{game.tally.banked}</b> ever banked</span>
+          <span><b>{game.tally.sent}</b> crawlers sent</span>
+          <span><b>{game.tally.lost}</b> crawlers lost</span>
+        </div>
+        {#each MARKS as m (m.id)}
+          <p class="note mark" class:got={game.won.includes(m.id)}>
+            <b>{m.name}</b> — {m.says}
+            {#if game.won.includes(m.id)}<em>+{Math.round(CUT * 100)}%</em>{/if}
+          </p>
+        {/each}
+      </details>
       <div class="shop">
         <p class="note dim shead">
           the hoard · <b>{game.hoard}</b>
@@ -500,6 +528,17 @@
     color: var(--clay); font-size: var(--t5); }
   .deed.buy:disabled .price { color: var(--off); }
   /* ★ Iron, the same as the bar the map draws across a door you wedged. */
+  .rec { margin: 10px 0 4px; border-top: 1px solid var(--rule); padding-top: 6px; }
+  .rec summary { font-size: var(--t8); text-transform: uppercase;
+    letter-spacing: .1em; color: var(--dim); padding: 4px 0; cursor: pointer; }
+  .rec summary b { color: #f0cf87; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 10px;
+    font-size: var(--t7); color: var(--faint); margin: 6px 0 10px; }
+  .grid b { color: var(--ink); font-weight: 700; }
+  .note.mark { color: var(--off); margin: 3px 0; }
+  .note.mark.got { color: var(--faint); }
+  .note.mark.got b { color: #f0cf87; }
+  .note.mark em { font-style: normal; color: var(--moss); font-weight: 700; }
   .kept { margin: 8px 0; border-top: 1px solid var(--rule); padding-top: 6px; }
   .note.relic { color: var(--faint); }
   .note.relic b { color: #a8c4d0; font-weight: 700; }
