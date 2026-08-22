@@ -20,9 +20,10 @@
 // the graph against it. That is the Grimrock dance, made countable.
 import { GUARDS, SPOIL, type Room, type Guard } from './dungeon';
 import { TRAITS, type Breed } from './bestiary';
+import { RELICS, wellHolds, type RelicId } from './relics';
 import { floorPlan } from './floors';
 
-export const DELVE_VERSION = 9;
+export const DELVE_VERSION = 10;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -79,6 +80,10 @@ export interface Delve {
   bars: Bar[];
   /** What the hoard has bought. Survives dying; that is the whole ratchet. */
   kit: Kit;
+  /** ★★★ WHAT YOU HAVE FOUND. Not bought — found, in the wells, by walking
+   *  somewhere you did not have to. Each one changes a RULE. Survives
+   *  everything, including the stair down. */
+  relics: RelicId[];
   /** ★★★ EVERY ROOM YOU HAVE PERSONALLY STOOD IN. Not `seen` — seen is what
    *  the lamp showed you from the doorway, and not `crawl.walked`, which is a
    *  machine's word. This is the one list in the game that is entirely, boringly
@@ -126,6 +131,7 @@ export const initial = (): Delve => ({
   // walk, swing, walk home. You are handed enough to find out what a wedge
   // does; the shop sells the rest.
   kit: { wedges: START_WEDGES, lamp: 1, brace: 0, edge: 0, vim: 0 },
+  relics: [],
   trod: [0],
   fallen: false,
   log: [],
@@ -247,6 +253,9 @@ export type Action =
   | { type: 'wedge'; to: number }
   /** ★★★ Take the stair down from the Hoard. A whole new floor. */
   | { type: 'descend' }
+  /** ★★★ Ring the bell at a door. Wakes what is through it, and it comes to
+   *  YOU — so you pick the ground. One turn. */
+  | { type: 'ring'; at: number }
   /** Spend the hoard at the Mouth. Not a turn. */
   | { type: 'buy'; what: Good }
   /** Climb out with what you carry. Not a turn — you are leaving. */
@@ -435,7 +444,10 @@ export function apply(g: Delve, a: Action): Delve {
           breed: q.breed,
           // ★ Heavier things are slower, and slow is what you can walk away
           // from — except a stalker, which is the whole point of a stalker.
-          every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1, reeling: 0,
+          every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1,
+          // ★ FELT BOOTS: it is a turn behind you. A lair stops being a toll
+          // you pay on the way in and starts being a room you can look at.
+          reeling: g.relics.includes('boots') ? g.turn + 1 : 0,
         }));
         bred += born.length;
         foes = [...foes, ...born];
@@ -460,7 +472,19 @@ export function apply(g: Delve, a: Action): Delve {
         purse += worth(g, r);
         said.push(`Nothing down here but what was left. You take ${worth(g, r)}.`);
       }
-      return theirTurn({ ...g, at, seen, foes, bred, cleared, purse }, said, g.at);
+      // ★★★ AND WHAT IS ACTUALLY WORTH THE WALK. A well is a dead end off the
+      // road to the Hoard, so putting the loot in it pays the one behaviour a
+      // game about mapping should be paying for: going somewhere you did not
+      // have to.
+      let relics = g.relics;
+      if (r.kind === 'well') {
+        const found = wellHolds(g.floor, relics);
+        if (found !== null) {
+          relics = [...relics, found];
+          said.push(`${RELICS[found].name}. ${RELICS[found].says}.`);
+        }
+      }
+      return theirTurn({ ...g, at, seen, foes, bred, cleared, purse, relics }, said, g.at);
     }
 
     case 'strike': {
@@ -516,6 +540,18 @@ export function apply(g: Delve, a: Action): Delve {
           `You take the stair down. Floor ${floor}: ${floorPlan(floor).length} rooms, and none of them yours.`) };
     }
 
+    case 'ring': {
+      if (unringable(g, a.at) !== null) return g;
+      const room = roomAt(g, a.at)!;
+      const born = guardsOf(g, room).map((q, i) => ({
+        id: g.bred + i, at: a.at, from: a.at, hp: q.hp, bite: q.bite, name: q.name,
+        breed: q.breed, every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1,
+        reeling: 0,
+      }));
+      return theirTurn({ ...g, foes: [...g.foes, ...born], bred: g.bred + born.length },
+        [`You ring the bell at ${room.name}. It hears you.`], g.at);
+    }
+
     case 'brace': {
       if (g.fallen) return g;
       return theirTurn(g, ['You get behind your arm.'], g.at, true);
@@ -536,10 +572,10 @@ export function apply(g: Delve, a: Action): Delve {
     case 'wedge': {
       if (unwedgeable(g, a.to) !== null) return g;
       const lo = Math.min(g.at, a.to), hi = Math.max(g.at, a.to);
-      const bars = [...g.bars, { a: lo, b: hi, until: g.turn + 1 + BAR_TURNS }];
+      const bars = [...g.bars, { a: lo, b: hi, until: g.turn + 1 + barTurns(g) }];
       const kit = { ...g.kit, wedges: g.kit.wedges - 1 };
       return theirTurn({ ...g, bars, kit }, [
-        `You wedge the door to ${roomAt(g, a.to)?.name}. ${BAR_TURNS} turns.`,
+        `You wedge the door to ${roomAt(g, a.to)?.name}. ${barTurns(g)} turns.`,
       ], g.at);
     }
 
@@ -828,6 +864,7 @@ export const descend = (g: Delve): Delve => ({
   ...initial(),
   hoard: g.hoard,
   kit: g.kit,
+  relics: g.relics,
   crawl: g.crawl,
   floor: g.floor,
   rooms: g.rooms,
@@ -900,3 +937,18 @@ export const deepness = (g: Delve, r: Room): number => r.deep + (g.floor - 1) * 
  *  to be down there rather than farming the floor you have already learned. */
 export const worth = (g: Delve, r: Room): number =>
   Math.round(SPOIL[r.kind] * (1 + (g.floor - 1) * 0.6));
+
+/** ★ How long a wedge holds, with what you are carrying. */
+export const barTurns = (g: Delve): number =>
+  BAR_TURNS * (g.relics.includes('spike') ? 2 : 1);
+
+export function unringable(g: Delve, at: number): string | null {
+  if (g.fallen) return 'You are done.';
+  if (!g.relics.includes('bell')) return 'You have no bell.';
+  if (!doorsOf(g, g.at).includes(at)) return 'No door leads there from here.';
+  if (shut(g, g.at, at)) return 'That door is wedged shut.';
+  if (g.cleared.includes(at)) return 'Nothing left in there to hear it.';
+  if (guardsOf(g, roomAt(g, at)).length === 0) return 'Nothing in there to hear it.';
+  if (g.foes.some((f) => f.from === at)) return 'Already awake.';
+  return null;
+}

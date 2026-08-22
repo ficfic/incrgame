@@ -23,9 +23,10 @@
   import { apply, initial, doorsOf, unwalkable, unswingable, canLeave,
     facing, foesIn, actsOn, claimed, hallucinated, canSend, shut, waysOut,
     unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS, done, maxHp,
-    unshovable, toll, braced, REEL, CRAWL_HP, roomAt, canDescend,
+    unshovable, toll, braced, REEL, CRAWL_HP, roomAt, canDescend, unringable, barTurns,
     type Delve, type Good } from '../delve/engine';
   import { TRAITS } from '../delve/bestiary';
+  import { RELICS } from '../delve/relics';
 
   let game = $state<Delve>(initial());
   /** ⚠️ NOTHING IS WRITTEN UNTIL THE LOAD HAS FINISHED. The first draft saved
@@ -133,7 +134,10 @@
         ghost: told.includes(r.id) || told.includes(d) }))),
     // ★★★ AND THE DOORS THAT DO NOT EXIST. The crawler joins up rooms that are
     // merely near each other on its map. Tapping one is how you find out.
-    ...hallucinated(game).map(([a, b]) => ({ a, b, ghost: true })),
+    // ★ THE CHALK marks them rather than removing them: the lie stays on the
+    //   map, you just get to see which half of it is a lie.
+    ...hallucinated(game).map(([a, b]) => ({ a, b, ghost: true,
+      fake: game.relics.includes('chalk') })),
   ]);
 
   const invented = $derived(hallucinated(game));
@@ -295,6 +299,12 @@
           <p class="note dim">tap one of them to aim, or to shove it through a door</p>
         {/if}
 
+        {#each doorsOf(game, game.at).filter((d) => unringable(game, d) === null) as d (d)}
+          <button class="deed ring" onclick={() => act({ type: 'ring', at: d })}>
+            Ring the bell at {roomAt(game, d)?.name}
+            <em>wake it here, on ground you picked</em>
+          </button>
+        {/each}
         <button class="deed guard" onclick={() => act({ type: 'brace' })}>
           Brace
           <!-- ⚠️ "take 1 instead of 1" IS TRUE AND READS AS A BUG. Halving
@@ -324,7 +334,7 @@
             {#each wedgeable as d (d)}
               <button class="deed wedge" onclick={() => act({ type: 'wedge', to: d })}>
                 Wedge {roomAt(game, d)?.name}
-                <em>shut {BAR_TURNS} turns · {game.kit.wedges} left</em>
+                <em>shut {barTurns(game)} turns · {game.kit.wedges} left</em>
               </button>
             {/each}
           </div>
@@ -345,10 +355,16 @@
           {#each wedgeable as d (d)}
             <button class="deed wedge" onclick={() => act({ type: 'wedge', to: d })}>
               Wedge {roomAt(game, d)?.name}
-              <em>shut {BAR_TURNS} turns · {game.kit.wedges} left</em>
+              <em>shut {barTurns(game)} turns · {game.kit.wedges} left</em>
             </button>
           {/each}
         {/if}
+        {#each doorsOf(game, game.at).filter((d) => unringable(game, d) === null) as d (d)}
+          <button class="deed ring" onclick={() => act({ type: 'ring', at: d })}>
+            Ring the bell at {roomAt(game, d)?.name}
+            <em>wake it here, on ground you picked</em>
+          </button>
+        {/each}
         {#if canSend(game)}
           <button class="deed send" onclick={() => act({ type: 'send' })}>
             Send a crawler down
@@ -395,6 +411,14 @@
           {#if game.crawl} · {game.crawl.walked.length} rooms it walked{/if}
         </p>
         <p class="note dim">and it goes deeper than this.</p>
+      </div>
+    {/if}
+    {#if game.relics.length > 0}
+      <div class="kept">
+        <p class="note dim shead">carried</p>
+        {#each game.relics as r (r)}
+          <p class="note relic"><b>{RELICS[r].name}</b> — {RELICS[r].says}</p>
+        {/each}
       </div>
     {/if}
     {#if game.at === 0 && !game.fallen}
@@ -476,6 +500,11 @@
     color: var(--clay); font-size: var(--t5); }
   .deed.buy:disabled .price { color: var(--off); }
   /* ★ Iron, the same as the bar the map draws across a door you wedged. */
+  .kept { margin: 8px 0; border-top: 1px solid var(--rule); padding-top: 6px; }
+  .note.relic { color: var(--faint); }
+  .note.relic b { color: #a8c4d0; font-weight: 700; }
+  .deed.ring { border-color: #4d6b78; }
+  .deed.ring em { color: #7f9aa6; }
   .deed.down { border-color: #c2543c; background: #1a1109; }
   .deed.down em { color: #d9755e; }
   .deed.wedge { border-color: #6d5a3a; }

@@ -41,7 +41,11 @@
     /** ★★★ AN EDGE THAT IS NOT IN THE GRAPH RIGHT NOW. Drawn as the passage it
      *  is, with the door struck through — the whole value of a wedge is that
      *  you can SEE the shape you just cut and count the way round. */
-    cut?: boolean }
+    cut?: boolean;
+    /** ★★★ THE CRAWLER INVENTED THIS ONE, and you are carrying the chalk that
+     *  says so. Marked, not removed — the lie stays on the map, you just get
+     *  to see it. */
+    fake?: boolean }
 
   let { cells, passes, onTap, label = 'dungeon',
         crawlAt = null, shock = 0, float = null }:
@@ -255,8 +259,9 @@
     }
 
     const road = passes
-      .map((p) => ({ a: at(p.a), b: at(p.b), ghost: !!p.ghost, cut: !!p.cut }))
-      .filter((p): p is { a: Cell; b: Cell; ghost: boolean; cut: boolean } => !!p.a && !!p.b);
+      .map((p) => ({ a: at(p.a), b: at(p.b), ghost: !!p.ghost, cut: !!p.cut, fake: !!p.fake }))
+      .filter((p): p is { a: Cell; b: Cell; ghost: boolean; cut: boolean; fake: boolean } =>
+        !!p.a && !!p.b);
 
     // 2a ── ★★★ WHAT THE CRAWLER SAYS CONNECTS. Dashed, thin, unlit: a line on
     // a chart and deliberately NOT a cut through rock, because some of these
@@ -265,7 +270,11 @@
     ctx.setLineDash([5, 5]);
     ctx.lineWidth = 1.4;
     ctx.strokeStyle = STONE.claim;
-    for (const { a, b } of road.filter((p) => p.ghost)) {
+    for (const { a, b, fake } of road.filter((p) => p.ghost)) {
+      // ★★★ THE CHALK. A door the crawler made up is struck through in its own
+      // cold ink — still drawn, still its claim, but you can tell now.
+      ctx.setLineDash(fake ? [2, 4] : [5, 5]);
+      ctx.strokeStyle = fake ? '#3d5b66' : STONE.claim;
       // ⚠️ WALL TO WALL, NOT CENTRE TO CENTRE. Drawn between centres these
       // ploughed straight across the chambers they connect, which looked wrong
       // and also filled every reported room's middle with dashes — enough to
@@ -274,6 +283,26 @@
       const [ax, ay] = doorway(a, b.x, b.y);
       const [bx, by] = doorway(b, a.x, a.y);
       ctx.beginPath(); ctx.moveTo(sx(ax), sy(ay)); ctx.lineTo(sx(bx), sy(by)); ctx.stroke();
+      if (fake) {
+        const mx = (sx(ax) + sx(bx)) / 2, my = (sy(ay) + sy(by)) / 2;
+        const r = Math.max(3, 4.5 * k);
+        // ⚠️ CHALK-COLOURED, AND NOT A DARKER BLUE. The first version drew the
+        // cross in #2e4750 — which is what a dashed CLAIM line blends to
+        // against the rock when it is anti-aliased. So it was nearly invisible
+        // on the phone AND the probe counting those pixels was really counting
+        // anti-aliasing: the sabotage that stopped marking anything at all
+        // stayed green. A mark that means "this is a lie" has to be the most
+        // legible thing on the line.
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#e8dcc4';
+        ctx.lineWidth = Math.max(1.8, 2.4 * k);
+        ctx.beginPath();
+        ctx.moveTo(mx - r, my - r); ctx.lineTo(mx + r, my + r);
+        ctx.moveTo(mx + r, my - r); ctx.lineTo(mx - r, my + r);
+        ctx.stroke();
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = STONE.claim;
+      }
     }
     ctx.setLineDash([]);
 

@@ -602,6 +602,48 @@ await page.evaluate(() => { document.querySelector('.panel').scrollTop = 0; });
 await page.waitForTimeout(150);
 await page.screenshot({ path: 'play-end.png' });
 
+console.log('\n★★★ AND THERE IS SOMETHING TO FIND');
+// ⚠️ A CRAWLER WITH NO LOOT IS A CORRIDOR WITH A SHOP AT THE END. Everything
+// this game gave you, you BOUGHT — and a price list is a plan, not a
+// discovery. The relics are in the WELLS, which are dead ends off the road to
+// the Hoard, so the game pays you for walking somewhere you did not have to.
+await freshStart();
+for (const room of ['Broken Hall', 'Rat Warren', 'Gallery', 'Drowned Well']) {
+  if (/went down/.test(await panel())) break;
+  await walk(room);
+}
+const carried = (await page.locator('.note.relic').allTextContents())
+  .map((s) => s.replace(/\s+/g, ' ').trim());
+console.log('  found   :', carried.join(' | ') || 'nothing');
+if (carried.length < 1) misses.push('the well held nothing — there is no loot in the game');
+if (!/chalk/i.test(carried.join(' '))) misses.push('the first relic is not the chalk');
+// ★★★ AND IT SAYS WHAT RULE IT CHANGES. A relic that gave +2 damage would be a
+// shop item you had to walk further for; these turn rules off.
+if (!/invented/.test(carried.join(' '))) misses.push('the relic does not say what it does');
+
+// ★★★ THE CHALK ANSWERS THE CENTRAL LIE. Send a crawler and the doors it makes
+// up must now be MARKED — still drawn, still its claim, but legible as one.
+const inked = async () => page.evaluate(() => {
+  const cv = document.querySelector('.crypt canvas');
+  const { data } = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height);
+  let n = 0;
+  // ⚠️ CHALK, AND NOTHING ELSE DOWN HERE IS THIS COLOUR. The first version of
+  // this counted a dark blue #2e4750 — which is exactly what an anti-aliased
+  // dashed CLAIM line blends to against the rock, so it was counting
+  // anti-aliasing and the sabotage that marked nothing sailed through.
+  for (let i = 0; i < data.length; i += 4) {
+    if (Math.abs(data[i] - 0xe8) < 14 && Math.abs(data[i + 1] - 0xdc) < 14
+      && Math.abs(data[i + 2] - 0xc4) < 14) n++;
+  }
+  return n;
+});
+for (const room of ['Gallery', 'Rat Warren', 'Broken Hall', 'The Mouth']) await walk(room);
+await press('Send a crawler');
+for (let i = 0; i < 3; i++) await press('Hold');
+const marks = await inked();
+console.log('  chalked :', `${marks} pixels of struck-through door`);
+if (marks < 20) misses.push(`the chalk marks nothing — invented doors still look real (${marks}px)`);
+
 console.log('\n★★★ AND IT GOES DEEPER');
 // ⚠️ THE GENRE PASS, DRIVEN WITH A THUMB. A roguelike with one hand-drawn
 // level is a puzzle you solve once and an incremental with no content tier is
