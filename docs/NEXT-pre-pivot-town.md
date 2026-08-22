@@ -1,0 +1,1807 @@
+> ## ⚠️ RETIRED, 2026-08-19 — THIS IS THE TOWN'S QUEUE, AND THE TOWN IS GONE.
+> Everything below was written for the pre-pivot valley/camp game. It is kept
+> because it records a five-agent review round and what came of it, not because
+> any of it is work. **`docs/NEXT.md` is the queue.**
+
+# NEXT — the queue
+
+## ★★★ THE REVIEW ROUND, 2026-08-16 — five agents, harshly
+
+The owner: *"run agents first to harshly critique and then refine based on
+their feedback."* `the-owner`, `the-redditor`, `chad-liquidity`, `the-graph`
+and `the-process` all ran with no knowledge of each other. They found more
+than a refinement pass would have, including **two shipped features that did
+not work at all**.
+
+**✅ Fixed and deployed the same day** — the unreachable works door; Sawpits
+deleting a site's output; a meeting taking the board hostage; the map jumping
+23px on every tap; an idle mill training milling; dead buttons on the Hero
+sheet; five save-door holes (sweep/volley discarding a whole fight, retaken
+ground, an unvalidated levy, an unbounded meet index, `legacy.xp`); trades
+now persist across a valley (brief item 9); a vacuous vocabulary guard made
+to fail honestly; five dead blueprint branches; `unless` wired; and the fight
+ladder's own guard, which was solving a fight nobody has.
+
+### ✅ WORKED THROUGH, 2026-08-16 (the owner: *"go do that stuff"*)
+
+Seven of the fourteen, each sabotaged red before it was trusted:
+**1/2** the raid backlog (only one raid waits, however long you were gone;
+live play untouched) and an away-learning cap; **3** `STORE_ROOM` 60 → 120,
+measured against the real engine — max store 17, room 2100, **carts 6 → 8,
+haulage 4.83 → 8.16/s** — with the opening untouched and two new checks that
+walk both ladders to their ends; **5** bodies are armour, not a spear
+(`LEVY_PER_HIT`), which un-dominates the armoury the fight ladder is tuned
+on; **7** every holding pays something — an empty deck gives up its wagons,
+deliberately a cart and never a spear; **9** war trains on raids turned back,
+and losing teaches nothing; **11** a scene is spent when answered, so the
+valley stops replaying its own history word for word.
+
+### ⬜ STILL OPEN, in the order the agents ranked them
+
+| # | finding | who | note |
+|---|---|---|---|
+| ~~1~~ ✅ *(raids + learning; the SWELL half is still open — see below)* | **Offline is worth ~2 minutes and costs you the war.** Store caps in ~100s so 12h banks nothing; `swellOf` reads `since` which ticks while away, so an overnight absence leaves every holding permanently 2× strong; banked raids all land on the first live tick. | redditor | The thing r/incremental checks first. Bank away production outside the store cap; drive swell off played seconds; resolve at most one banked raid. |
+| ~~2~~ ✅ | **Offline xp is uncapped** — 12h away is ×4 output, and both trade doors fall inside the first hour of absence. | the-graph | Same root as #1: everything else banks against a ceiling and xp does not. |
+| ~~3~~ ✅ | **Production 6.1× against haulage hard-capped at 4.83×.** Storehouses wall themselves at 14, which walls carts at 6. 87% of a maxed town's output is thrown away. | chad | `STORE_ROOM` 60→120 and/or `storeCost` 1.3→1.2. Decides whether ANY of the new production is real. |
+| 4 ⚠️ **TRIED TWICE** | **The fields eat first.** A farm site holds 3 works, so two of them take 24 hands before anything else is staffed — ~60% of a mid-game workforce, 4× the food the town can eat. Why food stopped being a bottleneck. | chad | Attempted and reverted twice on 2026-08-16. The appetite rule is right, and it invalidates the PREMISES of three tuned fixtures — `the larder banks the surplus`, `THE FIELDS EAT FIRST`, and `carts run out on a given town`, the last because hands rather than works become the limit. This is a dedicated balance session, not a patch inside another item. |
+| ~~5~~ ✅ | **The levy dominates the spear economy.** Every body is +1 damage for free and `levyCap` is the whole town; `WORKS_CAP` tripled the ceiling on it. Spears are strictly dominated. | chad | `LEVY_MAX 6`, or `heroHit += floor(standing/3)`. |
+| 6 | **`WORKS_CAP` is a free 3× — `CURVE 1.35` never engages.** 181 stone triples the valley's output; cart rung 6 costs 806 for +30%. | chad | `CURVE`→2.2 for non-hut kinds, and planks in `BASE`. |
+| ~~7~~ ✅ | **Blueprints run out three fights in, and run 2+ gets none at all.** `found` seeds `boons` from `legacy.boons`, so `nextBoon` returns null for every fight of every later run. Holdings 4–6 pay less than 1–3. | redditor, chad | The reward for a holding cannot be a finite global deck. Site-shaped rewards are graph-native and infinite. |
+| 8 | **`SKILL_GAIN` never decelerates.** `LEVEL_POW 1.7` means time-per-level *falls* forever; it needs >2 to slow down. | chad | Prefer `SKILL_GAIN` 0.04→0.015 and keep 1.7 as the door curve. |
+| ~~9~~ ✅ | **War is six lump payouts and +2 damage a run, and only 1 of 3 levels does anything.** | redditor, chad | Scale with `spawnOf`, trickle for repelled raids, and give it a second lever. |
+| 10 | **The chip band is still a list with string attached** — 5 stalks across the board read as a drawing error, and it takes 180px of 490. | owner, redditor | The owner wanted deeds *on the node*, not docked to the bottom edge. |
+| ~~11~~ ✅ | Meetings are never consumed and replay verbatim; `marks` `water`/`sealed`/`truce` are written and only two are read. | the-graph, redditor | |
+| 12 ⚠️ **BUMP TRIED, REVERTED** | `CITY_VERSION` has been 5 across four incompatible save shapes. | the-graph | Bumping it REJECTS every existing save, including the owner's — `honour()` demands an exact match while the door already migrates cleanly. The fix is a policy (accept older, migrate, stamp forward), not a number. |
+| 13 | `check-story.mjs` reports 446 beats from the deleted ontology. | the-process | Same state as `check-vocabulary`; repoint or delete. |
+| 14 | **Repoint `check-vocabulary.mjs`** at the live surfaces. | the-process | The rule is right, the subject moved. It fails loudly now. |
+
+### ⚠️ AND THE PROCESS AUDIT, which is about me and not the game
+
+`the-process` measured this stretch: **58.8% player-visible commits against a
+25.6% baseline, and zero new design documents** — both good. But: WIP=1 broke
+in 2 of 4 sessions; **NEXT.md decided 1 of 10 shipping commits** and was
+twice written *after* the work to match it; 8 cases of starting the next
+thing unprompted; and 5 of 12 sabotages stayed green, i.e. rule 4 was
+claimed more often than it was done. DECISIONS entries averaged 355 words
+against a 117 base.
+
+**The queue below this line is older.** Step 4 of the IA restructure
+(*standing objectives*) has been marked `⬜ next` across 17 commits and is
+still not done.
+
+
+## ★★★ THE PILLARS, 2026-08-16 — where the game stands against `BRIEF.md`
+
+The owner: *"i think we're losing identity again."* They were right. Ten
+things were made load-bearing on 2026-07-29; three had never been built and
+the game had drifted into a tasteful phone app with a map in it.
+
+| # | pillar | state |
+|---|---|---|
+| 1 | Classical fantasy on the surface | ✅ |
+| 2 | RuneScape progression — skills, XP | ✅ **built 2026-08-16** |
+| 3 | Timers | ✅ |
+| 4 | Thresholds — a door you can see from here | ✅ **built 2026-08-16** |
+| 5 | **Everything a graph, incl. the UI** *(non-negotiable)* | ✅ **built 2026-08-16** — deeds are nodes |
+| 6 | Choose-your-own-adventure | ✅ **built 2026-08-16** — branches, marks, beats |
+| 7 | Battles, graph-native | ✅ **built 2026-08-16** |
+| 8 | ~~The AI twist~~ | VOID, owner |
+| 9 | ~~Prestige on the twist~~ | VOID → the veteran hero |
+| 10 | Inventory and resources | ✅ |
+
+**Every pillar that is not void is now built.** 8 and 9 were voided by the
+owner in August; the other eight stand.
+
+**What the pillars do NOT cover, and what to do next:**
+
+| # | next | why |
+|---|---|---|
+| 1 | **The owner reads the meeting prose** | It is machine-drafted per `CLAUDE.md` and MEANT to be rewritten. Eight scenes, two beats, three marks — the shapes are right, the lines are a starting point |
+| 2 | **More scenes, once the voice is settled** | Branching is cheap now: a `then` and a `mark`. The content is the work, not the machinery |
+| 3 | **Sites 10–13** | Still queued as a CUT — the valley has more ground than reasons to go there |
+| 4 | **Foraging** | Still queued as a CUT, but it is now the delivery mechanism for the story. Cutting it needs a new one first |
+
+⚠️ **`the-process` has not audited this stretch.** Four sessions of work went
+in without one, which is exactly when this project has drifted before.
+
+
+## ★★★ THE CUT, 2026-08-15 — the owner: *"cut the mechanics"*
+
+After playtest 4, with the chrome fixed, the owner looked at what was under
+it and said cut. Three review agents (`the-owner`, `the-redditor`,
+`chad-liquidity`) ranked the same things at the top of the same list.
+
+**✅ Shipped this session** — coal, tools, the forge, push the crew, the
+posted watch, the Free watch and Smaller watch blueprints, and the dead
+`hire` action. The Good union is four again. The Kiln's one real idea
+survives as **Sawpits**: a wood camp still chooses between hauling logs to
+a mill and sawing its own planks where it felled them, which is a routing
+choice on the graph — the part worth keeping.
+
+**✅ Also shipped this session** — the blueprint deck, 10 cards → **3**.
+Seven were ±25% on one number and went; Arrows, Faster roads and Sawpits
+stayed because each changes a rule. The draft ceremony went with them:
+three of three is a list, not a choice. Taking ground hands over the next
+card and names it in the log.
+
+**Still queued from the same review, in the agents' order:**
+
+| # | cut | why it was ranked |
+|---|---|---|
+| 1 | **Sites 10–13** | The valley has more ground than reasons to go there |
+| 2 | **Foraging / meets** | A timer that pays loot, with a two-option text box on top |
+
+Take one per session, smallest first, and LOOK at the board after each.
+
+## ★★★ PLAYTEST 4, 2026-08-15 — the owner on the restructured build
+
+Verbatim, then what it is. **Three were confirmed in the code before any of
+this was written**, and they are marked.
+
+| # | what they said | what it is |
+|---|---|---|
+| C1 | *"switching between town, hero and along repositions the height of the bottom panel a little bit, and it makes the map jam every time"* | ✔ confirmed. `.panel` is `min-height: 148px; max-height: 44dvh`, so every sheet is a different height and `.map { flex: 1 }` absorbs it. The board re-lays-out on every dock tap. |
+| C2 | *"the top menu is too vertical. I don't understand why we're not using anything horizontally while having three rows of various height, text, numbers and icons vertically"* | Four rows, 164px. Each goods cell stacks noun over number over rate, so it is tall and narrow in a cell that is wide and empty. |
+| C3 | *"ten out of ten, why is it even there and not on the hero panel? And what spears and carts, why are they different from the other resources"* | Hero hp, spears and carts are in the goods strip. They are not goods, and there is a Hero sheet. |
+| C4 | *"why are we talking about goblin camps [at the top]"* | The goal line. It is the objective, and it reads as a stat because it sits in a strip of stats. Step 4 (standing objectives) owns this. |
+| C5 | *"town, watch, tools: all of these are highlighted as if they are available to me, but they are not"* | ✔ confirmed, and it is mine from `a808387`. The Town sheet emits `class:cant={d.why !== null}` and **there is no `.cant` rule in the stylesheet**. Unaffordable town deeds render as available and do nothing when tapped. |
+| C6 | *"what do you mean by the town? Is it the camp, is it all of them?"* | The dock's word. "Town" means the whole holding; the camp is a dot on the map. |
+| C7 | *"I don't understand why I'm not running out of food anymore even though we used to"* | Balance. F0's growth gate (grow only on surplus or a stocked larder) may have removed the squeeze along with the dead end. Needs `chad-liquidity` on real numbers, not an opinion. |
+| C8 | *"the +1 indicators start a bit too high up, so they are not visible, they go beyond the screen"* | ✔ confirmed. `.bump` is `top: 2px` and rises 14px, out of a cell whose padding is 4px — so it leaves the header and clips. |
+
+**✅ Shipped:** C1, C2, C3, C5, C8 as one item — the chrome moved, was too
+tall, held things that were not goods, and lied about what you could afford.
+Header 164px → 96px, map 307px → 354px and identical across all four sheets.
+**Queued:** C4 (folded into step 4), C6 (what "Town" means), C7 (food never
+runs out — needs `chad-liquidity` on real numbers).
+
+## ★★★ THE IA RESTRUCTURE, 2026-08-14 — five steps, from playtest 3
+
+The owner, after the third playthrough: *"we need to gather all of our
+features, see where they are, and kinda reshuffle things, make things more
+streamlined."* Five steps, in the order they were agreed. **One per session.**
+
+| # | step | state |
+|---|---|---|
+| 1 | **The dock** — place is what the map gives you, town/people/hero/log are sheets over it | ✅ `a808387` |
+| 2 | **The war off the stats strip, onto the board** — the fuse, the reticle, the goal alone in the header | ✅ `5e547e0` |
+| 3 | **All six goods in the HUD** — three columns, two rows, chain order, food first | ✅ this session |
+| 4 | **Three standing objectives, one free skip** — the Fallout Shelter steal the teardown ranked #1 | ⬜ next |
+| 5 | **More jobs for people** — haulers, builders. The real answer to "no point in more people" | ⬜ |
+
+Then: incidents that spread along roads; expeditions with recall. Still open
+from before: the fight ladder needs a `chad-liquidity` retune for travel time,
+and the hero still walks a straight line through the river.
+
+## ★★★ THE DESIGN PASS, 2026-08-11 — four research agents, and what shipped
+
+The owner: *"there's no point in it and it's boring… now i only need economy
+to build spears… first of all spears is a stupid resource… maybe we get rid of
+hero entirely and have just citizen militia squads… we also need a research
+tree or something to unlock shit… there must be a reason to play this."*
+
+Four agents were run: an economy teardown, two research agents (economy depth,
+combat depth) and a genre reviewer. **They converged hard.** Two of them,
+given different questions, independently named the same #1 defect.
+
+### ✅ SHIPPED
+
+| what | why |
+|---|---|
+| **The levy** | Townsfolk march in front of the hero and take the answer first. They come home **hurt**, not dead — off the workfaces for 45s. The levied *and* the mending leave the working pool, so a fight costs production. A person now has three buyers: a workface, a gate, and the war. |
+| **Winning has an exit** | `found` refused unless you'd **lost**. Take all six camps and there was no button. Two agents called this the single biggest defect. |
+| **A won run carries its blueprints** | Horizontal, never a multiplier — run two is *different*, not faster. A lost run learns nothing new. |
+| **The ladder rises per run** | +20% a valley, so carried cards don't make run three a walkover. Run one untouched, or the solver's tuning is void. |
+| **The blueprint draft** | Three offered at every liberation, keep one, deck of twelve. Against the Storm's shape, not a tech tree — a tree needs hundreds of hours to not be a checklist. |
+| **Second sawmill** | Planks were capped at 1.0/s **forever** — one site in the valley allowed a mill, and only 4 of 36 worker slots touched the good three of four exponential sinks are priced in. |
+| **Carts eat three goods** | Logs had ~10 seconds of lifetime demand in the entire game. |
+| **Growth stops at jobs** | Not bunks. A hut past the last slot bought a mouth and no hands. |
+
+### ✅ AND THE REST, shipped after the first pass
+
+| what | why |
+|---|---|
+| **The map grows between runs** | Four sites that are not on run one's map at all — two appear after one finished valley, two after two. The *scope* carry the genre review asked for, not just a harder ladder. ⚠️ Adding them silently broke the ending: `initial()` seeded every holding in the table, so a run-one valley held camps it could not see and `holdingsLeft` never reached zero. |
+| **The levy swings** | Every townsperson still standing adds to the blow. *"Spears is a stupid resource"* and *"no point in having more people"* were one bug: spears were the only way to hit harder, so the economy was a pipeline into one number. Ladder untouched at a levy of zero. |
+| **The Kiln** | A wood camp may saw its own planks. See the resolved disagreement below. |
+
+### ⚠️ THE DISAGREEMENT, AND HOW IT WAS SETTLED — production chains
+
+The economy agent wants them: logs → charcoal at a kiln, charcoal + planks →
+tools, tools as decaying upkeep. It argues routing is thin because only one
+good ever visits a non-camp node.
+
+**The genre reviewer says distraction, and cites our own numbers back at us**:
+`CART_GAIN`'s note measures a maxed town throwing away **76% of production at
+the paths**; stone was 67% unspendable; logs' lifetime demand was 28 units.
+Adding nouns to a four-good economy with 40 worker slots is bookkeeping on a
+bottleneck that is not variety-shaped. Its verdict: revisit **after** the map
+stops ending, so each tier has new ground demanding it.
+
+**Settled by shipping what survives both arguments**: Against the Storm's real
+trick, which the economy agent itself named — **one good, two recipes**. The
+Kiln lets a wood camp saw its own planks instead of felling logs. Planks at the
+source need no road to a mill; a camp that saws is a camp not feeding the mill
+you already built. A routing decision, not a bookkeeping one, and **no fifth
+noun** — the good table is still stone, logs, planks, food.
+
+Charcoal and tools as separate goods remain unshipped, for the reviewer's
+reason: revisit when the bottleneck is variety-shaped rather than road-shaped.
+
+### What the reviewer said to PROTECT in any redesign
+
+1. **The graph as a real flow network** — per-edge caps, mesh beating star,
+   drawn chokes. *"No top-20 incremental has this. It is your differentiator."*
+2. **One works per site** — this is what makes the graph load-bearing.
+3. **Engine purity** — `apply(state, action)`, no RNG, no clock, no DOM. It is
+   why a combat solver test can exist at all.
+4. **The tap is dead**, and timers bank work rather than punishing absence.
+
+### Still open
+
+- **Balance across all of this is unplayed.** `RUN_STEP`, `LEVY_HP`,
+  `MEND_SECS`, `KILN_SHARE`, the thirteen card effects, the four new holdings
+  beyond the ridge and the new cart prices were all set by reasoning. They want
+  a controller in hand. ⚠️ The four deep rungs in particular are **not
+  solver-tuned** the way 4–9 are — nobody can reach them on run one, and by run
+  two the hero carries blueprints and a levy the solver knows nothing about.
+
+---
+
+# NEXT — the queue
+
+## ★★★ SECOND FULL PLAYTHROUGH, 2026-08-11 — split into fixes and features at
+## the owner's request. EVERYTHING BELOW THIS BLOCK IS OLDER.
+
+They played from a fresh start, out loud, and ended it starving with no way
+back. Two sentences carry the weight: *"I still feel like we don't have a
+goal. We don't have a reason to capture these."* and *"I think at this point,
+I'm not able to stop starving. There is no way."*
+
+⚠️ **One item per session (WIP=1).** Take the top unfinished one, ship it, stop.
+
+---
+
+## ✅ ALL SIXTEEN SHIPPED, 2026-08-11
+
+| | item | what shipped |
+|---|---|---|
+| F0 | starvation dead end | growth wants a **surplus or a stocked larder**, so a fieldless town stops taking settlers before the larder empties; and a deep famine **costs people**, down to the wild's table — the way out that did not exist |
+| F1 | "hire hands" | **cut**, one day after it shipped |
+| F2 | roads read black | `#5c432c`, after retiring the `ward/route` contrast pair for an ink nothing draws |
+| F3 | the +1 | floats at the **counter that changed**; the board's own float is gone |
+| F4 | labels follow | drawn only while the **dot is on screen**, and the slide is capped at the name's width |
+| F5 | "already raising" | "already building" |
+| F6 | "5 camps left" | counts what the **fog has lifted on** |
+| F7 | one-way carriers | both directions kept apart — **two files of porters**, passing |
+| F8 | hero can't eat | **Feed the hero** (6 food → 4 health), and healing 15s → 8s |
+| F9 | Goblin Knoll's panel | **one fact per row** |
+| F10 | busy board | the ward ring, the board float, and the rates in map labels all gone |
+| N1 | tabs | **Place · People · Hero · Log**, sticky; a fight outranks them entirely |
+| N2 | event log | 60 lines — raids, gates held, ground taken, ambushes, people leaving |
+| N3 | no goal | **the camps swell** — every holding climbs toward double over 15 minutes, war or no war |
+| N4 | meta line | says what the camp can see, not what the rules are |
+| N5 | CYOA events | four meetings, two real ways each, **never mandatory** |
+| N6 | conveyor belts | **porters wear their cargo** — stone grey, logs amber, planks tan, food green |
+
+**Thirteen sabotages**, each restored from a byte-exact backup. Four checks were
+found vacuous and rewritten: the growth test (the old rule's own clamp hid it —
+three attempts), the swell cap (passed at ×9, a valley nobody could take), the
+wound check (`☠\d\b` only ever matched one digit), and the F7 test twice (a mesh
+let logs bypass the camp; auto-staffing left the mill empty).
+
+**⚠️ Two real bugs the browser probe caught that types could not:** the counter
+float never fired, because its effect read and wrote the same reactive list —
+Svelte answers a self-dependency by not running the effect; and the resource
+row had no class, so styling and probe both selected nothing.
+
+**Balance to re-check in play:** the swell (`SWELL_SECS` 900, `SWELL_MAX` 1.0),
+`GOBLIN_REGEN` 0.0075 — raised to keep the grind gate closed against faster
+healing — and whether one works per site plus `CREW` 4 leaves people idle in a
+grown town.
+
+---
+
+# PART ONE — FIXES
+
+### F0. ⚠️ THE STARVATION DEAD END — MINE, AND IT BLOCKS PLAY
+
+> *"People are starving… I don't understand where can I build another farm
+> then… I think at this point, I'm not able to stop starving. There is no way."*
+
+**This is a regression I shipped yesterday.** Capping works at one per site
+capped FARMS at one per site, and food is the one good the whole town spends
+continuously. Before the cap you dug out of a famine by stacking farms; now
+there is no lever at all once every farmable site holds a farm. Hiring raises
+a site's *cap*, which does nothing when the population is already the binding
+constraint — and it costs **food**, so the one deed offered to a starving town
+takes food away.
+
+Three candidate fixes, and the right one probably combines them — this wants
+deciding with numbers in front of us, not guessing:
+1. Food per worker up, or `EAT` down, so a fed town has slack.
+2. Hiring paid in something other than the good you are short of.
+3. A second farmable site, or foraging that scales, as the deliberate way out.
+
+**It also wants a floor.** A town that cannot recover should be told so and
+offered the reset, not left tapping.
+
+### F1. "HIRE HANDS" HAS NO FICTION, AND MAY NOT SURVIVE IT
+
+> *"Where from? This is a valley, and there is no extra people there except
+> goblin captives. Where are we hiring hands from? This shouldn't be here."*
+> and *"Is it gonna increase my maximum there? Why? It is a weird solution."*
+
+Both halves are right. It reads as conjuring people out of nothing, and what
+it actually does — raise a cap — is invisible until you are already at that
+cap. The honest options are to **rename it to what it is** (widening a
+workface, so more of your existing people can stand at it), or to **cut it**
+and let one works mean one crew. Cutting is cheaper and probably better.
+
+### F2. THE ROADS READ AS BLACK
+
+> *"I don't understand why the paths are black now. I don't think black is a
+> good choice."*
+
+Mine, from yesterday: #4a3524 to escape the teal that read as a river. Too far
+the other way. Wants a mid brown that still clears the palette gate against
+`fill` (the road-being-dug ink) under colour blindness — that collision is
+what pushed it dark in the first place, so this is a three-way fit, not a
+one-way pick.
+
+### F3. THE +1 FLOATS DO NOT MATCH THE CARRIERS
+
+> *"Plus one above the camp does not correspond to the dots arriving there.
+> And also the plus one — maybe it should be in the top where the resource
+> counters are."*
+
+The float fires on a stock tick; the carrier dots are a separate animation.
+They will never line up while they are two systems. Their own suggestion is
+the cheap fix: float it **at the resource counter that changed**.
+
+### F4. LABELS FOLLOW TOO FAR
+
+> *"When I zoom in on the camp, this Scree Slope label follows… they should
+> stop following as soon as I stop seeing the related edge."*
+
+Labels are clamped into view instead of leaving with their dot.
+
+### F5. "ALREADY RAISING"
+
+> *"Why does it say already raising when the building is already being built?
+> It is being built, not being raised."*
+
+One word. `raising` is the internal name leaking to the player.
+
+### F6. "FIVE CAMPS LEFT" WHEN TWO ARE VISIBLE
+
+The war line counts every holding; the board only shows what the fog has
+lifted on. Either count what they can see, or say the rest are out there.
+
+### F7. THE CARRIERS SHOW ONE DIRECTION
+
+> *"I could see something was going from the camp to River Bend and not the
+> other way around. In actuality lumber was going one way and planks the
+> other. It was only showing one way."*
+
+The road animates a single net flow; a road carrying logs east and planks west
+is drawn as one stream.
+
+### F8. THE HERO HEALS TOO SLOWLY, AND CANNOT EAT
+
+> *"Your hero health regeneration is still too slow, and I don't understand
+> why I can't eat food."*
+
+Rations exist **only inside a fight**. Outside one there is no way to spend
+food on health, which is the obvious thing to try.
+
+### F9. THE HOLDING PANEL IS UNREADABLE
+
+> *"The description of Goblin Knoll is absolutely crazy — goblins hold it,
+> 48 strong, points, 45 seconds, etcetera. Completely not understood."*
+
+One line is carrying strength, prize, raid clock and watch state at once.
+
+### F10. THE BOARD IS BUSY
+
+> *"I think it got very busy in terms of UI. It is very OCD."*
+
+Partly F3/F4/F7, partly the sheer count of marks now on screen. Worth
+re-judging after those land.
+
+---
+
+# PART TWO — FEATURES
+
+### N1. TABS — resources · people · hero · log
+
+> *"I'm missing a tab, hero, so we need to start building tabs like resources,
+> people, hero, and so on. Otherwise, it's getting too messy."*
+
+The single scrolling panel is carrying everything. This is the structural fix
+F10 is asking for, and every feature below needs somewhere to live.
+**Do this first; it is the container the rest go in.**
+
+### N2. THE EVENT LOG
+
+> *"Maybe we should have an advanced log too. Event log."* and *"I still can
+> see on the map 'Scree Slope just taken' — they should go into the advanced
+> log."*
+
+Raids, liberations, famine, ambushes, arrivals. It also unclutters the board
+by giving transient messages a home.
+
+### N3. A GOAL, AND A REASON TO TAKE GROUND
+
+> *"What is my motivation then? I will just sit here, and I will not take
+> any."* *"I go on High Meadow. But what is there? There's no point for me at
+> all. It doesn't attack me."*
+
+Today a holding is a threat only after you provoke it, so the optimal play is
+to never start — the game's own rules argue for not playing it. Ground has to
+be **worth taking** or **dangerous if left**, and preferably both.
+
+### N4. THE META LINE BECOMES A VOICE
+
+> *"Six goblin camps, take one and the rest raid — that is meta. We should
+> have a [narrator] somewhere, against meta leading into the user."*
+
+The rules are currently printed as rules. They want them delivered
+**in-world**, by someone.
+
+### N5. CHOOSE-YOUR-OWN-ADVENTURE EVENTS
+
+> *"I feel like we would benefit from choose your own adventure events."*
+
+Wants N1 and N2 first — they need somewhere to appear and somewhere to be
+recorded.
+
+### N6. CARRIERS AS A JOB, CARRYING VISIBLE GOODS
+
+> *"The icons for the dots that go from the production side to the storage
+> could be representing what's being actually transferred. Or alternatively,
+> maybe you should have a carrier job which carries the resources — at the
+> moment it looks like conveyor belts, while it's not."*
+
+Two asks in one: draw **what** is moving (which also answers F7), and consider
+making carrying a **job people do**, which would put the roads on the same
+footing as every other workface.
+
+---
+
+
+## ★★★ THE FIRST FULL PLAYTHROUGH, 2026-08-11 — the owner played it start to
+## finish and this is what came back. EVERYTHING BELOW THIS BLOCK IS OLDER.
+
+Verdict, in their words: *"labels are very hard to understand. There's not much
+to do."* They finished the valley. The game is completable and nearly
+illegible, so **comprehension outranks content** in this queue.
+
+⚠️ **One item per session (WIP=1).** Take the top unfinished one, ship it, stop.
+
+---
+
+## ✅ WORKED THROUGH 2026-08-11 — the owner: *"execute until all my feedback
+## is addressed in a substantial way."* Seven of the eight items shipped.
+
+| # | item | what shipped |
+|---|---|---|
+| 0 | stranded hero | **roads are speed, not permission** — anywhere is walkable, open country at `ROUGH` 2.5× a laid road. A holding is still a wall you may march onto but never through. |
+| 1 | legibility | `hero 13/13`, `spears ×2`, `carts 4` in **words**; "6 goblin camps · take one and the rest raid you"; **every place keeps its name** — and that uncovered Rock Face rendering with *no label at all* once a pit stood on it, because the rates in the label lost their collision fight and the solver dropped it. Rates moved to the panel. |
+| 2 | widen | **deleted.** `CARRY` deliberately untouched so the choke and the reason to mesh both survive; **carts** are the relief. Old saves keep their widened roads, clamped not refused. |
+| 3 | one works per site | a second is refused, naming the alternative. The camp is exempt (huts are housing). `CREW` left at 4 — see the note in the code for why that is a decision to revisit **in play** rather than a guess. |
+| 4 | bland map | 182 land marks in four kinds where there were 46 in one; clusters still belong to their sites; bog confined to the low ground. Baked, so it costs one blit. |
+| 5 | boring battles | the beat is **1s**, down from 2. **Sweep** — same swing across every standing square at half each: worse on one, better on many. A decision, not a button. |
+| 6 | defensive assignments | **post hands to a gate.** Three turn a raid away and it costs one of them; they come out of the working pool, so a guarded valley makes less. |
+| 7 | small ones | storehouse takes 14s like everything else · road is packed earth, not teal · the meaningless barrier ring is gone · the camp label fits again |
+
+### ⚠️ WHAT IS STILL OPEN, with the reasons
+
+**1. Fight variety — a retune, not a setting.** *"The variety is also not
+there at the moment."* Every line in the valley is brute + runt + runt: only
+the numbers move, so every fight asks the same question. `lineOf` now takes a
+**screen width** and keeps each holding's total health identical, so the
+arithmetic is untouched — and it *still* breaks the ladder, because the shape
+decides which squares must die first, which decides how many full-line answers
+you eat, which is the whole gate. Measured one holding at a time against the
+solver test: screen 3 on site 5 breaks **2** rungs, site 7 **2**, site 8 **1**,
+site 9 **1**. None of them is free. This wants `chad-liquidity` and the solver
+re-run together, as its own session.
+
+**2. Terrain-aware travel.** The hero still walks a straight line
+between sites and will cross the river to do it. The *cost* of rough country is
+real now, but the drawn route bends around nothing. Wants per-edge terrain in
+the site data rather than a guess in the renderer.
+
+**3. "There's not much to do."** The valley is completable in one sitting.
+That is a content question, not a defect, and it is the biggest one left.
+
+**Everything above was proven red before it was trusted** — nine sabotages
+across the session, each restored from a byte-exact backup. Three checks were
+found vacuous and rewritten: a whole-board ink count that could not see the
+threat line, an ambush floor that healing hid, and a guard-labour test whose
+fixture never made the population bind.
+
+---
+
+### 0. THE TRAP: A HERO CAN BE STRANDED — defect, blocks play
+
+*"I can go there without a road, but I cannot return without a road, which is
+very strange."*
+
+Real, and mine. `legsBetween` waives the road requirement **only for the last
+step onto goblin-held ground** — otherwise no fight would be reachable, since
+`unlayable` refuses to lay a path to a holding. But the moment you WIN, the
+site stops being goblin-held, the waiver stops applying, and the way home needs
+a road that could never have been laid. You can walk in and not out.
+
+Fix: taken ground stays walkable from wherever you walked in from. The rule
+wants to be about ADJACENCY, not about who holds it — one leg of open country
+either side, roads for anything longer.
+
+### 1. THE LEGIBILITY PASS — the biggest complaint in the transcript
+
+*"the UI is very hard to understand. I don't understand what any of the icons
+mean… all the label text is weird."* Named specifically:
+
+| what they saw | what it is |
+|---|---|
+| ⚔️ 10/10 | the hero's health — read as a sword count |
+| the wheel with 0 | *"the circle with the pentagram"* — asked about twice, never resolved |
+| spears ×0 | ok, but sits beside ⚔️ and blurs into it |
+| ☠ 6 holdings · they come once you take one | *"is a meta"* — a rule, printed as if it were a reading |
+| ☠12 on a path deed | a cost? a strength? unexplained |
+| "Stand at Tall Pines" | *"a weird choice of words"* |
+
+**And the name goes missing.** Once a site has works, the panel titles it
+*"Lumberworks"* and the site's own name is gone — *"I cannot… it doesn't say
+the name of locations. But goblins attack named locations. So it's hard to
+understand what are they attacking."* That one is a comprehension BUG, not a
+wording preference: the attack messages and the panel disagree about what
+things are called.
+
+### 2. WIDEN: DELETE IT
+
+*"we need to cut the functionality of widening the roads hundred percent. It's
+stupid that it is there."* Not a nerf — a removal. It also clutters the deed
+list, which is what pushes the camp's own label off the board (see 7).
+
+### 3. ONE WORKS PER SITE, AND PUT PEOPLE THERE INSTEAD
+
+*"there is no point in having new locations… because I'm able to build multiple
+lumber works at the initial sites. So we should limit the number to one per
+location. And then we should allow to add more people there."*
+
+This is the change that gives the map a reason to exist: a site's output comes
+from ONE works plus the hands you assign, so more output means more GROUND,
+not more buildings on the ground you already hold.
+
+### 4. THE MAP IS BLAND
+
+*"we have icons only near the locations… we should have distinct icons near the
+locations while having normal icons to display the land around."* Two tiers:
+a site's own mark reads as a place you can tap; the land around it carries
+ordinary scenery. The terrain bake already exists to draw the second cheaply.
+
+### 5. THE BATTLES ARE BORING
+
+*"the hero doesn't have any skills, so the battles are boring, and there is no
+point."* Three separate things, in order of payoff:
+- **skills** — anything to choose between beyond strike/aim
+- **the cooldown between actions is too long** — *"it's boring to watch. If it
+  takes time, then something fun should happen during that time"*
+- **variety** — every fight is the same line of squares
+
+### 6. DEFENSIVE ASSIGNMENTS
+
+*"we need to allow to have defensive job assignments for the units because the
+hero running around everywhere cannot save everyone."* The positional watch
+made the hero's presence matter; this is the answer to it. One hero cannot hold
+three gates and was never meant to.
+
+### 7. THE SMALL ONES, all from the same playthrough
+
+- **The camp's label is clipped by the map** when the deed list is long.
+- **Travel ignores terrain** — *"it just goes through everything"*, rivers
+  included.
+- **Storehouse builds instantly**, with no cooldown, unlike everything else.
+- **The barrier does nothing** — *"doesn't serve any function"*.
+- **The path colour** — *"the road color is weird… the part is still blue"*.
+
+---
+
+# NEXT — the queue
+
+## ★★★ EVERYTHING BELOW THIS LINE IS SUPERSEDED, 2026-08-02
+
+The game is **King's Roads**. `docs/KINGS_ROADS.md` is the design and it is the
+owner's, transcribed. `docs/FRONTIER.md`, `docs/PLAN.md` and `docs/DIRECTIONS.md`
+are in `docs/attic/`.
+
+**The game loop was reviewed item by item and scrapped**: settling, working, the
+skill, the doors, the keys, the fights, the max-flow income, the nameless
+resource, and the 37 machine-written places. What stands is the board, the
+terrain bake, the four tabs, the layout solver, the palette, the save layer, the
+probe, and the word gate.
+
+## ✅ DONE 2026-08-02 — the scrapped loop is deleted and the crossing plays
+
+`flow.ts`, `foes.ts`, `places.ts` and `notions.ts` are gone, with the six test
+files that covered them. `stops.ts` and a rewritten `engine.ts` replace them:
+mana, roads, a crossing. The word gate is green because the strings went with
+the code. `npm run play` builds a road end to end in a browser and the refusal
+"no mana reaches here" reaches the screen with 9999 mana in hand.
+
+## ✅ DONE 2026-08-02 — the chapter is drawn where it is written
+
+`layout.ts` no longer force-solves the chapter. The authored positions cleared
+every existing guard untouched (closest pair 41.1 units against a limit of 24),
+so `stops.ts` needed no adjustment. Two new guards, both proven red by putting
+the solver back: the drawn position must EQUAL the authored one, and the finish
+must be the rightmost stop. The screenshot now reads start-left, finish-right,
+five ways between, with the river running along the water route `GOING` charges
+3.1 for.
+
+## ★★★ THE MAP, 2026-08-02 — the owner's direction, in their words
+
+> *"i feel like i want to spend a lot of attention on how our map looks, its
+> been great so far"*
+
+Four asks arrived together. They are **three items plus a mechanic**, listed here
+so none is lost, in the order the owner gave them. **A, C and D are how the map
+LOOKS. B is a game mechanic** and does not belong in a map session.
+
+### A — the screen is mostly not map
+
+> *"the canvas on mobile can take more space vertically while the text could be
+> at the very bottom overlaying it in case needed but like always snipped to
+> bottom of the screen"*
+
+The board gets ~655px of an 844px viewport and the panel takes the rest, mostly
+as empty space — see any screenshot in the repo: below the deed button there is
+a third of a phone doing nothing. The board should take the height; the panel
+should be **pinned to the bottom of the screen and overlay the board**, appearing
+when there is something to say.
+
+⚠️ **This reverses an old decision on purpose.** The panel is in flow, not
+absolute, because the owner objected to sheets appearing over things — and
+`scripts/play-tabs.mjs` MEASURES that with a `position: fixed|absolute` check
+scoped outside `.map`. That check must be rewritten to the new rule, not deleted:
+the panel may overlay the board, pinned to the bottom, and nothing may overlay
+the panel.
+
+### B — hidden stops on a road, which block it ⟨a mechanic, not a look⟩
+
+> *"the graph edges might have 2 to 3 stops while building it for the cyoa
+> events. they should not be visible but block progress until resolved"*
+
+A road under construction has 2–3 stops along it that are **not drawn**. Building
+reaches one, stops, and puts a choose-your-own-adventure event in the way; the
+road does not finish until it is resolved. This is where the 2d10 rolls live —
+`docs/KINGS_ROADS.md`: *"rolls are for choose your own adventure stuff"*.
+
+★ It is also the answer to *"what is a stop made of"* arriving from the side: a
+stop on a ROAD is made of an event. Whether that settles open question 1 for
+stops on the MAP too is the owner's call.
+
+### ✅ C — DONE 2026-08-02 — terrain: isolines, and regions with a shape
+
+> *"could you implement terrain height isolines… also please do some lines like
+> an oval with a forest inside or maybe some steppe or bog, add some geometry to
+> highlight the game world"*
+
+A height field, marching-squares contours at fixed intervals, and **closed
+outlines around regions** — this oval is forest, that one is bog, that one steppe.
+Baked once into the offscreen bitmap in world coordinates, blitted with one
+`drawImage`, so it costs nothing per frame. `terrain.ts` already works this way.
+
+⚠️ Every new ink must clear `test/ink.test.ts`'s distance from the counted ones,
+and the probe counts pixels — a new colour near a counted one silently corrupts
+three existing checks. No `shadowBlur`.
+
+★ And height is not decoration: `GOING` prices a road by the ground it crosses,
+so **the contours are a picture of the price**.
+
+### ★ D — NEXT — roads that bend
+
+> *"it's just lots of straight roads for now… let's stop making our roads
+> straight, let them curve and bend around terrain and objects… maybe i want it
+> to look a bit like a labyrinth"*
+
+`Board.svelte` already has `trace()`, which draws Catmull-Rom through points and
+is used for the river — *"rivers are not straight"*. Roads take the same path,
+with control points derived from the terrain between the two stops.
+
+⚠️ **The fill animation runs along the road.** It currently interpolates
+`a + (b−a)×fill`, which is a straight line by construction; a bent road needs the
+fill to follow the curve or the growing road will visibly leave its own bed.
+
+## ✅ DONE 2026-08-02 — a road is a pipe
+
+The owner chose "full pipes: capacity and pressure" over my recommendation. A
+road has a gauge; income is max flow from the start to where you stand; `BORE`
+runs opposite to `GOING` so cheap ground is narrow ground. Widening is the
+second verb. The board draws gauge as width and load as an underlay — without
+that this is the max-flow economy that was scrapped, wearing a better name.
+
+**Saves reset**: SAVE_VERSION 5, `built: string[]` became `gauge: Record<string, number>`.
+
+## ★★★ PIPES AND ROADS ARE TWO THINGS — 2026-08-02
+
+> *"well like we also do roads or paths when needed, but we lay pipes"*
+
+**Done:** the thing you lay is a PIPE, in every string the player reads, and
+`scripts/check-words.mjs` now fails the build on "road" standing in for it —
+while still passing "the king's road", which is real, and the game's own title.
+
+**⚠️ OPEN, AND THE OWNER'S TO ANSWER: what makes a road NEEDED?** The sentence
+says roads and paths get built "when needed" and nothing in the game currently
+needs one. Two readings, and they are different games:
+
+  1. **A road is what lets you WALK.** Pipe carries mana; road carries you. Bad
+     ground makes walking slow or impossible until a path is cut, so some stops
+     are reachable by mana long before you can stand at them. This adds a second
+     network and a real reason to spend on something that earns nothing.
+
+  2. **A road is what some ground DEMANDS before a pipe can cross it.** A
+     causeway over bog, a bridge over water — an extra cost on hard terrain
+     rather than a network of its own.
+
+Reading 2 is nearly free and reading 1 is a second economy. Do not guess.
+
+### ★ THE CARTOGRAPHY PASS — asked for, not yet started
+
+> *"where are we with reusing maps code for us to render stuff like best
+> practices, then slap some fantasy and our own stuff on top"*
+
+**Where we are: nowhere, and it was a choice.** This was offered as an option on
+2026-08-02 and the owner picked full pipes instead, so it has never been started.
+
+⚠️ **LICENSING, ESTABLISHED — do not re-derive it.** Organic Maps (the living
+fork of maps.me) is Apache-2.0 but requires derivative works to carry a visible,
+clickable link to organicmaps.app; its renderer is C++/OpenGL and nothing in it
+lifts into a canvas. **`openstreetmap-carto` is CC0, cartographic design
+included, with no attribution owed** — that is the one to take from.
+
+What is worth taking is CONVENTION, not code:
+
+- **Casing** — a road is a dark outline with a lighter core drawn over it. It is
+  the single biggest reason real map lines read as lines and ours read as
+  strokes, and it is about six lines in `Board.svelte`.
+- **Draw order as named layers** — landuse, water, contours, paths, roads,
+  labels. Ours is an accident of array order.
+- **Label collision** — the filed overlap bug (`Stop 15`/`Stop 16`) is this. Real
+  renderers place labels last and drop any that would collide.
+- **Dash vocabulary** — a footpath, a track and a road are told apart by dash
+  pattern, not colour.
+
+## ✅ DONE 2026-08-03 — map round two, all four
+
+E: the fill grows from the end you laid it from (`building.from`, SAVE_VERSION 6).
+F: a finished lay carries you over; you are a red map pin.
+Cartography: built pipes are cased; labels drop losers by priority; roads BEND,
+and the bend takes the lower ground, with the fill following by length.
+G: bog is a ground (dear AND narrow); the sea runs down the west edge with a
+beach line. Sea/beach are decor and honestly so — nothing prices them yet.
+
+## ★★★ THE EXPEDITION PLAN — 2026-08-03, the owner's design, agreed in chips
+
+The owner: *"making a leg from one stop to another Must be a challenge. And it
+should be slow… you need to prepare first… multiple events while building…
+based on how you are prepared, plus based on your stats, you either succeed or
+fail. When you fail, you go back completely or a little, lose resources… we
+need some other resource other than mana… maybe mana should be tapable — tap,
+tap, tap — this is your idle element… pipes are magical, no brass — but you
+need provisions… wagon or cart or on foot depending on terrain… slow the game
+down way more."*
+
+Chosen: **full package, in this order, one session each.**
+
+1. **✦ THE HEIGHT GRID** *(shipped 2026-08-03)* — topography becomes the MODEL,
+   not a by-product of stop grounds. A coarse sampled grid; contours, road
+   bends, scenery and LEG STEEPNESS all read it; every deed says what its leg
+   climbs.
+2. **✦ THE EXPEDITION LOOP** *(shipped 2026-08-03)* — PREPARE first: a kit for
+   the terrain (cart / mule / packs, ±1 to every roll on the leg) and
+   PROVISIONS (Ironsworn Supply, 0–10, start 6). Steeper and dearer legs meet
+   more hidden stops (1–3, by cost and climb). A weak hit eats a provision; a
+   miss eats one AND knocks the work back a quarter; a miss at Provisions 0
+   FAILS the leg — crew home, mana sunk, momentum −2. Finishing fresh ground
+   restocks +1. Events stopped being flavour: they are how a leg is won or
+   lost. Widening meets no hidden stops, so it skips PREPARE.
+3. **✦ TAP-MANA** *(shipped 2026-08-03)* — trickle 0.34→0.12 a second; the
+   purse is a button, each press draws 0.4 through the same remainder as the
+   tick. The early game is played with the thumb.
+4. **✦ SCAVENGE** *(shipped 2026-08-04)* — 18s at your stop, wits or shadow
+   chosen going in, dice at the end: strong +2 (+3 twist), weak +1 and
+   momentum falls, miss nothing and the crew comes home rattled. Exclusive
+   with laying pipe both ways; walking off abandons it.
+
+**THE EXPEDITION PLAN IS COMPLETE.** All four steps shipped. The queue below
+this line is the owner's to refill — fog of war is first in `BACKLOG.md`.
+
+⚠️ This is the THIRD economy. The difference, recorded so the pattern is
+visible: the first two were invented and reviewed on paper; this one is the
+owner's own sketch, and its skeleton (Supply, progress tracks, ranks) is
+borrowed whole from a system people already play for fun, under a licence we
+already carry.
+
+## ★★★ superseded — THE MAP, ROUND TWO — 2026-08-02
+
+Five more, in the owner's words. **E and F are corrections to shipped behaviour**
+— one is a bug they have now reported twice. **G and H are the look.**
+
+### E — the road fills from the wrong end ⟨a bug, reported twice⟩
+
+> *"fix a bug where the line being made solid starts from the wrong side"*
+
+Already in `BACKLOG.md` from 2026-08-01, cause known: `Board.svelte` draws the
+fill as `[a, a + (b−a)×fill]`, and `a` is whichever endpoint the VIEW emitted
+first — on the chapter that is always the lower stop id (`world.ts` filters
+`to > s.id`), never the end you are standing on. The engine already knows:
+`g.at` is one end of `g.building.key`.
+
+### F — you arrive where you built, and you have a marker
+
+> *"i also want an icon for our character when they move.. and like obviously
+> when we build a road somewhere we arrive there too"*
+
+Two things. **Arriving is engine work**: `build` currently leaves you where you
+stood and the road has to be walked afterwards as a separate tap. **The marker is
+the board**: `you` is a slightly bigger dot with a halo, which is not an icon and
+does not read as a person.
+
+### G — the natural features
+
+> *"like i want typical natural features like valleys and hills and bogs and the
+> sea somewhere and beaches and so on and rivers"*
+
+`relief.ts` has the height field already and the contours come off it. Valleys
+and hills are that field named. **Sea, beach and bog are new grounds**, and
+`GOING`/`HEIGHT` both need them — a beach is a shoreline BAND rather than a stop,
+which is the first feature here that is not centred on a stop.
+
+### H — ★ THE HIKING-MAP LOOK, and the owner asked to see it tried
+
+> *"maybe we should move from dark theme design to full blown hiking all trails
+> maps.me look… can you try it"*
+
+Light paper, brown contours, green wooded areas, blue water, a legible trail
+network. Everything in `ink.ts` moves.
+
+⚠️ **THIS TOUCHES EVERY CHECK THAT COUNTS PIXELS.** `test/ink.test.ts` holds the
+distances between counted inks; `scripts/play-tabs.mjs` counts nine of them and
+now also counts contour and region outline. A palette flip that does not move
+those together leaves the probe measuring nothing — and the contour-ink mistake
+of 2026-08-02 proved that failure is silent, not loud. The wider rule stands: a
+new ink must clear every ink the board DRAWS.
+
+---
+
+### THEN — answer open question 1
+
+**What is a stop made of?** It is the first of the five open questions in
+`docs/KINGS_ROADS.md` and it is the owner's to answer, not an agent's. Every
+stop currently says `Stop 14` and reports its ground, because the 37
+machine-written places were scrapped for exactly the reason that an assistant
+answered this question once already.
+
+Nothing else in the game can be authored until it is settled: what a stop offers,
+what threatens it, what a caravan is doing there, and what the 2d10 rolls are
+rolled against all hang off it.
+
+**Everything below is engine work that does NOT need the answer**, if the owner
+would rather it waited:
+
+- **Labels overlap on the Chapter tab** — `Stop 15`/`Stop 16` and `Stop 21`
+  overprint at 390px. The dots clear the 24-unit rule; their NAMES do not, and
+  nothing measures that. See `docs/BACKLOG.md`.
+- **The build deed offers to start what it is already building** — reads
+  "Lay the road to Stop 2 / already building one".
+- **A chapter that is crossed does nothing.** `crossed(g)` is true, the header
+  says `crossed`, and there is no second chapter to go to. "Region through
+  region" is the owner's word for the shape of the game and there is currently
+  one region.
+
+### The five open questions, which are NOT for an agent to answer
+
+They are listed at the foot of `docs/KINGS_ROADS.md`. Ask the owner.
+
+---
+
+**This file is the only thing that decides what gets worked on.**
+
+Three items, in order. Work the top one; when it ships, delete it and promote
+the next. Everything else is in `BACKLOG.md` and is not in play.
+
+**WIP = 1, PER SESSION.** One session, one item, one branch. A defect found
+mid-item goes to the bottom of the backlog as one line, *not* into this session
+— unless it blocks the item. **Only the session that ships an item edits this
+file.**
+
+**Definition of done is written BEFORE the work starts.**
+
+- **Player-facing items:** the check passes, **`npm run play` was run and the
+  screenshot looked at**, evidence pasted into the reply — not "it works" — and
+  the Actions run confirmed green. *"I pushed" is not "it shipped."*
+- **Tooling/data items:** the check passes and the **numbers it produced are
+  pasted into the reply**, including what was dropped or bounded.
+
+---
+
+> **Queue replaced 2026-07-31.** The slice and its eleven systems are retired
+> (`src/slice/` stays on disk for its authored prose only). The queue is now
+> **the build order in `docs/TABS.md`**, which answers to `docs/BRIEF.md`'s
+> north star: the game is a graph.
+>
+> **THE BUILD ORDER IS COMPLETE, 2026-07-31.** All six steps: the tab shell and
+> the one graph model (`src/game/world.ts`), selection and actions in a fixed
+> panel, forging (two taps, a dotted line, the fill), Here as the room you stand
+> in with a node for what you are doing, Self as you plus four true numbers, and
+> Thoughts as seven notions that fill in from what you do
+> (`src/game/notions.ts`). `scripts/play-tabs.mjs` is the probe.
+>
+> **What exists now is a complete small game**: rest, make a way, walk it, and
+> watch four graphs describe it. The next items ADD to that rather than finish
+> it — so the first question for the owner is whether it is fun before anything
+> else goes in.
+>
+> **★ SKILLS ARE BLOCKED, STRUCTURALLY.** `costOf` and `forgeSecs` both key off
+> `solid.length`, so a skill trained by making ways cancels itself out; and a
+> skill is a choice about where to spend time, of which there is one. See
+> `docs/TABS.md`. **Whoever adds a second activity adds the first skill in the
+> same item** — otherwise they do not interlock, which is exactly how eleven
+> systems each passed their own tests and added up to nothing.
+>
+> **Saves are breakable.** Say so in the commit when a change resets them.
+
+> **★ THE OWNER PLAYED IT TWICE ON 2026-08-01.** Everything below comes from
+> those two sessions, in their order. Quotes are theirs. The second play-test
+> came after the canvas board, the header fix and the layout fix shipped.
+>
+> **The verdict on the board, unprompted:** *"I like the way it looks. I like it
+> much more… I can see the connection building. It is very nice. I like it a lot
+> a lot more than before. And when zooming in, there are no artifacts, no
+> nothing. It looks absolutely great."* and *"overall, this is absolutely
+> fantastic. I can see a game here."*
+>
+> **And the honest other half:** *"there is not much to do."*
+
+## ~~1. The graph: bring back the canvas and make it move~~ ✅ 2026-08-01
+
+> *"The graph, as far as I understand, it is now just statically rendered, and I
+> don't like that, to be honest. The connections seem slightly misaligned — like
+> it is aligned in principle, but a few pixels here and there are wrong. I feel
+> like we still need to use some existing library in order to render that. I
+> like nodes that jingle like in Obsidian, but maybe if we can stop them from
+> jingling it would be best. It looks bad. It is static. I can zoom in, but it
+> looks ugly."* — and again at the end: *"I wanna see a canvas there."*
+
+`d3-force` is **already a dependency and completely unused** — `layout.ts` is a
+hand-rolled relaxation. `CLAUDE.md`'s own stack says canvas 2D for the graph's
+lines, DOM + CSS for anything with text or a tap target, d3-force for layout.
+The current build follows none of that.
+
+**Done when:** the graph is drawn on a canvas, laid out by d3-force, settles
+instead of jiggling, can be dragged and zoomed without going blurry, and
+`npm run play` screenshots it.
+
+## ~~2. The text at the top~~ ✅ 2026-08-01
+
+> *"The text at the top of the screen is not good… there is a text at the top
+> again when I clicked again on the same button, and I'm not sure how to get rid
+> of that text. The text at the top is a problem for sure."*
+
+The `said` line in the header. It appears, it is not dismissable, and it is not
+clear what it belongs to. Said three separate times.
+
+## ~~3. Two bugs from the same session~~ ✅ 2026-08-01
+
+Both were **one layout bug**. `settle` seeded its ring from index and count
+alone, so every view with the same node count and the same star topology landed
+on identical coordinates — **The Cut and The Tally, the exact pair walked**,
+drew the same picture. "Here didn't update" was Here updating invisibly, and the
+dot tapped afterwards was a neighbour, so *"somewhere you have not been"* was
+telling the truth about the wrong dot. Places now start at their real position
+in the valley, and rings are jittered from the view's seed.
+
+## ~~4. Self should not be a stat sheet~~ ✅ 2026-08-01
+
+Owner's correction: *"self is a stat sheet and inventory, but not game
+statistics."* So it IS a character sheet — the first version just put the
+world's numbers on it. Now: what you carry (paces, `kind: item`, `rel: carries`)
+and what you are (your gathering rate, what a way costs you in time and paces).
+Ways-made, places-found and distance-from-start are deleted.
+
+**Items are the open end.** `src/slice/content.ts` holds NINE hand-authored keys
+— "strip of lead", "quiet key", "iron gate pin" — each with a door it opens, and
+`docs/BRIEF.md` ask 10 wants them. Nothing drops one, so nothing is drawn for
+them. **Drops and the doors they open are a real item, unqueued** — it needs the
+owner's call on how a key is found.
+
+---
+
+# ★ THE OPEN QUEUE
+
+⚠️ **Numbered once, in one place.** This file had two 2s, two 3s, two 5s and two
+6s, and listed two shipped items as open — in the file whose whole job is to
+decide what gets worked on. Renumbered 2026-08-01.
+
+## ~~★★ 0. SETTLE, WORK, ONE SKILL — AND INCOME IS FLOW~~ ✅ 2026-08-01
+
+**Shipped.** `npm run guard` green (574 tests, 0 type errors, purity holds),
+`npm run play` exit 0, screenshot looked at. Saves reset — `part` changed
+meaning from banked seconds to banked fractional paces, and a v2 save carries no
+`settled`.
+
+**What the probe printed, on the real build:**
+
+```
+THE CHOICE
+  standing: The Weir
+  offers  : Sound the depth 30s a turn · +45 wayfaring · no paces while you do
+          | Settle The Weir 37 paces · makes 0.10 a second, as much of it as
+            the ways can carry to you
+  header  : "working — no paces"
+  paces   : 57 → 57 across 52s of working
+  before  : Wayfaring 1 · A way takes 13s
+  after   : Wayfaring 2 · A way takes 12s
+FLOW ON THE BOARD
+  drawn   : 281px of flow ink on made routes
+```
+
+### ★ What actually divides the flow model from a count model, and it is not what I assumed
+
+Connectivity never binds. You can only settle where you stand and only walk made
+routes, so **every settled place is always in your own connected component** —
+`reachedFrom` can never exclude one in real play. The whole difference is
+**capacity**: `EDGE_CAP` 0.250 against `YIELD` 0.100 means a road fills up once
+three settled places are behind it, and then a second road round the bottleneck
+is worth more than a fourth settlement. That is the guard in
+`test/game.test.ts` — five settled in a line delivers 0.350 where a count model
+says 0.500, and one loop-closer recovers the whole 0.150.
+
+**This is why the seven redundant loop-closers stop being dead weight.**
+
+### ★ And the second verb is thinner than `docs/PLAN.md` claimed
+
+There are **12** authored work blocks, not 34 — the earlier number counted skill
+CHECKS on choices as jobs. Three of them are wayfaring, so **three places in
+thirty-seven offer work**. Kept honest rather than papered over: XP goes to the
+skill the content names, and the other four skills' jobs stay off until the
+levers they turn exist. Where you stand decides whether you have a choice at
+all. **If that reads as too thin in play, the fix is writing jobs, not code.**
+
+### Two things caught by sabotaging, both worth recording
+
+- **My first sabotage of the paces-while-working check was itself vacuous.**
+  It added `Math.floor(a.secs × rate)` per tick — 0.2s × 0.43 floors to zero, so
+  it paid nothing and the check stayed green for the wrong reason. Rule 4 caught
+  a bad sabotage, which is the failure mode below the one it is aimed at.
+- **The check then failed on the clean build**, reporting 56 → 57 while working.
+  That was the probe, not the game: it read the purse three tab-clicks before
+  the job started and counted a pace earned while still resting. Now read after
+  the job begins, which is both correct and tighter.
+
+**Proven red:** rate as a count model (2 tests), the settle gate removed (1),
+wayfaring not cutting forge time (2), `load()` refusing a MISSING new field (3),
+`load()` accepting a present-and-wrong one (1), the flow underlay not drawn
+(probe), the doing node quoting the old constant (probe, 2 misses), and paces
+paid while working (probe).
+
+<details><summary>The item as it was written before the work started</summary>
+
+**The top item. Chosen by the owner, 2026-08-01.** It is `docs/PLAN.md` build
+order step 1 with one change forced by `docs/DIRECTIONS.md`: the income number
+is computed from the **adjacency**, not from a count.
+
+### Why the flow part is not optional
+
+Verified, and it is the finding two independent reviews reached:
+
+> Shuffle which of the 37 places connects to which, keep the counts identical,
+> and **not one number in `engine.ts` changes.**
+
+`costOf` and `forgeSecs` key off `g.solid.length`. `PLAN.md`'s first draft of
+`rate()` keyed off `settled.length`, and its `routeCost` off a per-region count
+— one count replaced by four counts. Nothing in the economy reads the graph. So
+the north star is satisfied by the renderer and violated by the engine, and no
+amount of content fixes that.
+
+### The four pieces, and they interlock or none of them work
+
+1. **Settle a place.** `settled: number[]`, one action, a cost that climbs.
+2. **Income is max-flow** from the settled set to `g.at`, over `solid` edges
+   with a capacity each. Not a sum. A settled place behind a thin edge pays
+   almost nothing; a loop-closer pays because it routes around a bottleneck.
+3. **Work.** Turn on the 34 authored `work` blocks that `places.ts:48` strips.
+   Working pays XP; standing still pays paces. **One clock, two things it can
+   pay into** — that opportunity cost is the whole reason a skill can exist.
+4. **One skill**, from the five the content already names. Start with
+   **wayfaring** (11 blocks, the most authored) and let it cut forge seconds.
+
+⚠️ **Do not ship 1, 3 and 4 without 2.** That is the version that passes its own
+tests and leaves the graph decorative — the eleven-systems failure with a nicer
+map. And do not ship 2 alone: an income model with one verb has nothing to
+choose between.
+
+### Done when
+
+- `npm run play` **screenshots a choice between resting and working**, and the
+  screenshot is looked at, not asserted.
+- The skill levels from working, and the level visibly changes a number.
+- **A settled place's contribution changes when the topology changes** — the
+  probe proves it by making a route and reading the rate move by more than the
+  count model predicts. If a count model would give the same answer, the check
+  is vacuous and the item is not done.
+- Edge width shows flow on the board, so the bottleneck is visible rather than
+  spreadsheet pain.
+- **Rule 4: break each of the above on purpose and watch it go red.**
+- Saves reset. Say so in the commit.
+
+### Deliberately NOT in this item
+
+Thresholds, drops, keys, encounters, prestige, the other four skills. They are
+`docs/PLAN.md` steps 2–5 and each is cheap once this exists.
+
+</details>
+
+**Next in `docs/PLAN.md`'s order: step 2, thresholds** — turn on the 13 authored
+doors now that a level exists to open them with. The small items below (5, 7,
+12, 13, 16, 19) do not block it.
+
+## ★ FROM THE SECOND PLAY-TEST, 2026-08-01
+
+### ~~5. Vocabulary: node and edge, not dot and connection~~ ✅ 2026-08-01
+
+> *"It says tap a dot. Prefer them to be called a node."*
+> *"'Tap a neighbouring dot to make a way to it' — I would prefer it to be
+> called an edge, to make a way to it."*
+
+Every player-facing string. `scripts/check-vocabulary.mjs` exists for exactly
+this class of rule.
+
+### 6. Why is there a Connect button at all?
+
+> *"What is the point of being able to click Connect here if I can just connect
+> the other node on the map?"*
+
+The arming step may be redundant. Tapping a neighbour could simply make the way.
+
+### 7. ★ The header must be sticky
+
+> *"I feel like the menu should be sticky. So I scroll back and the number of
+> paces goes to the top of the page, I cannot see it anymore. Need to fix that."*
+
+⚠️ **Not a conflict with R2.2** — that rule is about two surfaces competing for
+attention, and R2.3 (the tab bar is always reachable) actively wants pinning.
+
+★ **BUT THE PROBE GOES VACUOUS BY DEFAULT.** `scripts/play-tabs.mjs:56-61` tests
+only `position === 'fixed' || 'absolute'`. **`sticky` is in neither list, so the
+check passes without being touched** — the exact failure mode this repo keeps
+producing. The real defect a sticky header can cause is that the board scrolls
+under it and **dots beneath it become untappable**. So the check must become:
+(i) at scroll 0 the column is still strictly stacked; (ii) after scrolling to
+the bottom, no `.map .node` centre lies above `header.bottom`; (iii) the header
+stays opaque and ≤110px.
+
+### 8. ★ The Journey should be DISCOVERED, not shown
+
+> *"Maybe I would like not to see all the nodes already kind of grey. So it is
+> the entire map. I would like to discover that, and I wanna see it from the
+> beginning."*
+
+**This REVERSES a standing decision.** `world.ts` says: *"Every place is drawn
+from the first frame, because a map with holes in it is not a map."* That is now
+void — the owner wants the map to grow.
+
+★ **THE BINDING CONSTRAINT, from `the-graph`:** `here()` draws every unreached
+neighbour. If the Journey draws only `seen`, Here is drawing nodes that are not
+in the world and R1.3 (a tab is a FILTER over one graph) breaks — the two tabs
+become two models. **So discovery must be `seen ∪ neighbours(seen)`**, not
+`seen`.
+
+And three things that will break quietly:
+- `Board.svelte:87-96` re-`fit()`s whenever the node set changes, so **every
+  discovery would reset the player's pan and zoom and wipe dragged nodes** —
+  silently, at exactly the wrong moment.
+- `JOURNEY.box` is the box of all 37 (`layout.ts:126-131`), so an early map
+  frames the whole empty valley: two dots in a corner.
+- **Keep the full 37-node solve and filter the VIEW.** Re-solving per discovered
+  subset voids `test/layout.test.ts:18-30` and makes dots jump on arrival.
+
+**Only the "drawn but grey" half of R5.3 is void.** "Reached but unnamed" still
+stands — see item 13.
+
+### 9. ★ Journey and Here overlap too much — split their jobs
+
+> *"I don't understand why we have both Journey and Here tabs now. They repeat
+> each other's functionality too much. So I want Journey to be a global map,
+> Here is a local map. On the Here tab we're gonna have enemy encounters and so
+> on, and resources to be mined and activities to do. I don't want to be able to
+> go back to the other location from that menu."*
+
+- **Journey** = the global map. Travel lives here.
+- **Here** = the room. Encounters, resources, activities. **No travel.**
+
+⚠️ **Here empties out until there is content.** Remove `go` and Here is your
+place, the `doing` node, and neighbour dots that do nothing. **Keep `forge` on
+Here** — making a way is an activity, not travel. `deedsFor` (`world.ts:265`) is
+tab-blind and `Game.svelte:65` calls it on every tab; the cheapest correct split
+is to pass the tab in and drop `kind: 'go'` on Here.
+
+### ~~10. Repositioning must be OFF on the Journey~~ ✅ 2026-08-01
+
+> *"I noticed that I am able to reposition the graph nodes on the Journey tab. I
+> don't think it makes sense because this is kind of a map, right? So the
+> repositioning must be off on the Journey map. On Self and Thoughts it's like
+> whatever."*
+
+Here: undecided, they said "I'm not sure".
+
+⚠️ Do **not** null out `grabbed` (`Board.svelte:234`) — `onUp` uses it to detect
+a tap, so that would kill tapping on the Journey. Guard only the move branch.
+And the probe must assert **both** relative motion < 5px and absolute motion >
+20px, or a frozen board would pass — the mirror of the vacuity already caught
+once in that file.
+
+`docs/TABS.md` R5.1 is **already stale**: it forbids pan and zoom, both of which
+shipped deliberately. Rewrite to *"the layout is a constant; the camera is not;
+nodes do not move."*
+
+### 11. Edge labels
+
+> *"On this Self menu it would make sense to have labels for edges or something
+> like that. Let's experiment with that."*
+> *(Thoughts)* *"Edges would be nice here because I don't understand the
+> connections between those."*
+
+The model already carries a `rel` on every edge and nothing draws it. Three
+traps, from `the-graph`: labels must be DOM with `pointer-events: none` or
+`nodeUnder`'s hit-testing breaks; `rel` ids (`carries`, `has`, `means`) are
+internal and need a rel→player-word map or item 5 is broken the day this lands;
+and **label ink must sit outside tolerance 6 of the dot colours** or `inked()`
+starts counting text as dots. Journey has 43 edges on a 390px phone — **Self and
+Thoughts only**, which is all that was asked for.
+
+### 12. Two labels that read wrong
+
+> *"'You're already making one' is a weird label."*
+> *"'Making a way. It carries on while this is shut.' This is also a weird
+> label."*
+
+### 13. "Somewhere you have not been" is still confusing
+
+> *"So now 'somewhere you have not been' again, when I click on the node that I
+> have already discovered — or, like, I discover first and then I go there? Is
+> it something like this? It is not very intuitive."*
+
+⚠️ **NOT the layout bug this time** — that is fixed. ★ **THE CAUSE IS NOW KNOWN
+AND IT IS A REAL DEFECT**, found by `the-graph` and verified:
+
+```
+   panel h2   →  "Somewhere you have not been"      ← name withheld
+   deed below →  "Make the way to The Weir"         ← name given away
+```
+
+`nameOf` (`places.ts:53`) returns the real name unconditionally; `waysFrom`
+(`engine.ts:229-241`) puts it in `Way.name`; `deedsFor` (`world.ts:276,283`)
+renders it. So the panel withholds the name in its title and states it in the
+button directly underneath. The player cannot tell what "discovered" means
+because the screen is telling them two different things at once.
+
+`test/here.test.ts:70-78` guards the VIEW and never the DEED — a one-sided
+guard, which is why this survived. **Discovery (8) does not license naming a
+place before you reach it; this is a bug today, not a feature to build on.**
+
+### 14. ★ There is not much to do — AND THE ARITHMETIC AGREES
+
+> *"Now we need to build some economy and some content, some stats for the
+> character, some inventory slots, some items, something else."*
+> *"I don't understand the currency or the economy that we have at the moment."*
+
+⚠️ **MEASURED, 2026-08-01, not guessed:**
+
+| | |
+|---|---|
+| income | **flat forever** — 1 pace / 3s, `SECS_PER_PACE` never changes |
+| price | `6 × 1.2^n` in edges made **anywhere** |
+| all 43 edges | **76,160 paces = 63.5 hours** of pure waiting |
+| the last edge alone | 12,699 paces = **10.6 hours** (offline cap is 12h) |
+| the last edge's build | 1,401 seconds ≈ 23 minutes |
+
+Flat income against exponential price is not an incremental curve, it is a
+queue, and time-to-next-purchase only ever gets worse.
+
+**And there is no decision in it.** `costOf` keys off `g.solid.length`, a
+GLOBAL count — so every unmade edge in the valley costs the same paces and the
+same seconds. "Which frontier do I open" is what `engine.ts` calls the whole
+game, and economically it is a coin flip; the order changes only which prose you
+read.
+
+> *"Now we need to build some economy and some content, some stats for the
+> character, some inventory slots, some items, something else."*
+> *"I don't understand the currency or the economy that we have at the moment."*
+
+The biggest item and the least specified. **Not to be started without a plan the
+owner has seen.** Items/keys explicitly deferred: *"I don't wanna go as far as
+the key at the moment."*
+
+### ~~15. Paces: the word and the reason~~ 🟡 HALF DONE 2026-08-01
+
+> *"I don't understand why I'm generating the paces while I'm standing still…
+> it is a bit strange that pace is the resource. I accumulate paces like a step.
+> Why am I accumulating steps?"*
+
+Two complaints, not one: the NAME is wrong for a thing you bank, and the game
+never says why standing still pays.
+
+**The name is fixed: it is STONE.** *"pace is absolutely stupid resource, why are
+we still using it? i asked to remove it multiple times"* — and they were right,
+it had been asked for and skipped through five straight items. `pace` was also
+literally a rate word, so the header read `12 paces +0.33 a second`, which is
+speed per second.
+
+⚠️ **The second half is not fixed and is now bigger than a word.** The owner,
+same session: *"i think we need to re-do entire economy again…"* That is an open
+item, unspecified, and it is the top of the queue.
+
+★ **AND IT IS ENFORCED NOW, NOT REMEMBERED.** `scripts/check-words.mjs` fails
+the build if any player-facing string says dot, dots, pace or paces, or uses
+"way" as the noun for the thing between two places. It is in `npm run guard`.
+The reason it exists is that asking three times did not work.
+
+### 16. Start over says nothing
+
+> *"I'm pressing start over button. Nothing really happens. Doesn't give a
+> feedback."*
+
+It wipes and resets, with no confirmation and no acknowledgement.
+
+### 17. A second thing to do — and the first skill with it
+
+The unblocker for `docs/BRIEF.md` ask 2. One verb means no choice, so no skill
+has anywhere to bite. Add a second activity — something you can do INSTEAD of
+banking paces, at a place, on a timer — and add the one skill it trains in the
+same item, gating something you can see from here (ask 4, thresholds).
+
+**Not two items.** They interlock or neither works.
+
+**Done when:** `npm run play` screenshots a choice between two activities, the
+skill levels from one of them, and a threshold visibly shuts a door the level
+opens.
+
+### 18. Two dots, one fight
+
+`docs/COMBAT.md`, on the **Here** tab — that is where the owner said encounters
+land. An enemy dot beside yours; they poke each other on a timer; one goes out.
+Radius is health, so losing is shrinking and out is out. **What an encounter is
+mechanically is still undecided** (`docs/TABS.md`), so this item starts with the
+owner, not with code.
+
+Losing relights you one node back and keeps what was earned — that is the whole
+answer to "failure is a plateau, never a loss screen", and it is the constraint
+most likely to get fudged.
+
+**Done when:** `npm run play` screenshots a fight and its outcome, a lost fight
+leaves the game playable without a reload, and the shrinking dot is visible in
+the screenshot rather than asserted.
+
+### 19. ⚠️ EXPORT/IMPORT IS GONE, AND THAT IS A GUARDRAIL BREACH
+
+`CLAUDE.md` says plainly: saves are breakable, but **"export/import keeps working
+because that is how the owner moves a save between devices."**
+
+`exportSave` and `importSave` still exist in `src/shell/game.ts` — wired to the
+**retired** slice. The current game (`src/game/store.ts`, `src/ui/Game.svelte`)
+has neither, and the header offers only Start over. So the one save guarantee
+that was explicitly kept when the others were dropped is not honoured by the
+build that ships.
+
+Found by `the-redditor` on 2026-08-01, verified against the files. Cheap to fix.
+
+---
+
+# ★ THE FOUR-AGENT REVIEW, 2026-08-01 — AND WHAT IT CONVERGED ON
+
+Run at the owner's request: `the-owner` (simulated), `chad-liquidity`
+(economy), `the-redditor` (genre), `the-graph` (consistency). **Every number
+below was re-verified against the code before being written down.**
+
+## They independently proposed the same thing
+
+| agent | proposal |
+|---|---|
+| the-redditor | *"make places produce. Each place has a yield; standing there sets your rate."* |
+| chad-liquidity | *"settle a place. One field `settled: number[]`, one action, one derived `rate(g)`."* |
+| the-owner (sim) | *"two doing-nodes side by side on Here… the second pays a second number."* |
+
+Three angles, one answer: **the second activity is settling a place, and it
+produces.** That is also the precondition a skill needs, so it unblocks item 17
+without building it.
+
+⚠️ **Where they disagree, and the call:** the owner-sim wanted the second
+activity to pay a *different* currency. `chad-liquidity` is right that it must be
+the SAME one — opportunity cost needs one currency with two sinks. Two currencies
+with one sink each is two lists, not a choice.
+
+## The measured case for it
+
+| finding | verified |
+|---|---|
+| income is flat forever | `SECS_PER_PACE = 3`, never changes |
+| cost is exponential | `6 × 1.2^n`, so time-per-purchase ×1.2 every purchase, forever |
+| all 43 edges | 76,160 paces = **63.5 h** of waiting |
+| **one 12h absence buys** | **33 of 43 routes — 34 of the 37 places** |
+| **the 7 redundant loop-closers** | **54,929 paces = 72% of the total price for 16% of the edges** |
+| price is non-local | `costOf` keys off GLOBAL `solid.length` — every frontier costs the same, so which one you open has zero economic content |
+
+`engine.ts` claims *"where you park decides what you can reach"* and *"an absence
+is a real gift and never the whole game."* **Both are false as shipped.** The
+comments describe a better game than the code.
+
+## The shape to build (NOT yet approved by the owner)
+
+```
+rate(g)      = 0.333 + 0.10 × settled.length     paces/s, hard ceiling 4.03 (37 places)
+hearthCost(m)= round(30 × 1.22 ^ m)              payback = cost / 0.10 seconds — printable on the node
+routeCost(e) = round(10 × TIER[region] × 1.18 ^ routesMadeInThatRegion)
+TIER         = { valley: 1, works: 3.5, under: 8, stones: 14 }
+forgeSecs(n) = min(90, 12 + 3n)                  kill the second exponent; it never changes a decision
+offlineBank  = min(hours × rate, 4 × cheapest unbought frontier)
+```
+
+**One extra rule makes it a game rather than two lists: you may only forge from a
+settled place.** Progress is then gated on income investment, "where you park"
+becomes true, and pushing into a far region means settling a chain of bases.
+
+Per-REGION pricing, not per-distance: the content is already partitioned that way
+(valley 0–5, works 100–109, under 200–210, stones 300–309), a cheap direction
+always exists, and the in-region exponent tops out at ~6× instead of ~400×.
+
+**Content already on disk and unused:** `src/slice/regions/*.ts` carries 13
+hand-authored `work` blocks with labels and durations. `places.ts:48` strips
+them.
+
+## The one they all flagged and nobody solved
+
+37 places × ~50 words is the entire reward surface, consumable in an evening.
+The current build "paces" it by charging 10.6 hours for the last edge, which is
+not pacing. **Target the map opening over ~5 hours, and let the hearth ladder and
+prestige carry the long tail.** Content volume, not curves.
+
+---
+
+## ~~20. A living map~~ ✅ 2026-08-01
+
+Owner: *"can you come up with some typical fantasy objects, like lakes, towns,
+villages, quarries, mines, forests, etc. and try to make our map alive
+(cheaply)"* — then, when I answered the wrong question: *"i meant cheap
+computationally."*
+
+Shipped: a **river** meandering through the places whose own prose is about
+water (The Cut, The Weir, the Headrace, the Wheelhouse, the Wheel Pit, the
+Tailrace, and down to the Sump Fork and the Ledger Pool — the water was in the
+content before it was on the map), and **ground** under every region: trees in
+the valley, cut stone in the works, hatching under, tufts on the moor.
+
+**The cheapness is the design, not an afterthought:**
+
+| layer | drawn | cost per frame |
+|---|---|---|
+| the scatter (~530 marks) | once, into an offscreen bitmap in world coordinates | one `drawImage` |
+| the river (8 control points) | live, so it stays crisp at any zoom | ~8 bezier segments |
+
+No `shadowBlur` anywhere — the one genuinely expensive canvas call.
+
+⚠️ **The palette is now a constrained resource.** The probe checks the board by
+counting pixels of a known colour, so a scenery ink within tolerance of a dot or
+edge ink would be silently counted as dots. `test/terrain.test.ts` holds every
+ground ink >26 away from every ink the probe counts — and it caught a real
+collision on its first run (`wood` was 25 from `unmade`).
+
+**Still to come, and this is the point of it:** the ground should BE the price —
+a road through woods costs more than one over open moor, a river needs a ford or
+a bridge. That is item 14's economy, delivered by something you can see.
+
+---
+
+# ★ ARCHITECTURE REVIEW, 2026-08-01 — measured, at the owner's request
+
+> *"review the app architecture in terms of scalability and performance, so that
+> we'll be able to snap a bunch of features on top quickly and cheaply."*
+
+## Performance: fine. Not the problem.
+
+Chromium at **4× CPU throttle** (roughly a slow phone), 390×844, during a
+sustained pan — the worst case, because it redraws every frame:
+
+| | mean | worst |
+|---|---|---|
+| as shipped | 20.4 ms | 37.1 ms |
+| canvas only (DOM nodes hidden) | 17.7 ms | 29.2 ms |
+| DOM only (canvas hidden) | 16.5 ms | 22.3 ms |
+
+The vsync floor is 16.7 ms, so **the real work is ~4 ms a frame at 4× throttle
+— about 1 ms on this machine**, split roughly evenly between canvas and DOM.
+Zero long tasks. Idle (the game ticking 5×/s, no input) sits at the floor.
+
+There is headroom, the terrain bake is doing its job, and **nothing here needs
+optimising.** What follows is about the COST OF THE NEXT FEATURE, not the frame.
+
+## What will make features expensive
+
+**1. The board draws from two fixed lists.** `Board.svelte` takes `dots` and
+`lines` and `draw()` walks exactly those. Anything else on the map — a bridge, a
+ford, a glyph beside a place, a region tint, an encounter pip — means editing
+`draw()`. → Take a **list of shapes** instead: `{kind, points, ink, width}`.
+Then a new drawable is an entry, not surgery.
+
+**2. A node's appearance is an if-chain in two languages.** Five `d.kind === …`
+branches in `dotStyle()` plus per-kind rules in CSS. Every new kind is an edit
+in both. → **One data table keyed by kind**, read by both.
+
+**3. A colour lives in three or four files.** `#4d6b80` is in `Board.svelte`,
+`play-tabs.mjs` and `terrain.test.ts`; `#8ff0cf` adds `Game.svelte`. Changing
+one is four edits, and **the probe can drift from the app without either
+noticing** — the probe would keep counting a colour the app no longer draws, and
+pass. → One palette module; the probe reads it off the running page; the test
+keeps holding the distances.
+
+**4. `Game.svelte` is doing five jobs** in 296 lines: the clock, saving,
+selection, the arming gesture, and mapping the view to dots and lines. Every
+feature lands here. → Lift the clock and the save loop into a runtime module and
+leave the component with markup and selection.
+
+**5. Every tab rebuilds from nothing five times a second.** `view` is `$derived`
+on the whole `game`, so a tick that only changed `paces` rebuilds all 37 nodes
+and 43 edges — **80 objects per tick** — and nine derived values downstream.
+Invisible at this size and it is not what costs the 4 ms. But it is O(world) per
+tick, and discovery plus encounters plus markers is exactly the direction that
+makes it matter. → Key the world views off what actually changed
+(`seen.length`, `solid.length`) rather than off `game`.
+
+**6. Nothing would catch a performance regression.** The harness above exists
+now; it should live in the probe with a budget, or the next heavy feature lands
+silently.
+
+## Recommendation
+
+**1, 2 and 3 are one small session and they compound** — they are the three
+things that turn "add a bridge" from an afternoon into ten minutes. 4 and 5 are
+worth doing before encounters, not before the next visual. 6 is fifteen minutes.
+
+None of this is urgent and none of it is a defect. It is the difference between
+snapping the next six features on and hand-fitting each one.
+
+
+## ~~21. Make features cheap to add~~ ✅ 2026-08-01
+
+Items 1–3 and 6 of the review above, plus what doing them uncovered.
+
+**One palette** (`src/game/ink.ts`). Every colour, once. The probe reads it off
+the running page (`window.__INK`); `test/ink.test.ts` holds the distances.
+Tolerances live beside the colours, because a blanket distance is the wrong rule
+— a thin line needs a loose match to be found at all, two similar colours need a
+tight one to be told apart.
+
+**One look table.** `LOOK[kind]` replaces five `d.kind === …` branches and five
+CSS rules — the same decision written twice, in two languages, with nothing
+checking they agreed.
+
+**One paint function** (`src/game/shapes.ts`). The board draws the graph plus a
+list of `Shape`s. A bridge, a ford, a glyph, a region tint is now an entry, not
+surgery on the draw loop. `baked` shapes cache themselves into a bitmap.
+
+**A frame budget in the probe**, so a heavy feature cannot land quietly.
+
+### ★ Four guards were silently broken, and writing the palette down found them
+
+| what | was |
+|---|---|
+| `known` and `route` | **the same hex** — counting made roads also counted reached places |
+| `you` and `fill` | **the same hex** — the "is the road filling?" check was counting the dot you stand on, which is always there. It would have passed with nothing filling |
+| Thoughts' "lit" check | counted `route` ink, and only worked because of the first collision. Separating them dropped it to **2 pixels** |
+| the fill check | measured the instant filling began, when the line has no length — **25px, one slow frame from zero** |
+
+And one regression introduced and caught in the same hour: collapsing the look
+table lost the lit/unlit distinction, so every notion on Thoughts drew the same
+whether thought or not. The probe read **0px thought**.
+
+
+## ~~22. Make the engine safe to add state to~~ ✅ 2026-08-01
+
+> *"how can we make our code good enough for easily adding shit"*
+
+Two properties, not opinions:
+
+**A save from before a feature existed still loads.** `load()` merges over
+`initial()`, so a field added tomorrow arrives at its default instead of
+`undefined` — and `undefined` in the first sum that touches it turns a run to
+NaN in silence. Now exercised through `load()` in `test/store.test.ts`.
+
+**The engine cannot reach for the browser.** `scripts/check-core-purity.mjs` had
+been guarding `src/core` — the RETIRED slice — while `src/game`, the engine the
+game actually runs on, had nothing stopping it importing the UI or touching the
+DOM. Everything that makes it testable in a terminal rested on a property
+nothing checked. Now covered, with one narrow written-down exemption
+(`store.ts` may stamp a save and talk to storage; it still may not touch
+`document`).
+
+`npm run guard` runs typecheck, purity and 569 tests in one command.
+
+### What is still expensive, and the honest headline
+
+A place is four fixed fields. Every feature worth adding — a pit, an encounter,
+a drop, a resource — wants to hang off a place and there is nowhere to put it.
+**That abstraction should be built WITH the first such feature, not before it**;
+building it now with zero users is how this project got eleven systems.
+
+And the headline: **the code is no longer the bottleneck. The decisions are.**
+Every remaining item needs an answer from the owner about what the game IS, not
+a refactor.
+
+## ★★★ THE WAY — 2026-08-04, the owner's redesign, agreed in chips
+
+> *"nothing we do is choose your own adventure… gamify the point A to point B
+> journey… a separate view… you need to tap something… enemy encounters might
+> happen on that same view… reuse one of the tabs."*
+
+1. **✦ THE WAY VIEW** *(shipped 2026-08-04)* — while a crew is out, Here IS
+   the leg: real path, own terrain frame, visible waypoints, halts as
+   "Something ahead" markers, crew mark, road solidifying behind them.
+2. **✦ TAP-TO-WORK** *(shipped 2026-08-04)* — the crew dawdle at 0.4× on
+   their own; tapping the crew mark pushes 1.2s of work. Halts still stop
+   everything. Setting off auto-switches to The Way.
+3. **✦ FOES** *(shipped 2026-08-04)* — ~45% of halts fight back where the
+   ground has a foe. Progress-track rounds: strong marks 2, weak 1 + cost,
+   miss nothing + hurt; the kill clears the halt, +1 momentum. Met foes show
+   red and named on the way.
+4. **✦ RISK TRADEOFFS** *(shipped 2026-08-04)* — the suited kit costs 1
+   provision to stock (refused on empty packs); scavenge split into wits-safe
+   vs shadow-greedy. Event-choice risk profiles remain OPEN — the foes carry
+   per-choice flavour but uniform costs, deliberately, so the owner can
+   rewrite prose without touching numbers. Revisit if choices still feel flat.
+
+**THE WAY IS COMPLETE — all four steps of the owner's redesign shipped in one
+day.** What remains open for the owner: event prose passes (all ⟨draft⟩),
+what crossing the chapter means, stat renames, and whether choice-level risk
+profiles are wanted on happenings too.
+
+## ★★★★ THE CITY ON THE GRAPH — docs/CITY.md is the design. Slice 2 IN.
+
+> Owner, 2026-08-08: *"like incremental city builders and stuff"* — designed
+> first at their ask, then built: counts on the 1.15^n curve, people as the
+> multiplier and the ladder, paths as throughput with drawn chokes.
+
+**Shipped since:** the hero slice — goblin-held ground (12/18/30), turn-based
+liberation fights, Arms ×n from the town's own stores, territory = fights won.
+
+**Shipped since:** slice 3 — the meadow farms, the wild feeds six, hunger is
+priced on the header, STARVING halts all but the farms, and every
+liberation frees two hungry captives.
+
+**Shipped since:** THE LOOK (valley painted, carriers hauling, +1 pops)
+and MESH ROUTING — logs travel to the nearest mill, planks travel home
+over what is left, and a star ships 0 where a mesh ships full rate
+(proven by test, same buildings both times).
+
+**Shipped since:** POSTED HANDS — pin people to a works (− hands +), pins
+win the pool, auto stays the default.
+
+**Shipped since:** THE SECOND REGION — three grounds behind the knoll and
+the scree, revealed by liberation; the hero toughens +3 health per ground
+freed, and the deep bites are priced against that ladder.
+
+**Shipped since:** THE PACING PASS — chad's thirteen constants whole:
+CREW=4 multi-hand works, per-worker rates, 1.35 works curve, huts 10
+planks housing 4, EAT halved (the food-artery wall), ladder smoothed to
++2 arms per fight, goblins REGROUP while unengaged. Plus the away line.
+
+**THE DESIGN PHASE CLOSED 2026-08-08** — the arc is in CITY.md part 2:
+runs end at the goblins' seat, finishing founds the next valley, the
+veteran hero is the only keepsake. All four standing rulings APPROVED.
+
+**The build queue, one per session, in order:**
+1. ~~WHOLE-PEOPLE STAFFING~~ ✔ shipped: integer hands, held works,
+   named pulls, auto-back.
+2. ~~PATHS TAKE TIME~~ ✔ shipped: 6s a gauge, the line fills, carries
+   nothing till done.
+3. ~~AUTO-RESOLVE LONE STRIKES~~ VOIDED by the owner mid-queue ("jrpg
+   style or something"), replaced by → ~~THE BATTLE STRIP~~ ✔ shipped:
+   one hero square vs wall + two runts, Attack/Guard/Rations/Fall back,
+   free aim, wind-up every third answer, solver-verified ladder
+   (win at arms tier, lose at −1, mash loses).
+4. ~~VISUAL SESSION~~ ✔ shipped: building icons over their dots,
+   edge labels slide inward, fight verbs 2×2.
+5. ~~REGION 3's food artery~~ ✔ shipped as WHY TAKE THE GROUND: the two
+   gates carry their own road home (pop wall 66 → 126) and held ground
+   is rich (×1.5 to ×3.5). The iron rung is still open.
+5b. THE COHERENCE REVIEW's list — `docs/BACKLOG.md`. Top three: no
+   player-side exponential anywhere (one multiplier rung), the `tap`
+   leak (obeys no gate the rest of the game obeys), and `starving`
+   reading production instead of delivery.
+6. THE CROSSING — finish a valley at the goblins' seat, found the next
+   with the veteran hero. The legacy loop itself.
+7. Naming/prose pass — the owner's.
+
+Watch item (chad): farms-first can over-farm at low pop with CREW 4.
+
+## ★★★★ (superseded same night) THE CAMP BUILDER — slice 1 of the pivot
+
+> *"maybe we do a base building game here instead… it will all somehow be a
+> graph? connections between these would be very prominent. and we will drop
+> all prose entirely until we have a good idea of a gameplay. so it'd be
+> incremental wilderness camp builder!"*
+
+**Shipped:** src/camp/ engine + one-screen UI. Quarry/lumberworks/sawmill on
+fixed sites, paths as the game (nothing counts unconnected), logs→planks→camp
+levels, level 2 grows the map. Zero prose. Old game retired in place.
+
+**Next — each gated on the owner's playtest verdict, one per session:**
+1. More to level 2/3: farm+food chain? second currency? path UPGRADES
+   (wider paths = the old gauge idea, it is already drawn).
+2. Scarcity: sites deplete? seasons? something that forces rebuild/reroute —
+   right now the only pressure is cost.
+3. Away report (one line of numbers), site unlock choices (pick 1 of 2).
+4. Naming pass — owner's, when the loop proves out.
+
+## ★★★ THE BASECAMP, 2026-08-07 — superseded the same day by the camp builder
+
+> The owner, at a loss: *"I do not see a game here. I think we lost identity…
+> what can we salvage?"* Thirteen agents answered: the game moved to the camps.
+> Identity to hold: **a map where every camp is a decision about which road
+> you've earned — prepare, choose, watch the line fill.**
+
+**Slice 1 shipped:** camps with 7 depleting days; Hunt (played scene) and
+Gather (flat); three profiled roads out of Start with ENUMERATED exclusivity
+(test/camp.test.ts); prepared roads are clean roads; gear menu.
+
+**Next, in order — each needs the owner's playtest verdict first:**
+1. Camp 2: arriving somewhere makes its camp DIFFERENT (ground changes what
+   pays — the wood gathers well, the moor hunts well) — mods exist, data thin.
+2. Profiles on every road + retire the free roads, or keep the mix.
+3. Chips ON the map (layout work), outcome grades, the mana job at camp.
+4. What dies for real once the loop proves out: dice encounters, kits,
+   tap-mana (the reviews' list — NOT yet deleted).
+
+## ★★★ SCENES — 2026-08-05, the owner's design, the vertical slice is in
+
+> *"every event should be an extended branching CYOA with hidden HP states…
+> make each event a little incremental game of its own, so these are going to
+> be our incremental layers… incremental game components combined differently
+> in various events… various journey types: forest, valley, hill, rock,
+> desert, bog… objectives like going from point A to B (tapping to increase
+> speed), keeping resources intact, provisions, unexpected obstacles with
+> gauges."*
+
+**Shipped in the slice** (`src/game/scenes.ts` + engine scene machine):
+gauges/verbs/rules/mods as composable data; The washout and Toll brigands;
+hidden meters; stage branching; terrain as drift modifier; setback/cleared
+endings wired into the expedition loop.
+
+**The component roadmap, in rough order:**
+1. **✦ CONVERTED, 2026-08-06** — wights (a siege where the ward ROTS), the
+   watcher (watch-and-wait; watching costs closeness), oldstones (a deadline
+   that only falls, with a hidden hollow), nightwatch (a vigil where the win
+   verb feeds the loss gauge). The dice encounters were KEPT as the 40%
+   fallback — same trouble, two faces; dice as a COMPONENT (a gamble verb)
+   inside scenes stays open.
+2. **✦ THE A-TO-B RACE SHIPPED, 2026-08-06; REBUILT TURN-BASED 2026-08-07**
+   — "The last of the light": ground is gained ONLY by pressing (the owner:
+   *"no idle progress towards the goal"*), the dark answers every turn,
+   breath gates mashing. ⚠️ ALL scenes are turn-based now — the clock never
+   moves a gauge; the world takes one `perTurn` step after each verb. Still
+   to build from this list: convoy integrity ("keeping resources intact" —
+   a cargo gauge foes and terrain chip at), multi-objective scenes.
+   ✦ 2026-08-07, the spam review: WORK_PACE deleted (pushes are the only
+   travel; open ground on the way is a push button), dice misses ESCALATE
+   (1, 2, 3 provisions… within one encounter), scenes retuned until a
+   single-free-verb bot stalls or dies — guarded forever by the spam-bot
+   test. STILL OPEN, owner's call: prose that carries information
+   (telegraphed stat leans, per-choice risk) so READING buys a die step.
+3. **Outcome grades** — clear WITH margin pays extra (provisions, momentum,
+   maybe loot); scraping through pays less. Makes play skill matter.
+4. **Graphs on top** — the owner: *"we'd need to somehow slap graphs on top,
+   not sure how yet."* Candidate: a scene's stages ARE a small graph drawn on
+   the board while it runs (the fractal again). OWNER'S CALL before building.
