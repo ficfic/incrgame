@@ -24,7 +24,8 @@
   import { apply, initial, doorsOf, unwalkable, unswingable, canLeave,
     facing, foesIn, actsOn, claimed, hallucinated, canSend, shut, waysOut,
     unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS, done, maxHp,
-    CRAWL_HP, type Delve, type Good } from '../delve/engine';
+    unshovable, toll, braced, REEL, CRAWL_HP,
+    type Delve, type Good } from '../delve/engine';
 
   let game = $state<Delve>(initial());
   /** ⚠️ NOTHING IS WRITTEN UNTIL THE LOAD HAS FINISHED. The first draft saved
@@ -170,7 +171,7 @@
     // ★ TAPPING A DOOR IS WALKING THROUGH IT. One tap, not a tap and a
     // confirm — the owner's whole complaint was the button pressing.
     bunk = null;
-    if (unwalkable(game, n) === null) { act({ type: 'walk', to: n }); return; }
+    if (unwalkable(game, n) === null) { aim = null; act({ type: 'walk', to: n }); return; }
     if (invented.some(([a, b]) => (a === game.at && b === n) || (b === game.at && a === n))) {
       bunk = `No door goes to ${ROOM.get(n)!.name}. The crawler drew one.`;
     }
@@ -181,10 +182,22 @@
   /** ★★★ WHO SWINGS ON THE TURN YOU ARE ABOUT TO TAKE. Everything the player
    *  needs to plan is this list, and it is knowable, so it is shown. */
   const acting = $derived(line.filter((f) => actsOn(f, game.turn + 1)));
-  /** ★★★ AND WHAT IT COSTS. A foe reaches you at either end of your step, so
-   *  this is the toll for ANY action taken from this room — swing, hold or
-   *  walk out. Stepping away on an off-turn is free; that is the dance. */
-  const toll = $derived(acting.reduce((n, f) => n + f.bite, 0));
+  /** ★★★ AND WHAT IT COSTS — standing, or with your arm up. A foe reaches you
+   *  at either end of your step, so this is the toll for ANY action taken from
+   *  this room. Stepping away on an off-turn is free; that is the dance. */
+  const cost = $derived(toll(game));
+  const held = $derived(braced(game));
+
+  /** ★★★ WHICH ONE YOU ARE SWINGING AT. ⚠️ THE FIGHT USED TO CHOOSE THIS FOR
+   *  YOU, and the owner put it plainly: *"there's just one button and no
+   *  gameplay"*. Who you kill first is the decision every turn-based fight is
+   *  built on — the runt chips you every turn, the big one bursts every other
+   *  — and automating it left a room with two monsters and one button. */
+  let aim = $state<number | null>(null);
+  const mark = $derived(line.find((f) => f.id === aim) ?? null);
+  /** Doors you could put the thing you are facing through. */
+  const outs = $derived(mark
+    ? doorsOf(game.at).filter((d) => unshovable(game, mark.id, d) === null) : []);
 </script>
 
 <main>
@@ -231,33 +244,63 @@
     {:else}
       <h2>{here.name}</h2>
       {#if line.length > 0}
-        <!-- ★★★ THE READOUT THE CLOCK COULD NOT GIVE. Each thing says whether
-             it swings on the turn you are about to take — so you can count
-             before you commit instead of feeling for a rhythm. -->
+        <!-- ★★★ TAP THE ONE YOU MEAN. ⚠️ THESE USED TO BE A READOUT, because
+             an earlier pass decided that making the player aim was "an aiming
+             tax". It was the tax the whole fight was made of: with the target
+             chosen for you, a room with two monsters in it is one button. -->
         <div class="line">
           {#each line as q (q.id)}
-            <span class="sq" class:ready={actsOn(q, game.turn + 1)}>
+            <button class="sq" class:ready={actsOn(q, game.turn + 1)}
+              class:aimed={aim === q.id}
+              onclick={() => { aim = aim === q.id ? null : q.id; }}>
               <b>{q.hp}</b>
               <span class="nm">{q.name}</span>
               <em>bites {q.bite}{#if q.every > 1} · every {q.every}{/if}</em>
               <span class="tick">
-                {actsOn(q, game.turn + 1) ? 'swings next' : 'idle next'}
+                {q.reeling >= game.turn + 1 ? 'reeling'
+                  : actsOn(q, game.turn + 1) ? 'swings next' : 'idle next'}
               </span>
-            </span>
+            </button>
           {/each}
         </div>
+
         <button class="deed hit" disabled={unswingable(game) !== null}
-          onclick={() => act({ type: 'strike' })}>
-          Swing
-          <em>takes {swing(game)}{#if toll > 0} · costs you {toll}{:else} · costs you nothing{/if}</em>
+          onclick={() => act({ type: 'strike', at: aim ?? undefined })}>
+          Swing {#if mark}at {mark.name}{/if}
+          <em>takes {swing(game)}{#if cost > 0} · costs you {cost}{:else} · costs you nothing{/if}</em>
         </button>
+
+        <!-- ★★★ AND THE GRAPH VERB THAT LIVES INSIDE A FIGHT. Putting the big
+             one through a door and killing the runt while it picks itself up
+             is a better line than trading, and there is a test that proves it
+             rather than a comment that hopes so. -->
+        {#if mark && outs.length > 0}
+          {#each outs as d (d)}
+            <button class="deed push" onclick={() => { act({ type: 'shove', foe: mark.id, to: d }); aim = null; }}>
+              Shove {mark.name} into {ROOM.get(d)?.name}
+              <em>no damage · off its feet {REEL} turns · it has to walk back</em>
+            </button>
+          {/each}
+        {:else if line.length > 1}
+          <p class="note dim">tap one of them to aim, or to shove it through a door</p>
+        {/if}
+
+        <button class="deed guard" onclick={() => act({ type: 'brace' })}>
+          Brace
+          <!-- ⚠️ "take 1 instead of 1" IS TRUE AND READS AS A BUG. Halving
+               rounds up against you, so a lone 1-bite runt cannot be braced
+               against at all — say that, rather than printing the same number
+               twice and letting the player think the button is broken. -->
+          <em>{cost === 0 ? 'nothing to turn'
+            : held < cost ? `take ${held} instead of ${cost}`
+            : `no help against this — still ${cost}`} · deal nothing</em>
+        </button>
+
         <button class="deed" onclick={() => act({ type: 'wait' })}>
           Hold
-          <em>let the turn pass{#if toll > 0} · costs you {toll}{/if}</em>
+          <em>let the turn pass{#if cost > 0} · costs you {cost}{/if}</em>
         </button>
         {#if game.kit.wedges > 0 && wedgeable.length > 0}
-          <!-- ★★★ THE GRAPH VERB, offered where it is used: in a room with
-               something in it and a door at your back. -->
           <div class="cut">
             {#each wedgeable as d (d)}
               <button class="deed wedge" onclick={() => act({ type: 'wedge', to: d })}>
@@ -268,8 +311,8 @@
           </div>
         {/if}
         <p class="note dim">
-          {#if toll > 0}
-            stepping out costs {toll} too — it reaches you at either end of the step
+          {#if cost > 0}
+            stepping out costs {cost} too — it reaches you at either end of the step
           {:else}
             nothing swings next turn: step out free, or take a swing for nothing
           {/if}
@@ -455,6 +498,14 @@
     background: var(--sunk); }
   /* ★★★ THE ONE THING WORTH A COLOUR: it is about to swing. */
   .sq.ready { background: var(--clayWash); border-color: var(--clay); }
+  /* ★ They are buttons now, and must read as buttons on a phone. */
+  .sq { cursor: pointer; font: inherit; }
+  .sq.aimed { border-color: #f0cf87; box-shadow: inset 0 0 0 1px #f0cf87; }
+  .sq.aimed .nm { color: #f0cf87; }
+  .deed.push { border-color: #4d6b78; }
+  .deed.push em { color: #7f9aa6; }
+  .deed.guard { border-color: #5c6b4a; }
+  .deed.guard em { color: #8fae74; }
   .sq b { font-size: var(--t2); color: var(--soft); font-weight: 700; }
   .sq.ready b { color: var(--clay); }
   .sq .nm { font-size: var(--t7); color: var(--soft); font-weight: 600; }

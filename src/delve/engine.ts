@@ -20,7 +20,7 @@
 // the graph against it. That is the Grimrock dance, made countable.
 import { ROOM, ROOMS, GUARDS, SPOIL } from './dungeon';
 
-export const DELVE_VERSION = 6;
+export const DELVE_VERSION = 7;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -39,6 +39,9 @@ export interface Foe {
   /** ★★★ IT ACTS ON EVERY `every`-th TURN. 1 is as fast as you; 2 is slow
    *  enough to walk away from. The one number a player has to read. */
   every: number;
+  /** ★★★ SHOVED, AND STILL PICKING ITSELF UP. It takes no action on any turn
+   *  up to and including this one. 0 means it is on its feet. */
+  reeling: number;
 }
 
 export interface Delve {
@@ -73,6 +76,11 @@ export interface Delve {
 }
 
 export const START_HP = 12;
+/** ★ WHAT IS IN THE PACK BEFORE YOU HAVE EARNED ANYTHING. ⚠️ IT WAS NOTHING,
+ *  and that meant every tactical option in the game sat behind gold: the first
+ *  twenty taps were walk, swing, swing, walk home. You are handed enough to
+ *  find out what a wedge does. */
+export const START_WEDGES = 2;
 /** ★ HOW MUCH LIFE THE BOILED LEATHER IS WORTH. Tuned by playing the deep end
  *  out in `test/ladder.test.ts`, not by feel: on 12 the bottom of the dungeon
  *  is not reachable by ANY route, which made the game unfinishable. */
@@ -98,7 +106,11 @@ export const initial = (): Delve => ({
   bred: 1,
   crawl: null,
   bars: [],
-  kit: { wedges: 0, lamp: 1, brace: 0, edge: 0, vim: 0 },
+  // ★ TWO WEDGES IN THE PACK FROM THE START. ⚠️ EVERY TACTICAL OPTION USED TO
+  // BE BEHIND GOLD, so the first twenty taps of the game had none of them —
+  // walk, swing, walk home. You are handed enough to find out what a wedge
+  // does; the shop sells the rest.
+  kit: { wedges: START_WEDGES, lamp: 1, brace: 0, edge: 0, vim: 0 },
   trod: [0],
   fallen: false,
   log: [],
@@ -129,8 +141,11 @@ export const foesIn = (g: Delve, id: number): Foe[] =>
  *  the room you are standing in. Everything else is footwork. */
 export const facing = (g: Delve): Foe[] => foesIn(g, g.at);
 
-/** Does this foe act on the turn about to be taken? */
-export const actsOn = (f: Foe, turn: number): boolean => turn % f.every === 0;
+/** Does this foe act on the turn about to be taken?
+ *  ⚠️ SPEED AND FOOTING, in that order. A shoved thing is out of the fight for
+ *  a beat however fast it is — that is what a shove BUYS. */
+export const actsOn = (f: Foe, turn: number): boolean =>
+  turn > f.reeling && turn % f.every === 0;
 
 /** ★★★ THE FIRST DOOR ON THE SHORTEST WAY, or null. Breadth-first over the
  *  same graph the player walks — so you can SEE what it has to do to reach
@@ -187,8 +202,15 @@ export const canLeave = (g: Delve): boolean => !g.fallen && g.at === 0;
 export type Action =
   /** Step through a door. One turn. */
   | { type: 'walk'; to: number }
-  /** Swing at the weakest thing standing here. One turn. */
-  | { type: 'strike' }
+  /** ★★★ Swing at something standing here. One turn. Name it, or leave it out
+   *  and the weakest takes it. */
+  | { type: 'strike'; at?: number }
+  /** ★★★ Put your shoulder into it and send it through a door. No damage;
+   *  it loses its footing for two turns and has to walk back. One turn. */
+  | { type: 'shove'; foe: number; to: number }
+  /** ★★★ Get behind your arm. Everything that reaches you this turn does half.
+   *  One turn, and you deal nothing. */
+  | { type: 'brace' }
   /** Stand still and let the dungeon move. One turn. */
   | { type: 'wait' }
   /** ★ Send a crawler down from the Mouth. One turn, and then it is walking
@@ -216,7 +238,7 @@ export type Action =
  *  costs — and disengaging from something SLOW is free if you time your step
  *  to its off-turn. That timing is the whole dance, and it is countable.
  */
-function theirTurn(g: Delve, said: string[], from: number): Delve {
+function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve {
   const turn = g.turn + 1;
   const at = g.at;
 
@@ -245,7 +267,7 @@ function theirTurn(g: Delve, said: string[], from: number): Delve {
       if (asleep) {
         const born = (GUARDS[r.kind]?.(r.deep) ?? []).map((q, i) => ({
           id: bred + i, at: step, from: step, hp: q.hp, bite: q.bite, name: q.name,
-          every: q.bite >= 2 ? 2 : 1,
+          every: q.bite >= 2 ? 2 : 1, reeling: 0,
         }));
         bred += born.length;
         woken = [...woken, ...born];
@@ -261,10 +283,14 @@ function theirTurn(g: Delve, said: string[], from: number): Delve {
   const foes = woken.map((f) => {
     if (f.hp <= 0 || !actsOn(f, turn)) return f;
     if (f.at === at || f.at === from) {
-      hp -= f.bite;
+      // ★★★ AN ARM IN THE WAY IS WORTH HALF OF EVERYTHING. Rounded UP against
+      // you, so bracing never makes a 1 into a 0 — a free turn is not a
+      // decision, and this has to stay a trade.
+      const took = guard ? Math.ceil(f.bite / 2) : f.bite;
+      hp -= took;
       said.push(f.at === at
-        ? `${f.name} bites you for ${f.bite}.`
-        : `${f.name} strikes you for ${f.bite} as you go.`);
+        ? `${f.name} bites you for ${took}${guard ? ', turned' : ''}.`
+        : `${f.name} strikes you for ${took} as you go.`);
       return f;
     }
     // ★★★ THE CRAWLER IS BAIT, and nobody had to design that: a foe deals with
@@ -348,7 +374,7 @@ export function apply(g: Delve, a: Action): Delve {
           id: bred + i, at, from: at, hp: q.hp, bite: q.bite, name: q.name,
           // ★ Heavier things are slower, and slow is what you can walk away
           // from. `every: 2` for anything that hits hard.
-          every: q.bite >= 2 ? 2 : 1,
+          every: q.bite >= 2 ? 2 : 1, reeling: 0,
         }));
         bred += born.length;
         foes = [...foes, ...born];
@@ -378,10 +404,18 @@ export function apply(g: Delve, a: Action): Delve {
 
     case 'strike': {
       if (unswingable(g) !== null) return g;
-      // ★ THE WEAKEST THING STANDING. Finishing what is nearly dead is almost
-      // always right, and making the player say so every swing is the button
-      // pressing this pivot exists to remove.
-      const mark = facing(g).reduce((x, y) => (y.hp < x.hp ? y : x));
+      // ★★★ YOU SAY WHICH. ⚠️ THIS USED TO PICK THE WEAKEST FOR YOU, on the
+      // argument that making the player aim was the button-pressing the pivot
+      // existed to remove. That was wrong and the owner said so plainly: *"so
+      // far there's just one button and no gameplay"*. WHO YOU KILL FIRST IS
+      // THE DECISION in every turn-based fight ever written — the fast runt
+      // chips you every turn, the slow big one lands a burst every other — and
+      // automating it left a room with two monsters in it and one button.
+      // Leaving `at` out still takes the weakest, which is what the walk-in
+      // and the tests rely on.
+      const here = facing(g);
+      const mark = (a.at !== undefined && here.find((f) => f.id === a.at))
+        || here.reduce((x, y) => (y.hp < x.hp ? y : x));
       const foes = g.foes.map((f) =>
         f.id === mark.id ? { ...f, hp: Math.max(0, f.hp - swing(g)) } : f);
       const said: string[] = [];
@@ -389,6 +423,23 @@ export function apply(g: Delve, a: Action): Delve {
         said.push(`${mark.name} goes down.`);
       }
       return theirTurn({ ...g, foes }, said, g.at);
+    }
+
+    case 'shove': {
+      if (unshovable(g, a.foe, a.to) !== null) return g;
+      const mark = g.foes.find((f) => f.id === a.foe)!;
+      // ★★★ TWO TURNS OFF ITS FEET, and a door to walk back through. One is
+      // not enough — it would step straight back in and the shove would have
+      // bought exactly nothing for the turn it cost.
+      const foes = g.foes.map((f) =>
+        f.id === a.foe ? { ...f, at: a.to, reeling: g.turn + REEL } : f);
+      return theirTurn({ ...g, foes },
+        [`You put ${mark.name} through the door to ${ROOM.get(a.to)?.name}.`], g.at);
+    }
+
+    case 'brace': {
+      if (g.fallen) return g;
+      return theirTurn(g, ['You get behind your arm.'], g.at, true);
     }
 
     case 'send': {
@@ -705,3 +756,27 @@ export const descend = (g: Delve): Delve => ({
   seen: g.seen,
   log: g.log,
 });
+
+/** ★★★ HOW LONG A SHOVE KEEPS IT DOWN. Two, because one is worth nothing: it
+ *  would step straight back through the door and the shove would have cost you
+ *  a turn for no turns gained. At two it loses a beat AND a door. */
+export const REEL = 2;
+
+export function unshovable(g: Delve, foe: number, to: number): string | null {
+  if (g.fallen) return 'You are done.';
+  const mark = g.foes.find((f) => f.id === foe);
+  if (!mark || mark.hp <= 0 || mark.at !== g.at) return 'Not here to shove.';
+  if (!doorsOf(g.at).includes(to)) return 'No door leads there from here.';
+  // ⚠️ AND NOT THROUGH A DOOR YOU WEDGED. The whole point of a wedge is that
+  // the edge is gone; putting something through it would be using a cut door.
+  if (shut(g, g.at, to)) return 'That door is wedged shut.';
+  return null;
+}
+
+/** ★ What this turn will cost you if you take it standing here — and what it
+ *  costs if you get your arm up instead. The two numbers a fight turns on. */
+export const toll = (g: Delve): number =>
+  facing(g).filter((f) => actsOn(f, g.turn + 1)).reduce((n, f) => n + f.bite, 0);
+export const braced = (g: Delve): number =>
+  facing(g).filter((f) => actsOn(f, g.turn + 1))
+    .reduce((n, f) => n + Math.ceil(f.bite / 2), 0);

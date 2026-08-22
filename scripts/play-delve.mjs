@@ -154,6 +154,57 @@ if (!/swings next/.test(met)) misses.push(`nothing says it is about to swing: "$
 if (!/idle next/.test(met)) misses.push('nothing says it is idle — then speed is invisible');
 if (!/costs (you )?\d/.test(met)) misses.push(`the screen never says what a turn costs: "${met.slice(0, 80)}"`);
 
+console.log('\n★★★ AND THE FIGHT ASKS SOMETHING');
+// ⚠️ THE OWNER, AFTER FOUR SLICES OF WORK AROUND THE FIGHT: *"it's cool and
+// all, but so far there's just one button and no gameplay."* They were right —
+// `strike` picked its own target, so a room with two monsters in it was one
+// button tapped four times. This section counts the choices the room actually
+// offers a thumb.
+const verbs = async () => (await page.locator('.deed').allTextContents())
+  .map((s) => s.replace(/\s+/g, ' ').trim().split(' ')[0]);
+const offered = await verbs();
+console.log('  offers  :', offered.join(' · '));
+// ★★★ MORE THAN ONE THING TO DO, in the first fight, with nothing bought.
+if (offered.length < 4) misses.push(`the first fight offers ${offered.length} buttons — that is not a fight`);
+for (const want of ['Swing', 'Brace', 'Hold', 'Wedge']) {
+  if (!offered.includes(want)) misses.push(`no ${want} in the first fight`);
+}
+
+// ★★★ AND YOU CAN SAY WHICH ONE. Tapping a monster must aim at it AND open
+// the shove, because who you kill first is the decision the fight is built on.
+const sqs = page.locator('.sq');
+const heavy = sqs.filter({ hasText: 'big one' }).first();
+const hpOf = async (which) => Number(await sqs.filter({ hasText: which }).first().locator('b').textContent());
+const bigBefore = await hpOf('big one'), runtBefore = await hpOf('runt');
+await heavy.click();
+await page.waitForTimeout(150);
+const aimed = await verbs();
+console.log('  aimed   :', aimed.join(' · '));
+if (!aimed.includes('Shove')) misses.push('tapping a monster offers no shove — the graph verb is missing from the fight');
+const swingLabel = (await page.locator('.deed', { hasText: 'Swing' }).first().textContent()).replace(/\s+/g, ' ');
+console.log('  swing   :', `"${swingLabel.trim().slice(0, 40)}"`);
+if (!/big one/.test(swingLabel)) misses.push('the swing does not say what it is aimed at');
+await page.locator('.deed', { hasText: 'Swing' }).first().click();
+await page.waitForTimeout(200);
+const bigAfter = await hpOf('big one'), runtAfter = await hpOf('runt');
+console.log('  hit     :', `big ${bigBefore}→${bigAfter} · runt ${runtBefore}→${runtAfter}`);
+// ⚠️ THE BUG THIS EXISTS FOR: the swing used to take the WEAKEST whatever you
+// aimed at, so aiming was decoration.
+if (!(bigAfter < bigBefore)) misses.push('aiming did nothing — the swing still picks its own target');
+if (runtAfter !== runtBefore) misses.push('the swing hit something you did not aim at');
+
+console.log('\n★★★ AND YOU CAN PUT IT THROUGH A DOOR');
+// ⚠️ NO SECOND TAP. The aim STAYS on the thing you hit — you usually want to
+// keep hitting it — so tapping it again toggles the aim OFF and takes the
+// shove buttons away with it. The first draft did exactly that and then waited
+// thirty seconds for a button it had just dismissed.
+const inRoom = await sqs.count();
+await page.locator('.deed', { hasText: 'Shove' }).first().click();
+await page.waitForTimeout(250);
+const left = await sqs.count();
+console.log('  shoved  :', `${inRoom} in the room → ${left}`);
+if (!(left < inRoom)) misses.push('shoving left it standing where it was');
+
 console.log('\n★★★ THE LAMP, AND THE CHAMBERS');
 // ⚠️ MEASURED OFF THE CANVAS, NOT ASSERTED FROM THE CODE. The whole looks pass
 // is pixels; a check that read the palette constants back would pass with the
@@ -234,24 +285,15 @@ const hp2 = await life();
 console.log('  held    :', `life ${hp1} → ${hp2}, turn ${await turn()}`);
 if (!(hp2 < hp1)) misses.push(`holding in a lair cost nothing: ${hp1} → ${hp2}`);
 
-console.log('\nSWINGING');
-// ⚠️ THE SUM OF THE LINE, NOT THE FIRST SQUARE. A swing takes the WEAKEST
-// thing standing (no aiming tax), so reading `.sq b` first measured the big
-// one and reported "the swing did nothing" while the runt was losing three.
-const lineHp = async () => (await page.locator('.sq b').allTextContents())
-  .reduce((n, t) => n + Number(t || 0), 0);
-const before = await lineHp();
-await press('Swing');
-const after = await lineHp();
-console.log('  hurt it :', `${before} → ${after}`);
-if (!(after < before)) misses.push(`the swing did nothing: ${before} → ${after}`);
-// ★ AND THERE IS NO COOLDOWN ANY MORE — the cost of a swing is the turn.
-// ⚠️ `.catch` BECAUSE A DEAD DELVER HAS NO SWING BUTTON. A probe that throws
-// here reports a Playwright stack trace instead of the checks it already
-// failed, which is exactly how a bad run got read as a good one once before.
+console.log('\nAND A SWING HAS NO COOLDOWN');
+// ⚠️ WHAT IS LEFT OF THIS SECTION. It used to sum every `.sq b` before and
+// after a swing — which stopped meaning anything once a SHOVED foe could walk
+// back into the room between the two readings and push the total UP. Damage is
+// now measured per-monster in "THE FIGHT ASKS SOMETHING", where the aim makes
+// it unambiguous. What only belongs here is the price of a swing: the turn.
 if (await page.locator('.deed', { hasText: 'Swing' }).first().isDisabled({ timeout: 2000 })
   .catch(() => { misses.push('no swing button — the delver did not survive to it'); return false; })) {
-  misses.push('the swing is still on a cooldown — that was the clock talking');
+  misses.push('the swing is on a cooldown — that was the clock talking');
 }
 
 console.log('\n★★★ A DOOR IS NOT AN ESCAPE HATCH');
@@ -503,10 +545,14 @@ if (!text.startsWith('DELVE1:')) misses.push('export produced nothing a phone co
 
 // ★★★ AND NOW PROVE THE PROBE CAN TELL THE DIFFERENCE. Wipe the device. If the
 // wedges are still there after that, every check above was measuring nothing.
+// ⚠️ A CLEAN DEVICE IS NOT ZERO. A delver is handed two wedges before they
+// have earned anything, so the wipe is proved by the count DROPPING BACK to
+// the starting pack, not by it reaching 0 — which is what this asserted, and
+// it went red the moment the starting pack stopped being empty.
 await freshStart();
 const wiped = await packOf();
-console.log('  wiped   :', `${wiped} wedges on a clean device`);
-if (wiped !== 0) misses.push(`wiping the device changed nothing — the save checks above are vacuous`);
+console.log('  wiped   :', `${wiped} wedges on a clean device, was ${kept}`);
+if (wiped >= kept) misses.push(`wiping the device changed nothing — the save checks above are vacuous`);
 
 await page.locator('.keep summary').click();
 await page.locator('.keep textarea').fill(text);

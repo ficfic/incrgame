@@ -9,7 +9,8 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, doorsOf, shut, waysOut, within, stepToward, swing,
   unwalkable, unwedgeable, affordable, facing, BITE, KEEN, BAR_TURNS,
-  WEDGES_PER, CRAWL_HP, BRACE_HP, COST, START_HP, type Delve, type Good }
+  WEDGES_PER, CRAWL_HP, BRACE_HP, COST, START_HP, START_WEDGES,
+  type Delve, type Good }
   from '../src/delve/engine';
 import { SPOIL } from '../src/delve/dungeon';
 
@@ -89,7 +90,7 @@ describe('★★★ A RUN IS A RUN — the dark closes behind you', () => {
     expect(out.hoard).toBe(rich.hoard + 99);
     expect(out.purse).toBe(0);
     expect(out.kit.lamp).toBe(2);
-    expect(out.kit.wedges).toBe(WEDGES_PER);
+    expect(out.kit.wedges).toBe(START_WEDGES + WEDGES_PER);
     expect(out.crawl).not.toBeNull();            // the report survives
     expect(out.seen).toEqual(expect.arrayContaining([0, 1, 2, 3]));
   });
@@ -117,11 +118,13 @@ describe('★★★ A WEDGE CUTS THE EDGE', () => {
   const armed = (): Delve => go(buy(flush(), 'wedges'), 1);
 
   it('★ three to a purchase, and one is spent per door', () => {
-    expect(buy(flush(), 'wedges').kit.wedges).toBe(WEDGES_PER);
+    expect(buy(flush(), 'wedges').kit.wedges).toBe(START_WEDGES + WEDGES_PER);
     const g = armed();
-    expect(wedge(g, 3).kit.wedges).toBe(WEDGES_PER - 1);
+    expect(wedge(g, 3).kit.wedges).toBe(g.kit.wedges - 1);
     expect(unwedgeable(g, 9)).toBe('No door leads there from here.');
-    expect(unwedgeable(initial(), 1)).toBe('No wedges.');
+    // ★ You are handed two to start with, so the empty case is built by hand.
+    expect(unwedgeable({ ...initial(), kit: { ...initial().kit, wedges: 0 } }, 1))
+      .toBe('No wedges.');
   });
 
   it('★★★ the door is GONE from the graph, not merely flagged', () => {
