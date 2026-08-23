@@ -580,6 +580,35 @@ if (!(banked > 0)) misses.push(`a full raid banked nothing: ${banked}`);
 const reset = await page.locator('.node.danger').count();
 console.log('  dark    :', `${reset} rooms still show something standing`);
 
+// ★★★ AND WHAT COMES BACK IS NOT WHAT YOU KILLED. The owner, on the build
+// where guards first respawned: *"Same rats, third the money, again. The
+// spoil doesn't repeat — the TRANSIT does. That's the rerun wearing a coat."*
+// Walk back into the room just cleared and read what is standing in it.
+await walk('Broken Hall'); await walk('Rat Warren');
+const squatting = (await page.locator('.sq').allTextContents())
+  .map((x) => x.replace(/\s+/g, ' ').trim());
+console.log('  moved in:', squatting.join(' | ') || 'nothing');
+if (squatting.length === 0) misses.push('an emptied room has nothing in it at all — the grind has no floor');
+if (squatting.some((x) => /a big one|a runt/.test(x))) {
+  misses.push(`the garrison came back verbatim: "${squatting.join(' | ')}"`);
+}
+if (!squatting.some((x) => /carrion/i.test(x))) {
+  misses.push(`nothing moved into the emptied room: "${squatting.join(' | ')}"`);
+}
+if (!squatting.some((x) => /will not follow/i.test(x))) {
+  misses.push('the screen does not say the squatters will not follow');
+}
+// ★★★ AND WALKING OUT OF YOUR OWN CLEARED ROOM IS FREE. Everything else takes
+// a swing at your back; this is the exception that makes the corridor a
+// corridor rather than a toll.
+const beforeOut = await life();
+await walk('Broken Hall');
+const afterOut = await life();
+console.log('  walked  :', `${beforeOut} → ${afterOut} life stepping back out`);
+if (afterOut !== beforeOut) misses.push(`carrion swung at your back: ${beforeOut} → ${afterOut}`);
+if ((await page.locator('.sq').count()) > 0) misses.push('the carrion followed you out of its room');
+await walk('The Mouth');
+
 console.log('\nSPENDING IT');
 const canBuy = await page.locator('.deed.buy:not([disabled])').count();
 console.log('  afford  :', `${canBuy} of ${shopped} after one raid`);

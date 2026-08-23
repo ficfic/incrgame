@@ -19,7 +19,7 @@
 // and cannot be escaped in the open: you fight it, or you use the shape of
 // the graph against it. That is the Grimrock dance, made countable.
 import { GUARDS, SPOIL, type Room, type Guard } from './dungeon';
-import { TRAITS, type Breed } from './bestiary';
+import { TRAITS, scavengedOf, type Breed } from './bestiary';
 import { RELICS, wellHolds, type RelicId } from './relics';
 import { MARKS, NOTHING, earned, take, type Tally } from './records';
 import { floorPlan, cutOf, CUT_SAYS, type Cut } from './floors';
@@ -170,17 +170,20 @@ export const SALVES_PER = 2;
 export const BOUNTY = 4;
 export const fee = (g: Delve): number =>
   Math.round(BOUNTY * take(g) * (1 + (g.floor - 1) * 0.6));
-/** ★★★ WHAT A CORPSE IS WORTH IN A ROOM YOU ALREADY EMPTIED — a quarter of
- *  what the room paid the first time, split between whatever was in it.
+/** ★★★ WHAT A CORPSE IS WORTH IN A ROOM YOU ALREADY EMPTIED — a flat pittance
+ *  by depth, and NOT a cut of what the room paid the first time.
  *
  *  ⚠️ THIS IS THE ONLY THING BETWEEN THIS GAME AND A SOFT-LOCK. Rooms pay once
  *  now, so a delver who spends their last coin badly has no income at all: a
  *  bot proved it, sitting at one gold for eighteen delves with three rooms
- *  taken and everything else too strong to walk into. The dark puts things
- *  back between delves; the treasure it cannot put back. So grinding exists,
- *  it pays a QUARTER, and nobody sane will choose it over going deeper — which
- *  is exactly what a floor of last resort should be. */
-export const TOLL = 0.34;
+ *  taken and everything else too strong to walk into.
+ *
+ *  ⚠️ AND IT WAS A CUT OF THE ROOM'S WORTH FOR A DAY, which quietly rebuilt the
+ *  treadmill it exists to prevent. The Drowned Well is worth 12, so scavenging
+ *  it paid four a body — and the bot went straight back to the well every
+ *  delve. A scavenger is a scavenger wherever it is squatting; what made that
+ *  room valuable was its spoil, and its spoil is gone. */
+export const SCRAPS = (deep: number): number => 1 + Math.floor(deep / 3);
 export const LOG_KEEP = 40;
 /** What one swing takes off. */
 export const BITE = 3;
@@ -243,9 +246,32 @@ export const waysOut = (g: Delve, id: number): number[] =>
  *  moment a well started holding a lurker only past floor five: a shallow well
  *  announced "something is already here" over an empty room AND stopped paying
  *  out, because the pays-on-arrival rule keys off the same test. */
+/** ★★★ HOW OFTEN A THING SWINGS — one turn in `pace`.
+ *
+ *  ⚠️ THIS RULE WAS WRITTEN OUT FIVE TIMES, once at each place a guard is
+ *  born, and making carrion slow meant editing all five identically. Four out
+ *  of five is a monster that is slow in a lair and fast when a howler wakes it,
+ *  and nothing would have caught it. */
+export const pace = (q: { breed: Breed; bite: number }): number =>
+  q.breed === 'stalker' ? 1 : q.breed === 'carrion' || q.bite >= 2 ? 2 : 1;
+
 export const guardsOf = (g: Delve, r: Room | undefined): Guard[] => {
   const line = (r ? GUARDS[r.kind]?.(deepness(g, r)) : null) ?? [];
   if (line.length === 0 || !r) return line;
+  // ★★★ A ROOM YOU ALREADY EMPTIED DOES NOT REFILL WITH ITS OWN GARRISON.
+  //
+  // ⚠️ IT DID, AND THE OWNER CALLED IT: *"the spoil doesn't repeat — the
+  // TRANSIT does. That's the rerun wearing a coat."* Every walk to fresh
+  // ground meant the same pair, the same four swings, a third of the money.
+  // What moves in instead is carrion, and carrion does not chase — so your own
+  // cleared corridor costs you a turn to cross and nothing else.
+  //
+  // ★ AND A LANTERN KEEPS EVEN THAT OUT. Nothing moves into a room somebody
+  // left a light burning in, which is the second thing a lantern buys and the
+  // reason to hang one on the road home rather than at the frontier.
+  if (g.cleared.includes(r.id)) {
+    return lit(g, r.id) ? [] : scavengedOf(deepness(g, r), line.length);
+  }
   const c = cut(g);
   // ★★★ SOMETHING BRED DOWN HERE. One more in every lair — not a bigger
   // monster, ANOTHER one, which is a different problem: a shove stops being
@@ -266,7 +292,7 @@ export const cut = (g: Delve): Cut => cutOf(g.floor);
 /** ★★★ IS THIS ROOM'S GUARD STILL TO BE MET?
  *
  *  ⚠️ AND IT NO LONGER ASKS WHETHER YOU CLEARED IT, because clearing a room
- *  now means its SPOIL is gone, not that the dark is. See `descend` and `TOLL`:
+ *  now means its SPOIL is gone, not that the dark is. See `descend` and `SCRAPS`:
  *  a floor's treasure is taken once and stays taken; the things that live down
  *  there walk back in between delves. Splitting those two facts is what keeps
  *  "cleared stays cleared" from being a way to lock yourself out of the game. */
@@ -440,7 +466,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
         const born = guardsOf(g, r).map((q, i) => ({
           id: bred + i, at: step, from: step, hp: q.hp, bite: q.bite, name: q.name,
           breed: q.breed,
-          every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1, reeling: 0,
+          every: pace(q), reeling: 0,
         }));
         bred += born.length;
         woken = [...woken, ...born];
@@ -455,7 +481,12 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   let hp = g.hp;
   const foes = woken.map((f) => {
     if (f.hp <= 0 || !actsOn(f, turn)) return f;
-    if (f.at === at || f.at === from) {
+    // ★★★ EITHER END OF THE STEP — the rule that killed kiting.
+    // ⚠️ EXCEPT CARRION, which does not take a parting swing. That single
+    // exception is what makes your own cleared ground walkable: crossing an
+    // emptied lair cost four life with the parting shot and one without it,
+    // and "walk your own rooms unharassed" was the ask.
+    if (f.at === at || (f.at === from && TRAITS[f.breed].parting)) {
       // ★★★ AN ARM IN THE WAY IS WORTH HALF OF EVERYTHING. Rounded UP against
       // you, so bracing never makes a 1 into a 0 — a free turn is not a
       // decision, and this has to stay a trade.
@@ -509,7 +540,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
     const room = roomAt(g, next)!;
     const born = guardsOf(g, room).map((q, i) => ({
       id: grew + i, at: next, from: next, hp: q.hp, bite: q.bite, name: q.name,
-      breed: q.breed, every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1, reeling: 0,
+      breed: q.breed, every: pace(q), reeling: 0,
     }));
     grew += born.length;
     woke = [...woke, ...born];
@@ -641,7 +672,7 @@ function act(g: Delve, a: Action): Delve {
           breed: q.breed,
           // ★ Heavier things are slower, and slow is what you can walk away
           // from — except a stalker, which is the whole point of a stalker.
-          every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1,
+          every: pace(q),
           // ★ FELT BOOTS: it is a turn behind you. A lair stops being a toll
           // you pay on the way in and starts being a room you can look at.
           reeling: g.relics.includes('boots') ? g.turn + 1 : 0,
@@ -709,7 +740,7 @@ function act(g: Delve, a: Action): Delve {
         // with nothing can always fight their way back to a flask.
         const home = roomAt(g, mark.from);
         if (home && g.cleared.includes(mark.from)) {
-          const toll = Math.max(1, Math.round(worth(g, home) * TOLL));
+          const toll = SCRAPS(deepness(g, home));
           purse += toll;
           said.push(`You take ${toll} off it.`);
         }
@@ -768,7 +799,7 @@ function act(g: Delve, a: Action): Delve {
       const room = roomAt(g, a.at)!;
       const born = guardsOf(g, room).map((q, i) => ({
         id: g.bred + i, at: a.at, from: a.at, hp: q.hp, bite: q.bite, name: q.name,
-        breed: q.breed, every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1,
+        breed: q.breed, every: pace(q),
         reeling: 0,
       }));
       return theirTurn({ ...g, foes: [...g.foes, ...born], bred: g.bred + born.length },
@@ -1353,7 +1384,7 @@ function crawlOn(g: Delve): Delve {
   if (held(g, step) && !foes.some((f) => f.from === step)) {
     const born = guardsOf(g, r).map((q, i) => ({
       id: bred + i, at: step, from: step, hp: q.hp, bite: q.bite, name: q.name,
-      breed: q.breed, every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1, reeling: 0,
+      breed: q.breed, every: pace(q), reeling: 0,
     }));
     bred += born.length;
     foes = [...foes, ...born];

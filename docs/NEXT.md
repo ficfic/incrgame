@@ -51,10 +51,11 @@ already about — an autonomous crawler walking a graph and lying about it.
 Ranked. Take the top one.
 
 1. **Play it and feel the lamp AND the new economy.** 26 turns, a flask at 4,
-   `vim` at 34, a toll of a third on a re-clear, 4 a room for new ground — all
-   of it tuned by a bot in `test/broke.test.ts`, none of it by a thumb. Is
-   running out frightening or annoying? Does grinding an emptied floor feel
-   like a lifeline or like the game's actual content?
+   `vim` at 34, scraps of 1–2 a carrion, 4 a room for new ground — all of it
+   tuned by a bot in `test/broke.test.ts`, none of it by a thumb. A fresh
+   floor-one sweep pays 39; grinding an emptied one settles at 2 a delve. Is
+   running out frightening or annoying? Is that lifeline too thin to bother
+   with, which would be its own kind of dead end?
 2. **87% of `src/` is not reachable from the entry point.** `npm run live`:
    13 files are the game, 67 are three deleted ones. Delete, or banner.
 3. **The relics and the crawler predate the lamp.** Both were built when turns
@@ -63,20 +64,17 @@ Ranked. Take the top one.
    chalk. Re-read them against the new pressure.
 4. **The numbers are still small.** `break_eternity` is in the stack, unused.
 5. **One save-race guard is reasoned, not proven** — the `ready` flag.
-6. **Make what comes back different from what you killed**, or let a delver
-   walk their own cleared rooms unharassed. The owner: the spoil stopped
-   repeating but the TRANSIT did not — every trip to fresh ground walks back
-   through the same rats for a third of the money.
-8. **Rooms have room.** `w`/`h` are drawn and nothing in the rules reads them.
+6. **Rooms have room.** `w`/`h` are drawn and nothing in the rules reads them.
    Let a narrow room admit one foe at a time, so where you fight is a choice.
-9. **Items with slots**, not eight lines of +number.
-10. **Cut the record to one line**, cut `.wire` and the dead `WALK_SECS`, and
+7. **Items with slots**, not eight lines of +number.
+8. **Cut the record to one line**, cut `.wire` and the dead `WALK_SECS`, and
    move the save box out from under the shop.
 
 ### Done since this list was written
 - ~~Oil spends on the graph~~ — lanterns, 2026-08-23.
 - ~~The animation loop never stops~~ — it never did; the CHECK was wrong.
 - ~~Something behind the stair that is not floor one at +60%~~ — the cuts.
+- ~~What comes back is what you killed~~ — carrion, 2026-08-23.
 
 ## What is deliberately NOT on the queue
 

@@ -1919,3 +1919,10 @@ Entries above this line are long because the one-line rule did not exist yet.
   (flood, swarm, hush, vault, dark). Why: the owner said a new floor was "floor
   one at +60%", and a content tier that only scales is a progress bar wearing a
   map.
+
+- **2026-08-23** — A room you emptied refills with carrion, not with its own
+  garrison: weaker, slow, it does not chase and it does not swing at your back,
+  and a lantern keeps it out entirely. The toll it pays is a flat pittance by
+  depth, not a cut of what the room was worth. Why: the owner said the spoil
+  stopped repeating but the transit did not, and the respawn cannot simply be
+  deleted — it is the only income a stranded delver has.

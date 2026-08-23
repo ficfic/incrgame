@@ -157,7 +157,11 @@ describe('★★★ A DELVER WITH NOTHING IS NEVER STUCK', () => {
     const again = delve(done).hoard;
     expect(fresh).toBeGreaterThan(20);
     expect(again, 'an emptied floor pays nothing at all').toBeGreaterThan(0);
-    expect(again * 4).toBeLessThan(fresh);
+    // ⚠️ TIGHTENED FROM 4× ONCE THE TOLL STOPPED BEING A CUT OF THE ROOM'S
+    // WORTH. A slack bar on this is how the treadmill gets back in: for a day,
+    // scavenging the Drowned Well paid four a body because the WELL was worth
+    // twelve, and a bot went straight back to it every delve.
+    expect(again * 5).toBeLessThan(fresh);
   });
 
   it('★★★ AND THE GRIND ALWAYS CLIMBS, however badly you have played', () => {
@@ -173,7 +177,7 @@ describe('★★★ A DELVER WITH NOTHING IS NEVER STUCK', () => {
     for (let d = 0; d < 8; d++) { g = delve(g); marks.push(g.hoard + g.kit.flask * COST.flask); }
     expect(g.fallen).toBe(false);
     expect(marks[7]!, `stalled at ${marks.join(' → ')}`).toBeGreaterThan(marks[1]!);
-    expect(marks[7]! - marks[1]!).toBeGreaterThanOrEqual(6);
+    expect(marks[7]! - marks[1]!).toBeGreaterThanOrEqual(10);
   });
 
   it('★★★ and the light it burned was BOUGHT — the dregs alone do not do it', () => {

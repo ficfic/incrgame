@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, doorsOf, shut, waysOut, within, stepToward, swing,
   unwalkable, unwedgeable, affordable, facing, BITE, KEEN, BAR_TURNS,
-  WEDGES_PER, CRAWL_HP, BRACE_HP, COST, START_HP, START_WEDGES, TOLL,
+  WEDGES_PER, CRAWL_HP, BRACE_HP, COST, START_HP, START_WEDGES, SCRAPS,
   type Delve, type Good }
   from '../src/delve/engine';
 import { SPOIL } from '../src/delve/dungeon';
@@ -96,12 +96,14 @@ describe('★★★ A RUN IS A RUN — the dark closes behind you', () => {
     expect(first.foes).toEqual([]);
     expect(first.at).toBe(0);
     expect(first.hp).toBe(START_HP);
-    // ★★★ AND WALKING BACK IN PAYS THE TOLL AND NOTHING MORE. Things wander
-    // back into an emptied room — a floor you cleared is not a floor that is
-    // safe — but the room's spoil went the first time and does not come back.
+    // ★★★ AND WALKING BACK IN PAYS SCRAPS AND NOTHING MORE. Carrion moves into
+    // an emptied room — a floor you cleared is not a floor that is safe — but
+    // the room's spoil went the first time and does not come back, and what
+    // squats there now is worth a flat pittance by depth rather than a cut of
+    // what the room used to be worth.
     const second = raid(first);
     expect(second.hoard).toBeGreaterThan(first.hoard);
-    expect(second.hoard - first.hoard).toBeLessThan(first.hoard * TOLL * 2);
+    expect(second.hoard - first.hoard).toBe(SCRAPS(2) * 2);   // two bodies, deep 2
     expect(second.won).toContain('first');
     // ★ Until you take the stair — a new floor is new ground, all of it.
     const below = apply({ ...first, at: 9, purse: 7, cleared: first.rooms.map((r) => r.id) },

@@ -32,33 +32,54 @@ export interface Trait {
   heavy: boolean;
   /** ★ Wakes the guard of a room next door when it acts beside you. */
   howls: boolean;
+  /** ★★★ TAKES A SWING AT YOU AS YOU LEAVE. Everything down here does — a foe
+   *  reaches you at EITHER END of your step, which is the rule that killed
+   *  kiting and is why a door is not an escape hatch. Carrion is the one
+   *  exception, and it is the whole reason your own cleared ground is walkable:
+   *  crossing an emptied lair cost four life with the parting shot and one
+   *  without it. */
+  parting: boolean;
   /** One line the screen can show, so a player can read a thing they have not
    *  met before instead of finding out by dying to it. */
   says: string;
 }
 
-export type Breed = 'runt' | 'hulk' | 'brute' | 'lurker' | 'howler' | 'stalker';
+export type Breed = 'runt' | 'hulk' | 'brute' | 'lurker' | 'howler' | 'stalker' | 'carrion';
 
 export const TRAITS: Record<Breed, Trait> = {
-  runt: { breed: 'runt', name: 'a runt', chases: true, heavy: false, howls: false,
+  runt: { breed: 'runt', name: 'a runt', chases: true, heavy: false, howls: false, parting: true,
     says: 'quick, and it follows' },
   /** ★ THE BIG ONE THE GAME HAS ALWAYS HAD. Slow, hits hard, and SHOVEABLE —
    *  the whole first-lair tactic is putting it through a door and killing the
    *  runt while it picks itself up, so it must stay that way. */
-  hulk: { breed: 'hulk', name: 'a big one', chases: true, heavy: false, howls: false,
+  hulk: { breed: 'hulk', name: 'a big one', chases: true, heavy: false, howls: false, parting: true,
     says: 'slow · hits hard' },
   /** ⚠️ AND THE ONE THAT ANSWERS IT, DEEPER DOWN. Making the FIRST big one too
    *  heavy would have deleted the tactic the fight was built around in the same
    *  commit that shipped it — six tests said so. A brute belongs where the
    *  player already knows the answer and has to find another. */
-  brute: { breed: 'brute', name: 'a brute', chases: true, heavy: true, howls: false,
+  brute: { breed: 'brute', name: 'a brute', chases: true, heavy: true, howls: false, parting: true,
     says: 'slow · TOO HEAVY TO SHOVE' },
-  lurker: { breed: 'lurker', name: 'a lurker', chases: false, heavy: false, howls: false,
+  lurker: { breed: 'lurker', name: 'a lurker', chases: false, heavy: false, howls: false, parting: true,
     says: 'it never leaves this room' },
-  howler: { breed: 'howler', name: 'a howler', chases: true, heavy: false, howls: true,
+  howler: { breed: 'howler', name: 'a howler', chases: true, heavy: false, howls: true, parting: true,
     says: 'it wakes the room next door' },
-  stalker: { breed: 'stalker', name: 'a stalker', chases: true, heavy: false, howls: false,
+  stalker: { breed: 'stalker', name: 'a stalker', chases: true, heavy: false, howls: false, parting: true,
     says: 'fast, and it does not stop' },
+  /** ★★★ WHAT MOVES INTO A ROOM YOU EMPTIED, 2026-08-23.
+   *
+   *  The owner, on the build where guards started coming back: *"every trip to
+   *  fresh ground walks back through the Rat Warren. Same rats, third the
+   *  money, again. The spoil doesn't repeat — the TRANSIT does. That's the
+   *  rerun wearing a coat."*
+   *
+   *  They are right and both halves of their sentence get answered by one
+   *  trait: what comes back is NOT what you killed, and it does not follow you.
+   *  A corridor you have taken stays taken — you walk it unharassed — and the
+   *  thing squatting in it is still worth a coin if you want the coin. */
+  carrion: { breed: 'carrion', name: 'a carrion thing', chases: false, heavy: false,
+    howls: false, parting: false,
+    says: 'it moved in after you left · it will not follow, or stop you leaving' },
 };
 
 /** A guard, before it is put in a room. */
@@ -66,6 +87,25 @@ export interface Guard { hp: number; bite: number; name: string; breed: Breed }
 
 const of = (breed: Breed, hp: number, bite: number): Guard =>
   ({ hp, bite, name: TRAITS[breed].name, breed });
+
+/** ★★★ WHAT HAS MOVED INTO A ROOM YOU ALREADY EMPTIED.
+ *
+ *  ⚠️ NOT THE GARRISON AGAIN. Respawning the room's own line-up is what made
+ *  the owner call the transit a rerun: the same pair, the same four swings, a
+ *  third of the money, every single trip. Scavengers are weaker, they arrive
+ *  in ones and twos, and — the part that matters — they do not chase. Walking
+ *  through your own cleared ground costs you a turn and nothing else.
+ *
+ *  ★ AND THEY THICKEN WITH DEPTH like everything else, so an emptied floor
+ *  five is not an emptied floor one.
+ *
+ *  ⚠️ AND THERE ARE AS MANY OF THEM AS THE ROOM HAD GUARDS, which is not a
+ *  flavour decision. The toll is paid PER CORPSE, so halving the bodies halved
+ *  the only income a stranded delver has: `test/broke.test.ts` went from a
+ *  hoard climbing 6 over eight delves to one climbing 2, which is the
+ *  soft-lock creeping back in through a monster's stat block. */
+export const scavengedOf = (deep: number, many = 2): Guard[] =>
+  Array.from({ length: many }, () => of('carrion', 3 + deep, 1));
 
 /** ★★★ WHAT LIVES IN A LAIR, and it changes as you go down. Shallow lairs are
  *  the pair the game has always had; deeper ones start fielding things that
