@@ -160,8 +160,17 @@ console.log('\n★★★ AND THE FIGHT ASKS SOMETHING');
 // `strike` picked its own target, so a room with two monsters in it was one
 // button tapped four times. This section counts the choices the room actually
 // offers a thumb.
-const verbs = async () => (await page.locator('.deed').allTextContents())
+// ⚠️ `.deed` AND `.chip`. The fight panel had grown to nine full-width buttons
+// — 540px of stacked deed on a 390px phone — so the three verbs you take every
+// turn are now a row and everything about a DOOR is a chip. Both are buttons a
+// thumb presses, so both count as things the room offers.
+const verbs = async () => (await page.locator('.deed, .chip').allTextContents())
   .map((s) => s.replace(/\s+/g, ' ').trim().split(' ')[0]);
+const tap = async (label) => {
+  await page.locator('.deed, .chip').filter({ hasText: label }).first()
+    .click({ timeout: 3000 }).catch(() => misses.push(`cannot press ${label}`));
+  await page.waitForTimeout(160);
+};
 const offered = await verbs();
 console.log('  offers  :', offered.join(' · '));
 // ★★★ MORE THAN ONE THING TO DO, in the first fight, with nothing bought.
@@ -207,8 +216,8 @@ console.log('\n★★★ AND YOU CAN PUT IT THROUGH A DOOR');
 // shove buttons away with it. The first draft did exactly that and then waited
 // thirty seconds for a button it had just dismissed.
 const inRoom = await sqs.count();
-await page.locator('.deed', { hasText: 'Shove' }).first().click();
-await page.waitForTimeout(250);
+await tap('Shove');
+await page.waitForTimeout(150);
 const left = await sqs.count();
 console.log('  shoved  :', `${inRoom} in the room → ${left}`);
 if (!(left < inRoom)) misses.push('shoving left it standing where it was');
@@ -529,10 +538,14 @@ if (!(Number(lifeCap) > 20)) misses.push(`buying leather twice did not raise the
 
 console.log('\n★★★ AND CUTTING AN EDGE');
 await walk('Broken Hall');
-const cutter = page.locator('.deed.wedge').first();
+const cutter = page.locator('.chip.wedge').first();
 if (!(await cutter.count())) misses.push('nowhere to spend a wedge from a room with three doors');
 else {
-  const which = (await cutter.textContent()).replace(/\s+/g, ' ').trim();
+  // ⚠️ THE FIRST TEXT NODE, not the whole chip. A chip carries its own
+  // sub-label in an <em> with no space before it — "Wedge The Mouth4 turns · 5
+  // left" — and splitting that on words asked the map for a room called
+  // "The Mouth4".
+  const which = (await cutter.evaluate((el) => el.childNodes[0].textContent)).trim();
   console.log('  wedging :', `"${which.slice(0, 40)}"`);
   await cutter.click();
   await page.waitForTimeout(200);
@@ -544,7 +557,7 @@ else {
   const said = await panel();
   if (!/wedge the door/i.test(said)) misses.push('nothing says a door was wedged');
   // And it must refuse to let you walk it.
-  const name = which.replace(/^Wedge /, '').split(' shut')[0].trim();
+  const name = which.replace(/^Wedge /, '').trim();
   const was = await turn();
   await walk(name);
   if ((await turn()) !== was) misses.push(`you walked straight through your own wedge to ${name}`);

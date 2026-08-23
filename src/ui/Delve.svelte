@@ -284,75 +284,68 @@
           {/each}
         </div>
 
-        <button class="deed hit" disabled={unswingable(game) !== null}
-          onclick={() => act({ type: 'strike', at: aim ?? undefined })}>
-          Swing {#if mark}at {mark.name}{/if}
-          <em>takes {swing(game)}{#if cost > 0} · costs you {cost}{:else} · costs you nothing{/if}</em>
-        </button>
-
-        <!-- ★★★ AND THE GRAPH VERB THAT LIVES INSIDE A FIGHT. Putting the big
-             one through a door and killing the runt while it picks itself up
-             is a better line than trading, and there is a test that proves it
-             rather than a comment that hopes so. -->
-        {#if mark && outs.length > 0}
-          {#each outs as d (d)}
-            <button class="deed push" onclick={() => { act({ type: 'shove', foe: mark.id, to: d }); aim = null; }}>
-              Shove {mark.name} into {roomAt(game, d)?.name}
-              <em>no damage · off its feet {REEL} turns · it has to walk back</em>
-            </button>
-          {/each}
-        {:else if mark}
-          <p class="note dim">{unshovable(game, mark.id, doorsOf(game, game.at)[0] ?? -1)
-            ?? 'nowhere to shove it'}</p>
-        {:else if line.length > 1}
-          <p class="note dim">tap one of them to aim, or to shove it through a door</p>
-        {/if}
-
-        {#each doorsOf(game, game.at).filter((d) => unringable(game, d) === null) as d (d)}
-          <button class="deed ring" onclick={() => act({ type: 'ring', at: d })}>
-            Ring the bell at {roomAt(game, d)?.name}
-            <em>wake it here, on ground you picked</em>
+        <!-- ★★★ THREE UP, NOT THREE DOWN. ⚠️ A FIGHT HAD GROWN TO NINE
+             FULL-WIDTH BUTTONS — Swing, two Shoves, Brace, Hold, a Salve, a
+             Ring and two Wedges — which is 540px of stacked deed on a 390px
+             phone. The owner plays this on a phone. Scrolling to find the verb
+             you want, mid-fight, in a game whose whole pitch is that you can
+             see the exchange before you commit, is the interface undoing the
+             design. The three you take every turn are on one row; everything
+             that is about a DOOR is a chip. -->
+        <div class="verbs">
+          <button class="deed hit" disabled={unswingable(game) !== null}
+            onclick={() => act({ type: 'strike', at: aim ?? undefined })}>
+            Swing {#if mark}<em class="who">{mark.name}</em>{:else}<em>takes {swing(game)}</em>{/if}
           </button>
-        {/each}
-        {#if undrinkable(game) === null}
-          <button class="deed sip" onclick={() => act({ type: 'drink' })}>
-            Drink a salve
-            <em>{Math.min(SALVE, maxHp(game) - game.hp)} back · {game.kit.salve} left · costs a turn</em>
+          <button class="deed guard" onclick={() => act({ type: 'brace' })}>
+            Brace
+            <em>{cost === 0 ? 'nothing to turn'
+              : held < cost ? `take ${held}, not ${cost}`
+              : `no help · still ${cost}`}</em>
           </button>
-        {/if}
-        <button class="deed guard" onclick={() => act({ type: 'brace' })}>
-          Brace
-          <!-- ⚠️ "take 1 instead of 1" IS TRUE AND READS AS A BUG. Halving
-               rounds up against you, so a lone 1-bite runt cannot be braced
-               against at all — say that, rather than printing the same number
-               twice and letting the player think the button is broken. -->
-          <em>{cost === 0 ? 'nothing to turn'
-            : held < cost ? `take ${held} instead of ${cost}`
-            : `no help against this — still ${cost}`} · deal nothing</em>
-        </button>
+          <button class="deed" onclick={() => act({ type: 'wait' })}>
+            Hold
+            <em>{cost > 0 ? `costs ${cost}` : 'let it pass'}</em>
+          </button>
+        </div>
 
-        <button class="deed" onclick={() => act({ type: 'wait' })}>
-          Hold
-          <em>let the turn pass{#if cost > 0} · costs you {cost}{/if}</em>
-        </button>
-        {#if canDescend(game)}
-          <!-- ★★★ THE STAIR IS IN THE HOARD, the one fight you are not meant
-               to win, so going deeper is a dash you earn rather than a button
-               on the shop screen. -->
-          <button class="deed down" onclick={() => act({ type: 'descend' })}>
-            Take the stair down
-            <em>floor {game.floor + 1} · banks {game.purse} on the way · a map you have never seen</em>
-          </button>
-        {/if}
-        {#if game.kit.wedges > 0 && wedgeable.length > 0}
-          <div class="cut">
-            {#each wedgeable as d (d)}
-              <button class="deed wedge" onclick={() => act({ type: 'wedge', to: d })}>
-                Wedge {roomAt(game, d)?.name}
-                <em>shut {barTurns(game)} turns · {game.kit.wedges} left</em>
+        <div class="chips">
+          {#if mark}
+            {#each outs as d (d)}
+              <button class="chip push" onclick={() => { act({ type: 'shove', foe: mark.id, to: d }); aim = null; }}>
+                Shove into {roomAt(game, d)?.name}<em>{REEL} turns down</em>
               </button>
             {/each}
-          </div>
+          {/if}
+          {#if undrinkable(game) === null}
+            <button class="chip sip" onclick={() => act({ type: 'drink' })}>
+              Salve<em>+{Math.min(SALVE, maxHp(game) - game.hp)} · {game.kit.salve} left</em>
+            </button>
+          {/if}
+          {#each doorsOf(game, game.at).filter((d) => unringable(game, d) === null) as d (d)}
+            <button class="chip ring" onclick={() => act({ type: 'ring', at: d })}>
+              Ring at {roomAt(game, d)?.name}<em>wake it here</em>
+            </button>
+          {/each}
+          {#each wedgeable as d (d)}
+            <button class="chip wedge" onclick={() => act({ type: 'wedge', to: d })}>
+              Wedge {roomAt(game, d)?.name}<em>{barTurns(game)} turns · {game.kit.wedges} left</em>
+            </button>
+          {/each}
+        </div>
+        {#if canDescend(game)}
+          <!-- ★★★ AND THE STAIR, even mid-fight. The Hoard's guard is meant to
+               be unwinnable, so "you may only leave once the room is quiet"
+               would seal the game at floor one. ⚠️ IT WENT MISSING when the
+               panel was restructured, because it had been tucked under the
+               Hold button this replaced. -->
+          <button class="deed down" onclick={() => act({ type: 'descend' })}>
+            Take the stair down
+            <em>floor {game.floor + 1} · banks {game.purse} · a map you have never seen</em>
+          </button>
+        {/if}
+        {#if !mark && line.length > 1}
+          <p class="note dim">tap one of them to aim, or to shove it through a door</p>
         {/if}
         <p class="note dim">
           {#if cost > 0}
@@ -366,26 +359,23 @@
           {#if doorsOf(game, game.at).length === 1}one door{:else}{doorsOf(game, game.at).length} doors{/if}
           · tap a room to walk there
         </p>
-        {#if game.kit.wedges > 0 && wedgeable.length > 0}
-          {#each wedgeable as d (d)}
-            <button class="deed wedge" onclick={() => act({ type: 'wedge', to: d })}>
-              Wedge {roomAt(game, d)?.name}
-              <em>shut {barTurns(game)} turns · {game.kit.wedges} left</em>
+        <div class="chips">
+          {#if undrinkable(game) === null}
+            <button class="chip sip" onclick={() => act({ type: 'drink' })}>
+              Salve<em>+{Math.min(SALVE, maxHp(game) - game.hp)} · {game.kit.salve} left</em>
+            </button>
+          {/if}
+          {#each doorsOf(game, game.at).filter((d) => unringable(game, d) === null) as d (d)}
+            <button class="chip ring" onclick={() => act({ type: 'ring', at: d })}>
+              Ring at {roomAt(game, d)?.name}<em>wake it here</em>
             </button>
           {/each}
-        {/if}
-        {#if undrinkable(game) === null}
-          <button class="deed sip" onclick={() => act({ type: 'drink' })}>
-            Drink a salve
-            <em>{Math.min(SALVE, maxHp(game) - game.hp)} back · {game.kit.salve} left</em>
-          </button>
-        {/if}
-        {#each doorsOf(game, game.at).filter((d) => unringable(game, d) === null) as d (d)}
-          <button class="deed ring" onclick={() => act({ type: 'ring', at: d })}>
-            Ring the bell at {roomAt(game, d)?.name}
-            <em>wake it here, on ground you picked</em>
-          </button>
-        {/each}
+          {#each wedgeable as d (d)}
+            <button class="chip wedge" onclick={() => act({ type: 'wedge', to: d })}>
+              Wedge {roomAt(game, d)?.name}<em>{barTurns(game)} turns · {game.kit.wedges} left</em>
+            </button>
+          {/each}
+        </div>
         {#if canSend(game)}
           <button class="deed send" onclick={() => act({ type: 'send' })}>
             Send a crawler down
@@ -564,16 +554,9 @@
   .kept { margin: 8px 0; border-top: 1px solid var(--rule); padding-top: 6px; }
   .note.relic { color: var(--faint); }
   .note.relic b { color: #a8c4d0; font-weight: 700; }
-  .deed.sip { border-color: #5c6b4a; }
-  .deed.sip em { color: #8fae74; }
   .price + em.own, em.own { font-style: normal; color: var(--faint); font-size: var(--t7); }
-  .deed.ring { border-color: #4d6b78; }
-  .deed.ring em { color: #7f9aa6; }
   .deed.down { border-color: #c2543c; background: #1a1109; }
   .deed.down em { color: #d9755e; }
-  .deed.wedge { border-color: #6d5a3a; }
-  .deed.wedge em { color: #8a7a5c; }
-  .cut { margin: 2px 0; }
   .keep { margin: 10px 0 4px; border-top: 1px solid var(--rule); padding-top: 6px; }
   .keep summary { font-size: var(--t8); text-transform: uppercase;
     letter-spacing: .1em; color: var(--dim); padding: 4px 0; cursor: pointer; }
@@ -611,6 +594,23 @@
   .deed em { display: block; font-style: normal; font-size: var(--t6);
     color: var(--faint); }
   .line { display: flex; gap: 8px; margin: 8px 0 4px; }
+  /* ★★★ THE THREE YOU TAKE EVERY TURN, ON ONE ROW. Still 44px of thumb each. */
+  .verbs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 6px 0; }
+  .verbs .deed { margin: 0; padding: 8px 8px; text-align: center; font-size: var(--t5); }
+  .verbs .deed em { font-size: var(--t8); margin-top: 2px; }
+  .verbs .deed .who { color: #f0cf87; }
+  /* ★ AND EVERYTHING THAT IS ABOUT A DOOR IS A CHIP. They come and go with the
+     room you are in, so they must not each cost a full-width row. */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+  .chip { font: inherit; font-size: var(--t7); text-align: left; min-height: 44px;
+    border: 1px solid var(--edge); border-radius: var(--r2);
+    background: var(--card); color: var(--text); padding: 5px 9px; flex: 1 1 46%; }
+  .chip em { display: block; font-style: normal; font-size: var(--t8);
+    color: var(--faint); }
+  .chip.push { border-color: #4d6b78; } .chip.push em { color: #7f9aa6; }
+  .chip.ring { border-color: #4d6b78; } .chip.ring em { color: #7f9aa6; }
+  .chip.wedge { border-color: #6d5a3a; } .chip.wedge em { color: #8a7a5c; }
+  .chip.sip { border-color: #5c6b4a; } .chip.sip em { color: #8fae74; }
   /* ★ A READOUT, NOT BUTTONS. There is nothing to press on a monster — you
      swing at the room, you hold, or you leave it. */
   .sq { flex: 1; display: flex; flex-direction: column; align-items: center;
@@ -623,8 +623,6 @@
   .sq { cursor: pointer; font: inherit; }
   .sq.aimed { border-color: #f0cf87; box-shadow: inset 0 0 0 1px #f0cf87; }
   .sq.aimed .nm { color: #f0cf87; }
-  .deed.push { border-color: #4d6b78; }
-  .deed.push em { color: #7f9aa6; }
   .deed.guard { border-color: #5c6b4a; }
   .deed.guard em { color: #8fae74; }
   .sq b { font-size: var(--t2); color: var(--soft); font-weight: 700; }
