@@ -461,9 +461,18 @@ if (shopped < 4) misses.push(`the hoard buys ${shopped} things — the shop is n
 // ★ A SHOP THAT SELLS YOU THINGS FOR NOTHING is not a ratchet.
 if (freebies !== 0) misses.push(`${freebies} things are free with a hoard of 0`);
 const priced = await flat('.shop');
-for (const want of ['bar a door', 'two doors out', 'crawler takes']) {
-  if (!priced.includes(want)) misses.push(`the shop never says what a buy does to the graph: "${want}"`);
+for (const want of ['bar a door', 'two doors out', 'crawler takes', 'only healing']) {
+  if (!priced.includes(want)) misses.push(`the shop never says what a buy does: "${want}"`);
 }
+// ★★★ AND THE PERMANENT ONES GET DEARER. ⚠️ EVERY PURCHASE USED TO BE A FLAG,
+// so the player's power topped out while the dungeon's kept scaling — by floor
+// five the guards had doubled and the delver still had twenty life. A bot
+// walking down found that wall on its first run.
+const priceOf = async (label) => Number(await page.locator('.deed.buy', { hasText: label })
+  .first().locator('.price').textContent());
+const leather1 = await priceOf('Boiled leather');
+console.log('  climbs  :', `leather ${leather1}`);
+if (!(leather1 > 0)) misses.push('the shop shows no price for the leather');
 
 console.log('\nEARNING IT');
 // Clear the Rat Warren, walk back up, climb out. This is the loop.
@@ -486,10 +495,37 @@ console.log('  afford  :', `${canBuy} of ${shopped} after one raid`);
 // ⚠️ THE FIRST BUY MUST LAND ON THE FIRST OR SECOND DELVE or the shop is
 // furniture. This is the check that would catch prices drifting out of reach.
 if (canBuy < 1) misses.push(`one full raid affords nothing — the shop is out of reach`);
+// Buy the leather twice over and watch the price climb.
+await page.evaluate(() => { document.querySelector('.panel').scrollTop = 0; });
 await press('iron wedges');
 const pack = await flat('.shop');
 console.log('  pack    :', `"${pack.match(/\d+ in the pack/)?.[0] ?? 'nothing bought'}"`);
 if (!/in the pack/.test(pack)) misses.push('buying wedges put nothing in the pack');
+
+// ★★★ THE PRICE CLIMBS, MEASURED BY BUYING IT TWICE. Imported rather than
+// earned, because the leather costs 90 and a first raid banks 7.
+await page.locator('.keep summary').click();
+await page.locator('.deed', { hasText: 'Export' }).click();
+await page.waitForTimeout(200);
+const loaded = await page.evaluate((mark) => {
+  const el = document.querySelector('.keep textarea');
+  const raw = JSON.parse(decodeURIComponent(escape(atob(el.value.slice(mark.length)))));
+  raw.hoard = 5000;
+  return mark + btoa(unescape(encodeURIComponent(JSON.stringify(raw))));
+}, 'DELVE1:');
+await page.locator('.keep textarea').fill(loaded);
+await page.locator('.deed', { hasText: 'Import' }).click();
+await page.waitForTimeout(300);
+const p1 = await priceOf('Boiled leather');
+await press('Boiled leather');
+const p2 = await priceOf('Boiled leather');
+await press('Boiled leather');
+const p3 = await priceOf('Boiled leather');
+console.log('  leather :', `${p1} → ${p2} → ${p3}`);
+if (!(p2 > p1 && p3 > p2)) misses.push(`the leather does not get dearer: ${p1} → ${p2} → ${p3}`);
+const lifeCap = (await head()).match(/\/(\d+)\s*LIFE/i)?.[1];
+console.log('  life    :', `now out of ${lifeCap}`);
+if (!(Number(lifeCap) > 20)) misses.push(`buying leather twice did not raise the cap: ${lifeCap}`);
 
 console.log('\n★★★ AND CUTTING AN EDGE');
 await walk('Broken Hall');

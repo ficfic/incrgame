@@ -37,8 +37,14 @@ describe('★★★ THE HOARD BUYS SOMETHING', () => {
     expect(affordable(rich, 'lamp')).toBe(false);
     expect(buy(rich, 'lamp')).toBe(rich);
     expect(buy(rich, 'lamp').hoard).toBe(rich.hoard);
-    const keen = buy(flush(1000), 'edge');
-    expect(buy(keen, 'edge')).toBe(keen);
+    // ⚠️ AND THE NUMERIC GOODS REPEAT NOW. `edge` and `vim` used to be flags,
+    // which meant the player's power TOPPED OUT while the dungeon's did not —
+    // by floor five the guards had doubled and the delver still had twenty
+    // life and a swing of four. Buying again costs more each time.
+    const keen = buy(flush(9000), 'edge');
+    const keener = buy(keen, 'edge');
+    expect(keener.kit.edge).toBe(2);
+    expect(keen.hoard - keener.hoard).toBeGreaterThan(COST.edge);
     expect(affordable(go(flush(), 1), 'lamp')).toBe(false);   // not down there
   });
 

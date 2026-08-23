@@ -24,7 +24,7 @@ import { RELICS, wellHolds, type RelicId } from './relics';
 import { MARKS, NOTHING, earned, take, type Tally } from './records';
 import { floorPlan } from './floors';
 
-export const DELVE_VERSION = 12;
+export const DELVE_VERSION = 13;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -111,6 +111,9 @@ export const START_WEDGES = 2;
  *  out in `test/ladder.test.ts`, not by feel: on 12 the bottom of the dungeon
  *  is not reachable by ANY route, which made the game unfinishable. */
 export const VIM = 8;
+/** ★ What a salve gives back, and how many come in a purchase. */
+export const SALVE = 7;
+export const SALVES_PER = 2;
 export const LOG_KEEP = 40;
 /** What one swing takes off. */
 export const BITE = 3;
@@ -138,7 +141,7 @@ export const initial = (): Delve => ({
   // BE BEHIND GOLD, so the first twenty taps of the game had none of them —
   // walk, swing, walk home. You are handed enough to find out what a wedge
   // does; the shop sells the rest.
-  kit: { wedges: START_WEDGES, lamp: 1, brace: 0, edge: 0, vim: 0 },
+  kit: { wedges: START_WEDGES, lamp: 1, brace: 0, edge: 0, vim: 0, salve: 0 },
   relics: [],
   tally: { ...NOTHING },
   won: [],
@@ -266,6 +269,8 @@ export type Action =
   /** ★★★ TIME YOU WERE NOT HERE. The crawler kept walking. One action, however
    *  many turns it covers. */
   | { type: 'away'; turns: number }
+  /** ★★★ Drink a salve. One turn, and the dungeon still gets its swing. */
+  | { type: 'drink' }
   /** ★★★ Ring the bell at a door. Wakes what is through it, and it comes to
    *  YOU — so you pick the ground. One turn. */
   | { type: 'ring'; at: number }
@@ -642,6 +647,18 @@ function act(g: Delve, a: Action): Delve {
         `While you were away it walked ${went} more ${went === 1 ? 'room' : 'rooms'}.`) };
     }
 
+    case 'drink': {
+      if (undrinkable(g) !== null) return g;
+      // ★★★ THE ONLY HEALING IN THE GAME, and it costs a turn like everything
+      // else. ⚠️ THERE WAS NONE AT ALL: run length was fixed at your maximum
+      // life forever, so a floor could not be cleared in one visit however
+      // well you played, and the deep end was a wall rather than a climb.
+      const back = Math.min(SALVE, maxHp(g) - g.hp);
+      return theirTurn({ ...g, hp: g.hp + back,
+        kit: { ...g.kit, salve: g.kit.salve - 1 } },
+        [`You drink a salve. ${back} back.`], g.at);
+    }
+
     case 'brace': {
       if (g.fallen) return g;
       return theirTurn(g, ['You get behind your arm.'], g.at, true);
@@ -671,17 +688,19 @@ function act(g: Delve, a: Action): Delve {
     }
 
     case 'buy': {
-      const price = COST[a.what];
-      if (g.at !== 0 || g.fallen || g.hoard < price) return g;
-      if (has(g.kit, a.what)) return g;                          // bought once
+      const paid = price(g, a.what);
+      if (g.at !== 0 || g.fallen || g.hoard < paid) return g;
+      if (has(g.kit, a.what)) return g;                    // the one-offs, once
       // ⚠️ BUYING IS NOT A TURN. You are at the Mouth with the lamp out; the
       // dungeon does not get a swing at you for looking in your own pack.
       const kit = a.what === 'wedges'
         ? { ...g.kit, wedges: g.kit.wedges + WEDGES_PER }
+        : a.what === 'salve' ? { ...g.kit, salve: g.kit.salve + SALVES_PER }
         : a.what === 'lamp' ? { ...g.kit, lamp: 2 }
-        : { ...g.kit, [a.what]: 1 };
-      return { ...g, hoard: g.hoard - price, kit,
-        log: LOG_LINES(g.log, `${GOODS[a.what]}. ${price} spent.`) };
+        : { ...g.kit, [a.what]: g.kit[a.what] + 1 };
+      const grew = a.what === 'vim' ? { hp: g.hp + VIM } : {};
+      return { ...g, ...grew, hoard: g.hoard - paid, kit,
+        log: LOG_LINES(g.log, `${GOODS[a.what]}. ${paid} spent.`) };
     }
 
     case 'wait': {
@@ -844,12 +863,44 @@ export interface Kit {
   brace: number;
   /** 1 once the edge is keen. */
   edge: number;
-  /** ★ 1 once you are carrying more life. The second honest +1, and the one
-   *  that gates the deep end — see THE LADDER in `test/ladder.test.ts`. */
+  /** ★★★ HOW MANY TIMES you have bought more life. Not a flag — see PRICE
+   *  below: the deep end scales and a one-off purchase cannot answer it. */
   vim: number;
+  /** ★ Salves in the pack. Drink one to get some of it back. */
+  salve: number;
 }
 
-export type Good = 'wedges' | 'lamp' | 'brace' | 'edge' | 'vim';
+export type Good = 'wedges' | 'lamp' | 'brace' | 'edge' | 'vim' | 'salve';
+
+/** ★★★ WHAT YOU CAN BUY AGAIN, AND AGAIN. ⚠️ EVERY PURCHASE USED TO BE A FLAG,
+ *  which meant the player's power TOPPED OUT while the dungeon's did not: by
+ *  floor five the guards had doubled and the delver still had twenty life and
+ *  a swing of four. That is not a difficulty curve, it is a ceiling with a
+ *  countdown. The two numeric goods repeat, at a rising price. */
+export const AGAIN: Good[] = ['wedges', 'edge', 'vim', 'salve'];
+
+/** ★★★ AND ONLY THE PERMANENT ONES GET DEARER.
+ *
+ *  ⚠️ THE OTHER WAY ROUND IS TWO BUGS AT ONCE, and both shipped for an hour.
+ *  Pricing a CONSUMABLE off how many you are holding means a purchase of two
+ *  salves raises the price by the square of the growth factor (×3.07, not
+ *  ×1.75) — and it means SPENDING them makes them cheap again, so hoarding
+ *  wedges is taxed and burning them is rewarded. A potion costs what a potion
+ *  costs; an upgrade costs more each time. */
+export const DEARER: Good[] = ['edge', 'vim'];
+
+/** How many times you have bought a good that gets dearer. */
+export const owned = (g: Delve, w: Good): number =>
+  w === 'edge' || w === 'vim' ? g.kit[w] : 0;
+
+/** ★ HOW FAST THE PRICE CLIMBS. 1.75 a purchase: the fifth leather costs about
+ *  nine times the first, which is the shape every incremental in the genre
+ *  uses and the first place in this game where a number gets big. */
+export const GROWTH = 1.75;
+
+export const price = (g: Delve, w: Good): number =>
+  DEARER.includes(w) ? Math.round(COST[w] * Math.pow(GROWTH, owned(g, w)))
+    : COST[w];
 
 /** ★ How long a wedge holds. Four turns is two exchanges with a fast thing and
  *  four doors of running — long enough to be worth spending, short enough that
@@ -870,7 +921,7 @@ export const KEEN = 1;
  *  that is the loop taught in one delve instead of three. The lot comes to
  *  135, a bit under two total clears, which is a ratchet you can feel. */
 export const COST: Record<Good, number> = {
-  wedges: SPOIL.lair, edge: 24, lamp: 45, brace: 60, vim: 90,
+  wedges: SPOIL.lair, salve: 14, edge: 24, lamp: 45, brace: 60, vim: 90,
 };
 
 export const GOODS: Record<Good, string> = {
@@ -879,6 +930,7 @@ export const GOODS: Record<Good, string> = {
   lamp: 'A wider lamp',
   brace: 'A braced crawler',
   vim: 'Boiled leather',
+  salve: 'Two salves',
 };
 
 export const SAYS: Record<Good, string> = {
@@ -886,7 +938,8 @@ export const SAYS: Record<Good, string> = {
   edge: `every swing takes ${BITE + KEEN} instead of ${BITE}`,
   lamp: 'see two doors out, not one — plan past the fork',
   brace: `the crawler takes ${CRAWL_HP + BRACE_HP} — it maps far more`,
-  vim: `start each delve on ${START_HP + VIM} life, not ${START_HP}`,
+  vim: `+${VIM} life, every time you buy it`,
+  salve: `drink one mid-delve for ${SALVE} back — the only healing there is`,
 };
 
 /** Life at the top of a delve, with what you are wearing. */
@@ -932,10 +985,10 @@ export function unwedgeable(g: Delve, to: number): string | null {
  *  nobody had bought and silently made it unpurchasable. Three tests failed on
  *  that one line. A field whose zero is not 0 needs asking about by name. */
 export const has = (k: Kit, w: Good): boolean =>
-  w === 'wedges' ? false : w === 'lamp' ? k.lamp > 1 : k[w] >= 1;
+  AGAIN.includes(w) ? false : w === 'lamp' ? k.lamp > 1 : k[w] >= 1;
 
 export const affordable = (g: Delve, w: Good): boolean =>
-  g.at === 0 && !g.fallen && g.hoard >= COST[w] && !has(g.kit, w);
+  g.at === 0 && !g.fallen && g.hoard >= price(g, w) && !has(g.kit, w);
 
 /** ★★★ A FRESH RUN AT THE SAME DUNGEON — the shape of the whole game.
  *
@@ -1094,4 +1147,11 @@ function crawlOn(g: Delve): Delve {
     crawl: { ...crawl, at: step, walked, turns: crawl.turns + 1,
       hp: Math.max(0, hp), done },
     log: said.reduce(LOG_LINES, g.log) };
+}
+
+export function undrinkable(g: Delve): string | null {
+  if (g.fallen) return 'You are done.';
+  if (g.kit.salve <= 0) return 'No salves.';
+  if (g.hp >= maxHp(g)) return 'You are whole.';
+  return null;
 }

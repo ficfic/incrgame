@@ -24,6 +24,7 @@
     facing, foesIn, actsOn, claimed, hallucinated, canSend, shut, waysOut,
     unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS, done, maxHp,
     unshovable, toll, braced, REEL, CRAWL_HP, roomAt, canDescend, unringable, barTurns,
+    undrinkable, price, DEARER, SALVE,
     type Delve, type Good } from '../delve/engine';
   import { TRAITS } from '../delve/bestiary';
   import { RELICS } from '../delve/relics';
@@ -151,7 +152,7 @@
   const invented = $derived(hallucinated(game));
   /** ★ THE FOUR THINGS THE HOARD BUYS. Order is price order, so the next thing
    *  you can afford is always the next thing down the list. */
-  const stock: Good[] = ['wedges', 'edge', 'lamp', 'brace', 'vim'];
+  const stock: Good[] = ['wedges', 'salve', 'edge', 'lamp', 'brace', 'vim'];
   /** Doors out of here you could still spend a wedge on. */
   const wedgeable = $derived(doorsOf(game, game.at).filter((d) => unwedgeable(game, d) === null));
   /** ★★★ THE MOMENT YOU LEARN TO DISTRUST IT. Kept OUT of the engine on
@@ -313,6 +314,12 @@
             <em>wake it here, on ground you picked</em>
           </button>
         {/each}
+        {#if undrinkable(game) === null}
+          <button class="deed sip" onclick={() => act({ type: 'drink' })}>
+            Drink a salve
+            <em>{Math.min(SALVE, maxHp(game) - game.hp)} back · {game.kit.salve} left · costs a turn</em>
+          </button>
+        {/if}
         <button class="deed guard" onclick={() => act({ type: 'brace' })}>
           Brace
           <!-- ⚠️ "take 1 instead of 1" IS TRUE AND READS AS A BUG. Halving
@@ -366,6 +373,12 @@
               <em>shut {barTurns(game)} turns · {game.kit.wedges} left</em>
             </button>
           {/each}
+        {/if}
+        {#if undrinkable(game) === null}
+          <button class="deed sip" onclick={() => act({ type: 'drink' })}>
+            Drink a salve
+            <em>{Math.min(SALVE, maxHp(game) - game.hp)} back · {game.kit.salve} left</em>
+          </button>
         {/if}
         {#each doorsOf(game, game.at).filter((d) => unringable(game, d) === null) as d (d)}
           <button class="deed ring" onclick={() => act({ type: 'ring', at: d })}>
@@ -465,10 +478,12 @@
         {#each stock as w (w)}
           <button class="deed buy" disabled={!affordable(game, w)}
             onclick={() => act({ type: 'buy', what: w })}>
-            <span class="price">{COST[w]}</span>
-            {GOODS[w]}
+            <span class="price">{price(game, w)}</span>
+            {GOODS[w]}{#if DEARER.includes(w) && game.kit[w] > 0} <em class="own">×{game.kit[w]}</em>{/if}
             <em>{w === 'wedges' && game.kit.wedges > 0
               ? `${SAYS[w]} · ${game.kit.wedges} in the pack`
+              : w === 'salve' && game.kit.salve > 0
+              ? `${SAYS[w]} · ${game.kit.salve} in the pack`
               : SAYS[w]}</em>
           </button>
         {/each}
@@ -549,6 +564,9 @@
   .kept { margin: 8px 0; border-top: 1px solid var(--rule); padding-top: 6px; }
   .note.relic { color: var(--faint); }
   .note.relic b { color: #a8c4d0; font-weight: 700; }
+  .deed.sip { border-color: #5c6b4a; }
+  .deed.sip em { color: #8fae74; }
+  .price + em.own, em.own { font-style: normal; color: var(--faint); font-size: var(--t7); }
   .deed.ring { border-color: #4d6b78; }
   .deed.ring em { color: #7f9aa6; }
   .deed.down { border-color: #c2543c; background: #1a1109; }
