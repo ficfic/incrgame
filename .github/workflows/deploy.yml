@@ -76,12 +76,46 @@ jobs:
         # one reads `src/delve/words.ts`, where the vocabulary now lives in one
         # place, and the screens that render it. Four recorded sabotages.
         run: node scripts/check-vocab.mjs
-      - name: Play it (real browser)
-        # ⚠️ `CLAUDE.md` RULE 2: the check for anything player-facing is a real
-        # browser plus looking at the screenshot. Nothing in CI did that — the
-        # only browser step drove `check-alignment.mjs`, which asserts geometry
-        # in `src/ui/App.svelte`, a screen this game has not shown since the
-        # pivot. Fourteen sections, one thumb, exit 0 only if all of them pass.
+      - run: npx vite build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  # ── The browser gate runs BESIDE the deploy, not in front of it ───────────
+  #
+  # ⚠️ I MOVED THIS INTO `build` AND BROKE THE DEPLOY, 2026-08-23 — in the same
+  # commit whose message was about gates that block deploys. The reasoning
+  # against it was already written here, by whoever wrote the old `visual` job,
+  # and I deleted the paragraph rather than reading it: a real browser is slow
+  # and flaky in a way a publish must not inherit, and one run held a deploy for
+  # nine minutes. It failed for the dumbest possible reason on top of that —
+  # no browser on the runner — so the fast gates all passed and the site did
+  # not update.
+  #
+  # ★ WHAT CHANGED, AND WHAT DID NOT. The old job drove
+  # `scripts/check-alignment.mjs`, which asserts geometry inside
+  # `src/ui/App.svelte` — a screen this game has not shown since the pivot, so
+  # it spent 75 seconds of browser per push proving something about a page
+  # nobody can reach. The INSTINCT was right and the TARGET was stale, so the
+  # target moved to `npm run delve` and the job stayed exactly where it was:
+  # red on its own line when the game is broken, never able to take the site
+  # down with it.
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # ⚠️ AND THE RUNNER HAS NO BROWSER. Locally this repo finds a pre-installed
+      # Chromium under /opt/pw-browsers; a fresh runner has nothing, and
+      # `play-delve.mjs` falls through to Playwright's own copy, which is not
+      # there either. This is the line whose absence failed the deploy.
+      - run: npx playwright install --with-deps chromium
+      - name: Play it (a thumb through the whole loop)
         run: |
           npm run build
           npx vite preview --port 4173 --strictPort > /tmp/preview.log 2>&1 &
@@ -96,18 +130,12 @@ jobs:
             })();
           '
           PLAY_URL=http://localhost:4173/incrgame/ node scripts/play-delve.mjs
-      - run: npx vite build
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          path: dist
-
-  # ⚠️ THE `visual` JOB IS GONE, 2026-08-23. It drove a real browser — which was
-  # the right instinct, and it is why it caught the graph sitting 30px off
-  # centre while every unit test was green — but at `scripts/check-alignment.mjs`,
-  # which asserts positioning inside `src/ui/App.svelte`. That screen has not
-  # been shown since the pivot, so the job was spending 75 seconds of browser
-  # per push proving something about a page nobody can reach. Its replacement is
-  # the `Play it` step in `build`: same instinct, aimed at the game that ships.
+          name: screenshots
+          path: play-*.png
+          if-no-files-found: ignore
 
   deploy:
     # The github-pages environment only allows the default (pinned) branch —
