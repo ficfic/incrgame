@@ -48,14 +48,18 @@
     fake?: boolean }
 
   let { cells, passes, onTap, label = 'dungeon',
-        crawlAt = null, shock = 0, float = null }:
+        crawlAt = null, shock = 0, float = null, guttered = false }:
     { cells: Cell[]; passes: Pass[]; onTap: (id: number) => void; label?: string;
       /** Where the crawler stands, so its step can be drawn moving. */
       crawlAt?: number | null;
       /** Bumped every time the delver is hurt. The chamber flinches. */
       shock?: number;
       /** Something gained, floating off the room it came from. */
-      float?: { room: number; text: string; key: number } | null }
+      float?: { room: number; text: string; key: number } | null;
+      /** ★★★ THE LAMP IS OUT. The map has to LOOK it — a screen that says "the
+       *  lamp is out" in words while still drawing a warm lit room is the
+       *  interface disagreeing with the rules. */
+      guttered?: boolean }
     = $props();
 
   // ★★★ THE MOTION LIVES HERE AND ONLY HERE, 2026-08-19. The owner: *"we need
@@ -220,10 +224,12 @@
    *  ground is the ground you can retreat THROUGH, so a run out to the mouth
    *  reads on the map as a lit path back rather than as more dark. */
   const floorOf = (step: number, here: boolean, done = false): string =>
-    here ? STONE.litFloor
+    // ⚠️ EVEN THE ROOM YOU STAND IN GOES COLD. It is the difference between a
+    // dark dungeon and a dungeon you are lost in.
+    here && !guttered ? STONE.litFloor
       : step <= 1 || done ? STONE.nearFloor : STONE.farFloor;
   const wallInk = (step: number, here: boolean): string =>
-    here ? STONE.litWall : step <= 1 ? STONE.nearWall : STONE.farWall;
+    here && !guttered ? STONE.litWall : step <= 1 ? STONE.nearWall : STONE.farWall;
 
   $effect(() => {
     if (!cv) return;
@@ -399,9 +405,14 @@
       // the delver — there is no delver sprite to shake, and a lamp that jumps
       // is what being hit in the dark would actually look like.
       const hurt = 1 - clip((frame - hurtWhen) / FLINCH);
-      const rad = Math.max(60, 150 * k) * (1 - 0.34 * hurt);
+      // ★★★ AND WHEN THE LAMP IS OUT THERE IS ALMOST NOTHING. Not black — you
+      // can still make out the room you are standing in, which is exactly what
+      // the rules say — but the warm pool is gone and so is any sense of where
+      // you are on the floor.
+      const rad = Math.max(60, 150 * k) * (1 - 0.34 * hurt) * (guttered ? 0.34 : 1);
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
-      g.addColorStop(0, hurt > 0.02 ? 'rgb(194 84 60 / 0.30)' : STONE.glow);
+      g.addColorStop(0, hurt > 0.02 ? 'rgb(194 84 60 / 0.30)'
+        : guttered ? 'rgb(140 150 160 / 0.07)' : STONE.glow);
       g.addColorStop(1, 'rgb(214 160 74 / 0)');
       ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = g;
@@ -409,7 +420,7 @@
       ctx.globalCompositeOperation = 'source-over';
 
       // The flame itself, so the delver is a point of light and not an icon.
-      ctx.fillStyle = hurt > 0.02 ? '#f0866b' : STONE.flame;
+      ctx.fillStyle = hurt > 0.02 ? '#f0866b' : guttered ? '#5c5a54' : STONE.flame;
       ctx.beginPath();
       ctx.arc(cx, cy, Math.max(2.5, 4 * k) * (1 + 0.5 * hurt), 0, Math.PI * 2);
       ctx.fill();

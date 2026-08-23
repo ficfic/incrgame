@@ -41,7 +41,18 @@ const flat = async (sel) => (await page.locator(sel).textContent()).replace(/\s+
 const panel = () => flat('.panel');
 const head = () => flat('header');
 const life = async () => Number((await head()).match(/(\d+)\s*\/12/)?.[1] ?? -1);
-const turn = async () => Number((await head()).match(/(\d+)\s*TURN/i)?.[1] ?? -1);
+// ★★★ TURNS ARE MEASURED IN LAMP NOW. ⚠️ The header used to carry a turn
+// counter and does not any more — the lamp took its place, because a number
+// that only counts up is a fact and a number that counts DOWN is a decision.
+// This is the better measurement anyway: it checks the rule the whole game now
+// rests on, that one action burns exactly one light.
+const light = async () => Number((await head()).match(/(\d+)\s*LIGHT/i)?.[1] ?? -1);
+let lamp0 = null;
+const turn = async () => {
+  const now = await light();
+  if (lamp0 === null) lamp0 = now;
+  return lamp0 - now;
+};
 /** Tap a room. It is one tap — no confirm, and no walk to wait out. */
 const walk = async (name) => {
   await page.locator('.node', { hasText: name }).first().click({ timeout: 3000 })
@@ -80,6 +91,11 @@ if (first !== 2) {
 console.log('  header  :', `"${(await head()).slice(0, 70)}"`);
 if ((await life()) !== 12) misses.push('the delver does not start whole');
 if ((await turn()) !== 0) misses.push(`the run does not start on turn 0: ${await turn()}`);
+// ★★★ AND THE LAMP IS THE FIRST THING ON THE SCREEN. Every turn spends one, so
+// it is the first thing a player should be thinking about.
+const lit = await light();
+console.log('  lamp    :', `${lit} turns of light`);
+if (!(lit > 10)) misses.push(`the lamp does not start full: ${lit}`);
 
 console.log('\nA STEP IS A TURN');
 await walk('Broken Hall');
@@ -153,6 +169,23 @@ console.log('  says    :', `"${met.slice(0, 110)}"`);
 if (!/swings next/.test(met)) misses.push(`nothing says it is about to swing: "${met.slice(0, 70)}"`);
 if (!/idle next/.test(met)) misses.push('nothing says it is idle — then speed is invisible');
 if (!/costs (you )?\d/.test(met)) misses.push(`the screen never says what a turn costs: "${met.slice(0, 80)}"`);
+
+console.log('\n★★★ AND THE LAMP IS BURNING');
+// ⚠️ THE THING THE GAME WAS MISSING. The owner: *"it's full of meta and lacks
+// any gameplay."* Every decision had an obviously correct answer — clear the
+// room, take the detour, tap Swing — because nothing cost anything. The lamp
+// puts a price on the one resource every action spends: being down here.
+const reckon = await flat('.reckon');
+console.log('  reckon  :', `"${reckon}"`);
+// ★★★ THE SENTENCE THE WHOLE ECONOMY IS FOR. A budget you cannot see the
+// bottom of is an ambush, not a decision.
+if (!/\d+ light/.test(reckon)) misses.push('the screen never says how much light is left');
+if (!/rooms? to the Mouth/.test(reckon)) misses.push('the screen never says how far home is');
+const burn0 = await light();
+await press('Hold');
+const burn1 = await light();
+console.log('  burns   :', `${burn0} → ${burn1} for one turn`);
+if (burn1 !== burn0 - 1) misses.push(`a turn did not cost exactly one light: ${burn0} → ${burn1}`);
 
 console.log('\n★★★ AND THE FIGHT ASKS SOMETHING');
 // ⚠️ THE OWNER, AFTER FOUR SLICES OF WORK AROUND THE FIGHT: *"it's cool and
@@ -672,6 +705,55 @@ const got = await page.locator('.note.mark.got').count();
 console.log('  earned  :', `${got} of ${await page.locator('.note.mark').count()}`);
 if (got < 1) misses.push('no milestone was claimed by a full raid');
 
+console.log('\n★★★ AND THEN THE LAMP GOES OUT');
+// ⚠️ THE BEST MOMENT IN THE GAME HAS TO ACTUALLY HAPPEN ON SCREEN. A dungeon
+// that kills you when the lamp dies is a timer with extra steps; one you can
+// still crawl out of is a story. Faked by importing a save with the lamp down
+// to its last drop, because burning 26 turns in a probe is 26 taps of nothing.
+await freshStart();
+await page.locator('.keep summary').click();
+await page.locator('.deed', { hasText: 'Export' }).click();
+await page.waitForTimeout(200);
+const guttering = await page.evaluate((mark) => {
+  const el = document.querySelector('.keep textarea');
+  const raw = JSON.parse(decodeURIComponent(escape(atob(el.value.slice(mark.length)))));
+  raw.oil = 2; raw.hp = 40; raw.kit.vim = 4;
+  return mark + btoa(unescape(encodeURIComponent(JSON.stringify(raw))));
+}, 'DELVE1:');
+await page.locator('.keep textarea').fill(guttering);
+await page.locator('.deed', { hasText: 'Import' }).click();
+await page.waitForTimeout(300);
+const litPix = await page.evaluate(() => {
+  const cv = document.querySelector('.crypt canvas');
+  const { data } = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height);
+  let warm = 0;
+  for (let i = 0; i < data.length; i += 4) if (data[i] > data[i + 2] + 26 && data[i] > 40) warm++;
+  return warm;
+});
+await walk('Broken Hall');
+await press('Hold');
+const gone = await panel();
+console.log('  goes out:', `"${gone.match(/lamp[^.]*\./i)?.[0] ?? gone.slice(0, 50)}"`);
+if (!/lamp is out/i.test(gone)) misses.push('the lamp went out and the screen did not say so');
+// ★★★ AND THE MAP HAS TO LOOK IT. A screen that says "the lamp is out" in
+// words while still drawing a warm lit room is the interface disagreeing with
+// the rules — which is the exact failure this game keeps having.
+const darkPix = await page.evaluate(() => {
+  const cv = document.querySelector('.crypt canvas');
+  const { data } = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height);
+  let warm = 0;
+  for (let i = 0; i < data.length; i += 4) if (data[i] > data[i + 2] + 26 && data[i] > 40) warm++;
+  return warm;
+});
+console.log('  the map :', `${litPix} warm pixels lit → ${darkPix} in the dark`);
+if (!(darkPix < litPix * 0.6)) misses.push(`the dark still looks lit: ${litPix} → ${darkPix} warm pixels`);
+// ★ AND IT IS NOT DEATH. You can still walk, and still climb out.
+if (/went down/.test(gone)) misses.push('the lamp going out killed the delver — that is a timer, not a dungeon');
+await walk('The Mouth');
+if (/went down/.test(await panel())) misses.push('could not walk home in the dark');
+await page.screenshot({ path: 'play-dark.png' });
+console.log('  crawled :', 'out in the dark, alive');
+
 console.log('\n★★★ AND SOMETHING HAPPENS WHILE YOU ARE GONE');
 // ⚠️ THE ONE GENRE FEATURE A TURN-BASED GAME HAS NO OBVIOUS HOME FOR. An
 // incremental is played in the gaps of a day; a game where nothing happens
@@ -829,4 +911,4 @@ if (misses.length) {
   for (const m of misses) console.log('  ', m);
   process.exit(1);
 }
-console.log('\nall good — turns move when you do, the price is on screen first,\n            and the map tells you things that are not true');
+console.log('\nall good — the lamp is burning, the price is on screen before you pay it,\n            and the map tells you things that are not true');

@@ -1899,3 +1899,4 @@ Entries above this line are long because the one-line rule did not exist yet.
 - 2026-08-23 — `check-core-purity` now guards `src/delve` first. It was aimed at two retired directories and none of the live engine — the second time that has happened.
 - 2026-08-23 — Deleted five checks that measured the deleted game, two of them deploy gates; CI runs the browser probe instead. `npm run play` points at the delve.
 - 2026-08-23 — "One word, one quantity" has a real check again: the delve's vocabulary lives in `src/delve/words.ts` and `check-vocab.mjs` reads string literals and markup text only.
+- 2026-08-23 — THE LAMP: every turn burns one light, a run is a lamp, and the dark is somewhere you can be rather than a loss. The owner: *"it's full of meta and lacks any gameplay"* — nothing competed with anything, so nothing was a decision.

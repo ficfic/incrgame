@@ -24,7 +24,7 @@
     facing, foesIn, actsOn, claimed, hallucinated, canSend, shut, waysOut,
     unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS, done, maxHp,
     unshovable, toll, braced, REEL, CRAWL_HP, roomAt, canDescend, unringable, barTurns,
-    undrinkable, price, DEARER, SALVE,
+    undrinkable, price, DEARER, SALVE, FLASK, maxOil, dark, homeward, unlightable,
     type Delve, type Good } from '../delve/engine';
   import { TRAITS } from '../delve/bestiary';
   import { RELICS } from '../delve/relics';
@@ -159,7 +159,7 @@
   const invented = $derived(hallucinated(game));
   /** ★ THE FOUR THINGS THE HOARD BUYS. Order is price order, so the next thing
    *  you can afford is always the next thing down the list. */
-  const stock: Good[] = ['wedges', 'salve', 'edge', 'lamp', 'brace', 'vim'];
+  const stock: Good[] = ['flask', 'wedges', 'salve', 'edge', 'lamp', 'brace', 'wick', 'vim'];
   /** Doors out of here you could still spend a wedge on. */
   const wedgeable = $derived(doorsOf(game, game.at).filter((d) => unwedgeable(game, d) === null));
   /** ★★★ THE MOMENT YOU LEARN TO DISTRUST IT. Kept OUT of the engine on
@@ -223,13 +223,16 @@
 <main>
   <header>
     <div class="bar">
+      <!-- ★★★ THE LAMP IS THE FIRST THING ON THE SCREEN, because it is the
+           first thing you should be thinking about. Every turn spends one. -->
+      <span class="cell lamp" class:low={game.oil <= 6} class:out={dark(game)}>
+        <b>{game.oil}</b> <em>{WORDS.oil}</em>
+      </span>
       <span class="cell">
         {#key shock}<b class="kick">{game.hp}</b>{/key}/{maxHp(game)} <em>{WORDS.hp}</em>
       </span>
-      <span class="cell"><b>{game.purse}</b> <em>{WORDS.purse}</em></span>
       <span class="cell"><b>{game.hoard}</b> <em>{WORDS.hoard}</em></span>
       <span class="cell"><b>{game.floor}</b> <em>{WORDS.floor}</em></span>
-      <span class="cell"><b>{game.turn}</b> <em>{WORDS.turn}</em></span>
     </div>
   </header>
 
@@ -251,7 +254,7 @@
   {/if}
 
   <div class="map">
-    <Crypt {cells} {passes} {onTap} label="dungeon" {shock} {float}
+    <Crypt {cells} {passes} {onTap} label="dungeon" {shock} {float} guttered={dark(game)}
       crawlAt={game.crawl && !game.crawl.done ? game.crawl.at : null} />
   </div>
 
@@ -264,6 +267,18 @@
       </button>
     {:else}
       <h2>{here.name}</h2>
+      <!-- ★★★ THE SENTENCE THE LAMP EXISTS TO MAKE POSSIBLE. "Nine light, and
+           the Mouth is four rooms away" is a decision; a budget you cannot see
+           the bottom of is an ambush. -->
+      <p class="note reckon" class:tight={game.oil <= homeward(game) + 2} class:out={dark(game)}>
+        {#if dark(game)}
+          <b>The lamp is out.</b> {homeward(game)} rooms to the Mouth, by memory.
+        {:else}
+          <b>{game.oil}</b> light · <b>{homeward(game)}</b>
+          {homeward(game) === 1 ? 'room' : 'rooms'} to the Mouth
+          {#if game.oil <= homeward(game) + 2}· <b>go now</b>{/if}
+        {/if}
+      </p>
       {#if line.length > 0}
         <!-- ★★★ TAP THE ONE YOU MEAN. ⚠️ THESE USED TO BE A READOUT, because
              an earlier pass decided that making the player aim was "an aiming
@@ -324,6 +339,11 @@
               </button>
             {/each}
           {/if}
+          {#if unlightable(game) === null}
+            <button class="chip oil" onclick={() => act({ type: 'pour' })}>
+              Pour a flask<em>+{Math.min(FLASK, maxOil(game) - game.oil)} light · {game.kit.flask} left</em>
+            </button>
+          {/if}
           {#if undrinkable(game) === null}
             <button class="chip sip" onclick={() => act({ type: 'drink' })}>
               Salve<em>+{Math.min(SALVE, maxHp(game) - game.hp)} · {game.kit.salve} left</em>
@@ -367,6 +387,11 @@
           · tap a room to walk there
         </p>
         <div class="chips">
+          {#if unlightable(game) === null}
+            <button class="chip oil" onclick={() => act({ type: 'pour' })}>
+              Pour a flask<em>+{Math.min(FLASK, maxOil(game) - game.oil)} light · {game.kit.flask} left</em>
+            </button>
+          {/if}
           {#if undrinkable(game) === null}
             <button class="chip sip" onclick={() => act({ type: 'drink' })}>
               Salve<em>+{Math.min(SALVE, maxHp(game) - game.hp)} · {game.kit.salve} left</em>
@@ -518,7 +543,7 @@
   main { display: flex; flex-direction: column; height: 100dvh;
     background: var(--page); max-width: 520px; margin: 0 auto; }
   header { border-bottom: 1px solid var(--edge); }
-  .bar { display: grid; grid-template-columns: repeat(5, 1fr); }
+  .bar { display: grid; grid-template-columns: repeat(4, 1fr); }
   .cell { display: flex; align-items: baseline; gap: 5px; justify-content: center;
     padding: 8px 4px; border-right: 1px solid var(--rule); }
   .cell:last-child { border-right: 0; }
@@ -618,6 +643,16 @@
   .chip.ring { border-color: #4d6b78; } .chip.ring em { color: #7f9aa6; }
   .chip.wedge { border-color: #6d5a3a; } .chip.wedge em { color: #8a7a5c; }
   .chip.sip { border-color: #5c6b4a; } .chip.sip em { color: #8fae74; }
+  .chip.oil { border-color: #caa468; } .chip.oil em { color: #f0cf87; }
+  /* ★★★ THE LAMP READS AS A LAMP: warm while it burns, red when it is nearly
+     gone, and plainly OUT when it is. */
+  .cell.lamp b { color: #f0cf87; }
+  .cell.lamp.low b { color: #d9755e; }
+  .cell.lamp.out b, .cell.lamp.out em { color: var(--off); }
+  .note.reckon { color: var(--faint); }
+  .note.reckon b { color: #f0cf87; }
+  .note.reckon.tight, .note.reckon.tight b { color: #d9755e; }
+  .note.reckon.out, .note.reckon.out b { color: #9d9078; }
   /* ★ A READOUT, NOT BUTTONS. There is nothing to press on a monster — you
      swing at the room, you hold, or you leave it. */
   .sq { flex: 1; display: flex; flex-direction: column; align-items: center;

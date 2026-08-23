@@ -20,6 +20,8 @@
 /** Every number the delve shows a player, and the one word it wears. */
 export const WORDS = {
   hp: 'life',
+  /** ★★★ The lamp, in turns. The number the whole game turns on. */
+  oil: 'light',
   purse: 'carried',
   hoard: 'banked',
   floor: 'floor',

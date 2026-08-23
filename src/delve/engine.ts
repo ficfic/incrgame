@@ -24,7 +24,7 @@ import { RELICS, wellHolds, type RelicId } from './relics';
 import { MARKS, NOTHING, earned, take, type Tally } from './records';
 import { floorPlan } from './floors';
 
-export const DELVE_VERSION = 13;
+export const DELVE_VERSION = 14;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -67,6 +67,10 @@ export interface Delve {
   seen: number[];
   cleared: number[];
   hp: number;
+  /** ★★★ THE LAMP, IN TURNS. It burns one a turn, and when it is out you are
+   *  in the dark. See THE LIGHT at the foot of this file — this is the number
+   *  the whole game turns on. */
+  oil: number;
   purse: number;
   hoard: number;
   foes: Foe[];
@@ -111,6 +115,16 @@ export const START_WEDGES = 2;
  *  out in `test/ladder.test.ts`, not by feel: on 12 the bottom of the dungeon
  *  is not reachable by ANY route, which made the game unfinishable. */
 export const VIM = 8;
+/** ★★★ HOW MANY TURNS A FULL LAMP IS. Tuned against floor one in
+ *  `test/light.test.ts`: enough to take two or three rooms and walk home, not
+ *  enough to take the floor. If one lamp clears a floor there is no decision
+ *  in it, and the decision is the point. */
+export const LIGHT = 26;
+/** What a flask puts back, and how many come in a purchase. */
+export const FLASK = 14;
+export const FLASKS_PER = 2;
+/** ★ A longer wick: every lamp you light goes further, for good. */
+export const WICK = 10;
 /** ★ What a salve gives back, and how many come in a purchase. */
 export const SALVE = 7;
 export const SALVES_PER = 2;
@@ -131,6 +145,7 @@ export const initial = (): Delve => ({
   seen: [0, ...(floorPlan(1)[0]?.doors ?? [])],
   cleared: [0],
   hp: START_HP,
+  oil: LIGHT,
   purse: 0,
   hoard: 0,
   foes: [],
@@ -141,7 +156,8 @@ export const initial = (): Delve => ({
   // BE BEHIND GOLD, so the first twenty taps of the game had none of them —
   // walk, swing, walk home. You are handed enough to find out what a wedge
   // does; the shop sells the rest.
-  kit: { wedges: START_WEDGES, lamp: 1, brace: 0, edge: 0, vim: 0, salve: 0 },
+  kit: { wedges: START_WEDGES, lamp: 1, brace: 0, edge: 0, vim: 0, salve: 0,
+    flask: 1, wick: 0 },
   relics: [],
   tally: { ...NOTHING },
   won: [],
@@ -271,6 +287,8 @@ export type Action =
   | { type: 'away'; turns: number }
   /** ★★★ Drink a salve. One turn, and the dungeon still gets its swing. */
   | { type: 'drink' }
+  /** ★★★ Pour a flask into the lamp. One turn, and worth every one of them. */
+  | { type: 'pour' }
   /** ★★★ Ring the bell at a door. Wakes what is through it, and it comes to
    *  YOU — so you pick the ground. One turn. */
   | { type: 'ring'; at: number }
@@ -297,6 +315,16 @@ export type Action =
 function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve {
   const turn = g.turn + 1;
   const at = g.at;
+  // ★★★ THE LAMP BURNS FIRST, and then the dungeon moves. One turn of light
+  // for one turn of dungeon.
+  // ⚠️ ORDER MATTERS AND THE OTHER ONE IS WRONG. Burning last meant the dark
+  // arrived a turn late: you stepped into a room on your last light and it was
+  // still lit for that exchange, so "everything hits harder in the dark" was
+  // off by one and three tests caught it. The light you fight by is the light
+  // you have AFTER the step that got you there.
+  const oil = Math.max(0, g.oil - 1);
+  const blind = oil <= 0;
+  if (g.oil === 1) said.push('The lamp gutters and goes out.');
 
   // ── 1. THE CRAWLER WALKS. It goes first because it is a thing in the
   // dungeon taking its turn, not a readout that updates afterwards — and
@@ -343,7 +371,9 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
       // ★★★ AN ARM IN THE WAY IS WORTH HALF OF EVERYTHING. Rounded UP against
       // you, so bracing never makes a 1 into a 0 — a free turn is not a
       // decision, and this has to stay a trade.
-      const took = guard ? Math.ceil(f.bite / 2) : f.bite;
+      // ★★★ AND EVERYTHING HITS HARDER IN THE DARK. You cannot see it coming.
+      const bite = f.bite + (blind ? DARK_BITE : 0);
+      const took = guard ? Math.ceil(bite / 2) : bite;
       hp -= took;
       said.push(f.at === at
         ? `${f.name} bites you for ${took}${guard ? ', turned' : ''}.`
@@ -424,7 +454,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
 
   if (hp <= 0) {
     return { ...g, turn, foes: all, cleared, crawl, bred: grew, bars,
-      hp: 0, purse: 0, fallen: true, at,
+      hp: 0, purse: 0, fallen: true, at, oil: Math.max(0, g.oil - 1),
       tally: { ...g.tally, falls: g.tally.falls + 1 },
       log: LOG_LINES(said.reduce(LOG_LINES, g.log),
         'You go down in the dark. What you carried stays there.') };
@@ -436,7 +466,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   // dungeon, be killed by the thing in it, and still have finished the game.
   // A map is only true if the surveyor came back to draw it.
   const trod = g.trod.includes(at) ? g.trod : [...g.trod, at];
-  return { ...g, turn, foes: all, cleared, purse, crawl, bred: grew, bars, hp, at, trod,
+  return { ...g, turn, foes: all, cleared, purse, crawl, bred: grew, bars, hp, at, trod, oil,
     log: said.reduce(LOG_LINES, g.log) };
 }
 
@@ -496,7 +526,14 @@ function act(g: Delve, a: Action): Delve {
       // ★ HOW FAR THE LAMP REACHES, in doors. One by default; a wider lamp is
       // bought with the hoard and it is a change to the FOG, not to a number
       // — you see the fork past the fork, so you can plan two moves deep.
-      const seen = [...new Set([...g.seen, ...within(g, at, g.kit.lamp)])];
+      // ⚠️ AND NOTHING AT ALL WHEN IT IS OUT. In the dark you learn a room by
+      // standing in it, which is what makes walking home on memory the thing
+      // the whole lamp economy is built around.
+      // ⚠️ THE LIGHT YOU ARRIVE ON, not the light you left with. Stepping into
+      // a room on your last drop shows you the room and nothing past it.
+      const seen = g.oil - 1 <= 0
+        ? [...new Set([...g.seen, at])]
+        : [...new Set([...g.seen, ...within(g, at, g.kit.lamp)])];
       const r = roomAt(g, at)!;
       let foes = g.foes;
       let bred = g.bred;
@@ -659,6 +696,16 @@ function act(g: Delve, a: Action): Delve {
         [`You drink a salve. ${back} back.`], g.at);
     }
 
+    case 'pour': {
+      if (unlightable(g) !== null) return g;
+      const back = Math.min(FLASK, maxOil(g) - g.oil);
+      // ⚠️ POURED BEFORE THE TURN BURNS, so a flask at 1 light does not leave
+      // you in the dark anyway — which would make the button a trap.
+      return theirTurn({ ...g, oil: g.oil + back,
+        kit: { ...g.kit, flask: g.kit.flask - 1 } },
+        [`You pour a flask. ${back} more turns of lamp.`], g.at);
+    }
+
     case 'brace': {
       if (g.fallen) return g;
       return theirTurn(g, ['You get behind your arm.'], g.at, true);
@@ -695,6 +742,7 @@ function act(g: Delve, a: Action): Delve {
       // dungeon does not get a swing at you for looking in your own pack.
       const kit = a.what === 'wedges'
         ? { ...g.kit, wedges: g.kit.wedges + WEDGES_PER }
+        : a.what === 'flask' ? { ...g.kit, flask: g.kit.flask + FLASKS_PER }
         : a.what === 'salve' ? { ...g.kit, salve: g.kit.salve + SALVES_PER }
         : a.what === 'lamp' ? { ...g.kit, lamp: 2 }
         : { ...g.kit, [a.what]: g.kit[a.what] + 1 };
@@ -868,16 +916,20 @@ export interface Kit {
   vim: number;
   /** ★ Salves in the pack. Drink one to get some of it back. */
   salve: number;
+  /** ★ Flasks of oil in the pack. */
+  flask: number;
+  /** ★ How many times the wick has been lengthened. */
+  wick: number;
 }
 
-export type Good = 'wedges' | 'lamp' | 'brace' | 'edge' | 'vim' | 'salve';
+export type Good = 'wedges' | 'lamp' | 'brace' | 'edge' | 'vim' | 'salve' | 'flask' | 'wick';
 
 /** ★★★ WHAT YOU CAN BUY AGAIN, AND AGAIN. ⚠️ EVERY PURCHASE USED TO BE A FLAG,
  *  which meant the player's power TOPPED OUT while the dungeon's did not: by
  *  floor five the guards had doubled and the delver still had twenty life and
  *  a swing of four. That is not a difficulty curve, it is a ceiling with a
  *  countdown. The two numeric goods repeat, at a rising price. */
-export const AGAIN: Good[] = ['wedges', 'edge', 'vim', 'salve'];
+export const AGAIN: Good[] = ['wedges', 'edge', 'vim', 'salve', 'flask', 'wick'];
 
 /** ★★★ AND ONLY THE PERMANENT ONES GET DEARER.
  *
@@ -887,11 +939,11 @@ export const AGAIN: Good[] = ['wedges', 'edge', 'vim', 'salve'];
  *  ×1.75) — and it means SPENDING them makes them cheap again, so hoarding
  *  wedges is taxed and burning them is rewarded. A potion costs what a potion
  *  costs; an upgrade costs more each time. */
-export const DEARER: Good[] = ['edge', 'vim'];
+export const DEARER: Good[] = ['edge', 'vim', 'wick'];
 
 /** How many times you have bought a good that gets dearer. */
 export const owned = (g: Delve, w: Good): number =>
-  w === 'edge' || w === 'vim' ? g.kit[w] : 0;
+  w === 'edge' || w === 'vim' || w === 'wick' ? g.kit[w] : 0;
 
 /** ★ HOW FAST THE PRICE CLIMBS. 1.75 a purchase: the fifth leather costs about
  *  nine times the first, which is the shape every incremental in the genre
@@ -921,7 +973,8 @@ export const KEEN = 1;
  *  that is the loop taught in one delve instead of three. The lot comes to
  *  135, a bit under two total clears, which is a ratchet you can feel. */
 export const COST: Record<Good, number> = {
-  wedges: SPOIL.lair, salve: 14, edge: 24, lamp: 45, brace: 60, vim: 90,
+  wedges: SPOIL.lair, flask: 10, salve: 14, edge: 24, lamp: 45, brace: 60,
+  wick: 70, vim: 90,
 };
 
 export const GOODS: Record<Good, string> = {
@@ -931,6 +984,8 @@ export const GOODS: Record<Good, string> = {
   brace: 'A braced crawler',
   vim: 'Boiled leather',
   salve: 'Two salves',
+  flask: 'Two flasks of oil',
+  wick: 'A longer wick',
 };
 
 export const SAYS: Record<Good, string> = {
@@ -940,10 +995,14 @@ export const SAYS: Record<Good, string> = {
   brace: `the crawler takes ${CRAWL_HP + BRACE_HP} — it maps far more`,
   vim: `+${VIM} life, every time you buy it`,
   salve: `drink one mid-delve for ${SALVE} back — the only healing there is`,
+  flask: `${FLASK} more turns of lamp, poured where you stand`,
+  wick: `+${WICK} turns on every lamp you light, for good`,
 };
 
 /** Life at the top of a delve, with what you are wearing. */
 export const maxHp = (g: Delve): number => START_HP + g.kit.vim * VIM;
+/** How long a full lamp burns, with the wick you are carrying. */
+export const maxOil = (g: Delve): number => LIGHT + g.kit.wick * WICK;
 
 /** ★★★ HAVE YOU FINISHED? Every room in the dungeon, stood in, by YOU.
  *
@@ -1016,6 +1075,7 @@ export const descend = (g: Delve): Delve => ({
   floor: g.floor,
   rooms: g.rooms,
   hp: START_HP + g.kit.vim * VIM,
+  oil: LIGHT + g.kit.wick * WICK,
   trod: g.trod,
   // ★ THE MAP IS KNOWLEDGE, and knowledge does not fall down a hole with you.
   seen: g.seen,
@@ -1153,5 +1213,76 @@ export function undrinkable(g: Delve): string | null {
   if (g.fallen) return 'You are done.';
   if (g.kit.salve <= 0) return 'No salves.';
   if (g.hp >= maxHp(g)) return 'You are whole.';
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ★★★ THE LIGHT — 2026-08-23, and it is the thing the game was missing.
+//
+// The owner: *"the game is pretty stupid at the moment... it's full of meta and
+// lacks any gameplay."* Both halves of that are one problem.
+//
+// ⚠️ EVERY DECISION IN THE GAME HAD AN OBVIOUSLY CORRECT ANSWER. Clear the
+// room? Yes, always — spoil is free and rooms refill. Take the detour to the
+// well? Yes, always. Which verb? Swing. Nothing competed with anything, so
+// there was nothing to decide, so the game became a thing you READ — reports,
+// records, a map to verify — rather than a place you were.
+//
+// A crawler needs a clock that is not a clock: a resource every turn spends,
+// so that TIME IN THE DUNGEON IS THE PRICE OF EVERYTHING. Hunger in Rogue, the
+// torch in Darkest Dungeon, the ghost in Spelunky. Here it is the lamp, and it
+// is the right one because this game already draws light for a living.
+//
+// ★★★ WHAT IT TURNS ON, all at once and with no new systems:
+//
+//   CLEARING EVERYTHING STOPS BEING FREE. A floor costs more light than you
+//     carry, so which rooms you take is a choice with a wrong answer in it.
+//   ROUTING BECOMES REAL. The long way round costs light. A wedge that makes
+//     the pack walk four doors instead of one now buys something you can count.
+//   THE CRAWLER EARNS ITS KEEP. Its map is the difference between walking into
+//     a dead end and knowing not to — and walking a dead end costs light you
+//     cannot get back. The lying map suddenly has a PRICE attached to it.
+//   RETREAT BECOMES ARITHMETIC. "Nine light, and the Mouth is four rooms away"
+//     is a sentence the game can put on screen, and it is a decision.
+//   AND EVERY FIGHT IS A BILL. Three turns to kill a runt is three light.
+//
+// ⚠️ IT BURNS PER TURN, NOT PER SECOND. Nothing here punishes being away —
+// `docs/BRIEF.md` forbids it, and the whole reason the fight became turn-based
+// was to get the clock out of the rules. This is a budget, not a timer.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/** ★★★ ARE YOU IN THE DARK? Not "have you lost" — the dark is somewhere you
+ *  can be, and getting out of it is the game's best moment. */
+export const dark = (g: Delve): boolean => g.oil <= 0;
+
+/** ★★★ AND WHAT THE DARK COSTS. You cannot see past the room you are in, you
+ *  swing worse, and everything down here hits harder for it.
+ *  ⚠️ NOT DEATH. A dungeon that kills you the moment the lamp goes out is a
+ *  timer with extra steps; one you can still crawl out of in the dark is a
+ *  story you tell afterwards. */
+export const DARK_BITE = 1;
+
+/** ★★★ HOW FAR THE MOUTH IS, in doors. The one number that makes the lamp a
+ *  decision instead of a countdown — a budget you cannot see the bottom of is
+ *  just an ambush. */
+export function homeward(g: Delve): number {
+  const seen = new Map<number, number>([[g.at, 0]]);
+  const queue = [g.at];
+  for (let i = 0; i < queue.length; i++) {
+    const here = queue[i]!;
+    if (here === 0) return seen.get(here)!;
+    for (const d of waysOut(g, here)) {
+      if (seen.has(d)) continue;
+      seen.set(d, seen.get(here)! + 1);
+      queue.push(d);
+    }
+  }
+  return seen.get(0) ?? 99;
+}
+
+export function unlightable(g: Delve): string | null {
+  if (g.fallen) return 'You are done.';
+  if (g.kit.flask <= 0) return 'No oil.';
+  if (g.oil >= maxOil(g)) return 'The lamp is full.';
   return null;
 }
