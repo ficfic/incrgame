@@ -623,6 +623,54 @@ const got = await page.locator('.note.mark.got').count();
 console.log('  earned  :', `${got} of ${await page.locator('.note.mark').count()}`);
 if (got < 1) misses.push('no milestone was claimed by a full raid');
 
+console.log('\n★★★ AND SOMETHING HAPPENS WHILE YOU ARE GONE');
+// ⚠️ THE ONE GENRE FEATURE A TURN-BASED GAME HAS NO OBVIOUS HOME FOR. An
+// incremental is played in the gaps of a day; a game where nothing happens
+// while you are away has no reason to be reopened. Faked here by writing the
+// save's timestamp back an hour and reloading, which is exactly what a night
+// on a bedside table does.
+await freshStart();
+await press('Send a crawler');
+const wireBefore = await flat('.wire');
+const lifeBefore = await life();
+console.log('  before  :', `"${wireBefore}" · ${lifeBefore} life`);
+await page.waitForTimeout(400);
+await page.evaluate(() => new Promise((res) => {
+  const q = indexedDB.open('semantic-drift', 1);
+  q.onsuccess = () => {
+    const db = q.result;
+    const tx = db.transaction('saves', 'readwrite');
+    const st = tx.objectStore('saves');
+    const get = st.get('delve');
+    get.onsuccess = () => {
+      const raw = JSON.parse(get.result);
+      raw.shut = raw.shut - 60 * 60 * 1000;      // an hour on a bedside table
+      st.put(JSON.stringify(raw), 'delve');
+    };
+    tx.oncomplete = () => { db.close(); res(null); };
+  };
+}));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(1100);
+const wireAfter = await flat('.wire');
+console.log('  after   :', `"${wireAfter}" · ${await life()} life`);
+const walkedBefore = Number(wireBefore.match(/(\d+) walked/)?.[1] ?? 0);
+const walkedAfter = Number(wireAfter.match(/(\d+) walked/)?.[1] ?? 0);
+if (!(walkedAfter > walkedBefore)) {
+  misses.push(`nothing happened while away: ${walkedBefore} → ${walkedAfter} rooms walked`);
+}
+// ★★★ AND NOTHING TOUCHED YOU. The brief forbids punishing absence, and coming
+// back to a corpse is the easy version of this mechanic to write.
+if ((await life()) < lifeBefore) misses.push(`being away cost you life: ${lifeBefore} → ${await life()}`);
+if (/went down/.test(await panel())) misses.push('the delver died while the app was shut');
+// ⚠️ AND NOTHING WALKED UP THE SHAFT EITHER. Life alone is too weak a check —
+// a sabotage that ran the dungeon's whole turn while you were away left you
+// untouched for the first few turns and sailed through. What the crawler woke
+// must be standing where it woke up, not waiting at the Mouth for you.
+const waiting = await page.locator('.sq').count();
+console.log('  waiting :', `${waiting} standing at the Mouth`);
+if (waiting > 0) misses.push(`${waiting} things came up the shaft while the app was shut`);
+
 console.log('\n★★★ AND THERE IS SOMETHING TO FIND');
 // ⚠️ A CRAWLER WITH NO LOOT IS A CORRIDOR WITH A SHOP AT THE END. Everything
 // this game gave you, you BOUGHT — and a price list is a plan, not a

@@ -10,7 +10,7 @@
 // truncated blob, a save from a format that no longer exists, somebody else's
 // JSON — is tested rather than hoped about.
 import { describe, it, expect } from 'vitest';
-import { pack, unpack, toText, fromText } from '../src/delve/save';
+import { pack, unpack, toText, fromText, stamp, owed, AWAY_SECS } from '../src/delve/save';
 import { apply, initial, DELVE_VERSION, type Delve } from '../src/delve/engine';
 
 /** A save worth losing: money banked, kit bought, a crawler's map filed. */
@@ -86,6 +86,36 @@ describe('★★★ AND A BAD SAVE NEVER BREAKS THE GAME', () => {
       delete holed[gone];
       expect(unpack(JSON.stringify(holed)), `without ${gone}`).toBeNull();
     }
+  });
+});
+
+describe('★★★ AND THE SAVE KNOWS HOW LONG IT WAS SHUT', () => {
+  it('★★★ time becomes TURNS at the door, and nowhere else', () => {
+    // ⚠️ THE ONLY WALL CLOCK IN THE GAME. `apply` has no clock and is not
+    // getting one — a pure function that read the time would make every test
+    // a race. This converts seconds to crawler steps at the save boundary.
+    const now = 1_700_000_000_000;
+    const blob = stamp(played(), now);
+    expect(owed(blob, now)).toBe(0);
+    expect(owed(blob, now + AWAY_SECS * 1000 * 5)).toBe(5);
+    expect(owed(blob, now + AWAY_SECS * 500)).toBe(0);   // half a step is none
+  });
+
+  it('★★★ and a clock that went backwards hands out nothing', () => {
+    // A device whose time changed must not pay progress.
+    const now = 1_700_000_000_000;
+    const blob = stamp(played(), now);
+    expect(owed(blob, now - 99_999_999)).toBe(0);
+    expect(owed(null, now)).toBe(0);
+    expect(owed('not json', now)).toBe(0);
+    expect(owed(JSON.stringify({ at: 'yesterday' }), now)).toBe(0);
+    expect(owed(pack(played()), now)).toBe(0);           // unstamped: no credit
+  });
+
+  it('★★★ a stamped save still loads, and so does an old unstamped one', () => {
+    const g = played();
+    expect(unpack(stamp(g, 1))).toEqual(g);
+    expect(unpack(pack(g))).toEqual(g);
   });
 });
 

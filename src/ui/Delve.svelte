@@ -17,7 +17,7 @@
   // a valley to a dungeon with no changes at all.
   import { onMount } from 'svelte';
   import { loadBlob, saveBlob, requestPersistence } from '../shell/storage';
-  import { pack, unpack, toText, fromText, SAVE_KEY } from '../delve/save';
+  import { pack, unpack, toText, fromText, stamp, owed, SAVE_KEY } from '../delve/save';
   import Crypt, { type Cell, type Pass } from './Crypt.svelte';
   import { LAMP } from '../game/ink';
   import { apply, initial, doorsOf, unwalkable, unswingable, canLeave,
@@ -48,8 +48,15 @@
     void (async () => {
       // ★ IndexedDB, not localStorage — iOS evicts localStorage after about a
       // week idle, and the owner plays this on iOS Edge over weeks.
-      const found = unpack(await loadBlob(SAVE_KEY).catch(() => null));
-      if (found) game = found;
+      const blob = await loadBlob(SAVE_KEY).catch(() => null);
+      const found = unpack(blob);
+      if (found) {
+        // ★★★ THE ONLY WALL CLOCK IN THE GAME, and it is here at the door
+        // rather than in `apply`. Time shut becomes TURNS the crawler walked;
+        // the engine never learns what a second is.
+        const steps = owed(blob, Date.now());
+        game = steps > 0 ? apply(found, { type: 'away', turns: steps }) : found;
+      }
       ready = true;
       void requestPersistence();
     })();
@@ -59,7 +66,7 @@
    *  turn-based, so a turn IS the unit of progress, and a phone browser can
    *  reclaim the tab between any two of them without warning. */
   $effect(() => {
-    const blob = pack(game);
+    const blob = stamp(game, Date.now());
     if (!ready) return;
     void saveBlob(blob, SAVE_KEY).catch(() => {});
   });

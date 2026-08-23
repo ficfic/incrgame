@@ -17,6 +17,45 @@ import { DELVE_VERSION, initial, type Delve } from './engine';
 
 export const SAVE_KEY = 'delve';
 
+/** ★★★ HOW LONG ONE OFFLINE STEP TAKES. The engine has no clock and is not
+ *  getting one — this is the ONLY place in the game where a wall clock is read,
+ *  and it converts to TURNS at the door. Ninety seconds a room: a lunch break
+ *  is a few rooms, a night is a finished report.
+ *  ⚠️ IN THE SAVE LAYER, not the engine, because a pure `apply` that read the
+ *  clock would make every test a race. */
+export const AWAY_SECS = 90;
+
+/** What the save records so the game can tell how long it was shut.
+ *
+ *  ⚠️ THE FIELD IS `shut`, AND IT USED TO BE `at`. Which is ALSO the room the
+ *  delver is standing in — so an old unstamped save, whose `at` is the number
+ *  0, read as "saved at the epoch" and handed out EIGHTEEN MILLION offline
+ *  steps. A wrapper field named the same as a field of the thing it wraps is a
+ *  bug waiting for a birthday. */
+export interface Stamped { shut: number; game: Delve }
+
+export const stamp = (g: Delve, now: number): string =>
+  JSON.stringify({ shut: now, game: g });
+
+/** ★ How many crawler steps were owed by being away. 0 if the save is not
+ *  stamped, or the clock went backwards — a device whose time changed must not
+ *  hand out progress. */
+export function owed(text: string | null, now: number): number {
+  if (!text) return 0;
+  try {
+    const raw: unknown = JSON.parse(text);
+    const box = raw as Partial<Stamped>;
+    // ⚠️ BOTH FIELDS, OR IT IS NOT A STAMP. Recognising a wrapper by one loose
+    // number is exactly how the raw game got mistaken for one.
+    if (!box || typeof box !== 'object' || !box.game) return 0;
+    if (typeof box.shut !== 'number' || !Number.isFinite(box.shut)) return 0;
+    const secs = (now - box.shut) / 1000;
+    return secs <= 0 ? 0 : Math.floor(secs / AWAY_SECS);
+  } catch {
+    return 0;
+  }
+}
+
 export const pack = (g: Delve): string => JSON.stringify(g);
 
 /** ★★★ WHAT CAME BACK, or null if it is not a save of this game at this
@@ -33,7 +72,12 @@ export const pack = (g: Delve): string => JSON.stringify(g);
 export function unpack(text: string | null): Delve | null {
   if (!text) return null;
   try {
-    const raw: unknown = JSON.parse(text);
+    const outer: unknown = JSON.parse(text);
+    if (!outer || typeof outer !== 'object') return null;
+    // ★ Saves are stamped with the wall clock now, so the game can tell how
+    // long it was shut. An older, unstamped save is still a save.
+    const box = outer as Partial<Stamped>;
+    const raw = box.game && typeof box.shut === 'number' ? box.game : outer;
     if (!raw || typeof raw !== 'object') return null;
     const g = raw as Partial<Delve>;
     if (g.version !== DELVE_VERSION) return null;

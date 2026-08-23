@@ -24,7 +24,7 @@ import { RELICS, wellHolds, type RelicId } from './relics';
 import { MARKS, NOTHING, earned, take, type Tally } from './records';
 import { floorPlan } from './floors';
 
-export const DELVE_VERSION = 11;
+export const DELVE_VERSION = 12;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -263,6 +263,9 @@ export type Action =
   | { type: 'wedge'; to: number }
   /** ★★★ Take the stair down from the Hoard. A whole new floor. */
   | { type: 'descend' }
+  /** ★★★ TIME YOU WERE NOT HERE. The crawler kept walking. One action, however
+   *  many turns it covers. */
+  | { type: 'away'; turns: number }
   /** ★★★ Ring the bell at a door. Wakes what is through it, and it comes to
    *  YOU — so you pick the ground. One turn. */
   | { type: 'ring'; at: number }
@@ -610,6 +613,33 @@ function act(g: Delve, a: Action): Delve {
       }));
       return theirTurn({ ...g, foes: [...g.foes, ...born], bred: g.bred + born.length },
         [`You ring the bell at ${room.name}. It hears you.`], g.at);
+    }
+
+    case 'away': {
+      // ★★★ THE IDLE SPINE, AND IT IS THE CRAWLER. This is the one genre
+      // feature a turn-based game has no obvious home for — until you notice
+      // the game already contains an AUTONOMOUS THING WALKING A GRAPH. You
+      // send it down, close the app, and come back to a report.
+      //
+      // ⚠️ AND NOTHING TOUCHES YOU WHILE YOU ARE GONE. `docs/BRIEF.md` forbids
+      // punishing absence, so the dungeon does not take its turn: the crawler
+      // walks, what it walks into wakes up, and everything it woke STAYS WHERE
+      // IT IS until you take a turn of your own. Coming back to a corpse would
+      // be the worst version of this mechanic and it is the easy one to write.
+      //
+      // ⚠️ AND ONLY FROM THE MOUTH. Anywhere else, "you were away" would mean
+      // "you were standing in a lair", which cannot be made safe honestly.
+      if (g.fallen || g.at !== 0 || !g.crawl || g.crawl.done) return g;
+      const n = Math.max(0, Math.min(AWAY_CAP, Math.floor(a.turns)));
+      if (n === 0) return g;
+      let out = g;
+      for (let i = 0; i < n && out.crawl && !out.crawl.done; i++) {
+        out = crawlOn(out);
+      }
+      const went = (out.crawl?.turns ?? 0) - (g.crawl?.turns ?? 0);
+      if (went === 0) return g;
+      return { ...out, log: LOG_LINES(out.log,
+        `While you were away it walked ${went} more ${went === 1 ? 'room' : 'rooms'}.`) };
     }
 
     case 'brace': {
@@ -1015,4 +1045,53 @@ export function unringable(g: Delve, at: number): string | null {
   if (guardsOf(g, roomAt(g, at)).length === 0) return 'Nothing in there to hear it.';
   if (g.foes.some((f) => f.from === at)) return 'Already awake.';
   return null;
+}
+
+/** ★ HOW MUCH OF BEING AWAY COUNTS. Two hundred steps is more than a crawler
+ *  survives on any floor, so a night away is a finished report rather than an
+ *  unbounded number — and coming back to a week of progress is how an idle
+ *  game stops having a reason to open it. */
+export const AWAY_CAP = 200;
+
+/** ★★★ ONE STEP OF THE CRAWLER, AND NOTHING ELSE MOVES.
+ *
+ *  ⚠️ THIS IS A DELIBERATELY DIFFERENT RULE FROM `theirTurn`, and the whole
+ *  safety of offline progress rests on it: no bite, no chase, no turn counter.
+ *  The crawler walks the frontier and wakes what it walks into, and whatever it
+ *  wakes stands still until you are back at the controls. */
+function crawlOn(g: Delve): Delve {
+  const crawl = g.crawl;
+  if (!crawl || crawl.done) return g;
+  const said: string[] = [];
+  const target = frontier(g);
+  const step = target === null ? null
+    : stepToward(g, crawl.at, target, (x, y) => shut(g, x, y));
+  if (step === null) {
+    return { ...g, crawl: { ...crawl, done: true },
+      log: LOG_LINES(g.log, 'The crawler has nowhere left to go. It stops.') };
+  }
+  const walked = crawl.walked.includes(step) ? crawl.walked : [...crawl.walked, step];
+  let foes = g.foes;
+  let bred = g.bred;
+  let hp = crawl.hp;
+  const r = roomAt(g, step)!;
+  if (!g.cleared.includes(step) && guardsOf(g, r).length > 0
+      && !foes.some((f) => f.from === step)) {
+    const born = guardsOf(g, r).map((q, i) => ({
+      id: bred + i, at: step, from: step, hp: q.hp, bite: q.bite, name: q.name,
+      breed: q.breed, every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1, reeling: 0,
+    }));
+    bred += born.length;
+    foes = [...foes, ...born];
+    said.push(`The crawler wakes something in ${r.name}.`);
+  }
+  // ★ And whatever is standing there deals with it, because that is the risk
+  // you accepted when you sent it down and walked away.
+  for (const f of foes) if (f.at === step && f.hp > 0) hp -= f.bite;
+  const done = hp <= 0;
+  if (done) said.push(`The crawler stops transmitting in ${r.name}.`);
+  return { ...g, foes, bred,
+    crawl: { ...crawl, at: step, walked, turns: crawl.turns + 1,
+      hp: Math.max(0, hp), done },
+    log: said.reduce(LOG_LINES, g.log) };
 }
