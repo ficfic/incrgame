@@ -1882,3 +1882,13 @@ Entries above this line are long because the one-line rule did not exist yet.
 - 2026-08-19 — The delve gets a save (IndexedDB, versioned, export/import). It had shipped four times with none, so every feature was disposable.
 - 2026-08-19 — Animation lives only in the UI; `apply` stays clockless. Drop every frame and the game plays identically.
 - 2026-08-19 — Finishing = every room STOOD IN and survived, not cleared. The Hoard is unwinnable by design (48 hp, ~4.5/turn), and recording a room on arrival rather than on survival silently deleted the difficulty ladder.
+
+- 2026-08-20 — Floors are generated from their depth alone, and floor one stays hand-drawn: a generated tutorial makes a first ten minutes a coin toss, and forty tests are pinned to that shape.
+- 2026-08-20 — The stair is in the Hoard, the fight you cannot win. Depth is earned by a dash, not bought on the shop screen.
+- 2026-08-20 — `ROOMS` moved out of module scope into the state; there could only ever be one dungeon while nine functions imported it.
+- 2026-08-20 — Every monster trait is a fact about the graph: chases, too heavy to shove, wakes the room next door. A stat block is not a bestiary.
+- 2026-08-20 — The first heavy one stays shoveable; `brute` starts at depth 7. Making it heavy deleted the first-lair tactic in the same commit that shipped it.
+- 2026-08-20 — Relics change RULES, not numbers, and live in the wells — so the game pays you for walking somewhere you did not have to.
+- 2026-08-20 — Milestones pay a permanent 15% cut. Achievements as the second progression track, and the first compounding number in the game.
+- 2026-08-20 — Offline progress advances the CRAWLER only, from the Mouth only, capped at 200 steps. The brief forbids punishing absence; the dungeon does not take its turn while you are gone.
+- 2026-08-20 — The only wall clock is at the save boundary. `apply` stays pure; elapsed seconds become turns at the door.
