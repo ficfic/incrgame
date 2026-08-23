@@ -15,7 +15,8 @@
 import { describe, it, expect } from 'vitest';
 import { floorPlan, roomsOn } from '../src/delve/floors';
 import { apply, initial, doorsOf, canDescend, deepness, worth, roomAt,
-  stepToward, done, type Delve } from '../src/delve/engine';
+  stepToward, done, BOUNTY, type Delve } from '../src/delve/engine';
+import { take } from '../src/delve/records';
 import { ROOMS } from '../src/delve/dungeon';
 
 const DEEP = Array.from({ length: 40 }, (_, i) => i + 1);
@@ -143,8 +144,20 @@ describe('★★★ AND YOU CAN GO DOWN', () => {
   it('★★★ and the purse is banked on the way past', () => {
     const rich: Delve = { ...atTheHoard(), purse: 40, hoard: 5 };
     const down = apply(rich, { type: 'descend' });
-    expect(down.hoard).toBe(45);
     expect(down.purse).toBe(0);
+    // ⚠️ AND THE STAIR PAYS NOTHING ON TOP. It briefly paid a lump sum for the
+    // whole floor you had mapped, which sounded right and was a promise the
+    // game could not keep: the stair is behind the hardest room on the floor,
+    // so the fee that was meant to fund the gear could only be collected by
+    // somebody who no longer needed it. The ground is paid for as it is walked
+    // — see `BOUNTY` — and by the time you are standing on the stair it is all
+    // already in the purse this line is banking.
+    expect(down.hoard).toBe(45);
+    expect(down.tally.banked).toBe(rich.tally.banked + 40);
+    // ★ And walking a floor is what earned it: six rooms, six fees.
+    expect(rich.purse).toBeGreaterThan(0);
+    expect(rich.trod.length).toBe(7);
+    expect(rich.purse).toBeGreaterThanOrEqual(BOUNTY * 6);
   });
 
   it('★★★ deeper is harder AND richer, or there is no reason to be down there', () => {

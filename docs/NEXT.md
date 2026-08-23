@@ -50,9 +50,11 @@ already about — an autonomous crawler walking a graph and lying about it.
 
 Ranked. Take the top one.
 
-1. **Play it and feel the lamp.** 26 turns is tuned against floor one by a
-   test, not by a thumb. Is running out frightening or annoying? Is a flask at
-   10 the right price? Nobody has felt it.
+1. **Play it and feel the lamp AND the new economy.** 26 turns, a flask at 4,
+   `vim` at 34, a toll of a third on a re-clear, 4 a room for new ground — all
+   of it tuned by a bot in `test/broke.test.ts`, none of it by a thumb. Is
+   running out frightening or annoying? Does grinding an emptied floor feel
+   like a lifeline or like the game's actual content?
 2. **87% of `src/` is not reachable from the entry point.** `npm run live`:
    13 files are the game, 67 are three deleted ones. Delete, or banner.
 3. **The relics and the crawler predate the lamp.** Both were built when turns
@@ -61,6 +63,16 @@ Ranked. Take the top one.
    chalk. Re-read them against the new pressure.
 4. **The numbers are still small.** `break_eternity` is in the stack, unused.
 5. **One save-race guard is reasoned, not proven** — the `ready` flag.
+6. **The animation loop never stops.** `npm run play` has reported "12 frames
+   while idle" for at least two commits. A turn-based game repainting forever
+   is a battery bug on the only device this is played on.
+7. **Rooms have room.** `w`/`h` are drawn and nothing in the rules reads them.
+   The owner: let a narrow room admit one foe at a time, so where you fight is
+   a choice.
+8. **Oil spends on the graph.** Leave a lantern in a room to keep it lit —
+   light competing with light.
+9. **Cut the record to one line**, cut `.wire` and the dead `WALK_SECS`, and
+   move the save box out from under the shop.
 
 ## What is deliberately NOT on the queue
 

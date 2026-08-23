@@ -24,7 +24,7 @@ import { RELICS, wellHolds, type RelicId } from './relics';
 import { MARKS, NOTHING, earned, take, type Tally } from './records';
 import { floorPlan } from './floors';
 
-export const DELVE_VERSION = 14;
+export const DELVE_VERSION = 15;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -120,14 +120,55 @@ export const VIM = 8;
  *  enough to take the floor. If one lamp clears a floor there is no decision
  *  in it, and the decision is the point. */
 export const LIGHT = 26;
-/** What a flask puts back, and how many come in a purchase. */
+/** ★ WHAT YOU CAN ALWAYS SCRAPE TOGETHER. A delver with no gold and no oil
+ *  gets this much and no more: enough to walk somewhere and back, not enough
+ *  to take anything. It exists so the economy cannot dead-end, and it is
+ *  deliberately not enough to live on. */
+export const DREGS = 9;
+/** ★★★ WHAT A FLASK PUTS BACK, AND WHAT ONE COSTS — the exchange rate of the
+ *  whole game. Gold buys light, light buys ground, ground pays gold.
+ *
+ *  ⚠️ PRICED SO THE LOOP CANNOT STALL, and priced by SIMULATION rather than by
+ *  taste. A flask costs less than the shallowest lair pays, so the room you
+ *  clear on the dregs always funds the light to reach the next one — and a
+ *  round trip has to come to clearly less than the room at the end of it, or
+ *  the game is a treadmill that happens to have a map. Two flasks for ten gold
+ *  — the first draft — was a dead end within two delves: the nearest lair pays
+ *  6, the next one is out of reach on 9 light, and a delver with 6 gold could
+ *  buy nothing at all. A bot found that, and then found four more like it. */
 export const FLASK = 14;
-export const FLASKS_PER = 2;
+export const FLASKS_PER = 1;
 /** ★ A longer wick: every lamp you light goes further, for good. */
 export const WICK = 10;
 /** ★ What a salve gives back, and how many come in a purchase. */
 export const SALVE = 7;
 export const SALVES_PER = 2;
+/** ★★★ WHAT NEW GROUND IS WORTH — the Guild pays by the room, on the spot.
+ *
+ *  ⚠️ AND IT USED TO BE PAID AT THE STAIR, which is a promise you cannot keep.
+ *  The stair is behind the Bone Kiln; the gear to get past the Bone Kiln costs
+ *  more than a floor's spoil; so the fee that was supposed to fund the gear
+ *  could only be collected by someone who no longer needed it. A bot ground
+ *  floor one for thirty delves proving it.
+ *
+ *  ★ SO WALKING IS THE INCOME. It is paid into the PURSE, once per room, the
+ *  turn you survive standing in it — which makes the game's actual verb the
+ *  thing that pays, makes a dead end worth the light, and puts the money at
+ *  risk right up until you carry it out. */
+export const BOUNTY = 4;
+export const fee = (g: Delve): number =>
+  Math.round(BOUNTY * take(g) * (1 + (g.floor - 1) * 0.6));
+/** ★★★ WHAT A CORPSE IS WORTH IN A ROOM YOU ALREADY EMPTIED — a quarter of
+ *  what the room paid the first time, split between whatever was in it.
+ *
+ *  ⚠️ THIS IS THE ONLY THING BETWEEN THIS GAME AND A SOFT-LOCK. Rooms pay once
+ *  now, so a delver who spends their last coin badly has no income at all: a
+ *  bot proved it, sitting at one gold for eighteen delves with three rooms
+ *  taken and everything else too strong to walk into. The dark puts things
+ *  back between delves; the treasure it cannot put back. So grinding exists,
+ *  it pays a QUARTER, and nobody sane will choose it over going deeper — which
+ *  is exactly what a floor of last resort should be. */
+export const TOLL = 0.34;
 export const LOG_KEEP = 40;
 /** What one swing takes off. */
 export const BITE = 3;
@@ -192,9 +233,15 @@ export const waysOut = (g: Delve, id: number): number[] =>
 export const guardsOf = (g: Delve, r: Room | undefined): Guard[] =>
   (r ? GUARDS[r.kind]?.(deepness(g, r)) : null) ?? [];
 
-/** Is this room's guard still to be met? */
+/** ★★★ IS THIS ROOM'S GUARD STILL TO BE MET?
+ *
+ *  ⚠️ AND IT NO LONGER ASKS WHETHER YOU CLEARED IT, because clearing a room
+ *  now means its SPOIL is gone, not that the dark is. See `descend` and `TOLL`:
+ *  a floor's treasure is taken once and stays taken; the things that live down
+ *  there walk back in between delves. Splitting those two facts is what keeps
+ *  "cleared stays cleared" from being a way to lock yourself out of the game. */
 export const held = (g: Delve, id: number): boolean =>
-  !g.cleared.includes(id) && guardsOf(g, roomAt(g, id)).length > 0;
+  guardsOf(g, roomAt(g, id)).length > 0 && !g.foes.some((f) => f.from === id);
 
 export const foesIn = (g: Delve, id: number): Foe[] =>
   g.foes.filter((f) => f.at === id && f.hp > 0);
@@ -346,8 +393,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
       // it is the good kind of price: not a fee, but a dungeon that is more
       // awake than it was, in rooms you have not reached yet.
       const r = roomAt(g, step)!;
-      const asleep = !g.cleared.includes(step) && guardsOf(g, r).length > 0
-        && !woken.some((f) => f.from === step);
+      const asleep = held(g, step) && !woken.some((f) => f.from === step);
       if (asleep) {
         const born = guardsOf(g, r).map((q, i) => ({
           id: bred + i, at: step, from: step, hp: q.hp, bite: q.bite, name: q.name,
@@ -412,8 +458,7 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
     if (f.hp <= 0 || !TRAITS[f.breed].howls || !actsOn(f, turn)) continue;
     if (f.at !== at && f.at !== from) continue;
     const next = doorsOf(g, f.at)
-      .filter((d) => !g.cleared.includes(d) && guardsOf(g, roomAt(g, d)).length > 0
-        && !woke.some((x) => x.from === d))
+      .filter((d) => held(g, d) && !woke.some((x) => x.from === d))
       .sort((a, b) => a - b)[0];
     if (next === undefined) continue;
     const room = roomAt(g, next)!;
@@ -465,7 +510,12 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   // deleted the difficulty ladder: a bare delver could walk to the bottom of the
   // dungeon, be killed by the thing in it, and still have finished the game.
   // A map is only true if the surveyor came back to draw it.
-  const trod = g.trod.includes(at) ? g.trod : [...g.trod, at];
+  const fresh = !g.trod.includes(at);
+  const trod = fresh ? [...g.trod, at] : g.trod;
+  if (fresh) {
+    purse += fee(g);
+    said.push(`Ground nobody had drawn. You take ${fee(g)}.`);
+  }
   return { ...g, turn, foes: all, cleared, purse, crawl, bred: grew, bars, hp, at, trod, oil,
     log: said.reduce(LOG_LINES, g.log) };
 }
@@ -539,8 +589,7 @@ function act(g: Delve, a: Action): Delve {
       let bred = g.bred;
       // ★ A ROOM'S GUARD WAKES WHEN YOU FIRST WALK IN, once. After that it is
       // loose in the dungeon and its room is just a room.
-      const asleep = !g.cleared.includes(at) && guardsOf(g, r).length > 0
-        && !g.foes.some((f) => f.from === at);
+      const asleep = held(g, at);
       if (asleep) {
         const born = guardsOf(g, r).map((q, i) => ({
           id: bred + i, at, from: at, hp: q.hp, bite: q.bite, name: q.name,
@@ -607,10 +656,20 @@ function act(g: Delve, a: Action): Delve {
       const foes = g.foes.map((f) =>
         f.id === mark.id ? { ...f, hp: Math.max(0, f.hp - swing(g)) } : f);
       const said: string[] = [];
+      let purse = g.purse;
       if (foes.find((f) => f.id === mark.id)!.hp <= 0) {
         said.push(`${mark.name} goes down.`);
+        // ★★★ AND A CORPSE IN AN EMPTIED ROOM STILL PAYS THE TOLL. Not the
+        // room's worth — that went the first time — but enough that a delver
+        // with nothing can always fight their way back to a flask.
+        const home = roomAt(g, mark.from);
+        if (home && g.cleared.includes(mark.from)) {
+          const toll = Math.max(1, Math.round(worth(g, home) * TOLL));
+          purse += toll;
+          said.push(`You take ${toll} off it.`);
+        }
       }
-      return theirTurn({ ...g, foes }, said, g.at);
+      return theirTurn({ ...g, foes, purse }, said, g.at);
     }
 
     case 'shove': {
@@ -631,6 +690,9 @@ function act(g: Delve, a: Action): Delve {
       // carry is banked on the way past; what you KNEW about the floor above
       // is gone, because it is not that floor any more.
       const floor = g.floor + 1;
+      // ⚠️ AND THE STAIR PAYS NOTHING EXTRA. It used to hand over a fee for the
+      // whole floor at once; see `BOUNTY` for why that was a promise the game
+      // could not keep. The ground was paid for as it was walked.
       return { ...descend({ ...g, hoard: g.hoard + g.purse }), floor,
         tally: { ...g.tally, banked: g.tally.banked + g.purse,
           delves: g.tally.delves + 1, deepest: Math.max(g.tally.deepest, floor) },
@@ -641,7 +703,9 @@ function act(g: Delve, a: Action): Delve {
         // floor you are no longer on, and carrying it would draw a dead
         // dungeon's claims over a live one.
         crawl: null,
-        log: LOG_LINES(g.log,
+        cleared: [0],
+        log: LOG_LINES(LOG_LINES(g.log,
+          `${g.trod.length} rooms of floor ${g.floor} walked, and paid for.`),
           `You take the stair down. Floor ${floor}: ${floorPlan(floor).length} rooms, and none of them yours.`) };
     }
 
@@ -973,8 +1037,8 @@ export const KEEN = 1;
  *  that is the loop taught in one delve instead of three. The lot comes to
  *  135, a bit under two total clears, which is a ratchet you can feel. */
 export const COST: Record<Good, number> = {
-  wedges: SPOIL.lair, flask: 10, salve: 14, edge: 24, lamp: 45, brace: 60,
-  wick: 70, vim: 90,
+  wedges: SPOIL.lair, flask: 4, salve: 14, edge: 24, vim: 34,
+  brace: 40, lamp: 45, wick: 70,
 };
 
 export const GOODS: Record<Good, string> = {
@@ -984,7 +1048,7 @@ export const GOODS: Record<Good, string> = {
   brace: 'A braced crawler',
   vim: 'Boiled leather',
   salve: 'Two salves',
-  flask: 'Two flasks of oil',
+  flask: 'A flask of oil',
   wick: 'A longer wick',
 };
 
@@ -1067,7 +1131,6 @@ export const affordable = (g: Delve, w: Good): boolean =>
 export const descend = (g: Delve): Delve => ({
   ...initial(),
   hoard: g.hoard,
-  kit: g.kit,
   relics: g.relics,
   tally: g.tally,
   won: g.won,
@@ -1075,7 +1138,37 @@ export const descend = (g: Delve): Delve => ({
   floor: g.floor,
   rooms: g.rooms,
   hp: START_HP + g.kit.vim * VIM,
-  oil: LIGHT + g.kit.wick * WICK,
+  // ★★★ THE LAMP DOES NOT REFILL ITSELF.
+  //
+  // ⚠️ IT USED TO, AND THAT MADE THE WHOLE LAMP A DECORATION. Climb out, walk
+  // back in, full lamp, free — so the only cost of running out was a round
+  // trip, and `oil` was `26 − turn` in a nicer colour. Every choice the lamp
+  // was supposed to create had the same answer as before: do it anyway.
+  //
+  // ★ WHAT IS FREE IS THE DREGS. Scraping enough together for a short run is
+  // always possible, so a delver with nothing is never stuck — but a LONG run
+  // is bought, and that is the whole economy: gold buys light, light buys
+  // ground, ground pays gold.
+  oil: Math.max(g.oil, DREGS),
+  // ★★★ AND THE MOUTH STAKES A DELVER WITH NOTHING — one flask, on the house.
+  //
+  // ⚠️ THE DREGS ALONE DO NOT KEEP THE PROMISE THEY MAKE. A bot played this
+  // from zero and stalled on delve six: three gold, ten light, four rooms
+  // cleared, and the nearest thing still worth walking to a ten-hop round trip
+  // away. Nothing was wrong with any single rule — rooms pay once, light is
+  // bought, the dregs are nine — and together they had quietly ended the game
+  // at the Mouth. A fixed floor of LIGHT cannot hold when the FRONTIER recedes.
+  //
+  // ★ So the floor is on the thing that recedes. Broke and dry, you are handed
+  // a flask; hold one, or hold the price of one, and you are handed nothing.
+  // It cannot be farmed — having any money at all switches it off — and it is
+  // deliberately slow enough that nobody would choose it over earning.
+  kit: (g.hoard < COST.flask && g.kit.flask <= 0)
+    ? { ...g.kit, flask: 1 } : g.kit,
+  // ★★★ AND A ROOM YOU CLEARED STAYS CLEARED until you take the stair. Light
+  // spent on this floor buys ground that is still yours next run — otherwise
+  // delve twenty is delve one and the lamp is paying for a rerun.
+  cleared: g.cleared,
   trod: g.trod,
   // ★ THE MAP IS KNOWLEDGE, and knowledge does not fall down a hole with you.
   seen: g.seen,
@@ -1154,7 +1247,6 @@ export function unringable(g: Delve, at: number): string | null {
   if (!g.relics.includes('bell')) return 'You have no bell.';
   if (!doorsOf(g, g.at).includes(at)) return 'No door leads there from here.';
   if (shut(g, g.at, at)) return 'That door is wedged shut.';
-  if (g.cleared.includes(at)) return 'Nothing left in there to hear it.';
   if (guardsOf(g, roomAt(g, at)).length === 0) return 'Nothing in there to hear it.';
   if (g.foes.some((f) => f.from === at)) return 'Already awake.';
   return null;
@@ -1188,8 +1280,7 @@ function crawlOn(g: Delve): Delve {
   let bred = g.bred;
   let hp = crawl.hp;
   const r = roomAt(g, step)!;
-  if (!g.cleared.includes(step) && guardsOf(g, r).length > 0
-      && !foes.some((f) => f.from === step)) {
+  if (held(g, step) && !foes.some((f) => f.from === step)) {
     const born = guardsOf(g, r).map((q, i) => ({
       id: bred + i, at: step, from: step, hp: q.hp, bite: q.bite, name: q.name,
       breed: q.breed, every: q.breed === 'stalker' ? 1 : q.bite >= 2 ? 2 : 1, reeling: 0,
@@ -1265,7 +1356,7 @@ export const DARK_BITE = 1;
 /** ★★★ HOW FAR THE MOUTH IS, in doors. The one number that makes the lamp a
  *  decision instead of a countdown — a budget you cannot see the bottom of is
  *  just an ambush. */
-export function homeward(g: Delve): number {
+export function homeward(g: Delve): number | null {
   const seen = new Map<number, number>([[g.at, 0]]);
   const queue = [g.at];
   for (let i = 0; i < queue.length; i++) {
@@ -1277,7 +1368,11 @@ export function homeward(g: Delve): number {
       queue.push(d);
     }
   }
-  return seen.get(0) ?? 99;
+  // ★★★ AND `null` MEANS THERE IS NO WAY BACK — you wedged yourself in.
+  // ⚠️ IT USED TO RETURN 99, and the header printed "99 rooms to the Mouth"
+  // over a delver standing behind their own wedge. A sentinel that reads as a
+  // quantity is a lie the screen tells with a straight face.
+  return null;
 }
 
 export function unlightable(g: Delve): string | null {

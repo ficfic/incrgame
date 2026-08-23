@@ -1900,3 +1900,10 @@ Entries above this line are long because the one-line rule did not exist yet.
 - 2026-08-23 — Deleted five checks that measured the deleted game, two of them deploy gates; CI runs the browser probe instead. `npm run play` points at the delve.
 - 2026-08-23 — "One word, one quantity" has a real check again: the delve's vocabulary lives in `src/delve/words.ts` and `check-vocab.mjs` reads string literals and markup text only.
 - 2026-08-23 — THE LAMP: every turn burns one light, a run is a lamp, and the dark is somewhere you can be rather than a loss. The owner: *"it's full of meta and lacks any gameplay"* — nothing competed with anything, so nothing was a decision.
+
+- **2026-08-23** — Cleared stays cleared until the stair; the lamp is never
+  refilled free; new ground pays 4 a room into the purse as you walk it; a
+  corpse in an emptied room pays a third; the Mouth stakes a broke delver one
+  flask; `flask` 4, `vim` 34, `brace` 40. Why: the owner wanted light to buy
+  permanent ground rather than a rerun, and every one of those numbers is what
+  a bot needed before the economy stopped dead-ending (`test/broke.test.ts`).

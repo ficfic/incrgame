@@ -198,6 +198,8 @@
   };
 
   const here = $derived(roomAt(game, game.at)!);
+  /** Rooms to the Mouth, or null when every road home is wedged shut. */
+  const back = $derived(homeward(game));
   const line = $derived(facing(game));
   /** ★★★ WHO SWINGS ON THE TURN YOU ARE ABOUT TO TAKE. Everything the player
    *  needs to plan is this list, and it is knowable, so it is shown. */
@@ -270,13 +272,22 @@
       <!-- ★★★ THE SENTENCE THE LAMP EXISTS TO MAKE POSSIBLE. "Nine light, and
            the Mouth is four rooms away" is a decision; a budget you cannot see
            the bottom of is an ambush. -->
-      <p class="note reckon" class:tight={game.oil <= homeward(game) + 2} class:out={dark(game)}>
-        {#if dark(game)}
-          <b>The lamp is out.</b> {homeward(game)} rooms to the Mouth, by memory.
+      <p class="note reckon"
+         class:tight={back === null || game.oil <= back + 2} class:out={dark(game)}>
+        {#if back === null}
+          <!-- ★★★ YOU WEDGED YOURSELF IN. ⚠️ This line used to print "99 rooms
+               to the Mouth" here, because `homeward` returned a sentinel and
+               the markup printed it as a distance. -->
+          <b>No way back to the Mouth.</b> Every road home is wedged shut.
+        {:else if dark(game)}
+          <b>The lamp is out.</b> {back} rooms to the Mouth, by memory.
         {:else}
-          <b>{game.oil}</b> light · <b>{homeward(game)}</b>
-          {homeward(game) === 1 ? 'room' : 'rooms'} to the Mouth
-          {#if game.oil <= homeward(game) + 2}· <b>go now</b>{/if}
+          <!-- ⚠️ AND IT DOES NOT TELL YOU WHAT TO DO. This line used to end
+               "· go now" once the light got tight, which is the game reading
+               its own numbers back and then deciding for you. The two numbers
+               ARE the decision; the colour is enough of a nudge. -->
+          <b>{game.oil}</b> light · <b>{back}</b>
+          {back === 1 ? 'room' : 'rooms'} to the Mouth
         {/if}
       </p>
       {#if line.length > 0}

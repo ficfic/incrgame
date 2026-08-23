@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { apply, initial, doorsOf, shut, waysOut, within, stepToward, swing,
   unwalkable, unwedgeable, affordable, facing, BITE, KEEN, BAR_TURNS,
-  WEDGES_PER, CRAWL_HP, BRACE_HP, COST, START_HP, START_WEDGES,
+  WEDGES_PER, CRAWL_HP, BRACE_HP, COST, START_HP, START_WEDGES, TOLL,
   type Delve, type Good }
   from '../src/delve/engine';
 import { SPOIL } from '../src/delve/dungeon';
@@ -25,7 +25,7 @@ describe('★★★ THE HOARD BUYS SOMETHING', () => {
   it('★ only at the Mouth, only what you can afford, and only once', () => {
     const g = flush(COST.lamp);
     expect(affordable(g, 'lamp')).toBe(true);
-    expect(affordable(g, 'brace')).toBe(false);          // costs more
+    expect(affordable(g, 'wick')).toBe(false);           // costs more
     const lit = buy(g, 'lamp');
     expect(lit.hoard).toBe(0);
     expect(lit.kit.lamp).toBe(2);
@@ -74,25 +74,40 @@ describe('★★★ A RUN IS A RUN — the dark closes behind you', () => {
     return apply(go(go(out, 1), 0), { type: 'leave' });
   };
 
-  it('★★★ the SAME room pays again on the next delve', () => {
-    // ⚠️ THE ARITHMETIC THAT FORCED THIS. A cleared room paid once and stayed
-    // cleared, so the dungeon's total income was 70 gold EVER — against a shop
-    // costing 172. The ratchet could not physically be turned to the end. It
-    // only showed up when the prices were written down beside the spoils.
+  it('★★★ A ROOM YOU CLEARED STAYS CLEARED — light buys ground, not a rerun', () => {
+    // ⚠️ REVERSED, 2026-08-23, and this test used to assert the opposite.
+    //
+    // The old rule — every room repays every delve — was written to fix an
+    // ARITHMETIC problem: a floor's total income was 70 gold, ever, against a
+    // shop costing 172, so the ratchet could not physically be turned to the
+    // end. Making rooms repay fixed the arithmetic and broke the game. Delve
+    // twenty was delve one; the lamp was paying for a rerun of ground you had
+    // already taken; and the owner's verdict was *"it's full of meta and lacks
+    // any gameplay"* — because nothing you did stayed done.
+    //
+    // ★ THE ARITHMETIC IS ANSWERED SOMEWHERE ELSE NOW: the surveyor's fee at
+    // the stair pays for the floor you MAPPED, so income comes from going
+    // deeper rather than from walking the same corridor again.
     const first = raid(initial());
     // ⚠️ AT LEAST. The first kill claims "First blood", so the room's payout is
     // already multiplied by the time the second one goes down.
     expect(first.hoard).toBeGreaterThanOrEqual(SPOIL.lair);
-    expect(first.cleared).toEqual([0]);          // the dark closed behind you
+    expect(first.cleared).toContain(3);          // the Warren is yours
     expect(first.foes).toEqual([]);
     expect(first.at).toBe(0);
     expect(first.hp).toBe(START_HP);
-    // ★★★ AND IT PAYS MORE THE SECOND TIME. Clearing that first room claimed
-    // "First blood", and a milestone is a permanent cut of everything the
-    // dungeon pays from then on — the only compounding number in the game.
+    // ★★★ AND WALKING BACK IN PAYS THE TOLL AND NOTHING MORE. Things wander
+    // back into an emptied room — a floor you cleared is not a floor that is
+    // safe — but the room's spoil went the first time and does not come back.
     const second = raid(first);
     expect(second.hoard).toBeGreaterThan(first.hoard);
+    expect(second.hoard - first.hoard).toBeLessThan(first.hoard * TOLL * 2);
     expect(second.won).toContain('first');
+    // ★ Until you take the stair — a new floor is new ground, all of it.
+    const below = apply({ ...first, at: 9, purse: 7, cleared: first.rooms.map((r) => r.id) },
+      { type: 'descend' });
+    expect(below.cleared).toEqual([0]);
+    expect(below.hoard).toBe(first.hoard + 7);          // the purse, banked
   });
 
   it('★★★ what you OWN and KNOW crosses the threshold; the purse does not', () => {
@@ -109,7 +124,9 @@ describe('★★★ A RUN IS A RUN — the dark closes behind you', () => {
 
   it('★★★ and dying costs the run, never a delve you already won', () => {
     const won = raid(initial());
-    const down = wait({ ...go(go(won, 1), 3), hp: 1, purse: 44 });
+    // ⚠️ NOT THE WARREN — `raid` cleared it and clearing sticks now, so there
+    // is nothing left in there to kill you. Die somewhere still occupied.
+    const down = wait({ ...go(go(go(won, 1), 2), 4), hp: 1, purse: 44 });
     expect(down.fallen).toBe(true);
     const next = apply(down, { type: 'leave' });
     expect(next.hoard).toBe(won.hoard);          // banked stays banked

@@ -13,8 +13,9 @@
 // and that one number puts a price on everything the game already had.
 import { describe, it, expect } from 'vitest';
 import { apply, initial, facing, maxOil, dark, homeward, unlightable,
-  LIGHT, FLASK, WICK, DARK_BITE, worth, guardsOf, stepToward, shut,
+  LIGHT, FLASK, WICK, DARK_BITE, DREGS, price, worth, guardsOf, stepToward, shut,
   type Delve, type Good } from '../src/delve/engine';
+import { SPOIL } from '../src/delve/dungeon';
 
 const go = (g: Delve, to: number): Delve => apply(g, { type: 'walk', to });
 const wait = (g: Delve): Delve => apply(g, { type: 'wait' });
@@ -66,7 +67,14 @@ describe('★★★ EVERY TURN COSTS LIGHT', () => {
     // ★ And it respects a door you wedged shut — the long way round IS the way.
     const armed = go({ ...initial(), hoard: 500 }, 1);
     const cut = apply(armed, { type: 'wedge', to: 0 });
-    expect(homeward(cut)).toBeGreaterThan(1);
+    // ⚠️ AND WHEN THERE IS NO LONG WAY ROUND IT SAYS SO, rather than handing
+    // the screen a sentinel to print. `homeward` returned 99 and the header
+    // said "99 rooms to the Mouth" over a delver stood behind their own wedge.
+    expect(homeward(cut)).toBeNull();
+    // ★ And where there IS a long way round, it counts it. Cutting the door
+    // back out of the Weeping Stair leaves the whole loop, six rooms of it.
+    const looped = apply(go(go({ ...initial(), hoard: 500 }, 1), 2), { type: 'wedge', to: 1 });
+    expect(homeward(looped)).toBe(6);
   });
 });
 
@@ -127,19 +135,44 @@ describe('★★★ AND OIL IS A THING YOU BUY AND POUR', () => {
     expect(apply(empty, { type: 'pour' })).toBe(empty);
   });
 
-  it('★★★ a longer wick makes every lamp deeper, for good', () => {
+  it('★★★ a longer wick raises the ceiling a flask can fill to', () => {
     const bare = initial();
     const long = apply({ ...bare, hoard: 9000 }, { type: 'buy', what: 'wick' });
     expect(maxOil(long)).toBe(maxOil(bare) + WICK);
-    // ★ And it is on the lamp you light next run, not just the one you hold.
-    const next = apply({ ...long, at: 0 }, { type: 'leave' });
-    expect(next.oil).toBe(maxOil(long));
+    // ★ A longer wick is a bigger TANK, not free oil: what it buys is the
+    // right to pour more in before the lamp spills.
+    const low = { ...long, oil: 1, kit: { ...long.kit, flask: 9 } };
+    let full = low;
+    for (let i = 0; i < 9; i++) full = apply({ ...full, hp: 400 }, { type: 'pour' });
+    // ⚠️ ONE SHORT OF THE CEILING, ALWAYS: pouring is a turn, and the turn
+    // burns. You cannot hold a brimming lamp, only a lamp you just filled.
+    expect(full.oil).toBe(maxOil(long) - 1);
   });
 
-  it('★★★ and climbing out fills the lamp — a run is a lamp', () => {
+  it('★★★ and climbing out does NOT fill the lamp — light is bought, never found', () => {
+    // ⚠️ REVERSED, 2026-08-23. This test used to assert the opposite, and the
+    // opposite made the lamp a decoration: climb out, walk back in, full lamp,
+    // free. The only cost of running dry was a round trip, so every choice the
+    // lamp was supposed to create still had the old answer — do it anyway.
     const g = burn({ ...initial(), hp: 400 }, 9);
     expect(g.oil).toBeLessThan(LIGHT);
-    expect(apply(g, { type: 'leave' }).oil).toBe(maxOil(g));
+    expect(apply(g, { type: 'leave' }).oil).toBe(g.oil);
+    // ★ WHAT IS FREE IS THE DREGS, and only the dregs. A delver with nothing
+    // can always scrape a short run together, and never a long one.
+    const dry = { ...burn({ ...initial(), hp: 400, oil: 3 }, 3), hoard: 0 };
+    expect(dark(dry)).toBe(true);
+    expect(apply(dry, { type: 'leave' }).oil).toBe(DREGS);
+  });
+
+  it('★★★ ONE ROOM PAYS FOR THE LIGHT TO REACH THE NEXT — the loop, in one line', () => {
+    // ⚠️ THE DEAD END THIS EXISTS TO CATCH. Rooms pay once now, so a delver on
+    // the dregs must be able to turn the room they just cleared into the oil
+    // for the next one. When a flask cost 10 and a shallow lair paid 6, they
+    // could not: run one paid 6, run two reached nothing, and the game was
+    // over at the Mouth with the shop showing eight things and no way to buy
+    // any of them.
+    expect(price(initial(), 'flask')).toBeLessThanOrEqual(SPOIL.lair);
+    expect(FLASK).toBeGreaterThan(DREGS);
   });
 });
 

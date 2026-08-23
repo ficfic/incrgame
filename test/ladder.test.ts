@@ -15,7 +15,7 @@
 // Everything below plays real actions through `apply`. No hand-built states
 // where the claim is about whether a route works.
 import { describe, it, expect } from 'vitest';
-import { apply, initial, done, maxHp, facing, unwalkable, COST, VIM, START_HP,
+import { price, apply, initial, done, maxHp, facing, unwalkable, COST, VIM, START_HP,
   type Delve, type Good } from '../src/delve/engine';
 import { ROOMS } from '../src/delve/dungeon';
 
@@ -118,6 +118,11 @@ describe('★★★ AND THE GAME CAN BE FINISHED', () => {
   it('★ and a run always starts on full life, with whatever you are wearing', () => {
     const tough = kitted('vim');
     expect(apply({ ...tough, at: 0, hp: 3 }, { type: 'leave' }).hp).toBe(START_HP + VIM);
-    expect(COST.vim).toBeGreaterThan(COST.brace);   // the last thing you buy
+    // ⚠️ AND IT IS NO LONGER THE DEAREST THING ON THE SHELF. `vim` cost 90
+    // when a floor's income was unbounded; rooms pay once now, floor one is
+    // worth about seventy, and a life upgrade you cannot reach in a floor is
+    // a life upgrade that does not exist. It is 34 and it gets dearer.
+    expect(COST.vim).toBeLessThan(COST.wick);       // still not the cheap one
+    expect(price({ ...kitted('vim') }, 'vim')).toBeGreaterThan(COST.vim);
   });
 });
