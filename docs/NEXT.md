@@ -63,9 +63,7 @@ Ranked. Take the top one.
    chalk. Re-read them against the new pressure.
 4. **The numbers are still small.** `break_eternity` is in the stack, unused.
 5. **One save-race guard is reasoned, not proven** — the `ready` flag.
-6. **Put something behind the stair that is not floor one at +60%.** The
-   owner, playing the lamp build: a new floor is the same floor, dearer.
-7. **Make what comes back different from what you killed**, or let a delver
+6. **Make what comes back different from what you killed**, or let a delver
    walk their own cleared rooms unharassed. The owner: the spoil stopped
    repeating but the TRANSIT did not — every trip to fresh ground walks back
    through the same rats for a third of the money.
@@ -78,6 +76,7 @@ Ranked. Take the top one.
 ### Done since this list was written
 - ~~Oil spends on the graph~~ — lanterns, 2026-08-23.
 - ~~The animation loop never stops~~ — it never did; the CHECK was wrong.
+- ~~Something behind the stair that is not floor one at +60%~~ — the cuts.
 
 ## What is deliberately NOT on the queue
 

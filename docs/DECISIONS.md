@@ -1913,3 +1913,9 @@ Entries above this line are long because the one-line rule did not exist yet.
   Why: the owner asked for "the one thing I could DO that I can't now", and it
   is the only thing in the game that makes the second trip cheaper than the
   first.
+
+- **2026-08-23** — Every floor past the first has a CUT: one named condition, a
+  pure function of depth, breaking exactly one rule the player already knows
+  (flood, swarm, hush, vault, dark). Why: the owner said a new floor was "floor
+  one at +60%", and a content tier that only scales is a progress bar wearing a
+  map.

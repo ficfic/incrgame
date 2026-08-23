@@ -137,4 +137,25 @@ describe('★★★ AND THE OWNER CAN CARRY IT BETWEEN DEVICES', () => {
     expect(fromText('DELVE1:@@@@')).toBeNull();
     expect(() => fromText('DELVE1:')).not.toThrow();
   });
+
+  it('★★★ and a save carrying HALF A KIT loads with a whole one', () => {
+    // ⚠️ THE BUG THE BROWSER FOUND AND NOTHING ELSE COULD. `unpack` filled
+    // missing FIELDS from `initial()` — but a spread replaces a whole object,
+    // so a save whose `kit` predates `flask` loaded with `flask: undefined`.
+    // The shop chip then offered "+NaN light · undefined left" on a real
+    // screen, while the typechecker was happy (`Partial<Delve>` promises the
+    // kit is a `Kit`) and every unit test round-tripped a kit it had just
+    // written. A save is JSON from the past; it does not owe you a shape.
+    const old = JSON.parse(pack(initial())) as Record<string, unknown>;
+    old.kit = { wedges: 6, lamp: 2, brace: 1, edge: 1, vim: 1 };
+    const back = unpack(JSON.stringify(old))!;
+    expect(back).not.toBeNull();
+    expect(back.kit.wedges).toBe(6);              // what the save said
+    expect(back.kit.edge).toBe(1);
+    for (const [k, v] of Object.entries(back.kit)) {
+      expect(typeof v, `kit.${k} came back ${String(v)}`).toBe('number');
+      expect(Number.isNaN(v as number)).toBe(false);
+    }
+    expect(back.kit.flask).toBe(initial().kit.flask);
+  });
 });

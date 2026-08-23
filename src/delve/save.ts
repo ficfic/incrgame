@@ -13,7 +13,7 @@
 // with no browser in it, so the interesting half — a truncated blob, a save
 // from a format that no longer exists, somebody else's JSON — is unit-tested
 // rather than hoped about.
-import { DELVE_VERSION, initial, type Delve } from './engine';
+import { DELVE_VERSION, initial, type Delve, type Kit } from './engine';
 
 export const SAVE_KEY = 'delve';
 
@@ -89,7 +89,15 @@ export function unpack(text: string | null): Delve | null {
     if (!g.kit || typeof g.kit.lamp !== 'number') return null;
     // ★ FILLED FROM `initial()` FIRST, so a save written before a field
     // existed still loads with a sane value for it rather than `undefined`.
-    return { ...initial(), ...(g as Delve) };
+    //
+    // ⚠️ AND THE KIT IS FILLED FIELD BY FIELD, because a spread replaces the
+    // whole object. A save carrying a kit written before `flask` existed loaded
+    // with `flask: undefined`, and the shop chip then offered "+NaN light" —
+    // which the browser probe printed on a real screen while every unit test
+    // and the typechecker were happy, because `Partial<Delve>` says the kit is
+    // a `Kit` and the JSON says otherwise.
+    const filled = { ...initial(), ...(g as Delve) };
+    return { ...filled, kit: { ...initial().kit, ...(g.kit as Kit) } };
   } catch {
     return null;
   }

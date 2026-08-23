@@ -12,7 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { TRAITS, lairOf, hoardOf, wellOf, type Breed } from '../src/delve/bestiary';
 import { apply, initial, facing, foesIn, unshovable, guardsOf, roomAt,
   doorsOf, deepness, type Delve, type Foe } from '../src/delve/engine';
-import { floorPlan } from '../src/delve/floors';
+import { floorPlan, roomsOn } from '../src/delve/floors';
 
 const wait = (g: Delve): Delve => apply(g, { type: 'wait' });
 const go = (g: Delve, to: number): Delve => apply(g, { type: 'walk', to });
@@ -63,9 +63,15 @@ describe('★★★ A BRUTE CANNOT BE SHOVED', () => {
 });
 
 describe('★★★ A HOWLER WAKES THE ROOM NEXT DOOR', () => {
-  /** A howler beside you, in a room with a sleeping lair through a door. */
+  /** A howler beside you, in a room with a sleeping lair through a door.
+   *
+   *  ⚠️ ON A FLOOR BIG ENOUGH TO HOWL ACROSS, chosen rather than assumed. This
+   *  said floor 6 until floors grew CUTS: floor 6 came out "the long dark",
+   *  which is a deliberately small floor, and a howler on it ran out of
+   *  neighbours after one shout. The test was pinned to a generated shape. */
+  const roomy = [7, 8, 9, 10, 11, 12].find((d) => roomsOn(d) >= 16) ?? 7;
   const shouting = (): Delve => {
-    const g: Delve = { ...initial(), floor: 6, rooms: floorPlan(6), hp: 900 };
+    const g: Delve = { ...initial(), floor: roomy, rooms: floorPlan(roomy), hp: 900 };
     const lair = g.rooms.find((r) => r.kind === 'lair'
       && r.doors.some((d) => g.rooms.find((x) => x.id === d)?.kind === 'lair'));
     const at = lair?.id ?? 1;

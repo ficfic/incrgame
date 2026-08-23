@@ -935,6 +935,13 @@ if (madeIt) {
   if (!(await stair.count())) misses.push('standing in the Hoard offers no way deeper');
   else {
     const drawnBefore = await rooms();
+    // ★★★ AND IT SAYS WHAT IS WRONG WITH THE FLOOR BELOW BEFORE YOU COMMIT.
+    // The owner: *"Put something behind the stair that isn't floor one at
+    // +60%."* Every floor past the first breaks one rule the player already
+    // knows — and a condition you find out about by dying is an ambush.
+    const promise = (await stair.first().textContent()).replace(/\s+/g, ' ').trim();
+    console.log('  offered :', `"${promise}"`);
+    if (!/·[^·]+·[^·]+$/.test(promise)) misses.push(`the stair does not say what is below: "${promise}"`);
     await stair.first().click();
     await page.waitForTimeout(400);
     const f2 = await floorNow();
@@ -945,6 +952,14 @@ if (madeIt) {
     // is a reskin rather than new ground.
     if ((await rooms()) > 4) misses.push(`floor 2 arrived already lit: ${await rooms()} rooms drawn`);
     if (!namesNow.some((n) => /Stair Up/.test(n))) misses.push('floor 2 has no way in named');
+    // ★★★ AND THE FLOOR SAYS WHAT IS WRONG WITH IT WHILE YOU STAND ON IT.
+    const wrong = await page.locator('.wrong').count()
+      ? (await flat('.wrong')) : '';
+    console.log('  wrong   :', `"${wrong}"`);
+    if (!wrong) misses.push('floor 2 does not say what is wrong with it');
+    if (wrong && !new RegExp(promise.split('·').pop().trim().slice(0, 18), 'i').test(wrong)) {
+      misses.push(`the stair promised one floor and delivered another: "${promise}" vs "${wrong}"`);
+    }
     const tally = await flat('.shead');
     if (!/1\/\d+ rooms stood in/.test(tally)) misses.push(`the tally did not reset for the new floor: "${tally}"`);
     console.log('  tally   :', `"${tally}"`);

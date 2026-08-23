@@ -22,7 +22,8 @@ import { GUARDS, SPOIL, type Room, type Guard } from './dungeon';
 import { TRAITS, type Breed } from './bestiary';
 import { RELICS, wellHolds, type RelicId } from './relics';
 import { MARKS, NOTHING, earned, take, type Tally } from './records';
-import { floorPlan } from './floors';
+import { floorPlan, cutOf, CUT_SAYS, type Cut } from './floors';
+export { cutOf, CUT_SAYS, type Cut } from './floors';
 
 export const DELVE_VERSION = 16;
 
@@ -242,8 +243,25 @@ export const waysOut = (g: Delve, id: number): number[] =>
  *  moment a well started holding a lurker only past floor five: a shallow well
  *  announced "something is already here" over an empty room AND stopped paying
  *  out, because the pays-on-arrival rule keys off the same test. */
-export const guardsOf = (g: Delve, r: Room | undefined): Guard[] =>
-  (r ? GUARDS[r.kind]?.(deepness(g, r)) : null) ?? [];
+export const guardsOf = (g: Delve, r: Room | undefined): Guard[] => {
+  const line = (r ? GUARDS[r.kind]?.(deepness(g, r)) : null) ?? [];
+  if (line.length === 0 || !r) return line;
+  const c = cut(g);
+  // ★★★ SOMETHING BRED DOWN HERE. One more in every lair — not a bigger
+  // monster, ANOTHER one, which is a different problem: a shove stops being
+  // enough and a doorway starts being worth standing in.
+  if (c === 'swarm' && r.kind === 'lair') {
+    const runt = line[line.length - 1]!;
+    return [...line, { ...runt, name: runt.name }];
+  }
+  // ★★★ IT WAS SEALED FOR A REASON. Half again the fight, twice the spoil —
+  // see `worth`. The only cut that is a straight trade rather than a rule.
+  if (c === 'vault') return line.map((q) => ({ ...q, hp: Math.round(q.hp * 1.5) }));
+  return line;
+};
+
+/** ★★★ WHAT IS WRONG WITH THE FLOOR YOU ARE ON. See `floors.ts`. */
+export const cut = (g: Delve): Cut => cutOf(g.floor);
 
 /** ★★★ IS THIS ROOM'S GUARD STILL TO BE MET?
  *
@@ -389,10 +407,13 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   // walk for free for the rest of the floor. It is the only thing in the game
   // that makes the SECOND trip cheaper than the first.
   const burns = !lit(g, g.at);
-  const oil = Math.max(0, g.oil - (burns ? 1 : 0));
+  // ★★★ THE WATER IS IN IT. Two light a turn, which halves every plan you had
+  // and makes a lantern worth twice what it was.
+  const drain = cut(g) === 'flood' ? 2 : 1;
+  const oil = Math.max(0, g.oil - (burns ? drain : 0));
   // ★ And a lantern is light, so the dark does not bite you under one.
   const blind = oil <= 0 && !lit(g, g.at);
-  if (burns && g.oil === 1) said.push('The lamp gutters and goes out.');
+  if (burns && g.oil > 0 && oil === 0) said.push('The lamp gutters and goes out.');
 
   // ── 1. THE CRAWLER WALKS. It goes first because it is a thing in the
   // dungeon taking its turn, not a readout that updates afterwards — and
@@ -460,6 +481,9 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
     // around, which turns "what is in there" into a routing question instead
     // of a fight you have to take.
     if (!TRAITS[f.breed].chases) return f;
+    // ★★★ THE HUSH. Nothing follows you out of its room, so the whole floor is
+    // a routing question and every fight on it is one you chose to take.
+    if (cut(g) === 'hush') return f;
     const step = stepToward(g, f.at, at, (x, y) => shut(g, x, y));
     if (step === null) return f;
     // ⚠️ IT IS ANNOUNCED. A thing arriving in your room is the single most
@@ -728,9 +752,15 @@ function act(g: Delve, a: Action): Delve {
         // ⚠️ AND THE LANTERNS STAY WHERE THEY ARE — on a floor you will never
         // stand on again. Every stair is a light bill.
         lamps: [],
+        // ★★★ THE LONG DARK. You come off the stair on the dregs whatever you
+        // were carrying, which is the only cut that takes something from you
+        // rather than changing a rule — so it is also the only one paired with
+        // a mercy: `roomsOn` makes it a small floor.
+        oil: cutOf(floor) === 'dark' ? DREGS : g.oil,
         log: LOG_LINES(LOG_LINES(g.log,
           `${g.trod.length} rooms of floor ${g.floor} walked, and paid for.`),
-          `You take the stair down. Floor ${floor}: ${floorPlan(floor).length} rooms, and none of them yours.`) };
+          `Floor ${floor}: ${floorPlan(floor).length} rooms, and none of them yours. `
+          + `${CUT_SAYS[cutOf(floor)].name} — ${CUT_SAYS[cutOf(floor)].says.toLowerCase()}.`) };
     }
 
     case 'ring': {
@@ -1275,7 +1305,8 @@ export const deepness = (g: Delve, r: Room): number => r.deep + (g.floor - 1) * 
 /** ★ And what a floor pays. Deeper rooms are worth more, or there is no reason
  *  to be down there rather than farming the floor you have already learned. */
 export const worth = (g: Delve, r: Room): number =>
-  Math.round(SPOIL[r.kind] * (1 + (g.floor - 1) * 0.6) * take(g));
+  Math.round(SPOIL[r.kind] * (1 + (g.floor - 1) * 0.6) * take(g)
+    * (cut(g) === 'vault' ? 2 : 1));
 
 /** ★ How long a wedge holds, with what you are carrying. */
 export const barTurns = (g: Delve): number =>

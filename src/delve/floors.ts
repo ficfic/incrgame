@@ -30,11 +30,82 @@ function rolling(seed: number): () => number {
   };
 }
 
+/** ★★★ THE CUT — what is wrong with THIS floor, 2026-08-23.
+ *
+ *  The owner, on the build where floors first went endless: *"Put something
+ *  behind the stair that isn't floor one at +60%."* They were right, and the
+ *  numbers were the tell: a new floor had more rooms, harder guards and richer
+ *  spoil, and every one of those is the SAME floor with a multiplier on it. A
+ *  content tier that only scales is a progress bar wearing a map.
+ *
+ *  So every floor past the first has one thing wrong with it, and it is one
+ *  RULE, not one number — the rules a player already knows, broken one at a
+ *  time. You are told which before you take the stair, so it is a thing to
+ *  plan against rather than a thing to discover by dying.
+ *
+ *  ⚠️ ONE RULE EACH, AND NO MORE. Two at once is a floor nobody can attribute
+ *  anything to: you die, and you do not know which of the two did it. */
+export type Cut = 'plain' | 'flood' | 'swarm' | 'hush' | 'vault' | 'dark';
+
+export const CUTS: Cut[] = ['flood', 'swarm', 'hush', 'vault', 'dark'];
+
+/** What each one is called, and what it actually does — the same sentence the
+ *  screen shows, because a condition the player cannot read is a bug. */
+export const CUT_SAYS: Record<Cut, { name: string; says: string }> = {
+  plain: { name: 'Plain stone', says: 'Nothing here is stranger than usual' },
+  flood: { name: 'The water is in it', says: 'Every turn burns two light' },
+  swarm: { name: 'Something bred down here', says: 'Every lair fields one more' },
+  hush: { name: 'The hush', says: 'Nothing follows you out of its room' },
+  vault: { name: 'It was sealed for a reason', says: 'Twice the spoil, half again the fight' },
+  dark: { name: 'The long dark', says: 'You arrive on the dregs, and it is a small floor' },
+};
+
+/** ⚠️ A HASH, NOT THE LCG ABOVE. `rolling` is seeded from the depth, and two
+ *  depths are one apart — an LCG does not mix that away however many times you
+ *  step it. The first draft dealt dark/hush/flood, dark/hush/flood,
+ *  dark/hush/swarm straight down the dungeon; three rolls in gave
+ *  hush/dark/hush/dark. Deterministic is the requirement. PATTERNED is a
+ *  different thing, and on a list of five it is the difference between a
+ *  dungeon and a rota. (Murmur3's finaliser, which is all it needs to be.) */
+const mix = (n: number): number => {
+  let h = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b) >>> 0;
+  h = (h ^ (h >>> 13)) >>> 0;
+  h = Math.imul(h, 0xc2b2ae35) >>> 0;
+  h = (h ^ (h >>> 16)) >>> 0;
+  return h / 4294967296;
+};
+
+const pick = (d: number): Cut =>
+  d <= 1 ? 'plain' : CUTS[Math.floor(mix(d) * CUTS.length)] ?? 'flood';
+
+/** ⚠️ AND NEVER THE SAME TWO FLOORS RUNNING. A condition you have already
+ *  learned and are still standing in is not a condition, it is the weather.
+ *
+ *  ⚠️ WALKED FORWARD FROM FLOOR TWO, not compared against `pick(depth - 1)`.
+ *  Comparing the RAW draws misses the case that matters: floor five's draw is
+ *  rotated away from floor four, and floor six then draws whatever five was
+ *  rotated INTO. Floors 5 and 6 both came out "It was sealed for a reason"
+ *  while a comment three lines up promised that could not happen. It is a
+ *  loop over a hash, it is pure, and at any depth anyone will ever reach it
+ *  costs less than laying the floor out does. */
+export function cutOf(depth: number): Cut {
+  if (depth <= 1) return 'plain';
+  let here: Cut = 'plain';
+  for (let d = 2; d <= depth; d++) {
+    const drawn = pick(d);
+    here = drawn === here ? CUTS[(CUTS.indexOf(drawn) + 1) % CUTS.length]! : drawn;
+  }
+  return here;
+}
+
 /** ★ HOW BIG A FLOOR IS. Grows with depth, and stops growing: past about
  *  eighteen rooms a phone screen cannot hold the map at a readable size, and
  *  "bigger" stops meaning "deeper" and starts meaning "further to walk". */
 export const roomsOn = (depth: number): number =>
-  Math.min(18, 8 + depth * 2);
+  // ★ AND THE LONG DARK IS A SMALL FLOOR. You arrive with nothing lit, so it
+  // has to be a floor a lamp on the dregs can reach the far side of.
+  cutOf(depth) === 'dark' ? Math.min(10, 6 + depth)
+    : Math.min(18, 8 + depth * 2);
 
 /** ★★★ A FLOOR, LAID OUT IN RANKS. Rank 0 is the way in, the last rank is the
  *  hoard, and every room connects upward to the rank above it — so the map

@@ -25,7 +25,7 @@
     unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS, done, maxHp,
     unshovable, toll, braced, REEL, CRAWL_HP, roomAt, canDescend, unringable, barTurns,
     undrinkable, price, DEARER, SALVE, FLASK, maxOil, dark, homeward, unlightable,
-    lit as lantern, unhangable,
+    lit as lantern, unhangable, cutOf, CUT_SAYS,
     type Delve, type Good } from '../delve/engine';
   import { TRAITS } from '../delve/bestiary';
   import { RELICS } from '../delve/relics';
@@ -202,6 +202,9 @@
   const here = $derived(roomAt(game, game.at)!);
   /** Rooms to the Mouth, or null when every road home is wedged shut. */
   const back = $derived(homeward(game));
+  /** ★★★ WHAT IS WRONG WITH THIS FLOOR, and with the one under it. */
+  const here_cut = $derived(CUT_SAYS[cutOf(game.floor)]);
+  const below = $derived(CUT_SAYS[cutOf(game.floor + 1)]);
   const line = $derived(facing(game));
   /** ★★★ WHO SWINGS ON THE TURN YOU ARE ABOUT TO TAKE. Everything the player
    *  needs to plan is this list, and it is knowable, so it is shown. */
@@ -238,6 +241,13 @@
       <span class="cell"><b>{game.hoard}</b> <em>{WORDS.hoard}</em></span>
       <span class="cell"><b>{game.floor}</b> <em>{WORDS.floor}</em></span>
     </div>
+    <!-- ★★★ AND WHAT IS WRONG WITH IT, under the numbers it changes. Floor one
+         has nothing wrong with it and says nothing; every floor below says one
+         line, because a rule you cannot read is a rule you cannot plan
+         against. -->
+    {#if cutOf(game.floor) !== 'plain'}
+      <div class="wrong"><b>{here_cut.name}</b> · {here_cut.says.toLowerCase()}</div>
+    {/if}
   </header>
 
   <!-- ★★★ THE REPORT. What you sent down, where it got to, and how much of
@@ -285,10 +295,15 @@
           <!-- ⚠️ AND IT DOES NOT SAY "0 ROOMS TO THE MOUTH" WHILE YOU ARE
                STANDING IN IT. The owner spotted that one; a distance of zero
                is not a distance, it is a place. -->
+          <!-- ⚠️ AND ONLY FLOOR ONE OPENS ON DAYLIGHT. Below it, room zero is
+               the stair you came down, and calling that daylight is the screen
+               telling you something the dungeon does not agree with. -->
           {#if dark(game)}
-            <b>The lamp is out</b>, and you are out with it.
-          {:else}
+            <b>The lamp is out</b>, and you are {game.floor === 1 ? 'out with it' : 'stood at the way up'}.
+          {:else if game.floor === 1}
             <b>{game.oil}</b> light, and you are standing in the daylight.
+          {:else}
+            <b>{game.oil}</b> light, and the way up is right here.
           {/if}
         {:else if dark(game)}
           <b>The lamp is out.</b> {back} rooms to the Mouth, by memory.
@@ -398,7 +413,9 @@
                Hold button this replaced. -->
           <button class="deed down" onclick={() => act({ type: 'descend' })}>
             Take the stair down
-            <em>floor {game.floor + 1} · banks {game.purse} · a map you have never seen</em>
+            <!-- ★★★ AND IT SAYS WHAT IS DOWN THERE. A condition you find out
+                 about by dying is not a condition, it is an ambush. -->
+            <em>floor {game.floor + 1} · banks {game.purse} · {below.says}</em>
           </button>
         {/if}
         {#if !mark && line.length > 1}
@@ -461,7 +478,7 @@
         {#if canDescend(game)}
           <button class="deed down" onclick={() => act({ type: 'descend' })}>
             Take the stair down
-            <em>floor {game.floor + 1} · banks {game.purse} on the way · a map you have never seen</em>
+            <em>floor {game.floor + 1} · banks {game.purse} on the way · {below.says}</em>
           </button>
         {/if}
         {#if canLeave(game)}
@@ -690,6 +707,9 @@
   .cell.lamp b { color: #f0cf87; }
   .cell.lamp.low b { color: #d9755e; }
   .cell.lamp.out b, .cell.lamp.out em { color: var(--off); }
+  .wrong { padding: 4px 10px 6px; font-size: 12px; color: #a8916a;
+    letter-spacing: 0.02em; border-top: 1px solid #241d15; }
+  .wrong b { color: #d8be82; font-weight: 600; }
   .note.reckon { color: var(--faint); }
   .note.reckon b { color: #f0cf87; }
   .note.reckon.tight, .note.reckon.tight b { color: #d9755e; }
