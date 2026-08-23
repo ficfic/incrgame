@@ -69,6 +69,13 @@ jobs:
       #
       # ★ WHAT REPLACES THEM IS THE CHECK THAT ACTUALLY DESCRIBES THIS GAME:
       # the browser probe, below, driven with a thumb through the whole loop.
+      - name: One word, one quantity
+        # ⚠️ THE OLDEST UNENFORCED RULE IN THE PROJECT, and its previous check
+        # was famously vacuous — it read the pre-pivot game, and `the-process`
+        # printed two nouns for one quantity into the live HUD for exit 0. This
+        # one reads `src/delve/words.ts`, where the vocabulary now lives in one
+        # place, and the screens that render it. Four recorded sabotages.
+        run: node scripts/check-vocab.mjs
       - name: Play it (real browser)
         # ⚠️ `CLAUDE.md` RULE 2: the check for anything player-facing is a real
         # browser plus looking at the screenshot. Nothing in CI did that — the

@@ -127,15 +127,20 @@ tests for the check script.
   `GLOSSARY.md` and `SIMPLIFICATIONS.md` exist.)* The ontology it policed is
   gone. Invented fantasy answers to the brief, not to a citation.
 - **One word, one quantity.** The board once said "25 nodes" beside a HUD
-  saying "3 recovered", both correct. **THE RULE STANDS AND IT IS ENFORCED BY
-  HAND.** *(Its old check, `scripts/check-vocabulary.mjs`, read the pre-pivot
-  game and enforced nothing — `the-process` printed two nouns for one quantity
-  into the live HUD for exit 0. It was deleted on 2026-08-23 along with
-  `check-story`, `check-words`, `check-prose` and `check-alignment`: five
+  saying "3 recovered", both correct. **THE RULE HAS A REAL CHECK AGAIN**:
+  `scripts/check-vocab.mjs`, in `npm run guard` and in CI. The delve's
+  vocabulary lives in one place — `src/delve/words.ts` — and the check asserts
+  it is a bijection, that every word in it actually reaches a screen, and that
+  fifteen named synonyms reach none. Four sabotages recorded.
+  *(⚠️ It reads STRING LITERALS AND MARKUP TEXT ONLY. Searching raw source
+  flagged `g.hp`, `stepToward` and `class="tick"` — eight false positives of
+  code the player never sees — and a guard that cries about field names is a
+  guard everybody turns off. For the same reason "round", "step" and "damage"
+  came straight back OFF the banned list: the shop says a pack "has to go
+  round", which is a preposition.)*  *(Its old check, `check-vocabulary.mjs`, was deleted on 2026-08-23 with
+  `check-story`, `check-words`, `check-prose` and `check-alignment` — five
   scripts measuring a game that no longer exists, two of them still wired as
-  deploy gates. A check with no subject is worse than none, because it teaches
-  everyone to route around the pipeline.)* Writing a real one for the delve is
-  in `docs/NEXT.md`.
+  deploy gates.)*
 - **HITL review is never mandatory.** Manual review is an optional min-max lever,
   never an attention tax. An idle game that demands babysitting isn't one.
 - **Respect the mobile performance budget** (`docs/GAME_DESIGN.md`): simulate in

@@ -14,9 +14,10 @@
     "icons": "node scripts/gen-icons.mjs",
     "check:core": "node scripts/check-core-purity.mjs",
     "play": "node scripts/play-delve.mjs",
-    "guard": "npm run check && npm run check:core && npx vitest run",
+    "guard": "npm run check && npm run check:core && npm run check:vocab && npx vitest run",
     "delve": "node scripts/play-delve.mjs",
-    "play:town": "node scripts/play-camp.mjs"
+    "play:town": "node scripts/play-camp.mjs",
+    "check:vocab": "node scripts/check-vocab.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
