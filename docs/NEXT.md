@@ -53,18 +53,21 @@ Ranked. Take the top one.
 1. **Play it yourself, past floor 4.** A bot clears four floors with money in
    the bank; nobody has *felt* whether floors 3–6 are fun, or whether the 1.75
    price curve outruns what a floor pays.
-2. **The town is still on disk and unreachable** — `Camp.svelte`, `src/camp/`,
-   `src/game/`, `src/core/`, `src/slice/`, `src/shell/ticker.ts`, and ~40k
-   words of docs describing games that no longer exist. Every search crosses
-   it, and several of its comments cite scripts that no longer exist either.
-   Decide: delete, or one RETIRED banner per directory.
+2. **87% of `src/` is not reachable from the entry point.** `npm run live`
+   prints it: 13 files and 3,556 lines are the game; 67 files and 23,262 lines
+   are three deleted ones — the ontology game, the valley, the town. Every
+   search crosses them, every review agent reads them, and several of their
+   comments cite scripts that no longer exist either. Decide: delete, or one
+   RETIRED banner per directory. This is the biggest single thing left.
 3. **The numbers are still small.** `break_eternity` is in the stack, unused.
    The biggest number in the game is a few thousand.
 4. **One save-race guard is reasoned, not proven** — the `ready` flag that
    stops the first write landing before the load answers.
-5. **`src/delve/words.ts` covers ten quantities.** Room names, monster names
-   and relic names are not in it; a second "Drowned Well" was caught by a
-   browser probe rather than by the vocabulary check.
+5. **`src/delve/words.ts` covers ten quantities.** Room, monster and relic
+   names are not in it — a second "Drowned Well" was caught by a browser probe
+   rather than by the vocabulary check. And the check cannot see WHICH element
+   renders a word, so a header saying "rounds" beside a panel saying "turn"
+   still passes; that case is read by eye.
 
 ## What is deliberately NOT on the queue
 

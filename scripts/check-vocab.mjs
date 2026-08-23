@@ -16,7 +16,15 @@
 //   3. NO SYNONYM APPEARS ANYWHERE IN THE DELVE'S UI. "gold" beside "banked"
 //      is one pile with two names, and the player has to work out that it is.
 //
-// SABOTAGE, all three recorded in the commit that added this:
+// ⚠️ AND WHAT IT CANNOT SEE, because a check whose limits are not written down
+// gets trusted past them. It knows the vocabulary is coherent and that every
+// quantity is rendered SOMEWHERE — it does not know WHICH element renders
+// which. Changing the header to say "rounds" while the panel still says "turn"
+// stays green: "turn" is still in the file, and "round" is too ordinary a
+// word to ban without the guard being wrong more often than the code is. The
+// rule's hardest case is still enforced by reading the screen.
+//
+// SABOTAGE, all recorded in the commit that added this:
 //   · point two quantities at one word          → bijection fails
 //   · delete a word from the screen             → "never reaches the screen"
 //   · write "gold" into the shop                → synonym fails, naming `hoard`
@@ -90,10 +98,19 @@ const readable = (text, isSvelte) => {
 };
 
 // 2 ── every word actually reaches the screen.
+//
+// ★ EITHER AS A LITERAL OR THROUGH `WORDS.q`. The markup used to type each word
+// out again beside the map that declared it, which meant this could only check
+// that the STRING "life" appeared somewhere in the file — not that it was the
+// word the header renders. The screen reads from the map now, so a reference
+// counts, and that is the stronger test: it says the quantity is rendered.
+const raw = SCREEN.map((f) => readFileSync(f, 'utf8')).join('\n');
 const shown = SCREEN.flatMap((f) => readable(readFileSync(f, 'utf8'), f.endsWith('.svelte')))
   .map((p) => p.text).join('\n');
 for (const [q, w] of words) {
-  if (!shown.includes(w)) bad.push(`${q} is called "${w}" and that word never reaches the screen`);
+  if (shown.includes(w)) continue;
+  if (new RegExp(`WORDS\\.${q}\\b`).test(raw)) continue;
+  bad.push(`${q} is called "${w}" and nothing renders it — not as a word, not as WORDS.${q}`);
 }
 
 // 3 ── and no synonym does.

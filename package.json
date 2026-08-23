@@ -17,7 +17,8 @@
     "guard": "npm run check && npm run check:core && npm run check:vocab && npx vitest run",
     "delve": "node scripts/play-delve.mjs",
     "play:town": "node scripts/play-camp.mjs",
-    "check:vocab": "node scripts/check-vocab.mjs"
+    "check:vocab": "node scripts/check-vocab.mjs",
+    "live": "node scripts/what-is-live.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.2.0",

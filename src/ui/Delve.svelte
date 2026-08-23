@@ -28,6 +28,13 @@
     type Delve, type Good } from '../delve/engine';
   import { TRAITS } from '../delve/bestiary';
   import { RELICS } from '../delve/relics';
+  // ★★★ THE WORDS COME FROM ONE PLACE. ⚠️ THEY WERE MERELY DECLARED THERE and
+  // typed again here, so `words.ts` was not even reachable from `main.ts` —
+  // the check could only assert that the string "life" appeared SOMEWHERE in
+  // this file, not that it was the word the header renders. Changing the map
+  // now changes the screen, which is the only version of single-sourcing that
+  // is worth the file.
+  import { WORDS } from '../delve/words';
   import { MARKS, take, CUT } from '../delve/records';
 
   let game = $state<Delve>(initial());
@@ -217,12 +224,12 @@
   <header>
     <div class="bar">
       <span class="cell">
-        {#key shock}<b class="kick">{game.hp}</b>{/key}/{maxHp(game)} <em>life</em>
+        {#key shock}<b class="kick">{game.hp}</b>{/key}/{maxHp(game)} <em>{WORDS.hp}</em>
       </span>
-      <span class="cell"><b>{game.purse}</b> <em>carried</em></span>
-      <span class="cell"><b>{game.hoard}</b> <em>banked</em></span>
-      <span class="cell"><b>{game.floor}</b> <em>floor</em></span>
-      <span class="cell"><b>{game.turn}</b> <em>turn</em></span>
+      <span class="cell"><b>{game.purse}</b> <em>{WORDS.purse}</em></span>
+      <span class="cell"><b>{game.hoard}</b> <em>{WORDS.hoard}</em></span>
+      <span class="cell"><b>{game.floor}</b> <em>{WORDS.floor}</em></span>
+      <span class="cell"><b>{game.turn}</b> <em>{WORDS.turn}</em></span>
     </div>
   </header>
 
@@ -238,7 +245,7 @@
         <span>{roomAt(game, game.crawl.at)?.name} · {game.crawl.hp}/{CRAWL_HP}</span>
       {/if}
       <span class="split">
-        {game.crawl.walked.length} walked · <b>{told.length}</b> claimed
+        {game.crawl.walked.length} {WORDS.walked} · <b>{told.length}</b> {WORDS.claimed}
       </span>
     </div>
   {/if}
@@ -447,7 +454,7 @@
           <span><b>{game.tally.falls}</b> falls</span>
           <span><b>{game.tally.kills}</b> put down</span>
           <span><b>{game.tally.deepest}</b> deepest floor</span>
-          <span><b>{game.tally.walked}</b> rooms stood in</span>
+          <span><b>{game.tally.walked}</b> rooms {WORDS.trod}</span>
           <span><b>{game.tally.turns}</b> turns</span>
           <span><b>{game.tally.banked}</b> ever banked</span>
           <span><b>{game.tally.sent}</b> crawlers sent</span>
@@ -463,7 +470,7 @@
       <div class="shop">
         <p class="note dim shead">
           the hoard · <b>{game.hoard}</b>
-          <span class="split">{game.trod.length}/{game.rooms.length} rooms stood in</span>
+          <span class="split">{game.trod.length}/{game.rooms.length} rooms {WORDS.trod}</span>
         </p>
         {#each stock as w (w)}
           <button class="deed buy" disabled={!affordable(game, w)}
