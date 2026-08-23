@@ -123,19 +123,30 @@ const shot = async () => page.evaluate(() => {
 });
 const frames = () => page.evaluate(() => window.__raf);
 
-// ⚠️ LET THE LAST STEP FINISH. The walk above glides for another 240ms, and
-// measuring during it reported a settled dungeon as "twitching" — the check
-// was catching its own previous turn.
-await page.waitForTimeout(700);
-const idle0 = await frames();
-await page.waitForTimeout(500);
-const idle1 = await frames();
-console.log('  idle    :', `${idle1 - idle0} frames asked for in half a second`);
 // ★★★ THE LOOP RUNS ONLY WHILE SOMETHING MOVES. A permanent rAF on a
 // turn-based game is a phone battery spent redrawing a picture that has not
 // changed. ⚠️ AND PIXELS CANNOT SEE THIS — a sabotage that never stopped the
 // loop passed a two-frame pixel comparison, because the picture is the same.
-if (idle1 - idle0 > 2) misses.push(`the animation loop never stops: ${idle1 - idle0} frames while idle`);
+//
+// ⚠️ AND IT WAITS FOR THE LOOP TO SETTLE INSTEAD OF GUESSING HOW LONG THAT
+// TAKES. This waited 700ms and then failed anything still drawing, which is
+// shorter than the game's own longest animation — the 1100ms float that
+// carries spoil off a room — so it reported "the animation loop never stops"
+// on every run for two commits while the loop was stopping correctly at
+// 1100ms. A guard that is wrong more often than the code gets switched off.
+// So: give it two and a half seconds to go quiet, and fail only if it never
+// does. The number that matters is whether it EVER settles, not when.
+let idle0 = 0, idle1 = 0, settled = 0;
+for (; settled < 2500; settled += 250) {
+  idle0 = await frames();
+  await page.waitForTimeout(250);
+  idle1 = await frames();
+  if (idle1 - idle0 <= 1) break;
+}
+await page.waitForTimeout(500);
+const after = (await frames()) - idle1;
+console.log('  idle    :', `quiet after ${settled}ms · ${after} frames in the next half second`);
+if (after > 2) misses.push(`the animation loop never stops: ${after} frames while idle`);
 
 // ★★★ AND A STEP GLIDES. ⚠️ INTO AN EMPTY ROOM ON PURPOSE: the first draft
 // stepped into the Rat Warren, where the runt bites on arrival, so what it
