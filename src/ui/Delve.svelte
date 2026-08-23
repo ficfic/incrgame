@@ -25,6 +25,7 @@
     unwedgeable, affordable, swing, COST, GOODS, SAYS, BAR_TURNS, done, maxHp,
     unshovable, toll, braced, REEL, CRAWL_HP, roomAt, canDescend, unringable, barTurns,
     undrinkable, price, DEARER, SALVE, FLASK, maxOil, dark, homeward, unlightable,
+    lit as lantern, unhangable,
     type Delve, type Good } from '../delve/engine';
   import { TRAITS } from '../delve/bestiary';
   import { RELICS } from '../delve/relics';
@@ -134,6 +135,7 @@
     // the truth here would quietly make its map reliable and delete the game.
     foes: told.includes(r.id) ? 0 : foesIn(game, r.id).length,
     cleared: game.cleared.includes(r.id),
+    lamp: lantern(game, r.id),
     open: doorsOf(game, game.at).includes(r.id) && unwalkable(game, r.id) === null,
     // ★★★ A WEDGED DOOR READS AS WEDGED. The passage is still drawn — you put
     // it there and you need to see what you cut — but it must never look like
@@ -279,6 +281,15 @@
                to the Mouth" here, because `homeward` returned a sentinel and
                the markup printed it as a distance. -->
           <b>No way back to the Mouth.</b> Every road home is wedged shut.
+        {:else if back === 0}
+          <!-- ⚠️ AND IT DOES NOT SAY "0 ROOMS TO THE MOUTH" WHILE YOU ARE
+               STANDING IN IT. The owner spotted that one; a distance of zero
+               is not a distance, it is a place. -->
+          {#if dark(game)}
+            <b>The lamp is out</b>, and you are out with it.
+          {:else}
+            <b>{game.oil}</b> light, and you are standing in the daylight.
+          {/if}
         {:else if dark(game)}
           <b>The lamp is out.</b> {back} rooms to the Mouth, by memory.
         {:else}
@@ -355,6 +366,14 @@
               Pour a flask<em>+{Math.min(FLASK, maxOil(game) - game.oil)} light · {game.kit.flask} left</em>
             </button>
           {/if}
+          <!-- ★★★ THE OTHER THING A FLASK IS FOR. Pouring buys turns; hanging
+               buys a ROOM, for the rest of the floor. Two buttons, one flask,
+               and no correct answer — which is the whole reason it exists. -->
+          {#if unhangable(game) === null}
+            <button class="chip hang" onclick={() => act({ type: 'hang' })}>
+              Hang a lantern<em>this room free for good · {game.kit.flask} left</em>
+            </button>
+          {/if}
           {#if undrinkable(game) === null}
             <button class="chip sip" onclick={() => act({ type: 'drink' })}>
               Salve<em>+{Math.min(SALVE, maxHp(game) - game.hp)} · {game.kit.salve} left</em>
@@ -403,6 +422,14 @@
               Pour a flask<em>+{Math.min(FLASK, maxOil(game) - game.oil)} light · {game.kit.flask} left</em>
             </button>
           {/if}
+          <!-- ★★★ THE OTHER THING A FLASK IS FOR. Pouring buys turns; hanging
+               buys a ROOM, for the rest of the floor. Two buttons, one flask,
+               and no correct answer — which is the whole reason it exists. -->
+          {#if unhangable(game) === null}
+            <button class="chip hang" onclick={() => act({ type: 'hang' })}>
+              Hang a lantern<em>this room free for good · {game.kit.flask} left</em>
+            </button>
+          {/if}
           {#if undrinkable(game) === null}
             <button class="chip sip" onclick={() => act({ type: 'drink' })}>
               Salve<em>+{Math.min(SALVE, maxHp(game) - game.hp)} · {game.kit.salve} left</em>
@@ -440,7 +467,9 @@
         {#if canLeave(game)}
           <button class="deed" onclick={() => act({ type: 'leave' })}>
             Climb out
-            <em>bank {game.purse}</em>
+            <!-- ⚠️ AND IT SAYS WHAT IT DOES WHEN THERE IS NOTHING TO BANK.
+                 "bank 0" was offered to a delver who had just walked in. -->
+            <em>{game.purse > 0 ? `bank ${game.purse}` : 'end the delve'}</em>
           </button>
         {/if}
       {/if}
@@ -655,6 +684,7 @@
   .chip.wedge { border-color: #6d5a3a; } .chip.wedge em { color: #8a7a5c; }
   .chip.sip { border-color: #5c6b4a; } .chip.sip em { color: #8fae74; }
   .chip.oil { border-color: #caa468; } .chip.oil em { color: #f0cf87; }
+  .chip.hang { border-color: #8f7a4a; } .chip.hang em { color: #d8be82; }
   /* ★★★ THE LAMP READS AS A LAMP: warm while it burns, red when it is nearly
      gone, and plainly OUT when it is. */
   .cell.lamp b { color: #f0cf87; }

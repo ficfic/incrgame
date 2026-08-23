@@ -97,7 +97,44 @@ const lit = await light();
 console.log('  lamp    :', `${lit} turns of light`);
 if (!(lit > 10)) misses.push(`the lamp does not start full: ${lit}`);
 
+// ★★★ AND OIL SPENDS ON THE GRAPH. The owner, asked what was missing: *"leave
+// a lantern in a room to keep it lit — that's the one thing I could DO that I
+// can't now."* A flask poured is turns; a flask hung is a ROOM, and standing
+// in it costs nothing. Two buttons, one flask, no correct answer.
+//
+// ⚠️ CHECKED AT THE MOUTH, WITH NOTHING BITING. This ran in the Rat Warren
+// first, and the two turns it costs killed the delver — so four later sections
+// reported "cannot press Hold" and the run measured its own footprint.
+const hangable = page.locator('.deed, .chip').filter({ hasText: 'Hang a lantern' });
+if (await hangable.count() === 0) {
+  misses.push('there is nowhere to spend oil on the graph — no lantern to hang');
+} else {
+  const before = await light();
+  await hangable.first().click({ timeout: 3000 });
+  await page.waitForTimeout(120);
+  const hungAt = await light();
+  // ⚠️ HANGING IS A TURN LIKE ANY OTHER. A free turn is not a decision.
+  if (hungAt !== before - 1) misses.push(`hanging a lantern cost ${before - hungAt} light, not 1`);
+  await press('Hold');
+  await page.waitForTimeout(120);
+  const under = await light();
+  console.log('  lantern :', `${before} → ${hungAt} to hang it · ${under} after a turn under it`);
+  // ★★★ THE WHOLE POINT: the next turn is free, and every turn after it.
+  if (under !== hungAt) misses.push(`a turn under a lantern still cost ${hungAt - under} light`);
+  // ★ And the map says so — a lit room is drawn lit, from anywhere.
+  const away = await page.evaluate(() => {
+    const cv = document.querySelector('.crypt canvas');
+    const { data } = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height);
+    let warm = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] > 90 && data[i] > data[i + 2] + 25) warm++;
+    return warm;
+  });
+  console.log('  on map  :', `${away} warm pixels with a lantern hung`);
+  if (away < 200) misses.push(`a hung lantern does not show on the map: ${away} warm pixels`);
+}
+
 console.log('\nA STEP IS A TURN');
+const turn0 = await turn();
 await walk('Broken Hall');
 const second = await rooms();
 console.log('  drawn   :', `${second} rooms`, '· turn', await turn());
@@ -105,7 +142,7 @@ if (!(second > first)) misses.push(`walking revealed nothing: ${first} → ${sec
 if (second > 4) misses.push(`walking revealed too much at once: ${second} rooms`);
 // ★★★ ONE ACTION, ONE TURN. If a step costs anything other than exactly one,
 // nothing else on this screen can be counted on.
-if ((await turn()) !== 1) misses.push(`a step cost ${await turn()} turns, not 1`);
+if ((await turn()) !== turn0 + 1) misses.push(`a step cost ${(await turn()) - turn0} turns, not 1`);
 if (!/Broken Hall/.test(await panel())) misses.push('the panel does not name the room');
 
 console.log('\n★★★ AND IT MOVES');
@@ -197,6 +234,7 @@ await press('Hold');
 const burn1 = await light();
 console.log('  burns   :', `${burn0} → ${burn1} for one turn`);
 if (burn1 !== burn0 - 1) misses.push(`a turn did not cost exactly one light: ${burn0} → ${burn1}`);
+
 
 console.log('\n★★★ AND THE FIGHT ASKS SOMETHING');
 // ⚠️ THE OWNER, AFTER FOUR SLICES OF WORK AROUND THE FIGHT: *"it's cool and

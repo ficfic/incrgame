@@ -24,7 +24,7 @@ import { RELICS, wellHolds, type RelicId } from './relics';
 import { MARKS, NOTHING, earned, take, type Tally } from './records';
 import { floorPlan } from './floors';
 
-export const DELVE_VERSION = 15;
+export const DELVE_VERSION = 16;
 
 /** A thing in the dungeon with you. It has a room, and it is coming. */
 export interface Foe {
@@ -101,6 +101,17 @@ export interface Delve {
    *  machine's word. This is the one list in the game that is entirely, boringly
    *  true, and finishing the game means completing it. Survives dying. */
   trod: number[];
+  /** ★★★ ROOMS YOU HAVE HUNG A LANTERN IN — light spent ON THE GRAPH.
+   *
+   *  The owner, on what was missing: *"leave a lantern in a room to keep it
+   *  lit — that's the one thing I could DO that I can't now."* A flask poured
+   *  into the lamp buys you turns; a flask hung on a wall buys you a ROOM, for
+   *  as long as you are on this floor. Standing in one costs no light at all,
+   *  so lanterns are a corridor you build with money and then walk for free.
+   *
+   *  Survives dying and climbing out; the stair takes them, because they are
+   *  hanging on a floor you are no longer on. */
+  lamps: number[];
   fallen: boolean;
   log: string[];
 }
@@ -203,6 +214,7 @@ export const initial = (): Delve => ({
   tally: { ...NOTHING },
   won: [],
   trod: [0],
+  lamps: [],
   fallen: false,
   log: [],
 });
@@ -336,6 +348,9 @@ export type Action =
   | { type: 'drink' }
   /** ★★★ Pour a flask into the lamp. One turn, and worth every one of them. */
   | { type: 'pour' }
+  /** ★★★ Hang a flask on the wall instead. One turn, and this room is free
+   *  to stand in for the rest of the floor. */
+  | { type: 'hang' }
   /** ★★★ Ring the bell at a door. Wakes what is through it, and it comes to
    *  YOU — so you pick the ground. One turn. */
   | { type: 'ring'; at: number }
@@ -369,9 +384,15 @@ function theirTurn(g: Delve, said: string[], from: number, guard = false): Delve
   // still lit for that exchange, so "everything hits harder in the dark" was
   // off by one and three tests caught it. The light you fight by is the light
   // you have AFTER the step that got you there.
-  const oil = Math.max(0, g.oil - 1);
-  const blind = oil <= 0;
-  if (g.oil === 1) said.push('The lamp gutters and goes out.');
+  // ★★★ AND A ROOM WITH A LANTERN IN IT COSTS NOTHING TO BE IN. Light spent on
+  // the graph instead of on the lamp: a corridor you paid for once and can
+  // walk for free for the rest of the floor. It is the only thing in the game
+  // that makes the SECOND trip cheaper than the first.
+  const burns = !lit(g, g.at);
+  const oil = Math.max(0, g.oil - (burns ? 1 : 0));
+  // ★ And a lantern is light, so the dark does not bite you under one.
+  const blind = oil <= 0 && !lit(g, g.at);
+  if (burns && g.oil === 1) said.push('The lamp gutters and goes out.');
 
   // ── 1. THE CRAWLER WALKS. It goes first because it is a thing in the
   // dungeon taking its turn, not a readout that updates afterwards — and
@@ -704,6 +725,9 @@ function act(g: Delve, a: Action): Delve {
         // dungeon's claims over a live one.
         crawl: null,
         cleared: [0],
+        // ⚠️ AND THE LANTERNS STAY WHERE THEY ARE — on a floor you will never
+        // stand on again. Every stair is a light bill.
+        lamps: [],
         log: LOG_LINES(LOG_LINES(g.log,
           `${g.trod.length} rooms of floor ${g.floor} walked, and paid for.`),
           `You take the stair down. Floor ${floor}: ${floorPlan(floor).length} rooms, and none of them yours.`) };
@@ -768,6 +792,18 @@ function act(g: Delve, a: Action): Delve {
       return theirTurn({ ...g, oil: g.oil + back,
         kit: { ...g.kit, flask: g.kit.flask - 1 } },
         [`You pour a flask. ${back} more turns of lamp.`], g.at);
+    }
+
+    case 'hang': {
+      if (unhangable(g) !== null) return g;
+      // ⚠️ AND THE TURN YOU SPEND HANGING IT STILL BURNS. The first version
+      // lit the room before the turn resolved, which made hanging a lantern a
+      // FREE turn — and this codebase already knows what a free turn does to a
+      // decision (see `brace`, rounded up against you for exactly that
+      // reason). You pay for the turn; what you bought is every turn after it.
+      const out = theirTurn({ ...g, kit: { ...g.kit, flask: g.kit.flask - LANTERN } },
+        [`You hang a lantern in ${roomAt(g, g.at)?.name}. It stays lit.`], g.at);
+      return { ...out, lamps: [...out.lamps, g.at] };
     }
 
     case 'brace': {
@@ -1169,6 +1205,9 @@ export const descend = (g: Delve): Delve => ({
   // spent on this floor buys ground that is still yours next run — otherwise
   // delve twenty is delve one and the lamp is paying for a rerun.
   cleared: g.cleared,
+  // ★★★ AND THE LANTERNS ARE STILL BURNING WHEN YOU COME BACK. That is what
+  // you bought: not turns, but a floor that is cheaper to be on.
+  lamps: g.lamps,
   trod: g.trod,
   // ★ THE MAP IS KNOWLEDGE, and knowledge does not fall down a hole with you.
   seen: g.seen,
@@ -1345,6 +1384,19 @@ export function undrinkable(g: Delve): string | null {
 /** ★★★ ARE YOU IN THE DARK? Not "have you lost" — the dark is somewhere you
  *  can be, and getting out of it is the game's best moment. */
 export const dark = (g: Delve): boolean => g.oil <= 0;
+
+/** ★★★ IS THIS ROOM LIT BY SOMETHING THAT IS NOT YOUR LAMP? */
+export const lit = (g: Delve, id: number): boolean => g.lamps.includes(id);
+
+/** ★ WHAT A LANTERN COSTS: one flask, and the turn it takes to hang it. */
+export const LANTERN = 1;
+
+export function unhangable(g: Delve): string | null {
+  if (g.fallen) return 'You are done.';
+  if (g.kit.flask < LANTERN) return 'No oil to spare.';
+  if (lit(g, g.at)) return 'There is a lantern here already.';
+  return null;
+}
 
 /** ★★★ AND WHAT THE DARK COSTS. You cannot see past the room you are in, you
  *  swing worse, and everything down here hits harder for it.

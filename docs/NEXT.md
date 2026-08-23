@@ -63,16 +63,21 @@ Ranked. Take the top one.
    chalk. Re-read them against the new pressure.
 4. **The numbers are still small.** `break_eternity` is in the stack, unused.
 5. **One save-race guard is reasoned, not proven** — the `ready` flag.
-6. **The animation loop never stops.** `npm run play` has reported "12 frames
-   while idle" for at least two commits. A turn-based game repainting forever
-   is a battery bug on the only device this is played on.
-7. **Rooms have room.** `w`/`h` are drawn and nothing in the rules reads them.
-   The owner: let a narrow room admit one foe at a time, so where you fight is
-   a choice.
-8. **Oil spends on the graph.** Leave a lantern in a room to keep it lit —
-   light competing with light.
-9. **Cut the record to one line**, cut `.wire` and the dead `WALK_SECS`, and
+6. **Put something behind the stair that is not floor one at +60%.** The
+   owner, playing the lamp build: a new floor is the same floor, dearer.
+7. **Make what comes back different from what you killed**, or let a delver
+   walk their own cleared rooms unharassed. The owner: the spoil stopped
+   repeating but the TRANSIT did not — every trip to fresh ground walks back
+   through the same rats for a third of the money.
+8. **Rooms have room.** `w`/`h` are drawn and nothing in the rules reads them.
+   Let a narrow room admit one foe at a time, so where you fight is a choice.
+9. **Items with slots**, not eight lines of +number.
+10. **Cut the record to one line**, cut `.wire` and the dead `WALK_SECS`, and
    move the save box out from under the shop.
+
+### Done since this list was written
+- ~~Oil spends on the graph~~ — lanterns, 2026-08-23.
+- ~~The animation loop never stops~~ — it never did; the CHECK was wrong.
 
 ## What is deliberately NOT on the queue
 

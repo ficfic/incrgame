@@ -1907,3 +1907,9 @@ Entries above this line are long because the one-line rule did not exist yet.
   flask; `flask` 4, `vim` 34, `brace` 40. Why: the owner wanted light to buy
   permanent ground rather than a rerun, and every one of those numbers is what
   a bot needed before the economy stopped dead-ending (`test/broke.test.ts`).
+
+- **2026-08-23** — A flask can be hung on a wall instead of poured in the lamp:
+  the room stays lit for the rest of the floor and costs nothing to stand in.
+  Why: the owner asked for "the one thing I could DO that I can't now", and it
+  is the only thing in the game that makes the second trip cheaper than the
+  first.

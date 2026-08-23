@@ -30,6 +30,10 @@
     /** ★ You wedged the door between here and this room. It is still drawn —
      *  you cut it and you need to see what you cut — but never as a way out. */
     barred?: boolean;
+    /** ★★★ THERE IS A LANTERN HANGING IN HERE. Light you spent on the GRAPH
+     *  rather than on the lamp — this room stays lit whether you are standing
+     *  in it or not, and whether your own lamp is out or not. */
+    lamp?: boolean;
     /** ★★★ NOBODY HAS STOOD HERE. This chamber is on the map because a crawler
      *  REPORTED it, and the crawler files everything it did not enter as empty
      *  and safe. Drawn as a dashed outline over nothing: a claim, not a floor. */
@@ -223,13 +227,18 @@
   /** ★ AND A ROOM YOU HAVE ALREADY EMPTIED KEEPS A LITTLE LIGHT. `cleared`
    *  ground is the ground you can retreat THROUGH, so a run out to the mouth
    *  reads on the map as a lit path back rather than as more dark. */
-  const floorOf = (step: number, here: boolean, done = false): string =>
-    // ⚠️ EVEN THE ROOM YOU STAND IN GOES COLD. It is the difference between a
-    // dark dungeon and a dungeon you are lost in.
-    here && !guttered ? STONE.litFloor
+  const floorOf = (step: number, here: boolean, done = false, lamp = false): string =>
+    // ★★★ A LANTERN OUTRANKS EVERYTHING, INCLUDING YOUR LAMP GOING OUT. That
+    // is the whole point of having hung it: the floor keeps a room you paid
+    // for, and you can see it from the dark.
+    // ⚠️ AND EVEN THE ROOM YOU STAND IN GOES COLD OTHERWISE. It is the
+    // difference between a dark dungeon and a dungeon you are lost in.
+    lamp ? STONE.litFloor
+      : here && !guttered ? STONE.litFloor
       : step <= 1 || done ? STONE.nearFloor : STONE.farFloor;
-  const wallInk = (step: number, here: boolean): string =>
-    here && !guttered ? STONE.litWall : step <= 1 ? STONE.nearWall : STONE.farWall;
+  const wallInk = (step: number, here: boolean, lamp = false): string =>
+    lamp || (here && !guttered) ? STONE.litWall
+      : step <= 1 ? STONE.nearWall : STONE.farWall;
 
   $effect(() => {
     if (!cv) return;
@@ -347,11 +356,24 @@
         ctx.setLineDash([]);
         continue;
       }
-      ctx.fillStyle = floorOf(c.step, c.here, c.cleared);
+      ctx.fillStyle = floorOf(c.step, c.here, c.cleared, c.lamp);
       ctx.fill();
-      ctx.strokeStyle = wallInk(c.step, c.here);
+      ctx.strokeStyle = wallInk(c.step, c.here, c.lamp);
       ctx.lineWidth = Math.max(1, (c.here ? 2.4 : 1.6) * k * 1.1);
       ctx.stroke();
+      // ★★★ AND THE LANTERN ITSELF, hung in the corner of the chamber. A room
+      // that is lit for a reason should show the reason — otherwise the map
+      // just has a bright room on it and no way to know you bought it.
+      if (c.lamp) {
+        const lx = sx(c.x - c.w / 2 + 9), ly = sy(c.y - c.h / 2 + 9);
+        const grad = ctx.createRadialGradient(lx, ly, 0, lx, ly, 22 * k);
+        grad.addColorStop(0, 'rgb(240 207 135 / 0.55)');
+        grad.addColorStop(1, 'rgb(240 207 135 / 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(lx, ly, 22 * k, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#f0cf87';
+        ctx.beginPath(); ctx.arc(lx, ly, Math.max(1.6, 2.6 * k), 0, Math.PI * 2); ctx.fill();
+      }
     }
 
     // 5 ── AND THE DOORWAYS PUNCHED BACK THROUGH. A wall drawn all the way
