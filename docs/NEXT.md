@@ -50,19 +50,20 @@ already about — an autonomous crawler walking a graph and lying about it.
 
 Ranked. Take the top one.
 
-1. **Nobody has played past floor 2.** Every floor from 3 down is generated,
-   scaled and untested by a human. The pacing sim and the fight ladder are both
-   pinned to floor 1. Play down and find where it stops being fun.
-2. **The numbers are still small.** There is a multiplier now, but the biggest
-   number in the game is a few hundred. `break_eternity` is in the stack and
-   still unused; either the curve gets steep enough to need it or it should go.
-3. **The panel is getting long.** A fight can now show Swing, two Shoves,
-   Brace, Hold, two Wedges, a Ring and a stair. That is a scroll, on a phone,
-   during a fight.
-4. **`prof-veritas` and the ontology CI gates still police a deleted game.**
-5. **The town is still on disk and unreachable** — `Camp.svelte`,
-   `play-camp.mjs`, `src/camp/`, `src/game/`. Delete, or banner it RETIRED.
-6. **One save-race guard is reasoned, not proven** — the `ready` flag.
+1. **The vocabulary rule has no check.** One word, one quantity — enforced by
+   hand since the pivot, and its old script was deleted rather than repointed
+   because it read the pre-pivot game. Write a real one against `src/delve` +
+   `src/ui/Delve.svelte`, and sabotage it before trusting it.
+2. **Play it yourself, past floor 4.** A bot clears four floors with money in
+   the bank; nobody has felt whether floors 3–6 are *fun*, or whether the
+   1.75 price curve outruns what a floor pays.
+3. **The town is still on disk and unreachable** — `Camp.svelte`, `src/camp/`,
+   `src/game/`, `src/core/`, `src/slice/`, `src/shell/ticker.ts`, and ~40k
+   words of docs describing games that no longer exist. Every search crosses
+   it; several of its comments cite scripts that were just deleted. Decide:
+   delete, or one RETIRED banner per directory.
+4. **The numbers are still small.** `break_eternity` is in the stack, unused.
+5. **One save-race guard is reasoned, not proven** — the `ready` flag.
 
 ## What is deliberately NOT on the queue
 

@@ -22,6 +22,9 @@ unless it blocks the item. New ideas go to the backlog, never into today.
 
 **2. Nothing ships without a check you ran and evidence you pasted.** The check
 for anything player-facing is `npm run play` **plus looking at the screenshot**.
+*(⚠️ `npm run play` ran `play-camp.mjs` — the DELETED TOWN — for a week after
+the pivot, so the one check this rule names was pointed at a game nobody could
+reach. It runs the delve now; the town is `npm run play:town`.)*
 "Typechecks and tests pass" is not evidence that a game works. If you cannot
 verify it, do not ship it. Report the output, not the conclusion.
 
@@ -124,16 +127,15 @@ tests for the check script.
   `GLOSSARY.md` and `SIMPLIFICATIONS.md` exist.)* The ontology it policed is
   gone. Invented fantasy answers to the brief, not to a citation.
 - **One word, one quantity.** The board once said "25 nodes" beside a HUD
-  saying "3 recovered", both correct. ⚠️ **THE RULE STANDS; ITS CHECK DOES
-  NOT.** This line claimed `scripts/check-vocabulary.mjs` enforced it. It
-  enforced nothing: it reads `src/core/readouts.ts`, the PRE-PIVOT game, and
-  reported "solid, raw, rot" while `READOUTS` was referenced zero times by
-  anything shipped. `the-process` proved it by printing two nouns for one
-  quantity into the live HUD — exit 0. It now exits 1 and says so, which is
-  the honest state until somebody repoints it. **Enforce this rule by hand
-  until then**, and do not cite the script as cover.
-  *(`scripts/check-story.mjs` is in the same condition — it reports 446 beats
-  and 3,686 concepts from the deleted ontology. Neither is in `npm run guard`.)*
+  saying "3 recovered", both correct. **THE RULE STANDS AND IT IS ENFORCED BY
+  HAND.** *(Its old check, `scripts/check-vocabulary.mjs`, read the pre-pivot
+  game and enforced nothing — `the-process` printed two nouns for one quantity
+  into the live HUD for exit 0. It was deleted on 2026-08-23 along with
+  `check-story`, `check-words`, `check-prose` and `check-alignment`: five
+  scripts measuring a game that no longer exists, two of them still wired as
+  deploy gates. A check with no subject is worse than none, because it teaches
+  everyone to route around the pipeline.)* Writing a real one for the delve is
+  in `docs/NEXT.md`.
 - **HITL review is never mandatory.** Manual review is an optional min-max lever,
   never an attention tax. An idle game that demands babysitting isn't one.
 - **Respect the mobile performance budget** (`docs/GAME_DESIGN.md`): simulate in

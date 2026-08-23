@@ -1892,3 +1892,9 @@ Entries above this line are long because the one-line rule did not exist yet.
 - 2026-08-20 — Milestones pay a permanent 15% cut. Achievements as the second progression track, and the first compounding number in the game.
 - 2026-08-20 — Offline progress advances the CRAWLER only, from the Mouth only, capped at 200 steps. The brief forbids punishing absence; the dungeon does not take its turn while you are gone.
 - 2026-08-20 — The only wall clock is at the save boundary. `apply` stays pure; elapsed seconds become turns at the door.
+
+- 2026-08-23 — The shop's numeric goods repeat at a rising price and there are salves: a bot walking down found the player's power topped out while the dungeon's scaled.
+- 2026-08-23 — Consumables cost a flat price; only permanent upgrades escalate. Pricing them by stock squared the growth per purchase and made hoarding worse than spending.
+- 2026-08-23 — The fight's three common verbs are one row, everything about a door is a chip. Nine full-width buttons is 540px on a 390px phone.
+- 2026-08-23 — `check-core-purity` now guards `src/delve` first. It was aimed at two retired directories and none of the live engine — the second time that has happened.
+- 2026-08-23 — Deleted five checks that measured the deleted game, two of them deploy gates; CI runs the browser probe instead. `npm run play` points at the delve.

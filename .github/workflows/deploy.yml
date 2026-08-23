@@ -52,92 +52,55 @@ jobs:
         # from outside is indistinguishable from a deploy. Now a script that
         # strips comments and strings first, with its red path tested.
         run: node scripts/check-core-purity.mjs
-      # ⚠️ THE VOCABULARY GATE IS REMOVED, 2026-08-16, AND THIS BROKE A DEPLOY.
+      # ⚠️ THREE GATES REMOVED, 2026-08-23, BECAUSE THEY GUARDED A DELETED GAME.
       #
-      # The rule it policed is still right — the dock said "graph: 25 nodes"
-      # while the HUD said "3 recovered", two quantities wearing one word. The
-      # CHECK is not: it reads src/core/readouts.ts, the pre-pivot game, and
-      # `the-process` proved it vacuous by printing two nouns for one quantity
-      # into the live HUD for exit 0. So it was made to exit 1 and say so —
-      # and it is wired HERE, as a deploy gate, which nobody checked. Every
-      # deploy after that failed.
+      # THE VOCABULARY GATE went first, on 2026-08-16, and it broke twelve
+      # deploys on the way out: it read `src/core/readouts.ts` — the pre-pivot
+      # game — so it was made to exit 1 and say so, while still wired here as a
+      # deploy gate that nobody had checked.
       #
-      # A check with no subject must not gate a deploy. The script still fails
-      # loudly when anyone runs it, so it cannot be mistaken for working, and
-      # repointing it at src/camp + src/ui is queued in docs/NEXT.md. Until
-      # then the rule is enforced by hand.
-      - name: Story graph is walkable
-        # The story IS the game's affordance now — the starmap's lanes are its
-        # choices. A dead-end beat, an unobtainable gate key or a body that
-        # cannot survive masking would ship without this, because nothing else
-        # in the pipeline reads docs/graph/. Five recorded sabotages, two real
-        # bugs caught, four seconds.
-        run: node scripts/check-story.mjs
-      - name: Ontology data present and self-describing
-        # The committed build output is the game's content; a deploy without it
-        # ships a world with no concepts in it.
+      # THE STORY GRAPH and THE ONTOLOGY DATA are the same mistake, found by
+      # reading the file rather than by a red run. `check-story.mjs` walks
+      # `docs/graph/` and reports beats and lanes from the knowledge-recovery
+      # game; the ontology step asserts a WordNet manifest ships in `public/`.
+      # Neither describes anything the dungeon contains. A gate on a deleted
+      # subject is not caution — it is a check that can only ever be wrong, and
+      # it teaches everyone to route around the pipeline.
+      #
+      # ★ WHAT REPLACES THEM IS THE CHECK THAT ACTUALLY DESCRIBES THIS GAME:
+      # the browser probe, below, driven with a thumb through the whole loop.
+      - name: Play it (real browser)
+        # ⚠️ `CLAUDE.md` RULE 2: the check for anything player-facing is a real
+        # browser plus looking at the screenshot. Nothing in CI did that — the
+        # only browser step drove `check-alignment.mjs`, which asserts geometry
+        # in `src/ui/App.svelte`, a screen this game has not shown since the
+        # pivot. Fourteen sections, one thumb, exit 0 only if all of them pass.
         run: |
-          test -f public/ontology/index.json || { echo '::error::public/ontology/index.json missing — run npm run ontology'; exit 1; }
-          test -f public/ontology/LICENSE.txt || { echo '::error::public/ontology/LICENSE.txt missing — the notice must ship WITH the data'; exit 1; }
+          npm run build
+          npx vite preview --port 4173 --strictPort > /tmp/preview.log 2>&1 &
           node -e '
-            const m = require("./public/ontology/index.json");
-            // CC BY 4.0 s3(a)(1) needs BOTH parties, the licence and a link —
-            // truthiness is not enough, so assert the content.
-            if (!m.license || !m.licenseUrl || !m.attribution) { console.error("::error::ontology manifest is missing licence/licenceUrl/attribution"); process.exit(1); }
-            if (!/Princeton/.test(m.attribution) || !/Open English WordNet/.test(m.attribution)) {
-              console.error("::error::attribution must name BOTH Princeton WordNet and the Open English WordNet team"); process.exit(1);
-            }
-            const fs = require("fs");
-            for (let i = 0; i < m.chunks; i++) {
-              const f = `public/ontology/c${String(i).padStart(3, "0")}.json`;
-              if (!fs.existsSync(f)) { console.error(`::error::missing ontology chunk ${f}`); process.exit(1); }
-            }
-            console.log(`ontology ok: ${m.concepts} concepts, ${m.chunks} chunks, ${m.source} ${m.edition} (${m.license})`);
+            const t0 = Date.now();
+            (async () => {
+              while (Date.now() - t0 < 60000) {
+                try { if ((await fetch("http://localhost:4173/incrgame/")).ok) return; } catch {}
+                await new Promise((r) => setTimeout(r, 500));
+              }
+              console.error("::error::preview server never came up"); process.exit(1);
+            })();
           '
+          PLAY_URL=http://localhost:4173/incrgame/ node scripts/play-delve.mjs
       - run: npx vite build
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
-  # ── The visual gate runs BESIDE the deploy, not in front of it ─────────────
-  #
-  # Geometry only exists once CSS has run, so the only honest way to check it is
-  # to run CSS — that is why this exists, and it earns its keep (it is what
-  # caught the graph sitting 30px off centre while every unit test was green).
-  # But it drives a real browser through ~75 seconds of waiting, and when it was
-  # a step inside `build` its slowness sat directly on top of the publish: one
-  # run held the deploy for nine minutes, and a timeout would have failed the
-  # publish over a browser that was merely slow.
-  #
-  # So the gates that block a publish are the fast, deterministic ones —
-  # typecheck, unit tests, core purity, ontology/licence. This one reports on
-  # its own line in the Actions list: red when the layout is genuinely broken,
-  # loud when it could not run, and never able to take the site down with it.
-  visual:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Alignment invariant (real browser)
-        run: |
-          npm run build
-          npx vite preview --port 4321 --strictPort > /tmp/preview.log 2>&1 &
-          node -e '
-            const t0 = Date.now();
-            (async () => {
-              while (Date.now() - t0 < 60000) {
-                try { if ((await fetch("http://localhost:4321/incrgame/")).ok) { console.log("preview up"); return; } } catch {}
-                await new Promise((r) => setTimeout(r, 500));
-              }
-              console.log("::warning::preview server never came up");
-            })();
-          '
-          node scripts/check-alignment.mjs 4321
+  # ⚠️ THE `visual` JOB IS GONE, 2026-08-23. It drove a real browser — which was
+  # the right instinct, and it is why it caught the graph sitting 30px off
+  # centre while every unit test was green — but at `scripts/check-alignment.mjs`,
+  # which asserts positioning inside `src/ui/App.svelte`. That screen has not
+  # been shown since the pivot, so the job was spending 75 seconds of browser
+  # per push proving something about a page nobody can reach. Its replacement is
+  # the `Play it` step in `build`: same instinct, aimed at the game that ships.
 
   deploy:
     # The github-pages environment only allows the default (pinned) branch —

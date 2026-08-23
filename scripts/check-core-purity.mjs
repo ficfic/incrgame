@@ -49,7 +49,17 @@ import { join } from 'node:path';
 // Written as a list of reasons rather than a blanket skip, so the day someone
 // reaches for `window` in there it still goes red. A blanket exemption is how a
 // guard quietly stops guarding.
-const DIRS = ['src/core', 'src/game'];
+//
+// ⚠️⚠️ AND IT HAPPENED AGAIN, 2026-08-23. The paragraph above was written when
+// this script was found guarding `src/core` while `src/game` ran the game. The
+// pivot to the dungeon moved the live engine to `src/delve` — and this list was
+// not updated, so for a week the guard was protecting TWO retired slices and
+// nothing at all of the engine 1,100 tests are written against. A guard aimed
+// at a directory has to be re-aimed every time the code moves, and nothing in
+// the pipeline notices when it is not: it goes green either way. Retired
+// directories stay on the list because a rule that held there should keep
+// holding, but the live one is first now, and named as such.
+const DIRS = ['src/delve', 'src/core', 'src/game'];
 const EXEMPT = {
   'src/game/store.ts': ['reads the clock', 'imports'],
 };
